@@ -1,9 +1,9 @@
 // The page's behaviour: theme, header, things arriving as they scroll into
-// view, the download for this computer, and the demos, each loaded as it
-// comes near.
+// view, the download for this computer, copy buttons and the banner, whose
+// live views load as they are opened.
 
-import { setupFlow } from "./flow.js";
 import { setupTheme } from "./theme-toggle.js";
+import { setupHero } from "./hero.js";
 
 const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -12,9 +12,7 @@ setupHeader();
 setupReveals();
 setupDownloads();
 setupCopy();
-setupFlow();
-setupHeroDepth();
-setupDemos();
+setupHero();
 
 function setupHeader() {
   const header = document.querySelector("[data-header]");
@@ -106,47 +104,4 @@ function setupCopy() {
       }, 2000);
     });
   }
-}
-
-/** The floating pieces by the hero's window drift a little with the pointer,
- * each by its own depth. */
-function setupHeroDepth() {
-  const stage = document.querySelector(".hero-stage");
-  if (still || !stage || !matchMedia("(pointer: fine)").matches) return;
-  const floats = [...stage.querySelectorAll(".float")].map((el, i) => ({ el, depth: [10, 16, 12, 8][i] ?? 10 }));
-  let frame = 0;
-  stage.addEventListener("pointermove", (event) => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => {
-      const box = stage.getBoundingClientRect();
-      const x = (event.clientX - box.left) / box.width - 0.5;
-      const y = (event.clientY - box.top) / box.height - 0.5;
-      for (const { el, depth } of floats) el.style.transform = `translate(${-x * depth}px, ${-y * depth}px)`;
-    });
-  });
-  stage.addEventListener("pointerleave", () => {
-    for (const { el } of floats) el.style.transform = "";
-  });
-}
-
-/** Loads each demo's script when its section is about to scroll into view. */
-function setupDemos() {
-  const demos = { files: "./demo-files.js", board: "./demo-board.js", history: "./demo-history.js", ai: "./demo-ai.js" };
-  const start = (el) => import(demos[el.dataset.demo]).then((demo) => demo.default(el));
-  const els = [...document.querySelectorAll("[data-demo]")];
-  if (!("IntersectionObserver" in window)) {
-    for (const el of els) start(el);
-    return;
-  }
-  const near = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        near.unobserve(entry.target);
-        start(entry.target);
-      }
-    },
-    { rootMargin: "600px 0px" },
-  );
-  for (const el of els) near.observe(el);
 }

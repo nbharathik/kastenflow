@@ -9,7 +9,7 @@ import { type BaseLook, baseLookOf, shownFormat } from "../menus/format-view.ts"
 import type { EditorSession } from "../session/session.ts";
 import type { FormatState } from "../session/text-commands.ts";
 import type { EditorUi } from "../ui-state.ts";
-import { useEditor } from "../useEditor.ts";
+import { useEditorValue } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
 
 export interface TextView {
@@ -26,7 +26,12 @@ export interface TextView {
  * the text editor does not announce that to anyone but its own host.
  */
 export function useTextView(session: EditorSession, ui: EditorUi): TextView {
-  useEditor(session);
+  // What the controls show comes from the selection, the box being edited, the slide's elements and the theme's styles; a save, the
+  // history or the slide list changing is no reason to draw them again.
+  useEditorValue(session, (state) => state.selection);
+  useEditorValue(session, (state) => state.editing);
+  useEditorValue(session, () => session.slide);
+  useEditorValue(session, (state) => state.deck.theme);
   const open = useUiState(ui).text !== null;
   const [, tick] = useState(0);
 

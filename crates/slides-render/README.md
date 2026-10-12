@@ -1,6 +1,6 @@
 # slides-render
 
-Kasten Slides drawn by a headless Chrome, Chromium or Edge: one slide or a grid
+KastenFlow Slides drawn by a headless Chrome, Chromium or Edge: one slide or a grid
 of slides as PNG, the deck as PDF or as the offline HTML export, and the size
 the words of every element come out at, which lint needs to tell whether text
 fits its box. It is what `slides render`, `slides export -o talk.pdf|.png|.html`,
@@ -26,7 +26,7 @@ after five idle minutes, and `slides_render::shutdown()` before the program ends
 * The browser is found as `$CHROMIUM_PATH`, `$CHROME`, then `chromium`,
   `chromium-browser`, `google-chrome`, `google-chrome-stable`, `microsoft-edge`
   on `PATH`, then Playwright's downloads, then each system's install folders.
-  With none, every call says so (`Error::NoBrowser`) and nothing else in Kasten
+  With none, every call says so (`Error::NoBrowser`) and nothing else in KastenFlow
   Slides is affected.
 * It draws with **the render page** (`packages/slides-render-page`): the editor's
   own renderer, engine, fonts and print layout, as a static page. The page is

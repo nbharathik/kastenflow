@@ -24,24 +24,27 @@ const LABEL_GAP: f64 = 8.0;
 
 /// Where a theme lets content go, in slide units.
 pub(super) struct Frame {
-    /// Margin at the left and right edges.
-    side: f64,
+    /// Margin at the left edge.
+    pub left: f64,
+    /// Margin at the right edge.
+    pub right: f64,
     /// Where the title of a content slide starts.
-    top: f64,
+    pub top: f64,
     /// Height of that title.
-    title_h: f64,
+    pub title_h: f64,
     /// Space between the title and what is under it.
-    gap: f64,
+    pub gap: f64,
     /// Where content ends. The slide number sits below it.
-    bottom: f64,
+    pub bottom: f64,
     /// The line that blocks set in the middle of a slide, a big number or a
     /// quote, are centred on.
-    mid: f64,
+    pub mid: f64,
 }
 
 /// The plain themes: the title starts near the top edge.
 pub(super) const PLAIN: Frame = Frame {
-    side: 64.0,
+    left: 64.0,
+    right: 64.0,
     top: 36.0,
     title_h: 96.0,
     gap: 16.0,
@@ -51,7 +54,8 @@ pub(super) const PLAIN: Frame = Frame {
 
 /// Lecture: everything starts under the 56-unit header bar.
 pub(super) const BARRED: Frame = Frame {
-    side: 64.0,
+    left: 64.0,
+    right: 64.0,
     top: 72.0,
     title_h: 80.0,
     gap: 12.0,
@@ -61,7 +65,7 @@ pub(super) const BARRED: Frame = Frame {
 
 impl Frame {
     fn width(&self) -> f64 {
-        SLIDE_WIDTH - 2.0 * self.side
+        SLIDE_WIDTH - self.left - self.right
     }
 
     /// Where what sits under the title starts.
@@ -75,7 +79,7 @@ impl Frame {
 
     /// The whole width, from under the title to the bottom.
     fn content(&self) -> Rect {
-        (self.side, self.content_y(), self.width(), self.content_h())
+        (self.left, self.content_y(), self.width(), self.content_h())
     }
 
     /// The title of a content slide. It is centred in its box, so a title of
@@ -84,7 +88,7 @@ impl Frame {
         slot(
             "title",
             "title",
-            (self.side, self.top, self.width(), self.title_h),
+            (self.left, self.top, self.width(), self.title_h),
             VAlign::Middle,
         )
     }
@@ -92,7 +96,7 @@ impl Frame {
     /// Two boxes side by side, `h` tall from `y`, the left one first.
     fn columns(&self, y: f64, h: f64) -> (Rect, Rect) {
         let w = (self.width() - COLUMN_GAP) / 2.0;
-        ((self.side, y, w, h), (self.side + w + COLUMN_GAP, y, w, h))
+        ((self.left, y, w, h), (self.left + w + COLUMN_GAP, y, w, h))
     }
 }
 
@@ -119,8 +123,8 @@ pub(super) fn twelve(f: &Frame) -> Vec<Layout> {
 /// of into the subtitle.
 fn cover(f: &Frame, name: &str, label: &str, title_h: f64, subtitle_h: f64) -> Layout {
     let (title_y, subtitle_y) = stacked(SLIDE_HEIGHT / 2.0, title_h, 16.0, subtitle_h);
-    let title = (f.side, title_y, f.width(), title_h);
-    let subtitle = (f.side, subtitle_y, f.width(), subtitle_h);
+    let title = (f.left, title_y, f.width(), title_h);
+    let subtitle = (f.left, subtitle_y, f.width(), subtitle_h);
     layout(
         name,
         label,
@@ -164,8 +168,8 @@ fn title_image(f: &Frame) -> Layout {
 /// A picture as large as the slide allows, with a strip for its caption.
 fn image_caption(f: &Frame) -> Layout {
     let strip_y = f.bottom - CAPTION_H;
-    let image = (f.side, f.top, f.width(), strip_y - CAPTION_GAP - f.top);
-    let strip = (f.side, strip_y, f.width(), CAPTION_H);
+    let image = (f.left, f.top, f.width(), strip_y - CAPTION_GAP - f.top);
+    let strip = (f.left, strip_y, f.width(), CAPTION_H);
     layout(
         "image-caption",
         "Image + caption",
@@ -206,8 +210,8 @@ fn comparison(f: &Frame) -> Layout {
 /// One figure, as large as it gets, and what it counts.
 fn big_number(f: &Frame) -> Layout {
     let (number_y, label_y) = stacked(f.mid, 176.0, LABEL_GAP, 72.0);
-    let number = (f.side, number_y, f.width(), 176.0);
-    let label = (f.side, label_y, f.width(), 72.0);
+    let number = (f.left, number_y, f.width(), 176.0);
+    let label = (f.left, label_y, f.width(), 72.0);
     layout(
         "big-number",
         "Big number",
@@ -222,7 +226,7 @@ fn big_number(f: &Frame) -> Layout {
 /// paragraph: a long line of large italics is hard to follow.
 fn quote(f: &Frame) -> Layout {
     let (quote_y, source_y) = stacked(f.mid, 232.0, 16.0, 48.0);
-    let (x, w) = (f.side + 32.0, f.width() - 64.0);
+    let (x, w) = (f.left + 32.0, f.width() - 64.0);
     let text = (x, quote_y, w, 232.0);
     let source = (x, source_y, w, 48.0);
     let attribution = PlaceholderDef {
@@ -242,6 +246,8 @@ fn layout(name: &str, label: &str, placeholders: Vec<PlaceholderDef>) -> Layout 
         label: label.to_owned(),
         placeholders,
         hide_master: false,
+        elements: Vec::new(),
+        background: None,
         extra: crate::model::Extra::new(),
     }
 }

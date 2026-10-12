@@ -1,0 +1,322 @@
+/* The board's chrome: a slim strip of tools on the left, one small control
+   for the view in the lower left, the title at the top left and Present with
+   "More" at the top right. Each rests faint and comes up when the pointer or
+   the keyboard is on it. Focus mode hides all of it. The surfaces are in
+   bars.css. */
+
+/* The board is a size container, so a short or narrow one (a board inside a
+   page) can drop what it has no room for. */
+.kasten-board {
+  container: board / size;
+}
+
+/* ---- Resting and waking ----------------------------------------------- */
+
+.kasten-chrome {
+  position: absolute;
+  z-index: 10;
+  opacity: 0.55;
+  transition: opacity var(--motion-slow) var(--ease-standard);
+}
+
+.kasten-chrome:hover,
+.kasten-chrome:focus-within,
+.kasten-chrome:has(.kasten-pop, [aria-expanded="true"]),
+.kasten-tools[data-solid] {
+  opacity: 1;
+}
+
+.kasten-view {
+  opacity: 0.45;
+}
+
+/* ---- The strip of tools ---------------------------------------------- */
+
+.kasten-tools {
+  top: 50%;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-2xl);
+  transform: translateY(-50%);
+}
+
+.kasten-tools-sep {
+  flex: none;
+  width: 16px;
+  height: 1px;
+  margin: 3px 0;
+  background: var(--color-line);
+}
+
+.kasten-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
+}
+
+.kasten-tool:disabled {
+  opacity: 0.35;
+}
+
+.kasten-tool[data-busy] {
+  color: var(--color-ink);
+}
+
+/* "+" is the strip's last button, so what it opens grows upwards from it. */
+.kasten-pop.kasten-add,
+.kasten-beside:not(.kasten-pop) {
+  top: auto;
+  bottom: 0;
+}
+
+/* The pen's options and the shapes, beside the strip. */
+.kasten-pop.kasten-shapes {
+  top: -6px;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 2px;
+}
+
+.kasten-pop.kasten-pen {
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transform: translateY(-50%);
+}
+
+.kasten-pen .kasten-tools-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+}
+
+.kasten-pen-dot {
+  display: block;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.kasten-pen .kasten-dot-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-lg);
+}
+
+.kasten-pen .kasten-dot-button:hover {
+  background: var(--color-hover);
+}
+
+/* What each tool does to the pointer. */
+.kasten-board.is-tool-hand .react-flow__pane,
+.kasten-board.is-tool-hand .react-flow__node {
+  cursor: grab;
+}
+
+.kasten-board.is-tool-draw,
+.kasten-board.is-tool-draw .react-flow__pane,
+.kasten-board.is-tool-draw .react-flow__node,
+.kasten-board.is-tool-shape,
+.kasten-board.is-tool-shape .react-flow__pane,
+.kasten-board.is-tool-shape .react-flow__node,
+.kasten-board.is-tool-connect,
+.kasten-board.is-tool-connect .react-flow__pane,
+.kasten-board.is-tool-connect .react-flow__node {
+  cursor: crosshair;
+}
+
+.kasten-board.is-tool-erase,
+.kasten-board.is-tool-erase .react-flow__pane,
+.kasten-board.is-tool-erase .react-flow__node {
+  cursor: cell;
+}
+
+/* ---- The view control -------------------------------------------------- */
+
+.kasten-view {
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: var(--radius-xl);
+}
+
+.kasten-view .kasten-tool {
+  width: 28px;
+  height: 28px;
+}
+
+.kasten-zoom-value {
+  min-width: 46px;
+  height: 28px;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.kasten-minimap.react-flow__minimap {
+  margin: 52px 12px 0 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-pop);
+}
+
+/* ---- The top: the title, Present and More ------------------------------ */
+
+.kasten-actions {
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: var(--radius-xl);
+}
+
+.kasten-actions .kasten-tool {
+  width: 28px;
+  height: 28px;
+}
+
+.kasten-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+
+/* The title is words, not a bar: no surface of its own. */
+.kasten-crumbs {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  max-width: calc(100% - 140px);
+  font-size: var(--text-13);
+  opacity: 0.7;
+}
+
+.kasten-crumb {
+  max-width: 220px;
+  padding: 3px 6px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.kasten-crumb:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-crumb.is-root {
+  display: grid;
+  place-items: center;
+  padding: 3px 5px;
+}
+
+.kasten-crumb.is-current {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.kasten-crumb-sep {
+  color: color-mix(in srgb, var(--color-muted) 60%, transparent);
+}
+
+.kasten-board-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  pointer-events: none;
+}
+
+/* ---- Focus mode -------------------------------------------------------- */
+
+.kasten-board.is-focus .kasten-chrome,
+.kasten-board.is-focus .kasten-toolbar,
+.kasten-board.is-focus .react-flow__minimap {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kasten-board.is-focus[data-peek="true"] .kasten-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kasten-focus-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-lg);
+  color: var(--color-faint);
+  font-size: var(--text-11);
+  opacity: 0.8;
+  transition: opacity var(--motion-slow) var(--ease-standard);
+}
+
+.kasten-focus-hint:hover {
+  color: var(--color-ink);
+  opacity: 1;
+}
+
+.kasten-board.is-focus[data-peek="true"] .kasten-focus-hint {
+  opacity: 0;
+}
+
+/* ---- A short or narrow board (inside a page) --------------------------- */
+
+@container board (max-height: 360px) {
+  .kasten-tools [data-minor] {
+    display: none;
+  }
+}
+
+@container board (max-width: 520px) {
+  .kasten-action > span {
+    display: none;
+  }
+
+  .kasten-action {
+    padding: 0 6px;
+  }
+
+  .kasten-crumbs {
+    max-width: calc(100% - 100px);
+  }
+
+  .kasten-board .react-flow__minimap {
+    display: none;
+  }
+}

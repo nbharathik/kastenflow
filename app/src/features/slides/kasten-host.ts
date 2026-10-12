@@ -7,11 +7,15 @@ import { inTauri } from "../../lib/api";
 import { fillScreen } from "../../lib/fullscreen";
 import { fileUrl } from "../../lib/vault/file-url";
 import type { VaultClient } from "../../lib/vault/types";
+import { editDiagramPicture, pickDiagramPicture } from "../diagrams/slides";
+import { usePrefs } from "../workspace/prefs";
 import { contentHash } from "../workspace/preview/vault-text";
 import { AiTab } from "./AiTab";
 import { galleryHost } from "./gallery-host";
 import { onBibFiles } from "./events";
+import { pageHost } from "./page-host";
 import { allowEmbeds, embeddedPages, openTauriPresenter } from "./presenter-link";
+import { useDecks } from "./store";
 
 export interface KastenHost extends SlidesHost {
   /** The hash of the file as the editor last read or wrote it. */
@@ -27,6 +31,33 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     aiPanel: AiTab,
     // The images drawer: the vault's assets, their small copies, where each is used.
     ...galleryHost(client),
+    // Templates: plain deck files in the vault's `templates/slides/`, saved from a deck and put on a deck from Slides' File menu.
+    templates: {
+      async list() {
+        return (await client.deckTemplates()).filter((deck) => !deck.problem).map((deck) => ({ id: deck.path, title: deck.title, slides: deck.slides }));
+      },
+      async read(id) {
+        return (await client.deck(id)).text;
+      },
+      async save(title, text) {
+        const saved = await client.createDeckTemplate(title, text);
+        void useDecks.getState().load();
+        return saved;
+      },
+    },
+    // Pages: Insert → Page… (choose, read, update), links to pages, the side panel of a presentation, and hearing that a page changed.
+    ...pageHost(client),
+    // Diagrams: Insert → Diagram… and Edit diagram, on the vault's diagrams.
+    pickDiagram: () => pickDiagramPicture(client),
+    editDiagram: (source) => editDiagramPicture(client, source),
+    // The star beside the deck's name is the sidebar's favourite: the same list, so each shows what the other did.
+    favourite: {
+      isOn: () => usePrefs.getState().favourites.includes(path),
+      set(on) {
+        if (on !== usePrefs.getState().favourites.includes(path)) usePrefs.getState().toggleFavourite(path);
+      },
+      watch: (onChange) => usePrefs.subscribe((now, before) => now.favourites !== before.favourites && onChange()),
+    },
     get baseHash() {
       return base;
     },

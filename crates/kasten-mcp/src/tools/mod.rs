@@ -5,6 +5,7 @@
 //! as MCP.
 
 mod board;
+mod diagram;
 mod read;
 mod templates;
 mod write;
@@ -16,6 +17,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 pub(crate) use board::*;
+pub(crate) use diagram::*;
 pub(crate) use read::*;
 pub(crate) use templates::*;
 pub(crate) use write::*;
@@ -78,6 +80,8 @@ pub fn call(kasten: &Kasten, session: &Session, name: &str, args: Value) -> Resu
         "list_tags" => list_tags(k),
         "list_boards" => list_boards(k),
         "list_templates" => list_templates(k),
+        "list_diagrams" => list_diagrams(k),
+        "get_diagram" => get_diagram(k, parse(args)?),
         "read_board" => read_board(k, parse(args)?),
         "capture" => {
             let a = parse(args)?;
@@ -154,6 +158,18 @@ pub fn call(kasten: &Kasten, session: &Session, name: &str, args: Value) -> Resu
         "group_on_board" => {
             let a = parse(args)?;
             agent(k, s, |k| group_on_board(k, a))
+        }
+        "create_diagram" => {
+            let a = parse(args)?;
+            agent(k, s, |k| create_diagram(k, a))
+        }
+        "update_diagram" => {
+            let a = parse(args)?;
+            agent(k, s, |k| update_diagram(k, a))
+        }
+        "trash_diagram" => {
+            let a = parse(args)?;
+            agent(k, s, |k| trash_diagram(k, a))
         }
         // The deck tools: slides-core's, on the vault (see decks/).
         other if crate::decks::is_tool(other) => {

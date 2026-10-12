@@ -13,6 +13,9 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 .kasten-tile {
+  /* One height for the top of every tile (a cover, a tint, a board sketch or a
+     deck's first slide), so titles and details sit at the same place in a row. */
+  --tile-media: 88px;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -30,10 +33,10 @@
   box-shadow: var(--shadow-hover);
 }
 .kasten-tile-cover {
-  height: 44px;
+  height: var(--tile-media);
 }
 .kasten-tile-sketch {
-  height: 88px;
+  height: var(--tile-media);
   padding: 6px;
   border-bottom: 1px solid var(--color-line);
   background: var(--color-panel);
@@ -69,6 +72,17 @@
 .kasten-tile.is-board .kasten-tile-title {
   margin-top: 0;
 }
+/* A deck's first slide sits whole in the same frame as a board's sketch, so a
+   4:3 deck and a 16:9 one line up. */
+.kasten-tile.is-deck .kasten-tile-sketch {
+  padding: 0;
+}
+.kasten-tile.is-deck .kasten-tile-body {
+  padding-top: 8px;
+}
+.kasten-tile.is-deck .kasten-tile-title {
+  margin-top: 0;
+}
 .kasten-tile-excerpt {
   display: -webkit-box;
   margin-top: 3px;
@@ -89,6 +103,67 @@
   white-space: nowrap;
 }
 
+
+/* The Whiteboards and Decks cards: the newest few as compact rows, a small
+   sketch at the left of a one-line title, so the card keeps a steady height
+   however many there are. */
+.kasten-minis {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px;
+}
+.kasten-mini {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+.kasten-mini:hover {
+  background: var(--color-hover);
+}
+.kasten-mini-sketch {
+  display: flex;
+  width: 72px;
+  height: 46px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+}
+.kasten-mini-sketch.is-deck {
+  padding: 0;
+}
+.kasten-mini-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+.kasten-mini-title,
+.kasten-mini-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-mini-title {
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+.kasten-mini-detail {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
 
 /* A gallery view's "+ New" tile. */
 .kasten-tile.is-new {

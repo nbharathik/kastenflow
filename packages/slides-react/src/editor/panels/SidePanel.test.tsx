@@ -10,9 +10,9 @@ afterEach(cleanup);
 const tab = (name: string) => screen.getByRole("tab", { name });
 
 describe("SidePanel", () => {
-  it("has a tab for format options, steps and the assistant, and shows the one that is open", async () => {
+  it("has a tab for format options, themes, transitions, steps and the assistant, and shows the one that is open", async () => {
     const kit = await mount({ panel: "format" });
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Format options", "Steps", "Assistant"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Format options", "Themes", "Transitions", "Steps", "Assistant"]);
     expect(tab("Format options").getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tab("Steps"));
     expect(kit.ui.state.panel).toBe("steps");
@@ -33,6 +33,10 @@ describe("SidePanel", () => {
   it("moves between the tabs with the arrow keys", async () => {
     const kit = await mount({ panel: "format" });
     fireEvent.keyDown(tab("Format options"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("themes");
+    fireEvent.keyDown(tab("Themes"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("transitions");
+    fireEvent.keyDown(tab("Transitions"), { key: "ArrowRight" });
     expect(kit.ui.state.panel).toBe("steps");
     fireEvent.keyDown(tab("Steps"), { key: "ArrowRight" });
     expect(kit.ui.state.panel).toBe("ai");
@@ -50,11 +54,11 @@ describe("SidePanel", () => {
     expect(sections(), "the folding sections belong to Format options").toEqual([]);
   });
 
-  it("says the assistant is available in Kasten where the host has none of its own", async () => {
+  it("says the assistant is available in KastenFlow where the host has none of its own", async () => {
     await mount({ panel: "ai" });
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByRole("heading", { name: "Assistant" })).toBeTruthy();
-    expect(panel.textContent).toContain("Available in Kasten");
+    expect(panel.textContent).toContain("Available in KastenFlow");
     expect(panel.querySelector("input, textarea, button")).toBeNull();
   });
 
@@ -66,7 +70,7 @@ describe("SidePanel", () => {
 
   it("follows the selection: the slide's options, then an element's, and back", async () => {
     const kit = await mount({ elements: [shape("rect", { x: 10, y: 10, w: 100, h: 50 })], select: [] });
-    expect(sections()).toEqual(["background", "layout", "transition", "theme"]);
+    expect(sections()).toEqual(["background", "layout", "transition", "numbers", "theme"]);
     edit(() => kit.session.select(kit.ids));
     expect(sections()[0]).toBe("size");
     edit(() => kit.session.select([]));

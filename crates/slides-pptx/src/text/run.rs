@@ -2,13 +2,14 @@
 //! the paragraph's style and the run's own settings, so nothing depends on what
 //! a layout would have inherited.
 
-use slides_core::{Run, Theme};
+use slides_core::{Run, Script, Theme};
 
+use super::metrics::{SCRIPT_LOWER, SCRIPT_RAISE};
 use super::resolve::Style;
 use crate::color::Color;
 use crate::cx::{Cx, Link};
 use crate::fonts::{self, Face};
-use crate::units::hundredths;
+use crate::units::{hundredths, thousandths};
 use crate::xml::Xml;
 
 /// The language text is marked with, which decides spelling and hyphenation in PowerPoint.
@@ -33,6 +34,12 @@ pub struct Props {
     /// The ground behind the words, which inline code has.
     pub highlight: Option<Color>,
     pub face: Face,
+    /// Raised or lowered; PowerPoint sets such words smaller by itself.
+    pub script: Option<Script>,
+    pub small_caps: bool,
+    pub all_caps: bool,
+    /// Extra space between letters, in points.
+    pub spacing: f64,
 }
 
 /// The size of a run in points: its own when that is a size, else its paragraph's.
@@ -120,6 +127,18 @@ pub fn props(cx: &mut Cx, style: &Style, run: &Run, opacity: f64) -> Props {
             None
         },
         face: fonts::face(&cx.deck.theme, font),
+        script: run.script.clone(),
+        small_caps: run.small_caps,
+        all_caps: run.all_caps,
+        spacing: run.spacing.filter(|s| s.is_finite()).unwrap_or(0.0),
+    }
+}
+
+/// How far PowerPoint is told a raised word is moved, in thousandths of a percent of its size.
+fn baseline(script: &Script) -> i64 {
+    match script {
+        Script::Super => thousandths(SCRIPT_RAISE),
+        Script::Sub => -thousandths(SCRIPT_LOWER),
     }
 }
 
@@ -138,6 +157,15 @@ impl Props {
         }
         if self.strike {
             x.attr("strike", "sngStrike");
+        }
+        if self.all_caps || self.small_caps {
+            x.attr("cap", if self.small_caps { "small" } else { "all" });
+        }
+        if self.spacing != 0.0 {
+            x.int("spc", hundredths(self.spacing).clamp(-40_000, 200_000));
+        }
+        if let Some(script) = &self.script {
+            x.int("baseline", baseline(script));
         }
         x.attr("dirty", "0");
         self.color.solid_fill(x, self.alpha);

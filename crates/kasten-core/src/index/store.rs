@@ -20,7 +20,7 @@ fn day_of(created: Option<&str>, updated: Option<&str>, modified: u64) -> String
     let own = updated
         .or(created)
         .and_then(|d| d.get(..10))
-        .filter(|d| crate::extract::is_day(d))
+        .filter(|d| crate::dates::is_real_day(d))
         .map(str::to_owned);
     own.unwrap_or_else(|| Instant { millis: modified }.rfc3339()[..10].to_owned())
 }
@@ -81,20 +81,28 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
     }
     for link in &extract.links {
         tx.execute(
-            "INSERT INTO links (num, target, embed, line, context) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO links (num, target, embed, line, context, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 num,
                 link.target.trim().to_lowercase(),
                 link.embed,
                 link.line as i64,
-                link.context
+                link.context,
+                link.at
             ],
         )?;
     }
     for task in &extract.tasks {
         tx.execute(
-            "INSERT INTO tasks (num, line, done, text, due) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![num, task.line as i64, task.done, task.text, task.due],
+            "INSERT INTO tasks (num, line, done, text, due, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                num,
+                task.line as i64,
+                task.done,
+                task.text,
+                task.due,
+                task.at
+            ],
         )?;
     }
     tx.execute(

@@ -23,18 +23,18 @@ impl Notice {
     pub fn words(&self) -> (&'static str, String) {
         match self {
             Notice::BackupFailing => (
-                "Kasten can't back up",
+                "KastenFlow can't back up",
                 "Your notes are safe on this computer, but the backup isn't getting them. Open Settings → History and backup to see why.".into(),
             ),
             Notice::BackupFileFailing => (
-                "Kasten can't write the backup file",
+                "KastenFlow can't write the backup file",
                 "Your notes are safe on this computer. Open Settings → History and backup to see why.".into(),
             ),
-            Notice::UpdateReady { version } => ("Kasten update ready", format!("Version {version} installs when you restart Kasten.")),
+            Notice::UpdateReady { version } => ("KastenFlow update ready", format!("Version {version} installs when you restart KastenFlow.")),
             Notice::KeepsRunning => (
-                "Kasten is still running",
+                "KastenFlow is still running",
                 if cfg!(target_os = "linux") {
-                    "It stays in the tray, and quick capture still works. Start Kasten again to open it, or quit from the tray.".into()
+                    "It stays in the tray, and quick capture still works. Start KastenFlow again to open it, or quit from the tray.".into()
                 } else {
                     "It stays in the tray, and quick capture still works. Quit from the tray icon.".into()
                 },
@@ -112,7 +112,7 @@ mod tests {
             Notice::KeepsRunning,
         ] {
             let (title, body) = notice.words();
-            assert!(title.starts_with("Kasten"));
+            assert!(title.starts_with("KastenFlow "), "{title}");
             assert!(!body.contains(".md"));
         }
         assert!(

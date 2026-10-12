@@ -112,6 +112,8 @@ function inverseOf(doc: BoardDoc, change: BoardChange, made: string | undefined)
       const old = node(change.id);
       return old?.kind === "group" ? [{ kind: "collapse", id: old.id, collapsed: Boolean(old.collapsed) }] : [];
     }
+    case "source":
+      return [{ kind: "source", source: doc.source ?? null }];
     case "restore": {
       const nodeIds = change.nodes.map((n) => String(n.id)).filter((id) => !node(id));
       const back = new Set(nodeIds);

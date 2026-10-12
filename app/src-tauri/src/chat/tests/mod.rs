@@ -2,6 +2,9 @@
 //! that answers from a script, and a list the turn's events go to. Nothing
 //! here reaches a network beyond 127.0.0.1 or a real keychain.
 
+mod chatgpt;
+mod chatgpt_flow;
+mod chatgpt_http;
 mod check;
 mod context;
 mod decks;
@@ -9,6 +12,9 @@ mod drafts;
 mod http;
 mod providers;
 mod requests;
+mod responses;
+mod responses_request;
+mod script;
 mod stops;
 mod streams;
 mod summary;
@@ -153,6 +159,7 @@ impl Model for Arc<Fake> {
                     calls,
                     stop,
                     blocks: None,
+                    items: None,
                 })
             }
             Step::Fail(message) => Err(Failure::new(message)),
@@ -166,6 +173,7 @@ impl Model for Arc<Fake> {
                     calls: vec![],
                     stop: Stop::Cancelled,
                     blocks: None,
+                    items: None,
                 })
             }
         }

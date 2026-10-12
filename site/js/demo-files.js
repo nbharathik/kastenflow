@@ -1,8 +1,11 @@
-// The plain-files demo: a page and the Markdown file it is, kept in step.
-// Ticking a to-do, changing the status, renaming the page or adding a line
-// with [[links]] changes the file beside it, the way Kasten saves a page.
+// The page demo: a page and the Markdown file it is, kept in step. Ticking a
+// to-do, changing the status, renaming the page, adding a line with [[links]]
+// or asking Claude for an itinerary changes the file beside it, the way
+// Kasten saves a page. It returns the few moves the banner's examples and
+// tour make on a visitor's behalf.
 
-import { h, icon, still, wait, whenSeen } from "./dom.js";
+import { h, icon, wait } from "./dom.js";
+import { LINK, fileLines, lineNode, paint, slug } from "./files-format.js";
 
 const PAGES = [
   { title: "Packing list", where: "Seaside trip" },
@@ -11,30 +14,39 @@ const PAGES = [
   { title: "Budget", where: "Seaside trip" },
   { title: "Zettelkasten method", where: "Pages" },
 ];
-const MAX_LINES = 5;
-const LINK = /\[\[([^\]]+)\]\]/g;
+const MAX_LINES = 8;
+// What the sample Claude writes: sample text, not a model's answer.
+const ITINERARY = [
+  "## Itinerary",
+  "- Wednesday: fly out, check in near the harbour",
+  "- Thursday: the [[Harbour walk]], then the market",
+  "- Friday: [[Ferry times]] first, then the lighthouse",
+];
 
 export default function filesDemo(root) {
   const el = Object.fromEntries(["title", "status", "todos", "lines", "input", "suggest", "code", "path", "announce"].map((name) => [name, root.querySelector(`[data-${name}]`)]));
-  const state = {
-    title: el.title.value,
-    status: el.status.value,
+  const start = { title: el.title.value, status: el.status.value };
+  const fresh = () => ({
+    ...start,
     todos: [
       { text: "Flights", done: true },
       { text: "Offline maps", done: false },
       { text: "Travel insurance", done: false },
     ],
     lines: [],
-  };
+  });
+  let state = fresh();
   let shown = [];
   let picks = [];
   let active = 0;
-  let touring = false;
-  let touched = false;
+  let quiet = false;
+  let writing = false;
+  let session = 0;
 
   const say = (text) => {
-    if (!touring) el.announce.textContent = text;
+    if (!quiet) el.announce.textContent = text;
   };
+  const hasClaude = () => state.lines.some((line) => line.by === "claude");
 
   function drawTodos() {
     el.todos.replaceChildren(
@@ -50,8 +62,10 @@ export default function filesDemo(root) {
     );
   }
 
-  function drawLines() {
-    el.lines.replaceChildren(...state.lines.map((line) => h("p", {}, ...chips(line))));
+  function drawLines(added = false) {
+    const nodes = state.lines.map(lineNode);
+    if (added) nodes.at(-1)?.classList.add("is-new");
+    el.lines.replaceChildren(...nodes);
   }
 
   function drawFile() {
@@ -66,6 +80,13 @@ export default function filesDemo(root) {
       }),
     );
     shown = lines;
+  }
+
+  function addLine(line) {
+    state.lines.push(line);
+    while (state.lines.length > MAX_LINES) state.lines.shift();
+    drawLines(true);
+    drawFile();
   }
 
   // Typing a line, with [[ offering pages to link.
@@ -120,15 +141,12 @@ export default function filesDemo(root) {
   }
 
   function commit() {
-    const line = el.input.value.trim().replace(/\s+/g, " ");
-    if (!line) return;
-    state.lines.push(line);
-    if (state.lines.length > MAX_LINES) state.lines.shift();
+    const text = el.input.value.trim().replace(/\s+/g, " ");
+    if (!text) return;
     el.input.value = "";
-    drawLines();
-    drawFile();
-    const fresh = [...line.matchAll(LINK)].map((m) => m[1]).filter((title) => !PAGES.some((page) => page.title.toLowerCase() === title.toLowerCase()));
-    say(fresh.length ? `Added the line, and a new page for ${fresh.join(", ")}.` : "Added the line to the page and to the file.");
+    addLine({ text, by: "you" });
+    const created = [...text.matchAll(LINK)].map((m) => m[1]).filter((title) => !PAGES.some((page) => page.title.toLowerCase() === title.toLowerCase()));
+    say(created.length ? `Added the line, and a new page for ${created.join(", ")}.` : "Added the line to the page and to the file.");
   }
 
   el.input.addEventListener("input", () => {
@@ -170,36 +188,91 @@ export default function filesDemo(root) {
   drawLines();
   drawFile();
 
-  // A short tour when the demo first comes into view, until the visitor
-  // takes over.
-  const stop = () => (touched = true);
-  root.addEventListener("pointerdown", stop);
-  root.addEventListener("keydown", stop);
-  whenSeen(root, async () => {
-    if (still) return;
-    touring = true;
-    await wait(900);
-    const box = el.todos.querySelectorAll("input")[1];
-    if (!touched && box && !box.checked) {
-      box.checked = true;
-      box.dispatchEvent(new Event("change"));
-    }
-    await wait(1300);
-    for (const letter of "Book the ferry, see [[Fer") {
-      if (touched) break;
-      el.input.value += letter;
+  return {
+    /** The to-do to tick next: the first open one, else the last. */
+    nextTodo() {
+      const open = state.todos.findIndex((todo) => !todo.done);
+      return open >= 0 ? open : state.todos.length - 1;
+    },
+    /** Ticks or unticks a to-do as a click would; whether it is done now. */
+    tick(index) {
+      const box = el.todos.querySelectorAll("input")[index];
+      box?.click();
+      return Boolean(box?.checked);
+    },
+    /** The next status in turn, as the select would be changed by hand. */
+    cycleStatus() {
+      const options = [...el.status.options];
+      el.status.selectedIndex = (el.status.selectedIndex + 1) % options.length;
+      el.status.dispatchEvent(new Event("change", { bubbles: true }));
+      return el.status.value;
+    },
+    /** What is typed in the line box, set as typing would. */
+    type(text) {
+      el.input.value = text;
       el.input.dispatchEvent(new Event("input"));
-      await wait(55);
-    }
-    await wait(900);
-    if (!touched) pick(0);
-    await wait(700);
-    if (!touched) commit();
-    touring = false;
-  });
+    },
+    draft: () => el.input.value,
+    focus() {
+      el.input.focus();
+      el.input.setSelectionRange(el.input.value.length, el.input.value.length);
+    },
+    pick,
+    commit,
+    hasClaude,
+    busy: () => writing,
+    /** The sample Claude writes an itinerary, line by line, marked as its own. */
+    async askClaude(report = () => {}) {
+      if (writing || hasClaude()) return false;
+      writing = true;
+      const mine = ++session;
+      say("Claude is reading the page.");
+      report("Claude is reading Seaside trip…");
+      await wait(650);
+      if (mine !== session) return false;
+      report("Writing an itinerary…");
+      await wait(500);
+      for (const text of ITINERARY) {
+        if (mine !== session) return false;
+        addLine({ text, by: "claude" });
+        await wait(380);
+      }
+      writing = false;
+      say("Claude added an itinerary. It is marked on the page, and Undo takes it out.");
+      return true;
+    },
+    /** Takes out what Claude wrote and leaves the rest. */
+    undoClaude() {
+      if (writing || !hasClaude()) return false;
+      state.lines = state.lines.filter((line) => line.by !== "claude");
+      drawLines();
+      drawFile();
+      say("Claude's changes are undone. Everything you wrote is kept.");
+      return true;
+    },
+    /** The page as it first was. */
+    reset() {
+      state = fresh();
+      shown = [];
+      writing = false;
+      session++;
+      el.title.value = start.title;
+      el.status.value = start.status;
+      el.input.value = "";
+      closeSuggest();
+      drawTodos();
+      drawLines();
+      drawFile();
+      say("The page is back as it began.");
+    },
+    /** Silences the screen reader while a tour plays, so it does not talk over the visitor. */
+    quietly(on) {
+      quiet = on;
+    },
+  };
 }
 
-/** On phones the page and the file are tabs. */
+/** On narrow screens the page and the file are tabs. */
 function setupTabs(root) {
   const tabs = [...root.querySelectorAll('[role="tab"]')];
   const show = (name) => {
@@ -220,81 +293,4 @@ function setupTabs(root) {
     });
   }
   show("page");
-}
-
-/** The page as Kasten writes it. */
-function fileLines(state) {
-  return [
-    "---",
-    "id: 01M3A2KTR05W9C8QXZ4JYB6N7D",
-    `title: ${yaml(state.title)}`,
-    "type: page",
-    "icon: ✈️",
-    "tags: [travel]",
-    "props:",
-    `  status: ${state.status}`,
-    "---",
-    "> [!tip] Trip at a glance",
-    "> A town by the sea, Wednesday to Monday.",
-    "",
-    "## Before we go",
-    "",
-    ...state.todos.map((todo) => `- [${todo.done ? "x" : " "}] ${todo.text}`),
-    ...state.lines.flatMap((line) => ["", line]),
-  ];
-}
-
-/** A title as YAML: plain when it reads the same, quoted when it would not. */
-function yaml(text) {
-  const plain = /^[\p{L}\p{N}][\p{L}\p{N} '’.,!?()&-]*$/u.test(text) && text === text.trim();
-  return plain ? text : JSON.stringify(text);
-}
-
-/** A file name from a title, as Kasten makes one. */
-function slug(title) {
-  let out = "";
-  let dash = false;
-  for (const letter of title.toLowerCase()) {
-    if (/[\p{L}\p{N}]/u.test(letter)) {
-      if (dash && out) out += "-";
-      out += letter;
-      dash = false;
-    } else dash = true;
-    if ([...out].length >= 80) break;
-  }
-  return out || "untitled";
-}
-
-/** A line of the page, its [[links]] drawn as links. */
-function chips(line) {
-  return split(line, (title) => h("span", { class: "df-link" }, icon("#i-page"), title));
-}
-
-/** A line of the file, coloured as an editor would. */
-function paint(line, frontmatter) {
-  if (!line) return [" "];
-  if (line === "---") return [h("span", { class: "t-dim" }, line)];
-  if (frontmatter) {
-    const pair = /^(\s*[\w-]+:)(.*)$/.exec(line);
-    return pair ? [h("span", { class: "t-key" }, pair[1]), pair[2]] : [line];
-  }
-  if (line.startsWith("## ")) return [h("span", { class: "t-head" }, line)];
-  if (line.startsWith("> ")) return [h("span", { class: "t-dim" }, "> "), line.slice(2)];
-  const todo = /^- \[( |x)\] (.*)$/.exec(line);
-  if (todo) return [h("span", { class: todo[1] === "x" ? "t-done" : "t-dim" }, `- [${todo[1]}]`), " ", ...links(todo[2])];
-  return links(line);
-}
-
-const links = (text) => split(text, (title) => h("span", { class: "t-link" }, `[[${title}]]`));
-
-/** Text with each [[link]] made by `make`. */
-function split(text, make) {
-  const parts = [];
-  let last = 0;
-  for (const m of text.matchAll(LINK)) {
-    parts.push(text.slice(last, m.index), make(m[1]));
-    last = m.index + m[0].length;
-  }
-  parts.push(text.slice(last));
-  return parts.filter((part) => part !== "");
 }

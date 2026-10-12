@@ -59,7 +59,7 @@ fn clean_name(name: &str) -> String {
 /// the copies an earlier drop left there. Returns the folder.
 fn stage(drops: &Path, name: &str, files: &[DroppedFile]) -> Result<PathBuf, String> {
     if files.is_empty() {
-        return Err("Nothing was dropped that Kasten can import".into());
+        return Err("Nothing was dropped that KastenFlow can import".into());
     }
     if files.len() > MOST_FILES || files.iter().map(|f| f.data.len()).sum::<usize>() > MOST_BYTES {
         return Err(
@@ -70,7 +70,7 @@ fn stage(drops: &Path, name: &str, files: &[DroppedFile]) -> Result<PathBuf, Str
         .iter()
         .map(|f| clean_rel(&f.rel).map(|rel| (rel, &f.data)))
         .collect::<Option<Vec<_>>>()
-        .ok_or("A dropped file has a name Kasten can't use")?;
+        .ok_or("A dropped file has a name KastenFlow can't use")?;
     let failed = |e: std::io::Error| format!("Could not get the dropped files ready: {e}");
     fs::create_dir_all(drops).map_err(failed)?;
     clear(drops);

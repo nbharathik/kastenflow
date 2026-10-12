@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c229cce1bfc8d64633f5b06f73fb96ed6b82b9ba00e83d7a3e20c072801886f0 # shrinks to ps = [Paragraph { runs: [], align: None, list: Some(Number), level: Some(4), style: None, space_before: None, space_after: None, line_spacing: None, step: None, list_style: None, start: None, bullet_color: None, bullet_size: None, margin_left: None, indent: None, extra: {} }, Paragraph { runs: [], align: None, list: None, level: None, style: None, space_before: None, space_after: None, line_spacing: None, step: None, list_style: None, start: None, bullet_color: None, bullet_size: None, margin_left: None, indent: None, extra: {} }, Paragraph { runs: [], align: None, list: Some(Number), level: Some(4), style: None, space_before: None, space_after: None, line_spacing: None, step: None, list_style: None, start: None, bullet_color: None, bullet_size: None, margin_left: None, indent: None, extra: {} }]

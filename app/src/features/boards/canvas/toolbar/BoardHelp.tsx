@@ -1,4 +1,4 @@
-// The board's keys and gestures in one list, from ?, the zoom bar or the
+// The board's keys and gestures in one list, from ?, the More menu or the
 // board's menu. Escape closes it, here or on the board (useBoardKeys).
 
 import { useEffect, useRef } from "react";
@@ -16,6 +16,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
       ["F or Shift+1", "Fit everything in view"],
       ["+ and −, Shift+0", "Zoom in and out, back to 100%"],
       ["M", "Minimap"],
+      ["\\", "Focus mode: hide the bars; they come back at an edge or on a key"],
       ["P", "Present: each section a slide, from the selected one"],
       ["→ or Space, ←", "Next and previous slide; Esc ends"],
     ],
@@ -25,16 +26,18 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["V", "Select and move"],
       ["H", "Hand: drag to pan"],
-      ["D", "Draw; pick a width and colour beside the bar"],
+      ["D", "Pen; pick a width and colour beside the bar"],
       ["X", "Erase drawings: drag across them"],
       ["R, O", "Rectangle, ellipse: click or drag out; more beside the bar"],
+      ["L", "Connector: drag from a side's dot to another thing"],
       ["Esc", "Back to selecting"],
     ],
   },
   {
     title: "Make",
     rows: [
-      ["Double-click or C", "New card"],
+      ["Double-click", "A new card or sticky, as chosen in the + menu"],
+      ["C", "New card"],
       ["S", "New sticky"],
       ["G", "Wrap the selection in a section"],
       ["Tab, Shift+Enter", "Grow a mind map from the selected card"],
@@ -44,6 +47,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
   {
     title: "Change",
     rows: [
+      ["1 to 9, 0", "Colour the selection; none"],
       ["Enter", "Open a card, or edit a sticky, shape or section"],
       ["E", "Show the whole card"],
       ["← ↑ → ↓", "Nudge the selection; Shift for 10 px"],

@@ -3,8 +3,9 @@
 import type { Paragraph, Run, Text, Theme } from "@kasten-slides/wasm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { docToText, nodeToParagraph, paragraphToNode, textToDoc } from "./convert.ts";
-import { type TextSchema, createTextSchema } from "./schema.ts";
+import { docToText, marksOfLook, nodeToParagraph, paragraphToNode, textToDoc } from "./convert.ts";
+import { lookOfMark } from "./paragraph-attrs.ts";
+import { type TextSchema, attrsOf, createTextSchema } from "./schema.ts";
 import { themeNamed } from "./test-support.ts";
 
 let schema: TextSchema;
@@ -124,7 +125,22 @@ describe("textToDoc and docToText", () => {
   it("keeps an empty paragraph, in both of the ways one is written", () => {
     const text: Text = { paragraphs: [{ runs: [{ t: "a" }] }, { runs: [] }, { runs: [{ t: "" }], list: "bullet" }, { runs: [{ t: "", b: true, size: 30 }] }, { runs: [{ t: "b" }] }] };
     expect(roundTrip(text)).toBe(text);
-    expect(fresh(text).paragraphs).toEqual([{ runs: [{ t: "a" }] }, { runs: [{ t: "" }] }, { runs: [{ t: "" }], list: "bullet" }, { runs: [{ t: "" }] }, { runs: [{ t: "b" }] }]);
+    // An empty paragraph keeps the look of its one empty run, its mark; the other empty runs have nothing to say.
+    expect(fresh(text).paragraphs).toEqual([{ runs: [{ t: "a" }] }, { runs: [{ t: "" }] }, { runs: [{ t: "" }], list: "bullet" }, { runs: [{ t: "", b: true, size: 30 }] }, { runs: [{ t: "b" }] }]);
+  });
+
+  it("keeps the look of an empty paragraph, written in any order, and takes a link or a field off it", () => {
+    const text: Text = { paragraphs: [{ runs: [{ t: "", size: 12, color: "accent2", b: true, lang: "en" } as Run], list: "bullet" }, { runs: [{ t: "", link: "https://example.com", size: 9 }] }] };
+    expect(roundTrip(text)).toBe(text);
+    expect(fresh(text).paragraphs[0]).toEqual(text.paragraphs[0]);
+    expect(attrsOf(textToDoc(text, schema).child(0)).mark).toBe('{"b":true,"color":"accent2","lang":"en","size":12}');
+    const typed = textToDoc({ paragraphs: [{ runs: [{ t: "", link: "https://example.com", size: 9 }] }] }, schema).child(0);
+    expect(marksOfLook(schema, lookOfMark(attrsOf(typed).mark)).map((mark) => mark.type.name)).toEqual(["size"]);
+  });
+
+  it("has no mark for a paragraph with words, whatever its other runs hold", () => {
+    const doc = textToDoc({ paragraphs: [{ runs: [{ t: "a" }, { t: "", size: 40 }] }] }, schema);
+    expect(attrsOf(doc.child(0)).mark).toBeNull();
   });
 
   it("keeps a text with no paragraphs, and a document made from nothing has one empty paragraph", () => {

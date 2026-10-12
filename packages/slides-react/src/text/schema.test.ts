@@ -53,7 +53,7 @@ describe("the schema", () => {
   });
 
   it("has a paragraph attribute for each setting of a paragraph, and one for what it does not know", () => {
-    expect(Object.keys(schema.nodes.paragraph!.create().attrs)).toEqual(["align", "list", "level", "style", "spaceBefore", "spaceAfter", "lineSpacing", "step", "extra"]);
+    expect(Object.keys(schema.nodes.paragraph!.create().attrs)).toEqual(["align", "list", "level", "style", "spaceBefore", "spaceAfter", "lineSpacing", "step", "listStyle", "start", "bulletColor", "bulletSize", "marginLeft", "indent", "mark", "extra"]);
   });
 });
 
@@ -66,8 +66,9 @@ describe("the page", () => {
     expect(paragraph.tagName).toBe("DIV");
     expect(paragraph.className).toBe("ks-p");
     expect(paragraph.style.textAlign).toBe("center");
-    expect(paragraph.style.paddingLeft).toBe("48px");
-    expect(paragraph.style.textIndent).toBe("-24px");
+    // The first level has no list of its own here, so it keeps 24; the second needs 30 for its circle at 22 pt.
+    expect(paragraph.style.paddingLeft).toBe("54px");
+    expect(paragraph.style.textIndent).toBe("-30px");
     expect(paragraph.getAttribute("data-ks-p")).toBe('{"align":"center","list":"bullet","level":1}');
   });
 

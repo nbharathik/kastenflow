@@ -1,6 +1,11 @@
 export { SlidesEditor, Workspace } from "./SlidesEditor.tsx";
 export type { SlidesEditorProps } from "./SlidesEditor.tsx";
-export type { AiPanelProps, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
+export type { AiPanelProps, DeckFavourite, DeliveredFile, DiagramPicture, HostImage, HostPage, HostPageSection, HostPageText, ImageEdit, ImageUse, OpenPageWay, PagePanelProps, SaveOutcome, SlidesHost } from "./host.ts";
+export { LayoutPicker } from "./layouts/LayoutPicker.tsx";
+export type { LayoutPickerProps } from "./layouts/LayoutPicker.tsx";
+export { LayoutThumb } from "./layouts/LayoutThumb.tsx";
+export type { LayoutThumbProps } from "./layouts/LayoutThumb.tsx";
+export type { TemplateInfo, TemplatesHost } from "./layouts/templates-host.ts";
 export { MemoryHost } from "./memory-host.ts";
 export { EditorSession } from "./session/session.ts";
 export type { SessionOptions } from "./session/session.ts";

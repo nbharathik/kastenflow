@@ -119,7 +119,12 @@ export function TagDatabase({ tag }: { tag: string }) {
       />
       <ViewBar view={view} schema={schema} shown={shown.length} total={tagged.length} onChange={change} find={{ query, onQuery: setQuery }} />
       <div className="kasten-tagdb-body">
-        <ViewBody tag={name} schema={schema} view={view} notes={shown} onChange={change} />
+        {view.scope === "project" ? (
+          // Such a view shows what is filed in the project of the page it sits in.
+          <p className="kasten-tag-empty">This view lists the notes filed in one project. In a project&rsquo;s page, type /database and pick it from the list.</p>
+        ) : (
+          <ViewBody tag={name} schema={schema} view={view} notes={shown} onChange={change} />
+        )}
       </div>
       {editing && <SchemaEditor tag={name} schema={schema} onClose={() => setEditing(false)} />}
     </div>

@@ -71,19 +71,20 @@
   --color-highlight-pink: rgb(250 214 229);
   --color-highlight-red: rgb(254 214 210);
 
-  /* Type: one scale, named by size. Chrome is 12-14, page text 16, view
-     titles 28 and page titles 40. Tailwind's own sizes are cleared so
-     nothing falls between steps. */
+  /* Type: one scale, named by its size in pixels at the usual 16px root.
+     Chrome is 12-14, page text 16, view titles 28 and page titles 40.
+     Written in rem, so the sizes follow the root instead of staying fixed.
+     Tailwind's own sizes are cleared so nothing falls between steps. */
   --text-*: initial;
-  --text-11: 11px;
-  --text-12: 12px;
-  --text-13: 13px;
-  --text-14: 14px;
-  --text-16: 16px;
-  --text-20: 20px;
-  --text-24: 24px;
-  --text-28: 28px;
-  --text-40: 40px;
+  --text-11: 0.6875rem;
+  --text-12: 0.75rem;
+  --text-13: 0.8125rem;
+  --text-14: 0.875rem;
+  --text-16: 1rem;
+  --text-20: 1.25rem;
+  --text-24: 1.5rem;
+  --text-28: 1.75rem;
+  --text-40: 2.5rem;
 
   /* Corners stay small, on four steps: 4px controls and chips, 6px rows
      and menus, 8px cards and popovers, 12px dialogs. 2px is only for
@@ -121,6 +122,12 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --default-transition-duration: var(--motion-fast);
   --default-transition-timing-function: var(--ease-standard);
+}
+
+/* Native parts (date pickers, scrollbars, form fields) follow the theme:
+   light here, dark below. */
+:root {
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {

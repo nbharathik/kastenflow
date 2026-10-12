@@ -11,6 +11,8 @@ export type MenuItem =
       icon?: IconName;
       /** The keys that do the same, such as "Ctrl+Shift+D". */
       keys?: string;
+      /** A line under the label that says what the row makes or does, for a menu of things to put on a slide. */
+      description?: string;
       /** A check mark before the label: the option that is on. */
       checked?: boolean;
       disabled?: boolean;
@@ -91,7 +93,7 @@ export function Menu({ items, anchor, onClose, side, keepFocus, label, onDone }:
                 aria-checked={item.checked}
                 aria-haspopup={sub ? "menu" : undefined}
                 data-sub={sub ? "1" : undefined}
-                className={`ks-menu-item${item.danger ? " is-danger" : ""}${open?.id === item.id ? " is-open" : ""}`}
+                className={`ks-menu-item${item.danger ? " is-danger" : ""}${open?.id === item.id ? " is-open" : ""}${item.description ? " has-desc" : ""}`}
                 disabled={item.disabled}
                 onMouseEnter={(event) => setOpen(sub && !item.disabled ? { id: item.id, anchor: anchorOf(event.currentTarget) } : null)}
                 onClick={(event) => {
@@ -103,7 +105,10 @@ export function Menu({ items, anchor, onClose, side, keepFocus, label, onDone }:
                 }}
               >
                 <span className="ks-menu-mark">{item.checked ? <Icon name="check" size={14} /> : item.icon ? <Icon name={item.icon} size={14} /> : null}</span>
-                <span className="ks-menu-label">{item.label}</span>
+                <span className="ks-menu-label">
+                  {item.label}
+                  {item.description ? <span className="ks-menu-desc">{item.description}</span> : null}
+                </span>
                 {item.trailing}
                 {item.keys ? <kbd className="ks-kbd">{item.keys}</kbd> : null}
                 {sub ? <Icon name="chevron-right" size={14} /> : null}

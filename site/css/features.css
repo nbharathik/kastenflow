@@ -1,4 +1,5 @@
-/* The features: a bento of tiles, each with a small live picture. */
+/* The features: cards with a word for what each is and a small live
+   picture. A card lifts a little under the pointer. */
 
 .bento {
   display: grid;
@@ -12,12 +13,12 @@
   flex-direction: column;
   gap: 8px;
   overflow: hidden;
-  padding: 22px;
+  padding: 20px 22px 26px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  transition: border-color 200ms, box-shadow 200ms, transform 200ms var(--ease);
+  transition: border-color 200ms, box-shadow 200ms;
 }
 
 .tile:hover {
@@ -25,12 +26,17 @@
   box-shadow: var(--shadow-md);
 }
 
+.tile-label {
+  align-self: start;
+  margin-bottom: 12px;
+}
+
 .tile h3 {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 18px;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  letter-spacing: -0.025em;
 }
 
 .tile h3 .i {
@@ -52,32 +58,19 @@
 
 .t-journal,
 .t-tasks,
-.t-library {
+.t-tags {
   grid-column: span 4;
 }
 
-.t-tags,
-.t-pdf {
-  grid-column: span 6;
-}
-
+.t-pdf,
 .t-import {
-  grid-column: span 12;
-  flex-direction: row;
-  align-items: center;
-  gap: 32px;
-}
-
-.t-import > div:last-child {
-  display: grid;
-  gap: 8px;
-  max-width: 34em;
+  grid-column: span 6;
 }
 
 .viz {
   position: relative;
   height: 200px;
-  margin: -4px -4px 14px;
+  margin: 0 0 14px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -248,34 +241,19 @@
 @media (max-width: 960px) {
   .t-pages,
   .t-boards,
-  .t-tags,
-  .t-pdf {
+  .t-tags {
     grid-column: span 12;
   }
 
   .t-journal,
-  .t-tasks,
-  .t-library {
+  .t-tasks {
     grid-column: span 6;
-  }
-
-  .t-library {
-    grid-column: span 12;
   }
 }
 
 @media (max-width: 640px) {
   .bento > .tile {
     grid-column: span 12;
-  }
-
-  .t-import {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .viz-import {
-    width: auto;
   }
 }
 

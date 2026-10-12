@@ -24,13 +24,31 @@ describe("more palette rows", () => {
   });
 
   it("finds Settings groups, and opens Settings at one", () => {
-    expect(settingsRows("ai prov").map((r) => r.label)).toEqual(["AI providers"]);
-    expect(settingsRows("settings short").map((r) => r.label)).toEqual(["Keyboard shortcuts"]);
+    expect(settingsRows("ai prov").map((r) => r.label)).toEqual(["Settings: AI providers"]);
+    expect(settingsRows("settings short").map((r) => r.label)).toEqual(["Settings: Keyboard shortcuts"]);
     expect(settingsRows("x")).toEqual([]);
+    // As the row is written: "Settings: Appearance".
+    expect(settingsRows("Settings: appear").map((r) => r.label)).toEqual(["Settings: Appearance"]);
     settingsRows("backup")[0]!.run("here");
     expect(useWorkspace.getState().place.view).toBe("settings");
-    expect(takeSettingsJump()).toBe("History and backup");
+    expect(takeSettingsJump()).toEqual({ group: "history" });
     expect(takeSettingsJump()).toBeNull();
+  });
+
+  it("finds a single setting by its name, and opens Settings at its row", () => {
+    const rows = settingsRows("settings interface size");
+    expect(rows.map((r) => [r.label, r.detail])).toEqual([["Interface size", "Settings · Appearance"]]);
+    rows[0]!.run("here");
+    expect(takeSettingsJump()).toEqual({ group: "appearance", row: "appearance.zoom" });
+    // A group that is named does not bring its own settings along.
+    expect(settingsRows("settings appearance").map((r) => r.label)).toEqual(["Settings: Appearance"]);
+    // Without the word "settings", only groups: a setting must not beat a command such as Go to Trash.
+    expect(settingsRows("trash")).toEqual([]);
+    expect(settingsRows("settings trash").map((r) => r.label)).toEqual(["Notes trashed per session"]);
+    expect(settingsRows("appearance").map((r) => r.label)).toEqual(["Settings: Appearance"]);
+    expect(settingsRows("interface size")).toEqual([]);
+    // What this app does not draw is not offered.
+    expect(settingsRows("embedding model")).toEqual([]);
   });
 
   it("keeps the last five searches, newest first, once each", () => {

@@ -144,6 +144,12 @@ describe("the first start", () => {
     expect(state().place).toEqual({ view: "page", path: "library/welcome.md" });
   });
 
+  it("opens the welcome page by its KastenFlow title too", async () => {
+    useWorkspace.setState({ ...derive(initialLayout()), stack: [], stackOpen: false, recent: [], navigated: false });
+    await state().connect({ client: new MemoryVault({ ...SEED, "library/tour.md": "---\ntitle: Welcome to KastenFlow\n---\nHello.\n" }) });
+    expect(state().place).toEqual({ view: "page", path: "library/tour.md" });
+  });
+
   it("stays where a person went while the vault was being read", async () => {
     useWorkspace.setState({ ...derive(initialLayout()), stack: [], stackOpen: false, recent: [], navigated: false });
     const vault = new MemoryVault(WELCOME);

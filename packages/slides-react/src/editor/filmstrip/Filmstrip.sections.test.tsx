@@ -25,7 +25,7 @@ describe("sections", () => {
     // The header stays and says how many slides are in it.
     const fold = screen.getByRole("button", { name: "Expand section Part two" });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
-    expect(fold.textContent).toBe("Part two3");
+    expect(fold.closest(".ks-fs-section")?.textContent).toBe("Part two3");
     // The deck itself is untouched.
     expect(session.deck.slides).toHaveLength(6);
     fireEvent.click(fold);

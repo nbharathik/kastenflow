@@ -37,7 +37,11 @@ describe("Settings → AI providers", () => {
   it("adds a provider, sending its key once and never showing it", async () => {
     const section = await show();
     expect(await within(section).findByText("Local server")).toBeTruthy();
-    expect(section.textContent).toContain("OpenAI-compatible · local-model · http://local-server:8000/v1 · Key in your system keychain");
+    expect(section.textContent).toContain("OpenAI-compatible · local-model · Key in your system keychain");
+    // The address is behind the row's ?.
+    fireEvent.click(within(section).getByRole("button", { name: "About Local server" }));
+    expect(within(section).getByRole("status").textContent).toBe("Address: http://local-server:8000/v1");
+    fireEvent.click(within(section).getByRole("button", { name: "About Local server" }));
 
     fireEvent.click(within(section).getByRole("button", { name: "Add a provider" }));
     const form = within(section).getByRole("form", { name: "New AI provider" });
@@ -53,7 +57,7 @@ describe("Settings → AI providers", () => {
 
     expect(chat.saved).toEqual([{ provider: { name: "Claude", kind: "anthropic", baseUrl: "https://api.anthropic.com", model: "model-small" }, key: SECRET }]);
     expect(within(section).queryByRole("form")).toBeNull();
-    expect(section.textContent).toContain("Anthropic · model-small · https://api.anthropic.com · Key in your system keychain");
+    expect(section.textContent).toContain("Anthropic · model-small · Key in your system keychain");
     expect(document.body.innerHTML).not.toContain(SECRET);
   });
 

@@ -7,6 +7,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Rea
 import { createPortal } from "react-dom";
 
 import { motionMs } from "../../../../lib/motion";
+import { boxOf } from "../../../browser/bounds";
+import { useOccludes } from "../../../browser/occlusion";
 import type { BoardNode } from "../../../../lib/vault/types";
 import { linkFor } from "../../../workspace/links";
 import { titleOf } from "../../../workspace/names";
@@ -14,6 +16,7 @@ import { noteAt } from "../../../workspace/tree";
 import { useBoard, useBoardState } from "../context";
 import { layout, removeFromBoard, restyleEdge, setCardSize, setColor, toggleFold, wrapInSection } from "../state/gestures";
 import { copySelection, duplicateSelection, hasCopied, pasteCopied } from "../state/clipboard";
+import { setFocus } from "../state/focus";
 import { addSection, addSticky, newCard, openFile } from "../state/making";
 import { present } from "../state/present";
 import { select, type Menu } from "../state/store";
@@ -121,6 +124,8 @@ export function ContextMenu(view: ViewActions) {
   // The keys go to the menu while it is open, and back where they were
   // when it closes, unless what was chosen took them somewhere.
   const open = Boolean(menu);
+  // Over a browser tab's page it would be hidden behind it.
+  useOccludes(open, () => (panel.current ? boxOf(panel.current.getBoundingClientRect()) : null));
   useEffect(() => {
     if (!open) return;
     const before = document.activeElement as HTMLElement | null;
@@ -172,6 +177,8 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
   const flow = useReactFlow();
   const [confirm, setConfirm] = useState<{ path: string; title: string } | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  // The colours show only once asked for, here as in the bar over a selection.
+  const [colourOpen, setColourOpen] = useState(false);
   const run = (action: () => unknown) => () => {
     close();
     void action();
@@ -195,6 +202,7 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
         <Item label={view.minimap ? "Hide the minimap" : "Show the minimap"} hint="M" onSelect={run(view.onMinimap)} />
         <Item label="Present" hint="P" onSelect={run(() => present(board))} />
         <Item label="Find on this board" hint="Ctrl+F" onSelect={run(view.onFind)} />
+        <Item label="Focus mode" hint="\" onSelect={run(() => setFocus(board, true))} />
         <Item label="Board keys" hint="?" onSelect={run(view.onHelp)} />
       </>
     );
@@ -208,9 +216,12 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
         <Item label="Edit label" hint="Double-click" onSelect={run(() => board.store.setState({ editing: edge.id }))} />
         <Item label={edge.fromEnd === "arrow" ? "No arrow at the start" : "Arrow at the start"} onSelect={run(() => restyleEdge(board, edge.id, { fromEnd: edge.fromEnd === "arrow" ? "" : "arrow" }))} />
         <Item label={(edge.toEnd ?? "arrow") === "arrow" ? "No arrow at the end" : "Arrow at the end"} onSelect={run(() => restyleEdge(board, edge.id, { toEnd: (edge.toEnd ?? "arrow") === "arrow" ? "none" : "" }))} />
-        <div className="kasten-board-menu-swatches">
-          <ColorSwatches value={edge.color ?? null} onPick={(color) => run(() => restyleEdge(board, edge.id, { color: color ?? "" }))()} />
-        </div>
+        <Item label={colourOpen ? "Hide colours" : "Colour…"} onSelect={() => setColourOpen((o) => !o)} />
+        {colourOpen && (
+          <div className="kasten-board-menu-swatches">
+            <ColorSwatches value={edge.color ?? null} onPick={(color) => run(() => restyleEdge(board, edge.id, { color: color ?? "" }))()} />
+          </div>
+        )}
         <Divider />
         <Item label="Delete connection" hint="Del" danger onSelect={run(() => removeFromBoard(board, [], [edge.id]))} />
       </>
@@ -254,6 +265,7 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
         />
       )}
       {single?.file?.endsWith(".canvas") && !single.missing && <Item label="Open this board" hint="Double-click" onSelect={run(() => board.deps.enter(single.file!))} />}
+      {single?.kind === "file" && single.file?.endsWith(".drawio") && !single.missing && <Item label="Edit diagram" hint="Double-click" onSelect={run(() => openFile(board, single.file!, "here"))} />}
       {single && ((single.kind === "text" && !single.draw) || single.kind === "group" || single.kind === "link") && <Item label={single.kind === "group" ? "Rename section" : "Edit"} hint="Enter" onSelect={run(() => board.store.setState({ editing: single.id }))} />}
       {cards.length > 0 && (
         <>
@@ -264,9 +276,12 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
         </>
       )}
       <Divider />
-      <div className="kasten-board-menu-swatches">
-        <ColorSwatches value={nodes.length === 1 ? (nodes[0]!.color ?? null) : null} onPick={(color) => run(() => setColor(board, target.ids, color))()} />
-      </div>
+      <Item label={colourOpen ? "Hide colours" : "Colour…"} hint="1–9" onSelect={() => setColourOpen((o) => !o)} />
+      {colourOpen && (
+        <div className="kasten-board-menu-swatches">
+          <ColorSwatches value={nodes.length === 1 ? (nodes[0]!.color ?? null) : null} onPick={(color) => run(() => setColor(board, target.ids, color))()} />
+        </div>
+      )}
       <Item label="Wrap in a section" hint="G" onSelect={run(() => wrapInSection(board, target.ids))} />
       <Item
         label="Duplicate"

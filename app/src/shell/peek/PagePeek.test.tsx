@@ -89,4 +89,30 @@ describe("page peeks", () => {
     await act(async () => fireEvent.mouseUp(window, { button: 4 }));
     expect(useWorkspace.getState().place.path).toBe("library/plan.md");
   });
+
+  it("opens a deck as a full tab, never in a peek", async () => {
+    await shell();
+    await act(async () => useWorkspace.getState().openPath("talks/pitch.deck", "peek"));
+    expect(usePeek.getState().peek).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Page peek" })).toBeNull();
+    expect(useWorkspace.getState().place).toEqual({ view: "slides", path: "talks/pitch.deck" });
+    await act(async () => useWorkspace.getState().openPath("talks/other.deck", "peek-side"));
+    expect(usePeek.getState().peek).toBeNull();
+    expect(useWorkspace.getState().place).toEqual({ view: "slides", path: "talks/other.deck" });
+  });
+
+  it("sends a peek that was asked for a deck some other way to a tab, without drawing the page editor", async () => {
+    await shell();
+    await act(async () => usePeek.getState().open("talks/late.deck", "side"));
+    expect(usePeek.getState().peek).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Page peek" })).toBeNull();
+    expect(useWorkspace.getState().place).toEqual({ view: "slides", path: "talks/late.deck" });
+  });
+
+  it("opens a page in the side peek from the page menu", async () => {
+    await shell();
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Page options" })));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: /^Open in side peek/ })));
+    expect(usePeek.getState().peek).toEqual({ path: "library/notes.md", mode: "side" });
+  });
 });

@@ -14,7 +14,7 @@ export function NoProvider({ problem }: { problem: string | null }) {
         <Icon name="chat" className="size-6" />
       </span>
       <h2>{problem ? "The AI providers could not be read" : "Chat needs an AI provider"}</h2>
-      <p>{problem ?? "Add the Anthropic API, or any OpenAI-compatible server such as a local vLLM server. Keys stay in your system keychain, never in the vault."}</p>
+      <p>{problem ?? "Add the Anthropic API, any OpenAI-compatible server such as a local vLLM server, or sign in with ChatGPT to use your plan. Keys stay in your system keychain, never in the vault."}</p>
       <button type="button" className="kasten-chat-primary" onClick={() => openProviders("here")}>
         Set up in Settings → AI providers
       </button>

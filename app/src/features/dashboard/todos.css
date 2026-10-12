@@ -92,4 +92,40 @@
   display: flex;
   gap: 14px;
 }
+.kasten-todo-time {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  line-height: 19px;
+}
+
+/* Today's list: events and to-dos in one column, as the day runs. */
+.kasten-today-list {
+  margin: 0 -4px;
+  list-style: none;
+}
+.kasten-today-list > li > .kasten-dash-row {
+  padding: 0 4px;
+}
+
+/* Lines that hold a list's place while it is read. */
+.kasten-todo-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0 6px;
+}
+.kasten-todo-bone {
+  height: 10px;
+  width: 72%;
+  border-radius: var(--radius-sm);
+  background: var(--color-well);
+}
+.kasten-todo-bone:nth-child(2) {
+  width: 52%;
+}
+.kasten-todo-bone:nth-child(3) {
+  width: 62%;
+}
 

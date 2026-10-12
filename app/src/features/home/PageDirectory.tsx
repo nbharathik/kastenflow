@@ -8,7 +8,7 @@ import type { NoteMeta } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
 import { DashCard } from "../dashboard/DashCard";
-import { NoteRow } from "../dashboard/NoteTiles";
+import { NoteRow } from "../dashboard/NoteRow";
 import { iconOf, titleOf } from "../workspace/names";
 import { useProjectLists } from "../workspace/project-actions";
 import { howFrom, useWorkspace } from "../workspace/store";

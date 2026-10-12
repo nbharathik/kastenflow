@@ -65,8 +65,12 @@ export function opWords(op: AgentOp): string {
     case "trash":
     case "trash_note": {
       const path = String(op.path ?? "");
-      return path.endsWith(".canvas") ? "Move board to trash" : path.endsWith(".deck") ? "Move deck to trash" : "Move to trash";
+      return path.endsWith(".canvas") ? "Move board to trash" : path.endsWith(".deck") ? "Move deck to trash" : path.endsWith(".drawio") ? "Move diagram to trash" : "Move to trash";
     }
+    case "create_diagram":
+      return `Create the diagram ${quote(op.title)}`;
+    case "update_diagram":
+      return "Rewrite the diagram";
     case "edit_deck":
       return sentence(String(op.summary ?? "")) || "Change the deck";
     case "create_deck":

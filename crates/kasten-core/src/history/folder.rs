@@ -33,7 +33,7 @@ pub(super) fn has_git_folder(root: &Path) -> Result<bool> {
     crate::local_paths::check_tree(&resolved.join(".git"))?;
     let refuse = |what: &str| {
         Err(Error::Invalid(format!(
-            ".git in this vault is {what}. Kasten keeps history only in a plain .git folder inside the vault"
+            ".git in this vault is {what}. KastenFlow keeps history only in a plain .git folder inside the vault"
         )))
     };
     match std::fs::symlink_metadata(root.join(".git")) {
@@ -61,7 +61,7 @@ pub(super) fn stays_inside(repo: &Repository, root: &Path) -> Result<()> {
         return Ok(());
     }
     Err(Error::Invalid(
-        ".git in this vault works with files or a repository somewhere else. Kasten keeps history only in a plain .git folder inside the vault".into(),
+        ".git in this vault works with files or a repository somewhere else. KastenFlow keeps history only in a plain .git folder inside the vault".into(),
     ))
 }
 

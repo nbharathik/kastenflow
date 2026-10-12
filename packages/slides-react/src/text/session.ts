@@ -2,13 +2,19 @@
 // its host, namely which events end editing, and where focus is allowed to go
 // before that happens.
 
-import type { Insets, Text, Theme, VAlign } from "@kasten-slides/wasm";
+import type { Insets, ListKind, Text, Theme, VAlign } from "@kasten-slides/wasm";
 import { AllSelection, Selection, TextSelection } from "prosemirror-state";
-
 
 import { type EditorHooks, type MountedEditor, mountEditor } from "./editor.ts";
 import type { FormatState } from "./format-state.ts";
-import { wholeText } from "./selection-info.ts";
+import { type TextPrefs, textPrefs } from "./prefs.ts";
+import { wholeText, wordAt } from "./selection-info.ts";
+
+/** Where the caret goes when editing starts with a press of the pointer: the place in the window, and whether the word there is selected too (a double click). */
+export interface CaretAt {
+  at: { x: number; y: number };
+  select?: "word";
+}
 
 /** What the host wants to hear of, always the newest of each. */
 export interface SessionCallbacks {
@@ -27,8 +33,14 @@ export interface SessionInput {
   height: number;
   insets: Insets | undefined;
   valign: VAlign | undefined;
+  /** How much the type is set smaller to fit the box (1 is not at all). */
+  scale?: number | undefined;
+  /** The list that words typed into an empty box are made items of. */
+  defaultList?: ListKind | null | undefined;
   /** Where the caret goes at the start. Without it focus is left alone. */
-  autoFocus?: "start" | "end" | "all" | undefined;
+  autoFocus?: "start" | "end" | "all" | CaretAt | undefined;
+  /** What is corrected as words are typed. */
+  prefs?(): TextPrefs | undefined;
   /** Asked each time, so a callback the host changed is the one called. */
   callbacks(): SessionCallbacks;
   /** Told of each new text, so the host's copy of it is the newest. */
@@ -44,11 +56,22 @@ export interface Session {
 /** Whether focus is going to something that is part of the toolbar, marked `data-ks-keep-focus`. */
 export const keepsFocus = (target: EventTarget | null): boolean => target instanceof Element && target.closest("[data-ks-keep-focus]") !== null;
 
-/** Puts the caret at the start or the end, or selects everything, and takes focus. */
-export function place(editor: MountedEditor, where: "start" | "end" | "all"): void {
+/** Puts the caret at the start or the end, or selects everything, or puts the caret where the pointer pressed, and takes focus. */
+export function place(editor: MountedEditor, where: "start" | "end" | "all" | CaretAt): void {
   const { view } = editor;
   const { doc } = view.state;
-  view.dispatch(view.state.tr.setSelection(where === "start" ? Selection.atStart(doc) : where === "end" ? Selection.atEnd(doc) : wholeText(view.state)));
+  if (typeof where === "string") {
+    view.dispatch(view.state.tr.setSelection(where === "start" ? Selection.atStart(doc) : where === "end" ? Selection.atEnd(doc) : wholeText(view.state)));
+  } else {
+    const found = view.posAtCoords({ left: where.at.x, top: where.at.y });
+    // A press outside the words (in the room under them, say) puts the caret at the end, as the editor would for the key.
+    let selection: Selection = Selection.atEnd(doc);
+    if (found) {
+      const word = where.select === "word" ? wordAt(view.state, found.pos) : null;
+      selection = word ? TextSelection.create(doc, word.from, word.to) : Selection.near(doc.resolve(found.pos));
+    }
+    view.dispatch(view.state.tr.setSelection(selection));
+  }
   view.focus();
 }
 
@@ -75,6 +98,7 @@ export function startSession(input: SessionInput): Session {
     input.callbacks().onDone?.(mounted.getText(), reason);
   };
   const hooks: EditorHooks = {
+    ...(input.prefs ? { prefs: () => input.prefs?.() ?? textPrefs() } : {}),
     change(text) {
       input.changed(text);
       input.callbacks().onChange?.(text);
@@ -88,7 +112,7 @@ export function startSession(input: SessionInput): Session {
     },
   };
 
-  const editor = mountEditor(input.element, { theme: input.theme, baseStyle: input.baseStyle, text: input.text, width: input.width, height: input.height, insets: input.insets, valign: input.valign, hooks });
+  const editor = mountEditor(input.element, { theme: input.theme, baseStyle: input.baseStyle, text: input.text, width: input.width, height: input.height, insets: input.insets, valign: input.valign, scale: input.scale, defaultList: input.defaultList ?? null, hooks });
   mounted = editor;
   // Coming back to the editor makes it ready to end again.
   editor.view.dom.addEventListener("focus", () => {

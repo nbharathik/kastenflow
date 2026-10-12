@@ -12,8 +12,8 @@ import type { Theme } from "@kasten-slides/wasm";
 import { type Mark, type MarkSpec, type Node as PMNode, type NodeSpec, Schema } from "prosemirror-model";
 
 import { cssText } from "./css.ts";
-import { MARK_ATTR, MARK_ORDER, type MarkInput, type MarkName, wrapOf } from "./marks.ts";
-import { type ParagraphAttrs, paragraphOfAttrs, readAttrs } from "./paragraph-attrs.ts";
+import { MARK_ATTR, MARK_ORDER, type MarkInput, type MarkName, NUMBER_MARKS, wrapOf } from "./marks.ts";
+import { NO_ATTRS, type ParagraphAttrs, paragraphOfAttrs, readAttrs } from "./paragraph-attrs.ts";
 import { paragraphBlockCss } from "./text-style.ts";
 
 export type TextSchema = Schema<"doc" | "paragraph" | "text", MarkName>;
@@ -21,7 +21,7 @@ export type TextSchema = Schema<"doc" | "paragraph" | "text", MarkName>;
 /** The attributes of a paragraph node, checked. */
 export const attrsOf = (node: PMNode): ParagraphAttrs => readAttrs(node.attrs);
 
-const paragraphAttrSpec = { align: { default: null }, list: { default: null }, level: { default: null }, style: { default: null }, spaceBefore: { default: null }, spaceAfter: { default: null }, lineSpacing: { default: null }, step: { default: null }, extra: { default: null } };
+const paragraphAttrSpec = Object.fromEntries([...Object.keys(NO_ATTRS)].map((key) => [key, { default: null }]));
 
 /** The `data-ks-p` text of a paragraph: its settings that are set. */
 function encodeAttrs(attrs: ParagraphAttrs): string {
@@ -43,7 +43,7 @@ const isValued = (name: MarkName): name is keyof typeof MARK_ATTR => name in MAR
 
 /** The mark as the input the drawing functions take. */
 function inputOf(name: MarkName, mark: Mark): MarkInput {
-  if (name === "size") return { name, value: typeof mark.attrs.value === "number" ? mark.attrs.value : 0 };
+  if (name === "size" || name === "spacing") return { name, value: typeof mark.attrs.value === "number" ? mark.attrs.value : 0 };
   if (isValued(name)) {
     const value: unknown = mark.attrs[MARK_ATTR[name]];
     return { name, value: typeof value === "string" ? value : "" };
@@ -66,10 +66,11 @@ export function markDom(theme: Theme, input: MarkInput): [tag: string, attrs: Re
 function markAttrs(name: MarkName, dom: HTMLElement): Record<string, unknown> | null | false {
   if (!isValued(name)) return null;
   const value = dom.getAttribute("data-v");
-  if (name === "size") {
+  if (NUMBER_MARKS.has(name)) {
     const size = Number(value);
-    return value !== null && Number.isFinite(size) && size > 0 ? { value: size } : false;
+    return value !== null && Number.isFinite(size) && (name === "spacing" ? size !== 0 : size > 0) ? { value: size } : false;
   }
+  if (name === "script") return value === "super" || value === "sub" ? { value } : false;
   return value ? { [MARK_ATTR[name]]: value } : false;
 }
 
@@ -79,7 +80,7 @@ function markSpec(theme: Theme, name: MarkName): MarkSpec {
     toDOM: (mark) => markDom(theme, inputOf(name, mark)),
     parseDOM: [{ tag: `${tag}[data-ks="${name}"]`, getAttrs: (dom) => (typeof dom === "string" ? false : markAttrs(name, dom)) }],
   };
-  if (isValued(name)) definition.attrs = { [MARK_ATTR[name]]: { default: name === "size" ? 0 : "" } };
+  if (isValued(name)) definition.attrs = { [MARK_ATTR[name]]: { default: NUMBER_MARKS.has(name) ? 0 : "" } };
   // Text typed after a link or a field is not part of it.
   if (name === "link" || name === "field") definition.inclusive = false;
   return definition;
@@ -95,7 +96,8 @@ export function createTextSchema(theme: Theme, baseStyle: string): TextSchema {
       whitespace: "pre",
       attrs: paragraphAttrSpec,
       toDOM: (node) => {
-        const attrs = attrsOf(node);
+        // The mark of a paragraph that has words is not written: the words say it.
+        const attrs = node.content.size > 0 ? { ...attrsOf(node), mark: null } : attrsOf(node);
         return ["div", { class: "ks-p", style: cssText(paragraphBlockCss(theme, baseStyle, paragraphOfAttrs(attrs))), "data-ks-p": encodeAttrs(attrs) }, 0];
       },
       parseDOM: [{ tag: "div[data-ks-p]", preserveWhitespace: "full", getAttrs: (dom) => (typeof dom === "string" ? false : decodeAttrs(dom.getAttribute("data-ks-p"))) }],

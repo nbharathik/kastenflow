@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { secureDemoPage } from "./build-site.mjs";
+import { includePartials, secureDemoPage } from "./build-site.mjs";
+
+test("a partial can include other partials, and each is put in place trimmed", () => {
+  const files = { "a.html": "<a><!-- include b.html --></a>\n", "b.html": "<b><!-- include c.html --></b>\n\n", "c.html": "<c></c>\n" };
+  assert.equal(includePartials("<main><!-- include a.html --><!-- include c.html --></main>", (file) => files[file]), "<main><a><b><c></c></b></a><c></c></main>");
+});
+
+test("partials that include each other are refused instead of looping", () => {
+  assert.throws(() => includePartials("<!-- include a.html -->", () => "<!-- include a.html -->"), /too deeply/);
+});
 
 test("the browser demo allows its WebAssembly engine without enabling JavaScript eval", () => {
   const page = secureDemoPage('<html><head><script type="module" src="./assets/main.js"></script></head><body></body></html>');

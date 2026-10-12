@@ -325,7 +325,7 @@ fn parts(kasten: &Kasten, session: &Session, chip: &ContextChip) -> Vec<Part> {
             vec![Part {
                 name: chip.label.clone(),
                 open: format!("<{kind}>"),
-                body: "(Kasten cannot read this kind of context.)".to_owned(),
+                body: "(KastenFlow cannot read this kind of context.)".to_owned(),
                 close: format!("</{kind}>"),
             }]
         }

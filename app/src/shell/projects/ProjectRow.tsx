@@ -8,6 +8,7 @@ import type { NoteMeta } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
 import { DROP_INTO } from "../drop-into";
 import { TreeRow, type RowExtras } from "../PageTree";
+import { PinMark } from "../PinMark";
 
 /** What a row asks of its list; the same object for the list's life. */
 export interface ListActions {
@@ -68,13 +69,3 @@ export const ProjectRow = memo(function ProjectRow({ note, index, pinned, up, do
   );
   return <TreeRow note={note} extras={extras} />;
 });
-
-/** A quiet pin at the end of a pinned project's row; the row's buttons
- * take its place on hover. */
-function PinMark() {
-  return (
-    <span role="img" aria-label="Pinned" title="Pinned" className="grid size-5 shrink-0 place-items-center text-muted/70 group-focus-within:hidden group-hover:hidden">
-      <Icon name="pin" className="size-3.5 rotate-45" />
-    </span>
-  );
-}

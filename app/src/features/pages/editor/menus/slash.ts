@@ -12,9 +12,12 @@ import type { Rect } from "../ui/dom";
 import { Popover, type MenuSection } from "../ui/popover";
 import { filesOf } from "../files";
 import { insertFiles, pickFiles } from "../paste-files";
+import { smartPage } from "../sections/smart-page";
 import { onlySlash, templatePickerOf } from "../template-pick";
 import { colorBlocks, insertBlock } from "./block-ops";
 import { matchChoices, SLASH_CHOICES, type Choice } from "./catalog";
+import { startDeckPick } from "./deck-pick";
+import { startDiagramPick } from "./diagram-pick";
 import { startLink } from "./mention";
 import { turnInto } from "./transform";
 
@@ -96,6 +99,19 @@ export function choiceCommand(choice: Choice, ctx: Ctx): Command {
       const pick = templatePickerOf(ctx);
       pick?.();
       return Boolean(pick);
+    };
+  }
+  if (action.type === "smart") return smartPage(ctx);
+  if (action.type === "deck") {
+    return (state, _dispatch, view) => {
+      if (view) startDeckPick(view, ctx, state.selection.from);
+      return Boolean(view);
+    };
+  }
+  if (action.type === "diagram") {
+    return (state, _dispatch, view) => {
+      if (view) startDiagramPick(view, ctx, state.selection.from);
+      return Boolean(view);
     };
   }
   if (action.type === "link") {

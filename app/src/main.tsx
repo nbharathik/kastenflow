@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import "./features/workspace/preview/fresh-start";
 import { usePrefs } from "./features/workspace/prefs";
 import { applyMotion, watchSystemMotion } from "./lib/motion";
-import { applyZoom, zoomLevel } from "./lib/zoom";
+import { startZoom } from "./lib/zoom";
 import { applyAccent, applyTheme, watchSystemTheme } from "./features/workspace/theme";
 import { AppShell } from "./shell/AppShell";
 import { watchProblems } from "./shell/problems";
@@ -20,7 +20,8 @@ applyAccent(usePrefs.getState().accent);
 watchSystemTheme(() => usePrefs.getState().theme);
 applyMotion(usePrefs.getState().motion);
 watchSystemMotion(() => usePrefs.getState().motion);
-if (zoomLevel() !== 1) void applyZoom(zoomLevel()).catch(() => {});
+// The level of this display (the last one shown, until the display is known); the presenter's window has no zoom of its own.
+if (!new URLSearchParams(location.search).has("presenter")) startZoom();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("index.html is missing #root");

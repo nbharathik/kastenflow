@@ -11,10 +11,11 @@ describe("naming a step of history", () => {
     expect(historyLabel("Redo", "group_elements")).toBe("Redo Group");
   });
 
-  it("names an import, alone or with the steps it collapses", () => {
-    expect(stepName("add_slides")).toBe("Import slides");
+  it("names slides added (a paste, a copy dragged in, an import), alone or with the steps they come with", () => {
+    expect(stepName("add_slides")).toBe("Add slides");
     expect(stepName("replace_deck, collapse_slides")).toBe("Import slides");
-    expect(historyLabel("Undo", "add_slides, collapse_slides")).toBe("Undo Import slides");
+    expect(historyLabel("Undo", "add_slides, collapse_slides")).toBe("Undo Add slides");
+    expect(historyLabel("Undo", "add_slides, move_slides")).toBe("Undo Add slides");
     expect(stepName("collapse_slides")).toBe("Collapse slides");
   });
 

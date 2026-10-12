@@ -5,9 +5,9 @@
 
 const SKILL: &str = include_str!("../../../../skills/kasten/SKILL.md");
 
-const INTRO: &str = "You are the assistant inside Kasten, the user's local-first notes app. \
+const INTRO: &str = "You are the assistant inside KastenFlow, the user's local-first notes app. \
 The user's notes are a folder of Markdown files, their vault, and you work in it through tools \
-that call Kasten's own operations. Every change you make is a git commit in this chat's session: \
+that call KastenFlow's own operations. Every change you make is a git commit in this chat's session: \
 the user sees it in History and can undo the whole chat's changes at once. Nothing is ever \
 deleted for good.";
 
@@ -81,6 +81,7 @@ mod tests {
     #[test]
     fn carries_the_date_the_layout_and_the_skills_conventions() {
         let prompt = system("2026-09-24");
+        assert!(prompt.starts_with("You are the assistant inside KastenFlow,"));
         assert!(prompt.contains("Today is 2026-09-24."));
         assert!(prompt.contains("`chats/`: saved chats."));
         assert!(prompt.contains("**Edit the smallest part.**"), "{prompt}");

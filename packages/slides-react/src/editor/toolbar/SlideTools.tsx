@@ -1,46 +1,54 @@
-import { builtInThemes } from "@kasten-slides/wasm";
 import type { JSX } from "react";
 
-import { SEPARATOR, commandItem, plainItem } from "../menus/build.ts";
+import { useUiValue } from "../chrome/useUiValue.ts";
+import { SEPARATOR, commandItem } from "../menus/build.ts";
+import { layoutItems } from "../menus/items-layout.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
-import type { MenuItem } from "../ui/Menu.tsx";
-import { useEditor } from "../useEditor.ts";
+import { useEditorValue } from "../useEditor.ts";
+import { Group } from "./Group.tsx";
 import { CommandButton, MenuButton } from "./ToolButton.tsx";
 
-const FALLBACK_THEMES = ["Light", "Dark", "Serif", "Lecture"];
-
-/** The themes that come with the editor. */
-function themeNames(): string[] {
-  try {
-    return builtInThemes();
-  } catch {
-    // The engine is not loaded (it always is once a deck is open).
-    return FALLBACK_THEMES;
-  }
-}
-
-/** The slide's background, its layout, the deck's theme and the transition into the slide. */
+/**
+ * The slide's own settings, in the row when nothing is selected: its background, its layout (a list of them), the theme and the
+ * transition, which each open the panel for them beside the slide.
+ */
 export function SlideTools({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
-  const state = useEditor(session);
+  // The layout of the slide shown is all the list follows (it is built when it opens).
+  useEditorValue(session, (state) => state.deck.slides.find((slide) => slide.id === state.slideId)?.layout ?? "");
+  useEditorValue(session, (state) => state.deck.theme);
+  const themes = useUiValue(ui, (state) => state.panel === "themes");
+  const motion = useUiValue(ui, (state) => state.panel === "transitions");
   const ctx = { session, ui };
-  const layout = session.slide.layout;
-
-  const layouts = (): MenuItem[] =>
-    state.deck.theme.layouts.map((l) => plainItem(`layout-${l.name}`, l.label, () => session.slides.setLayout(l.name), { checked: l.name === layout }));
-
-  const themes = (): MenuItem[] => [
-    ...themeNames().map((name) => plainItem(`theme-${name}`, name, () => session.slides.applyTheme(name), { checked: name === state.deck.theme.name })),
-    SEPARATOR,
-    commandItem("slide.theme", ctx),
-  ];
-
+  // The layout designer draws a layout, not a slide of the deck: it has its background and nothing else of the slide's own.
+  if (ui.designing) {
+    return (
+      <Group id="slide">
+        <CommandButton id="slide.background" ctx={ctx} label="Background" icon="image" text="Background" />
+      </Group>
+    );
+  }
   return (
-    <div className="ks-tb-slide">
+    <Group id="slide">
       <CommandButton id="slide.background" ctx={ctx} label="Background" icon="image" text="Background" />
-      <MenuButton ui={ui} label="Layout" icon="layout-template" text="Layout" items={layouts} />
-      <MenuButton ui={ui} label="Theme" icon="palette" text="Theme" items={themes} />
-      <CommandButton id="slide.transition" ctx={ctx} label="Transition" text="Transition" />
-    </div>
+      {/* The deck's own layouts: the list has them first, with their thumbnails; saving one, changing the one in use and managing them are at its end. */}
+      <MenuButton
+        ui={ui}
+        label="Layout"
+        icon="layout-template"
+        text="Layout"
+        items={() => [
+          ...layoutItems(ctx),
+          SEPARATOR,
+          commandItem("slide.layout", ctx),
+          commandItem("slide.save-as-layout", ctx),
+          commandItem("layout.edit", ctx),
+          commandItem("slide.reset-layout", ctx),
+          commandItem("layout.manage", ctx),
+        ]}
+      />
+      <CommandButton id="view.themes-panel" ctx={ctx} label="Theme" icon="palette" text="Theme" on={themes} />
+      <CommandButton id="view.motion-panel" ctx={ctx} label="Transition" icon="film" text="Transition" on={motion} />
+    </Group>
   );
 }

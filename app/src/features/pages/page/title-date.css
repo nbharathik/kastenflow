@@ -1,0 +1,63 @@
+/* The date chip beside a page's title (title-date.ts). The title row stays a
+   plain block until the page has a date, so the title field is never remade. */
+.kasten-page-title-row.has-date {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  & .kasten-page-title {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+/* A box as tall as the title's first line, so the chip sits in the middle of it. */
+.kasten-page-date-slot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-top: 3px;
+  font-size: 2.5em;
+  line-height: 1.2;
+}
+
+@container pane (max-width: 760px) {
+  .kasten-page-date-slot {
+    font-size: var(--text-28);
+  }
+}
+
+@container pane (max-width: 480px) {
+  .kasten-page-date-slot {
+    font-size: var(--text-24);
+  }
+}
+
+.kasten-page-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border-radius: var(--radius-lg);
+  background: var(--notion-hover);
+  color: var(--notion-text-2);
+  font-size: var(--text-14);
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+
+  & button {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius);
+    color: var(--notion-text-3);
+
+    &:hover {
+      background: var(--notion-line-soft);
+      color: var(--notion-text);
+    }
+  }
+}

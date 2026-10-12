@@ -24,6 +24,7 @@ const host: CaptureHost = {
   client: tauriVault("Quick capture"),
   hide: () => void invoke("capture_hide").catch(() => {}),
   done: (captured) => void invoke("capture_done", { captured }).catch(() => {}),
+  resize: (height) => void invoke("capture_resize", { height }).catch(() => {}),
   onOpen: (then) => {
     // The main window may have changed the theme meanwhile.
     const stop = listen("kasten://capture-open", () => {

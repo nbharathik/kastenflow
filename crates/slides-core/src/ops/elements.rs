@@ -9,13 +9,15 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use super::composites::follow_content;
-use super::geometry::{pin, refit, remap, reroute, seat_connectors, set_rect};
+use super::geometry::{
+    outer_group, pin, refit, remap, reroute, seat_connectors, set_rect, settle_groups,
+};
 use super::util::{
     assign_ids, collect_ids, element_mut, ids_on, merge_patch, parent_list, path_of, remove_element,
 };
 use super::{Cx, Op, Scope, op_types};
 use crate::error::{Error, Result};
-use crate::model::{Deck, Element, Style, Text, is_color};
+use crate::model::{Deck, Element, Paragraph, Style, Text, is_color};
 use crate::resolve::{Rect, box_in};
 
 fn color_ok(c: &str) -> std::result::Result<(), String> {
@@ -53,18 +55,56 @@ fn check_style(s: &Style) -> std::result::Result<(), String> {
     unit(s.opacity, "opacity")
 }
 
-fn check_text(t: &Text) -> std::result::Result<(), String> {
-    for p in &t.paragraphs {
-        for r in &p.runs {
-            if let Some(c) = &r.color {
-                color_ok(c)?;
-            }
-            if r.size.is_some_and(|s| s <= 0.0) {
-                return Err("a run's size is above 0 points".to_owned());
-            }
+/// The farthest a paragraph may be moved in from its box's edge, in slide units.
+const MOST_INDENT: f64 = 5000.0;
+
+/// Whether a paragraph and its runs follow the format's rules.
+pub(super) fn check_paragraph(p: &Paragraph) -> std::result::Result<(), String> {
+    for r in &p.runs {
+        if let Some(c) = &r.color {
+            color_ok(c)?;
+        }
+        if r.size.is_some_and(|s| s <= 0.0) {
+            return Err("a run's size is above 0 points".to_owned());
+        }
+        if r.spacing
+            .is_some_and(|s| !s.is_finite() || s.abs() > 1000.0)
+        {
+            return Err(
+                "the space between letters is a number of points, between -1000 and 1000"
+                    .to_owned(),
+            );
         }
     }
+    if let Some(c) = &p.bullet_color {
+        color_ok(c)?;
+    }
+    if p.bullet_size
+        .is_some_and(|s| !s.is_finite() || !(0.25..=4.0).contains(&s))
+    {
+        return Err(
+            "a marker's size is a multiple of the words' size, from 0.25 to 4 (25% to 400%)"
+                .to_owned(),
+        );
+    }
+    if p.start.is_some_and(|n| n > 99_999) {
+        return Err("a numbered item cannot start at a number above 99999".to_owned());
+    }
+    for (name, v) in [("marginLeft", p.margin_left), ("indent", p.indent)] {
+        if v.is_some_and(|v| !v.is_finite() || v.abs() > MOST_INDENT) {
+            return Err(format!(
+                "`{name}` is a number of slide units, within {MOST_INDENT} of the edge"
+            ));
+        }
+    }
+    if p.margin_left.is_some_and(|v| v < 0.0) {
+        return Err("`marginLeft` cannot be negative".to_owned());
+    }
     Ok(())
+}
+
+fn check_text(t: &Text) -> std::result::Result<(), String> {
+    t.paragraphs.iter().try_for_each(check_paragraph)
 }
 
 /// Whether an element, and what it holds, follows the format's rules.
@@ -191,6 +231,12 @@ impl Op for PatchElements {
             .find(|s| s.id == self.slide)
             .ok_or_else(|| Error::no_slide(&self.slide))?;
         let mut anchors_changed = false;
+        let mut moved = false;
+        let holders: HashSet<String> = self
+            .patches
+            .iter()
+            .filter_map(|p| outer_group(slide, &p.id))
+            .collect();
         for item in self.patches {
             let e = element_mut(slide, &item.id)?;
             let keys: Vec<&str> = item
@@ -216,6 +262,9 @@ impl Op for PatchElements {
                 ));
             }
             anchors_changed |= keys.iter().any(|k| matches!(*k, "from" | "to"));
+            moved |= keys
+                .iter()
+                .any(|k| matches!(*k, "x" | "y" | "w" | "h" | "rotation"));
             let mut value =
                 serde_json::to_value(&*e).map_err(|err| Error::bad_input(Self::NAME, err))?;
             merge_patch(&mut value, &item.patch);
@@ -223,6 +272,9 @@ impl Op for PatchElements {
                 serde_json::from_value(value).map_err(|err| Error::bad_input(Self::NAME, err))?;
             validate(&patched).map_err(|m| Error::bad_input(Self::NAME, m))?;
             *e = patched;
+        }
+        if moved {
+            settle_groups(slide, &holders);
         }
         if anchors_changed {
             reroute(theme, slide);
@@ -275,6 +327,12 @@ impl Op for TransformElements {
             .find(|s| s.id == self.slide)
             .ok_or_else(|| Error::no_slide(&self.slide))?;
         let layout = slide.layout.clone();
+        // An element inside a group changes the box of the group that holds it.
+        let holders: HashSet<String> = self
+            .items
+            .iter()
+            .filter_map(|t| outer_group(slide, &t.id))
+            .collect();
         for t in self.items {
             if t.w.is_some_and(|w| w < 0.0) || t.h.is_some_and(|h| h < 0.0) {
                 return Err(Error::bad_input(Self::NAME, "w and h cannot be negative"));
@@ -310,6 +368,7 @@ impl Op for TransformElements {
                 e.base_mut().flip_v = f;
             }
         }
+        settle_groups(slide, &holders);
         reroute(theme, slide);
         Ok(())
     }
@@ -333,6 +392,11 @@ impl Op for DeleteElements {
 
     fn run(self, cx: &mut Cx) -> Result<()> {
         let slide = super::util::slide_mut(cx.deck, &self.slide)?;
+        let holders: HashSet<String> = self
+            .ids
+            .iter()
+            .filter_map(|id| outer_group(slide, id))
+            .collect();
         for id in &self.ids {
             remove_element(&mut slide.elements, id)
                 .ok_or_else(|| Error::no_element(&self.slide, id))?;
@@ -348,6 +412,7 @@ impl Op for DeleteElements {
             }
         });
         drop_empty_groups(&mut slide.elements);
+        settle_groups(slide, &holders);
         Ok(())
     }
 }

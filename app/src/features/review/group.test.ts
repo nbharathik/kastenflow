@@ -111,6 +111,9 @@ describe("words", () => {
     expect(opWords({ kind: "trash", path: "a.md" })).toBe("Move to trash");
     expect(opWords({ kind: "trash", path: "boards/b.canvas" })).toBe("Move board to trash");
     expect(opWords({ kind: "trash", path: "library/talk.deck" })).toBe("Move deck to trash");
+    expect(opWords({ kind: "trash", path: "library/flow.drawio" })).toBe("Move diagram to trash");
+    expect(opWords({ kind: "create_diagram", title: "Login flow", xml: "" })).toBe("Create the diagram “Login flow”");
+    expect(opWords({ kind: "update_diagram", path: "library/flow.drawio", xml: "", base: "" })).toBe("Rewrite the diagram");
     expect(opWords({ kind: "edit_deck", path: "library/talk.deck", summary: "update elements (add diagram)" })).toBe("Update elements (add diagram)");
     expect(opWords({ kind: "edit_deck", path: "library/talk.deck", summary: "" })).toBe("Change the deck");
     expect(opWords({ kind: "create_deck", title: "Q3 review" })).toBe("Create the deck “Q3 review”");

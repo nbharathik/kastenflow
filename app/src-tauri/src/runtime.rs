@@ -11,6 +11,7 @@ use kasten_core::watch::{VaultWatcher, watch};
 use kasten_core::{Instant, Kasten};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::closing::MAIN;
 use crate::crash;
 
 /// Starts the watcher and the clock; the watcher stops when dropped.
@@ -25,14 +26,17 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
         });
         match indexed {
             Ok(()) => {
-                let _ = events.emit("vault-changed", &paths);
+                // To the main window only: the browser tab's webviews hear nothing.
+                let _ = events.emit_to(MAIN, "vault-changed", &paths);
             }
             Err(problem) => {
-                let _ = events.emit("vault-error", problem);
+                let _ = events.emit_to(MAIN, "vault-error", problem);
             }
         }
     })
-    .inspect_err(|err| eprintln!("Changes made outside Kasten will show after a restart: {err}"))
+    .inspect_err(|err| {
+        eprintln!("Changes made outside KastenFlow will show after a restart: {err}")
+    })
     .ok();
 
     let pushing = Arc::clone(&kasten);
@@ -44,7 +48,7 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
             if let Err(problem) =
                 crash::caught(|| kasten.untrack_local_files().map_err(|err| err.to_string()))
             {
-                let _ = clock.emit("vault-error", problem);
+                let _ = clock.emit_to(MAIN, "vault-error", problem);
             }
             loop {
                 std::thread::sleep(Duration::from_secs(5));
@@ -57,11 +61,11 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
                 });
                 match ticked {
                     Ok(tick) if tick.edits.is_some() || tick.external.is_some() || tick.pushed => {
-                        let _ = clock.emit("vault-committed", &tick);
+                        let _ = clock.emit_to(MAIN, "vault-committed", &tick);
                     }
                     Ok(_) => {}
                     Err(problem) => {
-                        let _ = clock.emit("vault-error", problem);
+                        let _ = clock.emit_to(MAIN, "vault-error", problem);
                     }
                 }
             }
@@ -99,11 +103,15 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
                                     crate::notify::Notice::BackupFileFailing,
                                 );
                             }
-                            let _ = backup.emit("vault-committed", kasten_core::Tick::default());
+                            let _ = backup.emit_to(
+                                MAIN,
+                                "vault-committed",
+                                kasten_core::Tick::default(),
+                            );
                         }
                         Ok(None) => {}
                         Err(problem) => {
-                            let _ = backup.emit("vault-error", problem);
+                            let _ = backup.emit_to(MAIN, "vault-error", problem);
                         }
                     }
                 }
@@ -126,12 +134,12 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
                             pushed: true,
                             ..Default::default()
                         };
-                        let _ = backup.emit("vault-committed", &tick);
+                        let _ = backup.emit_to(MAIN, "vault-committed", &tick);
                     }
                     // A failed push is in the backup status the window reads.
                     Ok(_) => {}
                     Err(problem) => {
-                        let _ = backup.emit("vault-error", problem);
+                        let _ = backup.emit_to(MAIN, "vault-error", problem);
                     }
                 }
             }

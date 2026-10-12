@@ -98,7 +98,7 @@ fn the_pictures_go_where_assets_says() {
 
 #[test]
 fn our_own_export_and_the_libreoffice_copy_import_without_a_warning() {
-    for name in ["exported.pptx", "libreoffice.pptx"] {
+    for name in ["exported.pptx", "exported-current.pptx", "libreoffice.pptx"] {
         let dir = folder(&format!("clean-{}", name.trim_end_matches(".pptx")));
         let deck = dir.join("talk.deck");
         let out = slides(&["import", &fixture(name), "-o", &deck.to_string_lossy()]);

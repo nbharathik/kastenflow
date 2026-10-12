@@ -8,8 +8,9 @@ import { create } from "zustand";
 import { relativeTime } from "../../lib/dates";
 import type { VaultClient, VaultStatus } from "../../lib/vault/types";
 import { boardFilesChanged } from "../boards/events";
-import { assetFilesChanged, bibFilesChanged, deckFilesChanged } from "../slides/events";
+import { assetFilesChanged, bibFilesChanged, deckFilesChanged, pageFilesChanged } from "../slides/events";
 import { useDecks } from "../slides/store";
+import { diagramFilesChanged, useDiagrams } from "../diagrams/store";
 import { sourceFilesChanged } from "../sources/events";
 import { useBoards } from "../boards/store";
 import { forgetSchemas } from "../panel/properties/schemas";
@@ -101,6 +102,7 @@ export function startLive(client: VaultClient): () => void {
   void useVaultStatus.getState().refresh();
   void useBoards.getState().load();
   void useDecks.getState().load();
+  void useDiagrams.getState().load();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let waiting = new Set<string>();
   const stop = client.watch?.({
@@ -108,8 +110,10 @@ export function startLive(client: VaultClient): () => void {
       filesChanged(paths);
       boardFilesChanged(paths);
       deckFilesChanged(paths);
+      diagramFilesChanged(paths);
       assetFilesChanged(paths);
       bibFilesChanged(paths);
+      pageFilesChanged(paths);
       sourceFilesChanged(paths);
       if (paths.some((p) => p.startsWith("tags/") && p.endsWith(".yaml"))) {
         forgetSchemas();

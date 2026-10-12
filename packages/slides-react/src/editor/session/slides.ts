@@ -1,12 +1,24 @@
 // Slide commands: what the filmstrip and the Slide menu do.
 
-import type { Background, Transition } from "@kasten-slides/wasm";
+import type { Background, Deck, Transition } from "@kasten-slides/wasm";
 
 import type { EditorSession } from "./session.ts";
 import type { EditorState } from "./types.ts";
 
 /** Layouts a new slide does not repeat: after a title slide comes a title and body. */
 const OPENING = new Set(["title", "section"]);
+
+/** The layout a new slide has when none is asked for: nothing on it, no boxes to fill or to delete. */
+export const BLANK = "blank";
+
+/**
+ * The layout of a slide with no boxes in a theme: `blank`, or failing that any layout without placeholders (a theme brought
+ * from another file may call it something else); undefined when the theme has none.
+ */
+export function blankLayoutOf(deck: Deck): string | undefined {
+  const { layouts } = deck.theme;
+  return (layouts.find((layout) => layout.name === BLANK) ?? layouts.find((layout) => layout.placeholders.length === 0))?.name;
+}
 
 /** What a new section is called until the person names it. */
 export const NEW_SECTION = "Untitled section";
@@ -24,11 +36,16 @@ export class SlideCommands {
     return [...this.s.state.slideSelection];
   }
 
-  /** Adds a slide after the current one on the same layout (a title and body after an opening layout), and shows it. */
-  add(options: { layout?: string; after?: string; backup?: boolean; content?: Record<string, string> } = {}): string | undefined {
+  /**
+   * Adds a slide after the current one, and shows it. It is blank unless a layout is named; `likeCurrent` has it on the layout
+   * of the slide shown instead (a title and body after an opening layout).
+   */
+  add(options: { layout?: string; after?: string; backup?: boolean; content?: Record<string, string>; likeCurrent?: boolean } = {}): string | undefined {
     const { deck, slideId } = this.s.state;
     const here = deck.slides.find((slide) => slide.id === slideId);
-    const layout = options.layout ?? (here && !OPENING.has(here.layout) ? here.layout : "title-body");
+    const same = here && !OPENING.has(here.layout) ? here.layout : "title-body";
+    // Words for slots need a layout that has them.
+    const layout = options.layout ?? (options.likeCurrent || options.content ? same : (blankLayoutOf(deck) ?? same));
     const done = this.s.run(() =>
       this.s.core.apply("add_slide", {
         layout,
@@ -80,6 +97,22 @@ export class SlideCommands {
     this.s.run(() => this.s.core.apply("set_transition", { ids, transition }));
   }
 
+  /**
+   * How every slide arrives that names no transition of its own: the deck's default. A transition of kind `none` takes it away.
+   * It is one step of undo and does not touch the slides.
+   */
+  setDeckTransition(transition: Transition): void {
+    const now = this.s.state.deck.present.transition ?? null;
+    const wanted = transition.kind === "none" ? null : transition;
+    if (JSON.stringify(now) === JSON.stringify(wanted)) return;
+    this.s.run(() => this.s.core.apply("set_present", { transition }));
+  }
+
+  /** Changes the size of every slide, refitting what is on them and the theme: a preset (`16:9`, `4:3` ...) or a width and height in slide units. */
+  setPageSize(size: { preset: string } | { w: number; h: number }): void {
+    this.s.run(() => this.s.core.apply("set_page_size", size));
+  }
+
   setLayout(layout: string, slide: string = this.s.state.slideId): void {
     this.s.run(() => this.s.core.apply("set_layout", { slide, layout }));
   }
@@ -114,6 +147,12 @@ export class SlideCommands {
 
   applyTheme(name: string): void {
     this.s.run(() => this.s.core.apply("apply_theme", { name }));
+  }
+
+  /** Shows or hides the slide number the theme draws on every slide: the deck's choice, in the editor, when presenting and in a file. */
+  setSlideNumbers(on: boolean): void {
+    if (this.s.state.deck.present.slideNumbers === on) return;
+    this.s.run(() => this.s.core.apply("set_present", { slideNumbers: on }));
   }
 
   setTitle(title: string): void {

@@ -39,6 +39,7 @@ describe("in the Insert menu", () => {
     const { session, ui } = await openEditor();
     render(<MenuBar session={session} ui={ui} />);
     click(bar("Insert"));
+    fireEvent.click(row(/^Text & content/));
     expect(keysIn(row(/^Text box/))).toBe("T");
     fireEvent.click(row(/^Text box/));
     expect(session.state.tool).toBe("text");
@@ -48,7 +49,7 @@ describe("in the Insert menu", () => {
     const { session, ui } = await openEditor();
     render(<MenuBar session={session} ui={ui} />);
     click(bar("Insert"));
-    fireEvent.click(row(/^Shape/));
+    fireEvent.click(row(/^Shapes & lines/));
     fireEvent.click(row("Shapes"));
     expect(keysIn(row(/^Rectangle/))).toBe("R");
     expect(keysIn(row(/^Oval/))).toBe("O");
@@ -59,10 +60,11 @@ describe("in the Insert menu", () => {
     const { session, ui } = await openEditor();
     render(<MenuBar session={session} ui={ui} />);
     click(bar("Insert"));
-    fireEvent.click(row(/^Line/));
-    // "Line" is the sub-menu's own row too; the one with a key is the line.
+    fireEvent.click(row(/^Shapes & lines/));
+    fireEvent.click(row(/^Lines & arrows/));
+    // "Lines & arrows" is the sub-menu's own row too; the one with a key is the line.
     expect([...screen.queryAllByRole("menuitem", { name: /^Line/ }), ...screen.queryAllByRole("menuitemcheckbox", { name: /^Line/ })].map(keysIn)).toContain("L");
-    expect(keysIn(row(/^Arrow/))).toBe("A");
+    expect(keysIn(row(/^Arrow(?!s)/))).toBe("A");
     expect(keysIn(row(/^Elbow connector/))).toBeUndefined();
   });
 
@@ -70,7 +72,7 @@ describe("in the Insert menu", () => {
     const { session, ui } = await openEditor();
     render(<MenuBar session={session} ui={ui} />);
     click(bar("Insert"));
-    fireEvent.click(row(/^Image/));
+    fireEvent.click(row(/^Media/));
     expect(keysIn(row(/^Image from the gallery/))).toBe("I");
     expect(keysIn(row(/^Image from computer/))).toBeUndefined();
   });

@@ -2,10 +2,11 @@
 // record another; Backspace removes it and Escape cancels. A key another
 // command had moves here, and the row says which.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 
 import { useShell } from "../../lib/store";
-import { Group, Row } from "../workspace/views/settings/parts";
+import { Button, IconButton } from "../../ui/Button";
+import { Block, Group, Row } from "../workspace/views/settings/parts";
 import { KEY_SECTIONS, commandLabel } from "./catalog";
 import { bindingOf, canBind, formatBinding, isMac } from "./keymap";
 import { keyLabel, useKeys } from "./store";
@@ -16,14 +17,6 @@ export function ShortcutSettings() {
   const [recording, setRecording] = useState<string | null>(null);
   const [note, setNote] = useState<{ id: string; text: string } | null>(null);
   const [filter, setFilter] = useState("");
-  const top = useRef<HTMLDivElement>(null);
-
-  // "Change keys…" on the shortcut sheet opens Settings here.
-  useEffect(() => {
-    if (!useKeys.getState().jump) return;
-    useKeys.setState({ jump: false });
-    top.current?.scrollIntoView?.({ block: "start" });
-  }, []);
 
   const sections = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -32,39 +25,40 @@ export function ShortcutSettings() {
   }, [filter, keymap]);
 
   const changed = Object.keys(overrides).length;
+  const sheetKey = keyLabel(keymap, "shortcuts");
   return (
-    <div ref={top} className="scroll-mt-6">
-      <Group title="Keyboard shortcuts" detail="Click a key to change it. Keys need Ctrl, ⌘ or Alt, so typing never runs a command.">
-        <Row label="All shortcuts on one sheet" detail={keyLabel(keymap, "shortcuts") ? `Also ${keyLabel(keymap, "shortcuts")}` : undefined}>
-          <button type="button" className="rounded-md px-2.5 py-1 text-13 ring-1 ring-line hover:bg-hover" onClick={() => useShell.getState().setShortcuts(true)}>
-            Show
-          </button>
-        </Row>
-        <div className="flex items-center gap-3 py-3">
+    <Group title="Keyboard shortcuts">
+      <Row id="shortcuts.sheet" detail={sheetKey ? `Also ${sheetKey}` : undefined}>
+        <Button size="sm" icon="keyboard" onClick={() => useShell.getState().setShortcuts(true)}>
+          Show
+        </Button>
+      </Row>
+      <Block id="shortcuts.editor" titled>
+        <div className="kasten-set-filter">
           <input
             type="search"
             aria-label="Find a command"
             placeholder="Find a command or key"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="min-w-0 flex-1 rounded-md bg-panel px-2.5 py-1 text-13 outline-none ring-1 ring-line placeholder:text-muted focus:ring-accent/60"
+            className="ui-field kasten-set-find"
           />
           {changed > 0 && (
-            <button
-              type="button"
-              className="rounded-md px-2.5 py-1 text-13 ring-1 ring-line hover:bg-hover"
+            <Button
+              size="sm"
+              icon="undo"
               onClick={() => {
                 useKeys.getState().resetAll();
                 setNote(null);
               }}
             >
               Reset all ({changed})
-            </button>
+            </Button>
           )}
         </div>
         {sections.map((section) => (
           <div key={section.title} role="group" aria-label={section.title}>
-            <div className="pb-1 pt-4 text-12 font-medium tracking-[0.06em] text-muted">{section.title}</div>
+            <div className="kasten-set-keys-title">{section.title}</div>
             {section.ids.map((id) => (
               <KeyRow
                 key={id}
@@ -82,9 +76,9 @@ export function ShortcutSettings() {
             ))}
           </div>
         ))}
-        {sections.length === 0 && <p className="py-4 text-13 text-muted">No command matches “{filter.trim()}”.</p>}
-      </Group>
-    </div>
+        {sections.length === 0 && <p className="kasten-set-quiet">No command matches “{filter.trim()}”.</p>}
+      </Block>
+    </Group>
   );
 }
 
@@ -120,7 +114,7 @@ function KeyRow({ id, keys, changed, recording, note, onRecord, onNote }: KeyRow
     onNote(took.length ? `Taken from ${took.map(commandLabel).join(", ")}` : null);
   };
   return (
-    <div className="flex items-center gap-2 py-1.5">
+    <div className="kasten-set-key">
       <div className="min-w-0 flex-1">
         <div className="truncate text-13">{label}</div>
         {note && (
@@ -139,13 +133,13 @@ function KeyRow({ id, keys, changed, recording, note, onRecord, onNote }: KeyRow
         onClick={() => onRecord(!recording)}
         onKeyDown={recording ? record : undefined}
         onBlur={() => recording && onRecord(false)}
-        className={`flex min-h-7 min-w-[92px] flex-wrap items-center justify-end gap-1 rounded-md px-1.5 py-0.5 text-12 transition-colors ${recording ? "bg-accent/10 text-accent ring-1 ring-accent/60" : "hover:bg-hover"}`}
+        className={`flex min-h-7 min-w-[92px] flex-wrap items-center justify-end gap-1 rounded-md px-1.5 py-0.5 text-12 transition-colors ${recording ? "bg-soft text-accent ring-1 ring-accent/60" : "hover:bg-hover"}`}
       >
         {recording ? (
           "Press keys…"
         ) : keys.length ? (
           keys.map((k) => (
-            <kbd key={k} className="rounded border border-line bg-panel px-1.5 py-px font-sans text-12 text-ink">
+            <kbd key={k} className="ui-kbd">
               {formatBinding(k, mac)}
             </kbd>
           ))
@@ -153,25 +147,19 @@ function KeyRow({ id, keys, changed, recording, note, onRecord, onNote }: KeyRow
           <span className="text-muted">Add key</span>
         )}
       </button>
-      <span className="flex w-12 justify-end gap-0.5">
-        {keys.length > 0 && !recording && (
-          <button type="button" aria-label={`Remove the key for ${label}`} title="Remove" className="rounded px-1 text-muted hover:bg-hover hover:text-ink" onClick={() => useKeys.getState().set(id, null)}>
-            ×
-          </button>
-        )}
+      <span className="flex w-14 justify-end gap-0.5">
+        {keys.length > 0 && !recording && <IconButton icon="close" label={`Remove the key for ${label}`} title="Remove" size="sm" onClick={() => useKeys.getState().set(id, null)} />}
         {changed && !recording && (
-          <button
-            type="button"
-            aria-label={`Reset ${label}`}
+          <IconButton
+            icon="undo"
+            label={`Reset ${label}`}
             title="Back to the default"
-            className="rounded px-1 text-muted hover:bg-hover hover:text-ink"
+            size="sm"
             onClick={() => {
               const took = useKeys.getState().set(id, undefined);
               onNote(took.length ? `Taken from ${took.map(commandLabel).join(", ")}` : null);
             }}
-          >
-            ↺
-          </button>
+          />
         )}
       </span>
     </div>

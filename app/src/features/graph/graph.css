@@ -1,0 +1,87 @@
+/* The Graph view and the small graph beside a page: a toolbar, a canvas that
+   fills the rest, and a few notes laid over it. Colours, type and corners come
+   from the theme's tokens (styles.css). */
+
+.kasten-graph {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-canvas);
+}
+
+.kasten-graph.is-embedded {
+  border-top: 1px solid var(--color-line);
+}
+
+.kasten-graph-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+}
+
+.kasten-graph-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kasten-graph-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  outline: none;
+}
+
+.kasten-graph-canvas:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.kasten-graph-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+  text-align: center;
+  pointer-events: none;
+}
+
+.kasten-graph-note.is-error {
+  color: var(--color-danger);
+}
+
+.kasten-graph-foot {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  left: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  pointer-events: none;
+}
+
+/* The graph in a page's panel: a small canvas under its heading. */
+.kasten-local-graph {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+}

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { useOccludes } from "../features/browser/occlusion";
 import { keepTabInside } from "./focus-trap";
 
 /** A press this soon after the modal opened is the second half of the
@@ -33,6 +34,8 @@ export function Modal({ label, labelledBy, describedBy, role = "dialog", onClose
   const opened = useRef(0);
   // Taken as the modal first renders, before a field inside takes focus.
   const [before] = useState(() => document.activeElement as HTMLElement | null);
+  // A browser tab's page is drawn above the window: it steps aside while this is open.
+  useOccludes();
   useEffect(() => {
     close.current = onClose;
   }, [onClose]);

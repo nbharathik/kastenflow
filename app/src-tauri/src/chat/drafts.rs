@@ -11,6 +11,7 @@ use serde_json::Value;
 use tauri::State;
 
 use super::anthropic;
+use super::chatgpt::models;
 use super::check::{self, ProviderCheck};
 use super::commands::ChatState;
 use super::http::{HttpModel, Kind, http_error, unreachable};
@@ -34,6 +35,8 @@ pub fn models_url(kind: Kind, base: &str) -> Result<String, String> {
             let chat = openai::url(base)?;
             format!("{}/models", chat.trim_end_matches("/chat/completions"))
         }
+        // The same address whatever the settings say.
+        Kind::ChatGpt => models::url(),
     })
 }
 
@@ -63,10 +66,15 @@ pub async fn list_models(
     key: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let kind = Kind::of(&provider.kind)?;
+    if kind == Kind::ChatGpt {
+        return Err("ChatGPT lists its models for the account that is signed in".to_owned());
+    }
     let url = models_url(kind, &provider.base_url)?;
     let key = key.map(str::trim).filter(|k| !k.is_empty());
     let mut request = http.get(&url).timeout(LIMIT);
     match (kind, key) {
+        // Returned above: it has no key to send.
+        (Kind::ChatGpt, _) => {}
         (Kind::Anthropic, None) => {
             return Err(format!("Add the API key for “{}” first", provider.name));
         }
@@ -138,6 +146,10 @@ pub async fn list_provider_models(
     key: Option<String>,
 ) -> Result<Vec<String>, String> {
     let provider = draft(provider);
+    if Kind::of(&provider.kind)? == Kind::ChatGpt {
+        // The signed-in account's own list, else a few names to start from.
+        return Ok(models::or_defaults(&state.chatgpt(), &state.http()?).await);
+    }
     let key = draft_key(&state, &provider, key).await?;
     list_models(&state.http()?, &provider, key.as_deref()).await
 }
@@ -150,8 +162,12 @@ pub async fn test_provider_draft(
     key: Option<String>,
 ) -> Result<ProviderCheck, String> {
     let provider = draft(provider);
-    let key = draft_key(&state, &provider, key).await?;
-    let model = HttpModel::new(state.http()?, &provider, key, "")?;
+    let model = if Kind::of(&provider.kind)? == Kind::ChatGpt {
+        state.model_of(&provider, "").await?
+    } else {
+        let key = draft_key(&state, &provider, key).await?;
+        HttpModel::new(state.http()?, &provider, key, "")?
+    };
     let asked = model.model_name().to_owned();
     Ok(check::check(&model, &asked).await)
 }

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
 publish.workspace = true
-description = "Kasten Slides: the pictures a deck uses: their hash, sidecar, size and thumbnails"
+description = "KastenFlow Slides: the pictures a deck uses: their hash, sidecar, size and thumbnails"
 
 [dependencies]
 # Thumbnails and nothing else: the header readers in `probe` decode nothing.

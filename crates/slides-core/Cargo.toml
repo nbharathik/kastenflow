@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
 publish.workspace = true
-description = "Kasten Slides' core: the deck format, its operations, lint and PPTX"
+description = "KastenFlow Slides' core: the deck format, its operations, lint and PPTX"
 
 [dependencies]
 schemars = "1.2"

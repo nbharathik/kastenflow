@@ -1,6 +1,9 @@
-/* The Slides editor wears Kasten's tokens: light, dark and the accent follow the app. */
-.ks-host .ks-editor {
+/* The Slides editor wears Kasten's tokens: light, dark and the accent follow the app. The second selector is there so that the editor's own
+   "follow the computer" dark colours (a media query on an editor with no theme of its own) never win over the app's choice. */
+.ks-host .ks-editor,
+.ks-host .ks-editor:not([data-theme="light"]):not([data-theme="dark"]) {
   --ks-canvas: var(--color-canvas);
+  --ks-raised: var(--color-raised);
   --ks-panel: var(--color-panel);
   --ks-well: var(--color-well);
   --ks-ink: var(--color-ink);
@@ -13,11 +16,17 @@
   --ks-danger: var(--color-danger);
   --ks-success: var(--color-success);
   --ks-warning: var(--color-warning);
+  --ks-favourite: var(--color-favourite);
   --ks-scrim: var(--color-scrim);
   --ks-font: var(--font-sans);
   --ks-mono: var(--font-mono);
   --ks-shadow-pop: var(--shadow-pop);
   --ks-shadow-page: var(--shadow-lift);
+  /* Motion follows the app's setting: its tokens are nothing while motion is off. */
+  --ks-fast: var(--motion-fast);
+  --ks-base: var(--motion-base);
+  --ks-slow: var(--motion-slow);
+  --ks-ease: var(--ease-standard);
   color-scheme: inherit;
 }
 

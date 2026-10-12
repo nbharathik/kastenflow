@@ -43,11 +43,12 @@ describe("an archived project beyond the sidebar", () => {
   });
 
   it("stays in search, and off Home, which follows the sidebar's order", async () => {
-    usePrefs.setState({ pinnedProjects: ["beta"] });
+    // Home's projects row is optional: turn it on.
+    usePrefs.setState({ pinnedProjects: ["beta"], homeSections: ["projects", "recent"] });
     await renderShell(vault);
-    const home = within(screen.getByRole("region", { name: "Pane" })).getByRole("region", { name: "Projects" });
-    const tiles = [...home.querySelectorAll(".kasten-tile")].map((tile) => tile.querySelector(".kasten-tile-title")?.textContent);
-    expect(tiles).toEqual(["Beta", "Alpha"]);
+    const home = await within(screen.getByRole("region", { name: "Pane" })).findByRole("group", { name: "Projects" });
+    const chips = [...home.querySelectorAll(".kasten-home-chip-label")].map((chip) => chip.textContent);
+    expect(chips).toEqual(["Beta", "Alpha"]);
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     fireEvent.change(screen.getByRole("textbox", { name: "Search" }), { target: { value: "gamma" } });

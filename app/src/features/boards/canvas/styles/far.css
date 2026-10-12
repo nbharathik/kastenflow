@@ -61,6 +61,15 @@
   transform-origin: 0 50%;
 }
 
+/* The label is the landmark: no chip behind it, no chevron. */
+.kasten-board.is-far .kasten-section-chip {
+  background: transparent;
+}
+
+.kasten-board.is-far .kasten-section-fold {
+  display: none;
+}
+
 /* Further out still, an overview: cards and stickies are blocks, the
    sections' names the landmarks. */
 .kasten-board.is-overview .kasten-card-far,

@@ -11,6 +11,7 @@ import { Icon } from "../../ui/Icon";
 import { useCalendarActions, type AddKind } from "./actions";
 import { EntryChip, entryKey } from "./Chip";
 import type { DateItem } from "./dates";
+import type { EventPart } from "./external/types";
 import { AddMenu, DayNumber, JournalChip, QuickAdd, weekdayOf } from "./DayParts";
 import { dayEntries, fullDay, type Entry } from "./layout";
 import { onDayClick, type GridProps } from "./MonthGrid";
@@ -18,7 +19,7 @@ import type { DateRange } from "./ranges";
 
 const NO_RANGES: DateRange[] = [];
 
-export function AgendaList({ days, today, items, tasks, ranges, journals, mentions, made, colors, lit, adding, dragging, scopeTag }: GridProps) {
+export function AgendaList({ days, today, items, tasks, ranges, journals, mentions, made, events, colors, lit, adding, dragging, scopeTag }: GridProps) {
   const month = useMemo(() => days[0] ?? [], [days]);
   const [earlier, setEarlier] = useState(false);
   const cut = earlier ? 0 : Math.max(0, month.indexOf(today));
@@ -51,6 +52,7 @@ export function AgendaList({ days, today, items, tasks, ranges, journals, mentio
           tasks={tasks.get(day)}
           mentions={mentions.get(day)}
           made={made.get(day)}
+          events={events.get(day)}
           ranges={starts.get(day) ?? NO_RANGES}
           journal={journals.get(day)}
           colors={colors}
@@ -71,6 +73,7 @@ interface DayProps {
   tasks: readonly TaskRow[] | undefined;
   mentions: readonly DayMention[] | undefined;
   made: readonly NoteMeta[] | undefined;
+  events: readonly EventPart[] | undefined;
   ranges: readonly DateRange[];
   journal: NoteMeta | undefined;
   colors: ReadonlyMap<string, string>;
@@ -80,9 +83,9 @@ interface DayProps {
   scopeTag: string | null;
 }
 
-const AgendaDay = memo(function AgendaDay({ day, today, items, tasks, mentions, made, ranges, journal, colors, over, adding, dragging, scopeTag }: DayProps) {
+const AgendaDay = memo(function AgendaDay({ day, today, items, tasks, mentions, made, events, ranges, journal, colors, over, adding, dragging, scopeTag }: DayProps) {
   const actions = useCalendarActions();
-  const entries = useMemo<Entry[]>(() => [...ranges.map((range): Entry => ({ kind: "range", range })), ...dayEntries(items, tasks, mentions, made)], [ranges, items, tasks, mentions, made]);
+  const entries = useMemo<Entry[]>(() => [...ranges.map((range): Entry => ({ kind: "range", range })), ...dayEntries(items, tasks, mentions, made, events)], [ranges, items, tasks, mentions, made, events]);
   const empty = entries.length === 0 && !journal && !adding;
   const weekday = new Date(`${day}T12:00:00`).getDay();
   return (

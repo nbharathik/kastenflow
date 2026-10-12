@@ -152,7 +152,8 @@ describe("the Edit menu", () => {
     act(() => session.select([]));
     click(bar("Edit"));
     for (const name of [/^Cut/, /^Copy/, /^Duplicate/, /^Delete/]) expect(isDisabled(row(name)), String(name)).toBe(true);
-    expect(isDisabled(row(/^Paste/))).toBe(false);
+    expect(isDisabled(row(/^Paste(?! in place)/))).toBe(false);
+    expect(isDisabled(row(/^Paste in place/))).toBe(false);
     expect(isDisabled(row(/^Select all/))).toBe(false);
     fireEvent.keyDown(document.body, { key: "Escape" });
 

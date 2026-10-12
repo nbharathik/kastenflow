@@ -12,6 +12,12 @@ const download = (format: Format, label: string): Command => ({
 
 /** File: what leaves the editor. */
 export const fileCommands: Command[] = [
+  {
+    id: "file.page-setup",
+    label: "Page setup…",
+    icon: "rectangle-horizontal",
+    run: ({ ui }) => ui.openDialog("page"),
+  },
   download("pptx", "Microsoft PowerPoint (.pptx)"),
   download("pdf", "PDF document (.pdf)"),
   download("png", "PNG images (.png)"),

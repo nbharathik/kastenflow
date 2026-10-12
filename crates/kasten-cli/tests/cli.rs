@@ -1,14 +1,23 @@
-//! The `kasten` binary end to end, on private vaults.
+//! The `kasten` binary end to end, on private vaults, and `kastenflow`,
+//! the same program under the new name.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-fn kasten(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_kasten"))
+fn run(binary: &str, args: &[&str]) -> std::process::Output {
+    Command::new(binary)
         .args(args)
         .env_remove("KASTEN_VAULT")
         .output()
-        .expect("failed to run the kasten binary")
+        .unwrap_or_else(|e| panic!("failed to run {binary}: {e}"))
+}
+
+fn kasten(args: &[&str]) -> std::process::Output {
+    run(env!("CARGO_BIN_EXE_kasten"), args)
+}
+
+fn kastenflow(args: &[&str]) -> std::process::Output {
+    run(env!("CARGO_BIN_EXE_kastenflow"), args)
 }
 
 fn text(out: &std::process::Output) -> String {
@@ -56,6 +65,56 @@ fn help_lists_every_m1_command() {
     for cmd in ["init", "capture", "search", "verify", "history", "restore"] {
         assert!(stdout.contains(cmd), "help is missing {cmd}:\n{stdout}");
     }
+}
+
+#[test]
+fn kastenflow_is_the_same_program_under_the_new_name() {
+    let out = kastenflow(&["--version"]);
+    assert!(out.status.success());
+    assert_eq!(
+        String::from_utf8(out.stdout).unwrap().trim(),
+        format!("kastenflow {}", kasten_core::VERSION)
+    );
+    for (help, typed) in [
+        (kastenflow(&["--help"]), "kastenflow"),
+        (kasten(&["help"]), "kasten"),
+    ] {
+        let said = text(&help);
+        assert!(help.status.success(), "{said}");
+        assert!(
+            said.contains(&format!("Usage: {typed} <command> [options]"))
+                && said.contains(&format!("{typed} capture TEXT")),
+            "{said}"
+        );
+    }
+    let out = kastenflow(&["frobnicate"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        text(&out).starts_with("kastenflow: unknown command"),
+        "{}",
+        text(&out)
+    );
+
+    let dir = temp("alias");
+    let vault = s(&dir.0);
+    let out = kastenflow(&["init", vault, "--name", "Alias vault"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let out = kastenflow(&["capture", "--vault", vault, "Water", "the", "plants"]);
+    assert!(
+        text(&out).contains("inbox/water-the-plants.md"),
+        "{}",
+        text(&out)
+    );
+    let out = kasten(&["search", "--vault", vault, "plants", "--json"]);
+    let hits: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(hits[0]["path"], "inbox/water-the-plants.md");
+    let out = kastenflow(&["restore", "--vault", vault, "only-one"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out).contains("Usage: kastenflow restore NOTE COMMIT"),
+        "{}",
+        text(&out)
+    );
 }
 
 #[test]

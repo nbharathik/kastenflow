@@ -32,7 +32,7 @@ function byId(canvas: Canvas, key: string): Item {
 function outline(value: string): ShapeKind {
   const v = value.trim();
   if ((SHAPES as readonly string[]).includes(v)) return v as ShapeKind;
-  throw new Error(`Kasten draws ${SHAPES.join(", ")}, not “${v}”`);
+  throw new Error(`KastenFlow draws ${SHAPES.join(", ")}, not “${v}”`);
 }
 
 function pen(size: number): number {

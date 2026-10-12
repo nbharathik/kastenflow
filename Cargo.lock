@@ -2538,6 +2538,7 @@ dependencies = [
  "defmt",
  "jiff-core",
  "jiff-static",
+ "jiff-tzdb",
  "jiff-tzdb-platform",
  "log",
  "portable-atomic",
@@ -2672,15 +2673,22 @@ dependencies = [
 
 [[package]]
 name = "kasten-app"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "getrandom 0.4.3",
+ "http-body-util",
+ "hyper",
  "hyper-util",
+ "jiff",
  "kasten-core",
  "kasten-mcp",
  "keyring",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
@@ -2689,11 +2697,12 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tokio",
+ "zip 8.6.0",
 ]
 
 [[package]]
 name = "kasten-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "kasten-core",
  "serde_json",
@@ -2701,7 +2710,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "criterion",
  "fd-lock",
@@ -2717,7 +2726,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-mcp"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bytes",
  "getrandom 0.4.3",
@@ -4700,7 +4709,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slides-assets"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "image",
  "serde",
@@ -4709,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "slides-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "rmcp",
  "schemars 1.2.2",
@@ -4724,7 +4733,7 @@ dependencies = [
 
 [[package]]
 name = "slides-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "proptest",
  "schemars 1.2.2",
@@ -4736,7 +4745,7 @@ dependencies = [
 
 [[package]]
 name = "slides-pptx"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "image",
  "quick-xml",
@@ -4747,7 +4756,7 @@ dependencies = [
 
 [[package]]
 name = "slides-render"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "chromiumoxide",
  "futures",
@@ -4760,7 +4769,7 @@ dependencies = [
 
 [[package]]
 name = "slides-wasm"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",

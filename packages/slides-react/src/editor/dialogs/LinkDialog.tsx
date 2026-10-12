@@ -1,8 +1,10 @@
 import type { JSX } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
+import { isPageLink, makePageLink, parsePageLink } from "../../pages/links.ts";
 import { textFormat } from "../commands/index.ts";
 import { linkFromInput } from "../../text/links.ts";
+import type { HostPage } from "../host.ts";
 import { TextButton } from "../ui/Button.tsx";
 import { Dialog } from "../ui/Dialog.tsx";
 import { useEditor } from "../useEditor.ts";
@@ -21,11 +23,29 @@ const SLIDE = "slide:";
 export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
   const { deck, selection } = useEditor(session);
   const now = textFormat.currentFormat({ session, ui }).link;
-  const [address, setAddress] = useState(typeof now === "string" && !now.startsWith(SLIDE) ? now : "");
+  const [address, setAddress] = useState(typeof now === "string" && !now.startsWith(SLIDE) && !isPageLink(now) ? now : "");
   const [slide, setSlide] = useState<string | null>(typeof now === "string" && now.startsWith(SLIDE) ? now.slice(SLIDE.length) : null);
+  // A page of the host, where the host has pages: what the words open at the side while editing and while presenting.
+  const [page, setPage] = useState<string | null>(typeof now === "string" ? (parsePageLink(now)?.path ?? null) : null);
+  const [pages, setPages] = useState<HostPage[] | null>(null);
+  const [find, setFind] = useState("");
   const [bad, setBad] = useState(false);
   const hasWords = ui.state.text !== null || selection.length > 0;
   const heading = useId();
+  const pagesHeading = useId();
+  const { host } = session;
+
+  useEffect(() => {
+    let live = true;
+    void host.listPages?.().then(
+      (found) => live && setPages(found),
+      () => live && setPages([]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [host]);
+  const shownPages = (pages ?? []).filter((entry) => entry.title.toLowerCase().includes(find.trim().toLowerCase())).slice(0, 40);
 
   const set = (href: string | null) => {
     const editor = ui.state.text;
@@ -35,7 +55,7 @@ export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
   };
 
   const apply = () => {
-    const href = slide !== null ? `${SLIDE}${slide}` : linkFromInput(address);
+    const href = page !== null ? makePageLink(page) : slide !== null ? `${SLIDE}${slide}` : linkFromInput(address);
     if (href === null) return setBad(true);
     set(href);
   };
@@ -51,7 +71,7 @@ export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
             Remove link
           </TextButton>
           <TextButton onClick={onClose}>Cancel</TextButton>
-          <TextButton primary disabled={!hasWords || (slide === null && address.trim() === "")} onClick={apply}>
+          <TextButton primary disabled={!hasWords || (slide === null && page === null && address.trim() === "")} onClick={apply}>
             Apply
           </TextButton>
         </>
@@ -70,6 +90,7 @@ export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
             onChange={(event) => {
               setAddress(event.target.value);
               setSlide(null);
+              setPage(null);
               setBad(false);
             }}
             onKeyDown={(event) => {
@@ -101,6 +122,7 @@ export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
                   className={`ks-btn ks-dg-slide${slide === s.id ? " is-on" : ""}`}
                   onClick={() => {
                     setSlide(slide === s.id ? null : s.id);
+                    setPage(null);
                     setBad(false);
                   }}
                 >
@@ -111,6 +133,36 @@ export function LinkDialog({ session, ui, onClose }: DialogProps): JSX.Element {
             ))}
           </ul>
         </div>
+        {host.listPages ? (
+          <div className="ks-dg-field">
+            <span className="ks-dg-label" id={pagesHeading}>
+              Link to a page
+            </span>
+            <input className="ks-input" aria-label="Find a page" placeholder="Find a page" value={find} onChange={(event) => setFind(event.target.value)} />
+            <ul className="ks-dg-slides" role="listbox" aria-labelledby={pagesHeading} onKeyDown={(event) => walkOptions(event)}>
+              {shownPages.map((entry, i) => (
+                <li key={entry.path} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={page === entry.path}
+                    tabIndex={stopAt(i, shownPages.findIndex((x) => x.path === page))}
+                    className={`ks-btn ks-dg-slide${page === entry.path ? " is-on" : ""}`}
+                    onClick={() => {
+                      setPage(page === entry.path ? null : entry.path);
+                      setSlide(null);
+                      setBad(false);
+                    }}
+                  >
+                    <span className="ks-dg-slide-no">{entry.icon ?? ""}</span>
+                    <span className="ks-dg-slide-title">{entry.title}</span>
+                  </button>
+                </li>
+              ))}
+              {pages !== null && shownPages.length === 0 ? <li className="ks-sp-hint">No page matches.</li> : null}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </Dialog>
   );

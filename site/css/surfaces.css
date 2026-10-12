@@ -1,0 +1,36 @@
+/* The page's cards share one finish, as in the app: a flat surface, a hairline
+   edge that firms up under the pointer, and no shadow. Section bands alternate
+   between the page and a slightly lighter ground, divided by a hairline.
+   Loaded after the sections' own styles, so it can lay this over their cards. */
+
+:is(.tile, .private-grid article, .checks li, .systems li) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: border-color 160ms;
+}
+
+:is(.tile, .private-grid article, .checks li, .systems li):hover {
+  border-color: var(--line-strong);
+}
+
+.systems li.is-you {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* A symbol on a small square of the panel colour. */
+.icon-box {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink-2);
+}
+
+.section-alt {
+  border-block: 1px solid var(--line);
+}

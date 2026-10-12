@@ -4,7 +4,7 @@
 // and a paragraph nobody edited comes back as the very object it was.
 
 import type { Paragraph, Run, Text } from "@kasten-slides/wasm";
-import { Fragment, type Mark, type Node as PMNode } from "prosemirror-model";
+import { Fragment, Mark, type Node as PMNode } from "prosemirror-model";
 
 import { MARK_ATTR, type MarkInput, RUN_KEYS, markInputsOf } from "./marks.ts";
 import { attrsOfParagraph, paragraphOfAttrs, parseObject } from "./paragraph-attrs.ts";
@@ -53,6 +53,12 @@ function runOf(text: string, marks: readonly Mark[]): Run {
   if (has("math")) run.math = true;
   const field = value("field", "name");
   if (typeof field === "string" && field !== "") run.field = field;
+  const script = value("script", "value");
+  if (script === "super" || script === "sub") run.script = script;
+  if (has("smallCaps")) run.smallCaps = true;
+  if (has("allCaps")) run.allCaps = true;
+  const spacing = value("spacing", "value");
+  if (typeof spacing === "number" && spacing !== 0) run.spacing = spacing;
   const extra = value("extra", "json");
   if (typeof extra === "string") {
     for (const [key, entry] of Object.entries(parseObject(extra))) {
@@ -81,7 +87,25 @@ export function nodeToParagraph(node: PMNode): Paragraph {
     if (last && sameLook(last, run)) last.t += run.t;
     else runs.push(run);
   });
-  return paragraphOfAttrs(attrsOf(node), runs.length > 0 ? runs : [{ t: "" }]);
+  return paragraphOfAttrs(attrsOf(node), runs);
+}
+
+/** What a paragraph's mark keeps of a look: the character settings, not a link, a field or math, which belong to words. */
+const NOT_OF_A_MARK: ReadonlySet<string> = new Set(["t", "link", "field", "math"]);
+
+/** The look the marks stand for, as the fields of a run without its words: what an empty paragraph keeps as its mark. */
+export function lookOfMarks(marks: readonly Mark[]): Record<string, unknown> {
+  const look: Record<string, unknown> = { ...runOf("", marks) };
+  for (const key of NOT_OF_A_MARK) delete look[key];
+  return look;
+}
+
+/** The marks a paragraph's look stands for: what words typed into the empty paragraph get. */
+export function marksOfLook(schema: TextSchema, look: Readonly<Record<string, unknown>>): Mark[] {
+  const run = { ...look, t: "" } as Run;
+  return markInputsOf(run)
+    .filter((input) => !NOT_OF_A_MARK.has(input.name))
+    .map((input) => markFor(schema, input));
 }
 
 /** The node a paragraph stands for, remembered: the same paragraph object is asked about again and again as someone types. */
@@ -93,6 +117,16 @@ function nodeOf(paragraph: Paragraph, schema: TextSchema): PMNode {
   let node = bySchema.get(paragraph);
   if (!node) bySchema.set(paragraph, (node = paragraphToNode(paragraph, schema)));
   return node;
+}
+
+/**
+ * Whether two paragraph nodes are the same paragraph. The mark of a paragraph that has words is not
+ * part of it: it is ignored there, and left as it was when words were typed into the paragraph.
+ */
+function sameParagraph(a: PMNode, b: PMNode): boolean {
+  if (a.eq(b)) return true;
+  if (a.content.size === 0 || b.content.size === 0 || a.type !== b.type || !a.content.eq(b.content) || !Mark.sameSet(a.marks, b.marks)) return false;
+  return Object.keys(a.attrs).every((key) => key === "mark" || a.attrs[key] === b.attrs[key]);
 }
 
 /**
@@ -116,7 +150,7 @@ function matchToBase(docNodes: readonly PMNode[], base: readonly Paragraph[], sc
     const order = [...candidates.filter((j) => j === index), ...candidates.filter((j) => j !== index && j >= cursor), ...candidates.filter((j) => j !== index && j < cursor)];
     for (const j of order) {
       const paragraph = base[j];
-      if (paragraph === undefined || taken.has(j) || !nodeOf(paragraph, schema).eq(node)) continue;
+      if (paragraph === undefined || taken.has(j) || !sameParagraph(nodeOf(paragraph, schema), node)) continue;
       taken.add(j);
       cursor = j + 1;
       return paragraph;

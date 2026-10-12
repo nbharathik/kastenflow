@@ -9,6 +9,7 @@ mod extras;
 mod format;
 mod refusals;
 mod shapes;
+mod source;
 
 use serde_json::Value;
 

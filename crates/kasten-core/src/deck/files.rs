@@ -59,6 +59,17 @@ pub fn create_deck(
     Ok(path)
 }
 
+/// The trimmed title of a new deck, or why it cannot be one.
+pub(super) fn checked_title(title: &str) -> Result<String> {
+    let title = title.trim();
+    if title.is_empty() || title.contains(['[', ']', '|', '\n', '\r']) {
+        return Err(Error::Invalid(
+            "A title needs some text and no [ ] or | characters".to_owned(),
+        ));
+    }
+    Ok(title.to_owned())
+}
+
 /// The trimmed title and the folder for a new deck, or why it cannot be made.
 fn checked_new(
     vault: &Vault,
@@ -66,14 +77,9 @@ fn checked_new(
     project: Option<&str>,
     text: &str,
 ) -> Result<(String, String)> {
-    let title = title.trim();
-    if title.is_empty() || title.contains(['[', ']', '|', '\n', '\r']) {
-        return Err(Error::Invalid(
-            "A title needs some text and no [ ] or | characters".to_owned(),
-        ));
-    }
+    let title = checked_title(title)?;
     head_of(text)?;
-    Ok((title.to_owned(), kind_folder(vault, project, "decks")?))
+    Ok((title, kind_folder(vault, project, "decks")?))
 }
 
 /// Whether `create_deck` would make a deck of these, so that a request that

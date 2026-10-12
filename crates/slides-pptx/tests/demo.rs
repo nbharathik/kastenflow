@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use slides_core::Deck;
 use slides_pptx::{Options, export};
 
-use common::{Files, decks, variety};
+use common::{Files, decks, lists, variety};
 
 fn out_dir() -> PathBuf {
     std::env::var_os("PPTX_CHECK_DIR")
@@ -84,6 +84,8 @@ fn samples() {
     }
     let (deck, files) = variety::text_heavy();
     write(&dir, "text-heavy", &deck, &files);
+    let (deck, files) = lists::list_looks();
+    write(&dir, "list-looks", &deck, &files);
     let (deck, files) = variety::turned();
     write(&dir, "turned", &deck, &files);
     let (deck, files) = variety::four_three();

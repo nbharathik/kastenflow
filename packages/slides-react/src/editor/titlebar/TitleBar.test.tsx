@@ -209,27 +209,33 @@ describe("Back", () => {
   });
 });
 
-describe("Present and the assistant", () => {
-  it("present from the current slide, or from the beginning from the caret's menu", async () => {
+describe("Slideshow and the assistant", () => {
+  it("presents from the current slide, or any other way from the caret's menu", async () => {
     const { ui } = await setup();
     const present = vi.fn();
     ui.actions = { present };
     await act(async () => {});
-    click(button("Present"));
+    click(button("Slideshow"));
     expect(present).toHaveBeenLastCalledWith("current");
-    click(button("Present options"));
+    click(button("Slideshow options"));
     click(screen.getByRole("menuitem", { name: /^Present from beginning/ }));
     expect(present).toHaveBeenLastCalledWith("start");
-    click(button("Present options"));
+    click(button("Slideshow options"));
     click(screen.getByRole("menuitem", { name: /^Present from current slide/ }));
     expect(present).toHaveBeenLastCalledWith("current");
-    expect(present).toHaveBeenCalledTimes(3);
+    click(button("Slideshow options"));
+    click(screen.getByRole("menuitem", { name: /^Presenter view/ }));
+    expect(present).toHaveBeenLastCalledWith("current", { presenter: true });
+    click(button("Slideshow options"));
+    click(screen.getByRole("menuitem", { name: /^Scroll view/ }));
+    expect(present).toHaveBeenLastCalledWith("start", { view: "scroll" });
+    expect(present).toHaveBeenCalledTimes(5);
   });
 
-  it("are off where the host cannot present", async () => {
+  it("is off where the host cannot present", async () => {
     await setup();
-    expect((button("Present") as HTMLButtonElement).disabled).toBe(true);
-    expect((button("Present options") as HTMLButtonElement).disabled).toBe(true);
+    expect((button("Slideshow") as HTMLButtonElement).disabled).toBe(true);
+    expect((button("Slideshow options") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("toggle the assistant panel", async () => {
@@ -246,13 +252,13 @@ describe("Present and the assistant", () => {
 describe("Full screen", () => {
   const iconOf = (name: string) => button(name).querySelector("path")?.getAttribute("d");
 
-  it("is a button between the assistant and Present", async () => {
+  it("is a button between the assistant and Slideshow", async () => {
     await setup();
     const names = [...document.querySelectorAll<HTMLElement>(".ks-titlebar button")].map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
     const at = names.indexOf("Full screen");
     expect(at).toBeGreaterThan(0);
     expect(names[at - 1]).toBe("Assistant");
-    expect(names[at + 1]).toBe("Present");
+    expect(names[at + 1]).toBe("Slideshow");
   });
 
   it("switches the mode, and shows it: pressed, another icon, and in words how to get out", async () => {

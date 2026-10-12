@@ -48,8 +48,8 @@ pub const TEMPLATES: [(&str, &str); 58] = defaults!("templates":
     "year-in-review.md",
 );
 
-pub const TAGS: [(&str, &str); 5] =
-    defaults!("tags": "experiment.yaml", "meeting.yaml", "paper.yaml", "task.yaml", "travel.yaml");
+pub const TAGS: [(&str, &str); 6] = defaults!("tags":
+    "capture.yaml", "experiment.yaml", "meeting.yaml", "paper.yaml", "task.yaml", "travel.yaml");
 
 const WELCOME: &str = include_str!("../../defaults/welcome.md");
 
@@ -120,7 +120,7 @@ impl Kasten {
                 other => other?,
             }
             Ok(Change {
-                message: "tour: Welcome to Kasten".into(),
+                message: "tour: Welcome to KastenFlow".into(),
                 paths: vec![TOUR_PATH.to_owned()],
                 value: TOUR_PATH.to_owned(),
             })

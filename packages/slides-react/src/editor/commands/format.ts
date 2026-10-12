@@ -25,7 +25,8 @@ export function toggleMark(context: CommandContext, mark: "b" | "i" | "u" | "s" 
   const editor = context.ui.state.text;
   if (editor) {
     ({ b: editor.toggleBold, i: editor.toggleItalic, u: editor.toggleUnderline, s: editor.toggleStrike, code: editor.toggleCode })[mark].call(editor);
-  } else if (mark !== "code") context.session.text.toggle(mark);
+  } else if (mark === "code") context.session.text.toggleMark("code");
+  else context.session.text.toggle(mark);
 }
 
 export function setColor(context: CommandContext, color: string | null): void {
@@ -168,6 +169,7 @@ export const formatCommands: Command[] = [
     keys: ["Mod+K"],
     scope: "global",
     enabled: (s, ui) => ui.text !== null || s.selection.length > 0,
-    run: ({ ui }) => ui.openDialog("link"),
+    // While a text box is open the link card opens beside the caret; for boxes that are only selected there is the dialog.
+    run: ({ ui }) => (ui.state.text ? ui.state.text.requestLink() : ui.openDialog("link")),
   },
 ];

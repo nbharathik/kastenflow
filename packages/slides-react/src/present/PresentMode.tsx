@@ -5,12 +5,17 @@
 import { Deck as RevealDeck, type DeckProps } from "@revealjs/react";
 import { type Deck, picturePaths } from "@kasten-slides/wasm";
 import type { RevealApi } from "reveal.js";
-import { type JSX, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, type JSX, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 
+import type { PageAccess } from "../embed/usePageText.ts";
 import { posterPaths } from "../export/posters.ts";
+import { type LinkWays, followLink, kindOfLink, linkAt, linkHint, openInWindow } from "../pages/follow.ts";
 import type { ImageUrl } from "../render/index.ts";
+import { PresentContext } from "./context.ts";
 import { DeckTree } from "./DeckTree.tsx";
+import { PagePanel } from "./PagePanel.tsx";
+import { type Matte, matteColor } from "./matte.ts";
 import { type Plan, type Position, fromState, planOf, startPosition } from "./plan.ts";
 import { installRevealCss } from "./reveal-css.ts";
 import { attachChrome } from "./runtime/chrome.js";
@@ -37,6 +42,13 @@ export interface PresentModeProps {
   fullscreen?: () => void;
   /** The slides one at a time (the default), or the deck as one page that scrolls, with its notes. */
   view?: "slides" | "scroll";
+  /** The colour round the slide on a screen of another shape than the slide's own: black when left out. The slide itself is always whole and centred. */
+  matte?: Matte;
+  /**
+   * What the host gives the slides to do with pages of its own: read the pages a deck embeds, open a web address, and show a page
+   * in a panel at the side when a link to it is followed. Without it those links do nothing (a web address opens a window).
+   */
+  pages?: Partial<PageAccess>;
 }
 
 /** The addresses of the pictures a deck names, for a window that cannot ask the host itself. */
@@ -57,7 +69,7 @@ function locator(plan: Plan): (number: number) => [number, number] | null {
   return (number) => bySlide.get(Math.min(Math.max(Math.trunc(number) || 1, 1), plan.count)) ?? null;
 }
 
-function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscreen }: PresentModeProps): JSX.Element {
+function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscreen, matte = "black", pages }: PresentModeProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const store = useMemo(() => new PresentStore(startPosition(plan, start)), [plan, start]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -75,6 +87,36 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
   });
 
   useLayoutEffect(() => installRevealCss(), []);
+
+  // The links of the slides: to another slide, to a page of the host (a calm panel at the side, which Esc puts away), or out to the web.
+  const [panel, setPanel] = useState<{ path: string; section: string | null } | null>(null);
+  const ways = useMemo<LinkWays>(
+    () => ({
+      slide: (id) => {
+        const number = plan.numbers.get(id);
+        const at = number === undefined ? null : locator(plan)(number);
+        if (at && reveal) reveal.slide(at[0], at[1]);
+      },
+      ...(pages?.pagePanel ? { page: (path: string, section: string | null) => setPanel({ path, section }) } : {}),
+      web: (address) => (pages?.openUrl ? pages.openUrl(address) : openInWindow(address)),
+    }),
+    [plan, reveal, pages],
+  );
+  const follow = useCallback((href: string) => followLink(href, ways), [ways]);
+  const context = useMemo(() => ({ pages, onLink: follow }), [pages, follow]);
+
+  // The words that link are reached by Tab too, and say where they go.
+  useEffect(() => {
+    const root = stage.current;
+    if (!root) return;
+    for (const node of root.querySelectorAll<HTMLElement>(".ks-text-link[data-href]:not([tabindex])")) {
+      // An address that could run is not a link here: it is words.
+      if (kindOfLink(node.dataset.href) === null) continue;
+      node.tabIndex = 0;
+      node.setAttribute("role", "link");
+      if (!node.title) node.title = linkHint(node.dataset.href ?? "");
+    }
+  }, [snapshot.position, deck]);
 
   // Keys go to the stage, not to whatever had the focus before it.
   useEffect(() => {
@@ -147,12 +189,52 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
     return stop;
   }, [reveal, sync, deck, imageUrl]);
 
+  // The slide is whole and centred at its own proportions whatever the screen is; what is left round it is the matte.
+  const bars = useMemo(() => matteColor(deck, matte), [deck.theme, matte]);
+
   return (
-    <div ref={stage} className={`ks-show${started ? "" : " is-starting"}`} role="dialog" aria-label={`Presenting ${deck.title}`} tabIndex={-1} data-paused={snapshot.paused || undefined}>
-      <RevealDeck className="ks-show-reveal" config={config} onReady={ready}>
-        <DeckTree plan={plan} position={snapshot.position} overview={snapshot.overview} around={around} imageUrl={imageUrl} />
-      </RevealDeck>
+    <div
+      ref={stage}
+      className={`ks-show${started ? "" : " is-starting"}`}
+      role="dialog"
+      aria-label={`Presenting ${deck.title}`}
+      tabIndex={-1}
+      data-paused={snapshot.paused || undefined}
+      data-matte={matte}
+      style={{ "--ks-show-matte": bars } as CSSProperties}
+      onClick={(event) => {
+        const href = linkAt(event.target);
+        if (href && follow(href)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Enter" || !(event.target instanceof Element)) return;
+        const href = event.target.closest<HTMLElement>(".ks-text-link[data-href]")?.dataset.href;
+        if (href && follow(href)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+    >
+      <PresentContext.Provider value={context}>
+        <RevealDeck className="ks-show-reveal" config={config} onReady={ready}>
+          <DeckTree plan={plan} position={snapshot.position} overview={snapshot.overview} around={around} imageUrl={imageUrl} />
+        </RevealDeck>
+      </PresentContext.Provider>
       <div ref={tools} className="ks-show-chrome" />
+      {panel && pages?.pagePanel ? (
+        <PagePanel
+          Panel={pages.pagePanel}
+          path={panel.path}
+          section={panel.section}
+          onClose={() => {
+            setPanel(null);
+            stage.current?.focus({ preventScroll: true });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

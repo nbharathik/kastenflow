@@ -37,6 +37,16 @@ fn adjust(shape: &str, radius: Option<f64>, frame: &Frame) -> Vec<(&'static str,
     }
 }
 
+/// The room the text of a preset shape has: the part of its box the words are set in.
+fn text_area(shape: &str, radius: Option<f64>, frame: &Frame) -> (f64, f64) {
+    let (w, h) = (frame.rect.w, frame.rect.h);
+    let room = slides_core::lint::estimate::room(shape, w, h, radius);
+    (
+        (w * room.across - room.pad).max(1.0),
+        (h * room.down - room.pad).max(1.0),
+    )
+}
+
 struct Sp<'a> {
     base: &'a Base,
     site: &'a Site,
@@ -138,6 +148,7 @@ pub fn write_text(x: &mut Xml, cx: &mut Cx, el: &TextEl, site: &Site) {
                     wrap: true,
                     opacity: site.opacity,
                     flipped: site.frame.flip_v,
+                    area: Some((site.frame.rect.w, site.frame.rect.h)),
                 },
             )),
         },
@@ -182,6 +193,7 @@ pub fn write_shape(x: &mut Xml, cx: &mut Cx, el: &ShapeEl, site: &Site) {
                         wrap: true,
                         opacity: site.opacity,
                         flipped: site.frame.flip_v,
+                        area: Some(text_area(&el.shape, radius, &site.frame)),
                     },
                 )
             }),

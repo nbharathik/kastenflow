@@ -1,6 +1,6 @@
 [package]
 name = "kasten-mcp"
-description = "MCP server for Kasten vaults (stdio and localhost HTTP)"
+description = "MCP server for KastenFlow vaults (stdio and localhost HTTP)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

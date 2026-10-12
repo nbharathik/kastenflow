@@ -64,8 +64,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 32px;
-  padding: 0 8px;
+  min-height: 32px;
+  padding: 3px 8px;
   border-radius: var(--ks-radius);
   cursor: pointer;
 }
@@ -89,6 +89,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* What a thing to insert makes, in a line under its name. */
+.ks-pl-desc {
+  display: block;
+  overflow: hidden;
+  color: var(--ks-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
 }
 .ks-pl-hint,
 .ks-pl-keys {

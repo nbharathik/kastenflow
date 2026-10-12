@@ -36,8 +36,22 @@
 .ks-fs-row.is-selected {
   background: var(--ks-soft);
 }
+/* Rows that make room for slides in the hand glide to where they go; at the moment they are put down they do not (the list says so). */
+.ks-fs-row,
+.ks-fs-section {
+  transition: transform var(--ks-base) var(--ks-ease);
+}
+.ks-fs-list[data-still] .ks-fs-row,
+.ks-fs-list[data-still] .ks-fs-section {
+  transition: none;
+}
+/* The slides in the hand are copied to the pointer; where they were they leave their place to the others, or, while the pointer is
+   off the list, stay as a quiet outline. */
 .ks-fs-row.is-dragging {
-  opacity: 0.45;
+  opacity: 0.35;
+}
+.ks-fs-list.is-shifted .ks-fs-row.is-dragging {
+  opacity: 0;
 }
 
 .ks-fs-num {
@@ -147,11 +161,23 @@
   height: var(--fs-section);
   padding: 0 6px 0 4px;
 }
+/* The arrow folds the section; the name beside it picks the slides in it. */
 .ks-btn.ks-fs-fold {
   display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  color: var(--ks-muted);
+}
+.ks-btn.ks-fs-name {
+  display: flex;
+  flex: 1;
   align-items: center;
   gap: 4px;
-  width: 100%;
+  min-width: 0;
   height: 24px;
   padding: 0 6px 0 2px;
   color: var(--ks-muted);
@@ -159,9 +185,15 @@
   font-weight: 600;
   text-align: left;
 }
-.ks-btn.ks-fs-fold:hover {
+.ks-btn.ks-fs-fold:hover,
+.ks-btn.ks-fs-name:hover {
   background: var(--ks-hover);
   color: var(--ks-ink);
+}
+/* The slides picked are this section's: its name is lit like a picked slide. */
+.ks-fs-section.is-picked .ks-fs-name {
+  background: var(--ks-soft);
+  color: var(--ks-accent);
 }
 .ks-fs-section-title {
   flex: 1;
@@ -189,41 +221,33 @@
   font-weight: 600;
 }
 
-/* ---- where a drag would land */
-.ks-fs-drop {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  z-index: 2;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--ks-accent);
-  pointer-events: none;
+/* ---- adding: "New slide" and a small arrow beside it that picks the layout */
+.ks-fs-adder {
+  display: flex;
+  gap: 4px;
+  margin: 2px 8px 16px;
 }
-.ks-fs-drop::before {
-  content: "";
-  position: absolute;
-  left: -3px;
-  top: -2px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ks-accent);
-}
-
-/* ---- adding */
-.ks-btn.ks-fs-add {
+.ks-btn.ks-fs-add,
+.ks-btn.ks-fs-add-more {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: calc(100% - 16px);
   height: 32px;
-  margin: 2px 8px 16px;
   border: 1px dashed var(--ks-line-strong);
   color: var(--ks-muted);
 }
-.ks-btn.ks-fs-add:hover {
+.ks-btn.ks-fs-add {
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+.ks-btn.ks-fs-add-more {
+  flex: none;
+  width: 28px;
+}
+.ks-btn.ks-fs-add:hover,
+.ks-btn.ks-fs-add-more:hover,
+.ks-btn.ks-fs-add-more[aria-expanded="true"] {
   background: var(--ks-hover);
   color: var(--ks-ink);
 }

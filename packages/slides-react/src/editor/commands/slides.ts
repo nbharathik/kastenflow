@@ -1,5 +1,6 @@
 import { requestFieldFocus, sectionField } from "../field-focus.ts";
 import { sectionOf } from "../filmstrip/model.ts";
+import { addSlide } from "../new-slide.ts";
 import { anchorOf } from "../session/slides.ts";
 import type { EditorState } from "../session/types.ts";
 import type { Command } from "./types.ts";
@@ -17,7 +18,21 @@ export const slideCommands: Command[] = [
     icon: "plus",
     keys: ["Mod+M"],
     scope: "global",
-    run: ({ session }) => void session.slides.add(),
+    run: ({ session, ui }) => void addSlide(session, ui),
+  },
+  {
+    id: "slide.new-blank",
+    label: "New slides start blank",
+    icon: "rectangle-horizontal",
+    checked: (_, ui) => ui.newSlides === "blank",
+    run: ({ ui }) => ui.setNewSlides("blank"),
+  },
+  {
+    id: "slide.new-same",
+    label: "New slides copy the current layout",
+    icon: "layout-template",
+    checked: (_, ui) => ui.newSlides === "same",
+    run: ({ ui }) => ui.setNewSlides("same"),
   },
   {
     id: "slide.duplicate",
@@ -123,7 +138,8 @@ export const slideCommands: Command[] = [
     id: "slide.transition",
     label: "Transition…",
     icon: "film",
-    run: ({ ui }) => ui.openDialog("transition"),
+    // The panel beside the slide, where the choice plays on the slide as it is made.
+    run: ({ ui }) => ui.openPanel("transitions"),
   },
   {
     id: "slide.theme",

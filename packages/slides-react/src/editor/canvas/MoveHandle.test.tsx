@@ -171,9 +171,10 @@ describe("a drag from the handle", () => {
     // What a press lands on in a browser is the icon inside the chip.
     fireEvent.pointerDown(chip()!.querySelector("svg")!, { button: 0, clientX: 80, clientY: 80 });
     fireEvent.pointerMove(page(), { clientX: 130, clientY: 110 });
-    // While it goes on the block is drawn where the pointer has taken it, and the deck is as it was.
+    // While it goes on the block is drawn where the pointer has taken it (slid by the browser, not drawn again), and the deck is as it was.
     expect(find(a)).toMatchObject({ x: 100, y: 100 });
-    expect(chip()!.style.left).toBe("120px");
+    expect(chip()!.style.translate).toBe("50px 30px");
+    expect(page().querySelector<HTMLElement>(`[data-el="${a}"]`)!.style.translate).toBe("50px 30px");
     expect(chip()!.classList.contains("is-dragging")).toBe(true);
     expect(page().style.cursor).toBe("grabbing");
     fireEvent.pointerUp(page(), { clientX: 130, clientY: 110 });
@@ -182,6 +183,10 @@ describe("a drag from the handle", () => {
     expect(session.state.selection).toEqual([a]);
     expect(chip()!.classList.contains("is-dragging")).toBe(false);
     expect(page().style.cursor).toBe("");
+    // Nothing the drag wrote to the page is left: the deck says where the block is now.
+    expect(chip()!.style.translate).toBe("");
+    expect(page().querySelector<HTMLElement>(`[data-el="${a}"]`)!.style.translate).toBe("");
+    expect(page().querySelector<HTMLElement>(`[data-el="${a}"]`)!.style.left).toBe("150px");
     session.undo();
     expect(find(a)).toMatchObject({ x: 100, y: 100 });
   });
@@ -235,6 +240,22 @@ describe("a drag from the handle", () => {
     expect(session.state.editing).toBeNull();
     expect(session.state.selection).toEqual([a]);
     fireEvent.pointerUp(chip(a) ?? document.body, { clientX: 80, clientY: 80 });
+  });
+
+  it("shows the cursor of what is under the pointer: writing over a text box, moving over a block that is selected", async () => {
+    const { session, a, words, page, hover } = await open();
+    hover(150, 130);
+    expect(page().style.cursor).toBe("");
+    act(() => session.select([a]));
+    hover(150, 130);
+    expect(page().style.cursor).toBe("move");
+    hover(150, 430);
+    expect(page().style.cursor).toBe("text");
+    act(() => session.select([words]));
+    hover(150, 430);
+    expect(page().style.cursor).toBe("text");
+    hover(800, 500);
+    expect(page().style.cursor).toBe("");
   });
 
   it("is a press like any other for a right-click, which opens the menu of the block", async () => {

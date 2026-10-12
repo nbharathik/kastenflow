@@ -36,4 +36,6 @@ pub struct DayMention {
     pub kind: String,
     /// The line that holds the link.
     pub snippet: String,
+    /// The time (`HH:MM`) written directly after the link, if any.
+    pub at: Option<String>,
 }

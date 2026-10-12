@@ -3,38 +3,61 @@
 `SlidesEditor` is the whole editor: menus, toolbar, filmstrip, the slide, notes
 and panels. It runs on a `SlidesHost`, which is everything it needs from the
 place it lives in (saving, images, downloads), so the same editor runs inside
-Kasten, in the `slides dev` page and in tests.
+KastenFlow, in the `slides dev` page and in tests.
 
 ## How it is put together
 
 ```
 SlidesEditor (SlidesEditor.tsx)         makes an EditorSession and an EditorUi, lays out the regions
-├─ TitleBar     titlebar/               deck name, saving status, Present
-├─ MenuBar      menus/                  File … Help, from the command list
-├─ Toolbar      toolbar/                the row of tools
+├─ TitleBar     titlebar/               one slim row: name and star, saving status, the menus (MenuBar, or one Menu button when narrow),
+│                                       the menu search (Alt+/), the assistant, full screen and Slideshow
+├─ Toolbar      toolbar/                one row of groups that follows the selection, with a "more" menu for what does not fit
 ├─ Filmstrip    filmstrip/              thumbnails, reorder, sections
 ├─ Gallery      gallery/                the images drawer: search, filters, drag onto the slide, where each is used
 ├─ SlideCanvas  canvas/                 the slide, selection, handles, guides, the text editor
-├─ NotesPane    notes/                  speaker notes
+├─ NotesPane    notes/                  speaker notes, folded by the strip over them
 ├─ OutlineView  outline/   GridView grid/    the other two views
-├─ SidePanel    panels/                 format options, steps, assistant
+├─ PanelHost    panels/                 the side panel's width (drag its edge) and how it opens; SidePanel has the tabs:
+│                                       format options, themes and layouts, transitions, steps, the assistant
 ├─ Dialogs      dialogs/                find and replace, layouts, theme, background, shortcuts …
 └─ ContextMenus menus/                  right-click menus
 ```
+
+### The chrome (`chrome/`)
+
+What the bars and panels need that is not the deck's and not the window's: `Chrome` (`chromeOf(ui)`, `useChrome`,
+`useChromeValue`) holds how roomy the bars are (`density`, "Compact toolbars" in the View menu, a `data-density` on the editor), the
+side panel's width, which sections of the format options are folded and whether the menu search is asked for; every choice about
+taste is kept in the browser (`storage.ts`, always in a try/catch). `recents.ts` keeps the fonts and colours used lately,
+`overflow.ts` decides which groups of the toolbar go into the more menu, `scrub.ts` is the arithmetic of dragging across a number.
+
+### The toolbar (`toolbar/`)
+
+`slots.ts` says which groups the row has for what is selected (`useBarMode.ts` reads the selection: nothing, text, a shape, a diagram
+picture) and how soon each goes into the more menu (`drop`: 0 never). A group is a `Group` (`Group.tsx`) that draws itself only where it
+is shown, so the same list is drawn in the bar and, for the groups that did not fit, in the more menu. `useOverflow.ts` learns each
+group's width as it is drawn. Every button has `data-ks-keep-focus` and a name; a control that does not apply is left out.
 
 Every region is a component taking `{ session, ui }` and nothing else.
 
 ### `EditorSession` (`session/`) — the deck being edited
 
 * `session.state` (React: `useEditor(session)` or `useEditorValue(session, select)`): `deck`, `slideId`,
-  `selection` (element ids on the shown slide), `slideSelection` (slides picked in the filmstrip),
-  `editing` (element whose text is open), `tool`, `canUndo/canRedo/undoLabel/redoLabel`,
-  `saving`, `revision`.
-* `session.slide`, `session.deck`, `session.host`.
-* Navigation and selection: `goTo`, `goBy`, `select(ids, "replace" | "add" | "toggle")`, `selectAll`,
-  `selectSlides(ids, show?)`, `setTool`, `startEditing`, `stopEditing`, `undo`, `redo`, `flush`.
-* `session.slides`: `add`, `duplicate`, `remove`, `move`, `moveBy`, `setFlags`, `setLayout`, `setNotes`,
-  `setBackground`, `applyTheme`, `setTitle`.
+  `selection` (element ids in view), `inside` (the groups gone into, outermost first), `slideSelection` (slides picked
+  in the filmstrip), `editing` (element whose text is open), `tool`, `canUndo/canRedo/undoLabel/redoLabel`,
+  `saving`, `revision`. A region that shows a part of this follows that part (`useEditorValue`), so a save or a drag
+  that has not ended does not draw it: the toolbar's groups each follow what they show.
+* `session.slide`, `session.deck`, `session.host`, `session.scope` (the elements in view: the slide's own, or what the
+  group gone into holds; `session/scope.ts` has `findElement`, `scopeOf`, `selectedElements`).
+* Navigation and selection: `goTo`, `goBy`, `select(ids, "replace" | "add" | "toggle")` (of the elements in view),
+  `selectAll`, `selectSlides(ids, show?)`, `setTool`, `startEditing`, `stopEditing`, `enterGroup(id, child?)`,
+  `leaveGroup` (one level up, selecting the group left), `leaveGroups`, `undo`, `redo`, `flush`. A double click on a
+  group (or Enter) goes into it; Escape goes up; a press where the elements in view have nothing comes out.
+* `session.slides`: `add` (a blank slide unless a layout is named; `likeCurrent` copies the layout of the slide shown),
+  `duplicate`, `remove`, `move`, `moveBy`, `setFlags`, `setLayout`, `setNotes`, `setBackground`, `applyTheme`, `setTitle`,
+  `setSlideNumbers` (the deck's `set_present`), `setDeckTransition` (the transition of slides that name none),
+  `setPageSize` (`{ preset }` or `{ w, h }`: refits every slide and the theme). Callers that follow the person's choice
+  of what New slide makes use `addSlide(session, ui)` (`new-slide.ts`).
 * `session.elements`: `insert`, `patch`, `style`, `transform`, `place`, `nudge`, `remove`, `arrange`, `group`,
   `ungroup`, `align`, `distribute`, `duplicate`, `flip`, `rotateBy`, `lock`, `setText`, `replaceAll`,
   `find`, `boxOf`.
@@ -43,22 +66,82 @@ Every region is a component taking `{ session, ui }` and nothing else.
   and the Slide menu use these.
 * `session.text`: formatting of the words of whole selected elements (`state`, `toggle`, `setRun`,
   `setAlign`, `toggleList`, `indent`, `setLineSpacing`, `clearFormatting`).
-* `session.clipboard`: `copy`, `cut`, `paste`.
+* `session.clipboard` (blocks): `copy(ids?)` and `cut(ids?)` answer a clip (the elements with the boxes they occupy, the slide
+  they came from, whether they were cut), `pasteElements(clip, { inPlace })` (16 units down and right on the slide copied from,
+  16 more for each further paste of the same clip, where they were on another slide; a cut comes back exactly; one
+  `paste_elements`), `pasteText(words, at?)`, and `paste(source?)` for plain text or the last copy.
+  `session.slideClipboard` (slides): `copy(ids?)`, `cut(ids?)`, `paste(clip, { gap? })` (one batch: `add_slides`, a
+  `move_slides` to the start, and the `add_section`s that do not cut a section in two); a slide whose layout the deck
+  lacks gets one it has and its slots become plain boxes. The clips, the system clipboard (the copy, cut and paste
+  events in `clipboard/events.ts`, the asynchronous API for the menus in `clipboard/system.ts`), where a paste is
+  meant (`clipboard/place.ts`: the slides of a list, the blocks of the slide, or something with its own clipboard)
+  and what a paste does with a picture or words (`clipboard/paste.ts`) are in `clipboard/`. The keys of copy, cut
+  and paste are the browser's own (`Command.native`): `dispatchKey` leaves them alone, so the event comes.
 * `session.core` is the WebAssembly engine, for the commands in `session/` only.
 
 Everything that changes the deck is one engine operation, so it is one step of undo. A view never
-edits the deck itself.
+edits the deck itself. The one exception to "one operation, one step" is a text box made just now: the first words typed
+into it are applied with `applyIntoLast`, which keeps them in the step that made the box, so one undo takes both back.
 
 ### `EditorUi` (`ui-state.ts`) — the window
 
 `ui.state` (React: `useUiState(ui)`): `view` (`edit`, `outline`, `grid`), `panel`, `dialog`, `zoom`,
 `fitZoom`, `notesOpen`, `snap`, `filmstripOpen`, `paint`, `text` (the open text editor's handle),
 `contextMenu`, `previewStep` (the step of the slide shown on the canvas, null for the slide as styled), `fullScreen`,
-`lintBadges`. Methods: `setView`,
+`lintBadges`, `newSlides` (`blank` or `same`: what New slide makes, kept in the browser's `localStorage`),
+`transitionPreview` (a transition being played once on the canvas). Methods: `setView`,
 `togglePanel`, `openPanel`, `openDialog`, `setZoom`, `stepZoom`, `toggleNotes`, `toggleSnap`, `toggleFilmstrip`, `setPaint`,
-`openContextMenu`, `setPreviewStep`, `setFullScreen`/`toggleFullScreen`, `setLintBadges`/`toggleLintBadges`. `ui.actions` holds what
+`openContextMenu`, `setPreviewStep`, `setFullScreen`/`toggleFullScreen`, `setLintBadges`/`toggleLintBadges`, `setNewSlides`,
+`playTransition`/`endTransitionPreview` (the Transitions panel plays what is picked on the slide beside it), `zoomBy(factor, about?, to?)`
+(a wheel or a pinch: continuous, about a place in the window) and `takeZoomIntent()` (what the canvas reads of the last zoom).
+`setZoom(zoom, { about, instant })` says which place stays where it is and whether the zoom glides. `useUiState(ui)` draws a
+component again only for the keys it read while drawing (a component that reads none follows every change, and `actionsRevision`
+always reaches every caller). `ui.actions` holds what
 the host lets the editor do: `present`, `exportAs`, `print`, `close`, and `fullScreen` (optional). `ui.areas` notes where the focus
 last was and which regions select all of what they hold (see "Selecting text").
+
+### Motion (`motion.ts`)
+
+Things that move (the filmstrip's rows going to their places and a new slide sliding in, handles and outlines fading in, a
+transition previewed on the canvas) ask `motionOn()`: it is off when the page says `data-motion="off"` (KastenFlow's motion
+setting, which also zeroes its `--motion-*` tokens, mapped to `--ks-fast`), and, when the page says nothing, when the computer
+asks to reduce motion. `play(node, keyframes, options)` does nothing in a browser without `Element.animate`. The filmstrip
+moves rows by FLIP from the layout's own numbers (`filmstrip/row-motion.ts`), never by measuring. The durations and the
+easing are the host's tokens: `--ks-fast`, `--ks-base`, `--ks-slow` and `--ks-ease` (KastenFlow maps `--motion-*` and
+`--ease-standard` onto them), read through `fastMs`, `moveMs`, `slowMs` and `EASE`.
+
+### A gesture on the slide (`canvas/`)
+
+`CanvasController` turns the pointer into previews (boxes, guides, the rectangle, the angle) and, when the pointer is let go, one
+engine operation. Nothing in React follows the pointer step by step for the slide: `LiveLayer` (`live.ts`, wired by `useLive`)
+writes each step to the page in the same event, and the canvas component is drawn again only when the kind of gesture changes
+(`controller.subscribeGesture`). A move is `translate` on the element and on the selection's frame, handles and chip
+(`data-chrome`), a turn is `rotate` about the middle, a resize of up to `EXACT_LIMIT` elements is drawn exactly (the box goes to
+`render/live.ts`'s `LiveBoxes`, which only the view of that element watches, so its words run on) and a resize of more, or of a
+group, is a stretch (`scale`), exact again when the pointer is let go. Alt or Ctrl held on a move slides stand-ins and the copies
+are made at the end (`duplicate_elements` with an offset). `live-math.ts` holds the sums (`lookOf`, `sizingOf`).
+`GestureLayer` draws what comes and goes with a gesture and nothing else: the guides (at most `MOST_LINES` lines and `MOST_GAPS`
+gap marks, which fade out), the selection rectangle, the shape being drawn, the size or angle readout. Everything the layer wrote
+is taken away in the event that ends the gesture, before the operation is applied; Escape glides what was slid back.
+
+`stage-zoom.ts` zooms about the pointer for a wheel with Ctrl or a pinch (a listener that is not passive), and for any other zoom
+(`ui.setZoom(zoom, { about, instant })`) lays the slide out at its new size and lets the browser glide it from the old one; the
+stage scrolls to keep the place under `about` where it was. `pan.ts` pans with the middle button or Space held, `edge-scroll.ts`
+carries the stage when a drag reaches its edge. `glide.ts` glides the elements an undo, a redo, an align or a quarter turn moved
+(`state.settle`; `session.glide(change)` marks such a change) and fades another slide in.
+
+Taps of the arrow keys on the same elements, with nothing between them, are one step of undo (`ElementCommands.nudge`,
+`BURST_MS`). The filmstrip's drag holds copies of the thumbnails under the pointer (`DragBadge`), closes the rows up behind them
+and opens a gap where they would land (`gapShifts`, `useGapShifts`), scrolls by itself near its edges, and lands the slides
+where they go (`useLanding`); a deleted slide's row folds away (`leaveRow`).
+
+### Page setup, templates and presenting at any ratio
+
+File → Page setup… (`dialogs/PageSetupDialog.tsx`) offers the engine's named sizes (`pageSizes()`: 16:9, 16:10, 4:3, 1:1) and a
+custom width and height in inches, and runs `set_page_size` as one step of undo. The themes (`panels/format/themes.ts`) each have a
+sample deck with its example slides, which the theme dialog draws small on each card. A slide is always presented whole and centred
+at its own proportions; Present options (title bar) chooses the matte round it (`present/matte.ts`: black, the theme's
+background or its dark colour, kept in the browser).
 
 ### Full screen
 
@@ -71,7 +154,7 @@ chrome with the attribute), tells the host through the optional `ui.actions.full
 window full screen), and leaves the mode on Escape when nothing else took the key: the slide cancels a drag, an edit, a step
 preview, the tool and the selection first; a field, a menu, a dialog and a host's `aria-modal` window keep Escape. Back, closing
 the deck and unmounting the editor leave it. A host whose panes contain their layout (`container-type`) must lift that while the
-editor is full screen, or the fixed editor is framed by the pane (Kasten does, in `slides.css`).
+editor is full screen, or the fixed editor is framed by the pane (KastenFlow does, in `slides.css`).
 
 ### Lint (`lint/`) — problems found while editing
 

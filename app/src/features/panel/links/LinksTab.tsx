@@ -5,7 +5,7 @@
 
 import "./links.css";
 
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { lazy, memo, Suspense, useEffect, useState, type ReactNode } from "react";
 
 import type { Backlink, NoteMeta, VaultClient } from "../../../lib/vault/types";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
@@ -23,6 +23,9 @@ import { OnBoards } from "./OnBoards";
 import { RelatedFrom } from "./RelatedFrom";
 import { SimilarNotes } from "./SimilarNotes";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
+
+/** The page's small graph, loaded when a Links tab first opens: the canvas code stays off the start-up path. */
+const LocalGraph = lazy(() => import("../../graph/LocalGraph").then((m) => ({ default: m.LocalGraph })));
 
 /** Changes when any other note changes, so the lists are fetched again then,
  * not on every save of this one. */
@@ -152,6 +155,9 @@ export const LinksTab = memo(function LinksTab({ note, page }: { note: NoteMeta;
 
   return (
     <>
+      <Suspense fallback={null}>
+        <LocalGraph note={note} />
+      </Suspense>
       <OnBoards client={client} path={note.path} />
       <section className="kasten-panel-section" aria-label="Backlinks">
         <h3 className="kasten-panel-label">

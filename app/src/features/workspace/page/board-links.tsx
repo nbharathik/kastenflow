@@ -31,11 +31,11 @@ export function boardLinks(client: VaultClient, page: () => NoteMeta | undefined
         return null;
       }
     },
-    mountBoard: (host, path) => {
+    mountBoard: (host, path, options) => {
       const root = createRoot(host);
       root.render(
         <ViewBoundary place={path}>
-          <LazyBoard path={path} />
+          <LazyBoard path={path} embedded={options?.embedded ?? false} />
         </ViewBoundary>,
       );
       return () => root.unmount();

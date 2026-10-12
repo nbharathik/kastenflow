@@ -3,10 +3,11 @@
 //! level does not give is None, to be found further down the chain of
 //! placeholder, layout, master and defaults (`chain.rs`).
 
-use slides_core::Align;
+use slides_core::{Align, ListStyle};
 
 use crate::import::color::{ColorCx, Paint};
 use crate::import::dom::Node;
+use crate::text::lists::{style_of_glyph, style_of_scheme};
 
 /// The names of the theme's two typefaces, so a run that names one is set in the role.
 #[derive(Clone, Debug, Default)]
@@ -51,6 +52,10 @@ pub struct RunProps {
     pub highlight: Option<Paint>,
     /// Raised or lowered, in thousandths of a percent of the size.
     pub baseline: Option<i64>,
+    /// `small`, `all` or `none`.
+    pub cap: Option<String>,
+    /// Extra space between letters, in points.
+    pub spacing: Option<f64>,
 }
 
 impl RunProps {
@@ -66,6 +71,36 @@ impl RunProps {
             font: self.font.clone().or_else(|| below.font.clone()),
             highlight: self.highlight.clone().or_else(|| below.highlight.clone()),
             baseline: self.baseline.or(below.baseline),
+            cap: self.cap.clone().or_else(|| below.cap.clone()),
+            spacing: self.spacing.or(below.spacing),
+        }
+    }
+}
+
+/// How a list marker looks and where it sits, where a paragraph says.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Marker {
+    pub style: Option<ListStyle>,
+    /// The number a numbered run begins at.
+    pub start_at: Option<u32>,
+    pub color: Option<Paint>,
+    /// A share of the words' size.
+    pub size: Option<f64>,
+    /// Where the lines after the first start, and where the first starts from there, in slide units.
+    pub margin: Option<f64>,
+    pub indent: Option<f64>,
+}
+
+impl Marker {
+    pub fn over(&self, below: &Marker) -> Marker {
+        // A style that is not of the kind of list the paragraph ends up as is left to the level's own, by the caller.
+        Marker {
+            style: self.style.clone().or_else(|| below.style.clone()),
+            start_at: self.start_at.or(below.start_at),
+            color: self.color.clone().or_else(|| below.color.clone()),
+            size: self.size.or(below.size),
+            margin: self.margin.or(below.margin),
+            indent: self.indent.or(below.indent),
         }
     }
 }
@@ -78,6 +113,7 @@ pub struct Level {
     pub before: Option<Spacing>,
     pub after: Option<Spacing>,
     pub bullet: Option<Bullet>,
+    pub marker: Marker,
     pub run: RunProps,
 }
 
@@ -89,6 +125,7 @@ impl Level {
             before: self.before.or(below.before),
             after: self.after.or(below.after),
             bullet: self.bullet.or(below.bullet),
+            marker: self.marker.over(&below.marker),
             run: self.run.over(&below.run),
         }
     }
@@ -169,6 +206,36 @@ pub fn run_props(node: &Node, reader: &Reader, placeholder: Option<&Paint>) -> R
             .child("a:highlight")
             .and_then(|h| reader.colors.first(h, placeholder)),
         baseline: node.int("baseline"),
+        cap: node.attr("cap").map(str::to_owned),
+        spacing: node
+            .int("spc")
+            .map(|hundredths| (hundredths as f64 / 100.0).clamp(-400.0, 4000.0)),
+    }
+}
+
+/// What the marker of a paragraph says: its glyph or numbering scheme, colour, size and where it sits.
+fn marker(node: &Node, reader: &Reader, placeholder: Option<&Paint>) -> Marker {
+    let style = node.elements().find_map(|n| match n.name.as_str() {
+        "a:buChar" => n.attr("char").and_then(style_of_glyph),
+        "a:buAutoNum" => n.attr("type").and_then(style_of_scheme),
+        _ => None,
+    });
+    let numbered = node.child("a:buAutoNum");
+    let size = node
+        .child("a:buSzPct")
+        .and_then(|n| n.int("val"))
+        .map(|v| (v as f64 / 100_000.0).clamp(0.25, 4.0));
+    Marker {
+        style,
+        start_at: numbered
+            .and_then(|n| n.int("startAt"))
+            .map(|v| v.clamp(1, 32_767) as u32),
+        color: node
+            .child("a:buClr")
+            .and_then(|c| reader.colors.first(c, placeholder)),
+        size,
+        margin: node.int("marL").map(crate::import::units::length),
+        indent: node.int("indent").map(crate::import::units::position),
     }
 }
 
@@ -186,6 +253,7 @@ pub fn level(node: &Node, reader: &Reader, placeholder: Option<&Paint>) -> Level
         before: spacing(node.child("a:spcBef")),
         after: spacing(node.child("a:spcAft")),
         bullet,
+        marker: marker(node, reader, placeholder),
         run: node
             .child("a:defRPr")
             .map(|d| run_props(d, reader, placeholder))

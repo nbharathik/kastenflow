@@ -11,6 +11,7 @@ use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 
 mod import;
 mod lint;
+mod pages;
 mod references;
 
 /// An error as JSON text: `{"kind": "noSuchSlide", "id": "...", "message": "..."}`.
@@ -50,6 +51,38 @@ pub fn theme_names() -> Result<String, JsValue> {
             .map(|t| t.name.clone())
             .collect::<Vec<_>>(),
     )
+}
+
+/// The names of the layouts every built-in theme has, as JSON: what is not among them is a layout
+/// someone made.
+#[wasm_bindgen(js_name = builtInLayouts)]
+pub fn built_in_layouts() -> Result<String, JsValue> {
+    json(&slides_core::themes::BUILT_IN_LAYOUTS)
+}
+
+/// The page sizes offered by name, as JSON: `[{"name": "16:9", "w": 960, "h": 540}, ...]`.
+#[wasm_bindgen(js_name = pageSizes)]
+pub fn page_sizes() -> Result<String, JsValue> {
+    json(
+        &slides_core::resize::PAGE_SIZES
+            .iter()
+            .map(|(name, w, h)| serde_json::json!({ "name": name, "w": w, "h": h }))
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// What a new deck is made of, as the editor asks for it.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NewDeckOptions {
+    title: String,
+    theme: String,
+    #[serde(default)]
+    width: Option<f64>,
+    #[serde(default)]
+    height: Option<f64>,
+    #[serde(default)]
+    examples: bool,
 }
 
 /// The pictures of a deck, by the paths it names them with.
@@ -157,6 +190,70 @@ impl SlidesEngine {
             .map_err(fail)
     }
 
+    /// A new deck of a size, with a title slide or with the theme's example slides. `options` is
+    /// `{"title", "theme", "width"?, "height"?, "examples"?}` as JSON; width and height go together
+    /// (960 by 540 when left out).
+    #[wasm_bindgen(js_name = createWith)]
+    pub fn create_with(options: &str, seed: f64) -> Result<SlidesEngine, JsValue> {
+        let options: NewDeckOptions = serde_json::from_str(options)
+            .map_err(|e| fail(slides_core::Error::bad_input("create_deck", e)))?;
+        let size = match (options.width, options.height) {
+            (Some(w), Some(h)) => Some((w, h)),
+            (None, None) => None,
+            _ => {
+                return Err(fail(slides_core::Error::bad_input(
+                    "create_deck",
+                    "give both the width and the height, or neither",
+                )));
+            }
+        };
+        Engine::create_with(&slides_core::NewDeck {
+            title: &options.title,
+            theme: &options.theme,
+            size,
+            examples: options.examples,
+            seed: seed as u64,
+        })
+        .map(|inner| SlidesEngine { inner })
+        .map_err(fail)
+    }
+
+    /// A new deck made of a template, the text of a `.deck` file whose look is the point: its theme and
+    /// page size, and with `examples` its slides, under a new id and the title given.
+    #[wasm_bindgen(js_name = createFromTemplate)]
+    pub fn create_from_template(
+        template: &str,
+        title: &str,
+        examples: bool,
+        seed: f64,
+    ) -> Result<SlidesEngine, JsValue> {
+        let template = canonical::parse(template).map_err(fail)?;
+        Engine::create_from_template(&template, title, examples, seed as u64)
+            .map(|inner| SlidesEngine { inner })
+            .map_err(fail)
+    }
+
+    /// The text of a template made of this deck: its look, with its slides as examples when
+    /// `keep_slides`, and a new id. `seed` starts its ids.
+    #[wasm_bindgen(js_name = templateText)]
+    pub fn template_text(
+        &self,
+        title: &str,
+        keep_slides: bool,
+        seed: f64,
+    ) -> Result<String, JsValue> {
+        let template =
+            slides_core::ops::template_of(self.inner.deck(), title, keep_slides, seed as u64);
+        canonical::write(&template).map_err(fail)
+    }
+
+    /// The text of the deck of one slide that the layout `name` is designed on.
+    #[wasm_bindgen(js_name = layoutDesign)]
+    pub fn layout_design(&self, name: &str) -> Result<String, JsValue> {
+        let design = slides_core::design::design_deck(self.inner.deck(), name).map_err(fail)?;
+        canonical::write(&design).map_err(fail)
+    }
+
     /// Opens the text of a `.deck` file.
     pub fn open(text: &str, seed: f64) -> Result<SlidesEngine, JsValue> {
         canonical::parse(text)
@@ -188,6 +285,19 @@ impl SlidesEngine {
         self.inner.set_references(references::shared());
         self.inner
             .apply(op, input)
+            .map_err(fail)
+            .and_then(|applied| json(&applied))
+    }
+
+    /// Applies an operation as part of the last step of undo when that step already covers what the
+    /// operation changes (a text box and its first words are one step). Returns what `apply` returns.
+    #[wasm_bindgen(js_name = applyIntoLast)]
+    pub fn apply_into_last(&mut self, op: &str, input: &str) -> Result<String, JsValue> {
+        let input =
+            serde_json::from_str(input).map_err(|e| fail(slides_core::Error::bad_input(op, e)))?;
+        self.inner.set_references(references::shared());
+        self.inner
+            .apply_into_last(op, input)
             .map_err(fail)
             .and_then(|applied| json(&applied))
     }
@@ -363,6 +473,63 @@ mod tests {
         let order =
             reading_order("[[400,300,100,50],[60,100,100,50],null,[400,100,100,50]]").unwrap();
         assert_eq!(order, "[1,3,0,2]");
+    }
+
+    #[test]
+    fn creates_a_deck_of_a_size_with_its_example_slides() {
+        let engine = SlidesEngine::create_with(
+            r#"{"title":"Talk","theme":"Pitch","width":960,"height":720,"examples":true}"#,
+            4.0,
+        )
+        .unwrap();
+        let deck: serde_json::Value = serde_json::from_str(&engine.deck().unwrap()).unwrap();
+        assert_eq!(deck["size"]["h"], 720.0);
+        assert_eq!(deck["theme"]["name"], "Pitch");
+        assert_eq!(deck["slides"].as_array().map(Vec::len), Some(7));
+        assert!(!engine.can_undo(), "a new deck has nothing to undo");
+        // A deck made without the options is the one `create` makes.
+        let plain = SlidesEngine::create_with(r#"{"title":"Talk","theme":"Light"}"#, 4.0).unwrap();
+        let same = SlidesEngine::create("Talk", "Light", 4.0).unwrap();
+        assert_eq!(plain.save().unwrap(), same.save().unwrap());
+    }
+
+    #[test]
+    fn makes_a_template_of_a_deck_and_a_deck_of_a_template_and_a_slide_of_a_layout() {
+        let source = SlidesEngine::create_with(
+            r#"{"title":"Talk","theme":"Pitch","width":960,"height":720,"examples":true}"#,
+            4.0,
+        )
+        .unwrap();
+        let text = source.template_text("My look", false, 8.0).unwrap();
+        let made = SlidesEngine::create_from_template(&text, "Review", false, 2.0).unwrap();
+        let deck: serde_json::Value = serde_json::from_str(&made.deck().unwrap()).unwrap();
+        assert_eq!(deck["title"], "Review");
+        assert_eq!(deck["theme"]["name"], "Pitch");
+        assert_eq!(deck["size"]["h"], 720.0);
+        assert_eq!(deck["slides"].as_array().map(Vec::len), Some(1));
+        assert!(!made.can_undo());
+
+        let design = source.layout_design("title-body").unwrap();
+        let slide: serde_json::Value = serde_json::from_str(&design).unwrap();
+        assert_eq!(slide["slides"][0]["id"], "s-design");
+        assert_eq!(
+            slide["slides"][0]["elements"].as_array().map(Vec::len),
+            Some(2)
+        );
+
+        let names: Vec<String> = serde_json::from_str(&built_in_layouts().unwrap()).unwrap();
+        assert_eq!(names.len(), 12);
+        assert!(names.contains(&"title-body".to_owned()));
+    }
+
+    #[test]
+    fn names_the_page_sizes() {
+        let sizes: serde_json::Value = serde_json::from_str(&page_sizes().unwrap()).unwrap();
+        assert_eq!(
+            sizes[0],
+            serde_json::json!({ "name": "16:9", "w": 960.0, "h": 540.0 })
+        );
+        assert_eq!(sizes.as_array().map(Vec::len), Some(4));
     }
 
     #[test]

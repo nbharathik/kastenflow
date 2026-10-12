@@ -45,7 +45,9 @@ async function openForm() {
   const view = render(<BoardCanvas path={BOARD} />);
   await view.findByLabelText(/^Whiteboard:/);
   await waitFor(() => expect(view.container.querySelectorAll(".react-flow__node")).toHaveLength(1));
-  fireEvent.click(screen.getByRole("button", { name: "Brainstorm with AI" }));
+  // The board's "More" menu holds it.
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: /Brainstorm with AI/ }));
   return { view, form: await screen.findByRole("dialog", { name: "Brainstorm on this board" }) };
 }
 
@@ -98,7 +100,7 @@ describe("brainstorm on a board", () => {
     useChat.getState().connect(chat);
     const { form } = await openForm();
     await act(async () => fireEvent.click(await within(form).findByRole("button", { name: "Brainstorm" })));
-    const tool = screen.getByRole("button", { name: "Brainstorm with AI" });
+    const tool = screen.getByRole("button", { name: "More" });
     expect(tool.dataset.busy).toBe("true");
     expect(within(form).getByRole("button", { name: /Thinking/ })).toHaveProperty("disabled", true);
     await act(async () => finish(new Error("The model is overloaded")));

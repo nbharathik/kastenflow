@@ -57,11 +57,11 @@ describe("the box", () => {
     expect(editing).toHaveLength(shown.length);
     shown.forEach((paragraph, i) => {
       expect(styleOf(editing[i]!), `paragraph ${i}`).toEqual(styleOf(paragraph));
-      expect(editing[i]!.textContent).toBe(paragraph.textContent === "" ? "" : paragraph.textContent!.replace(/^(•|–|▪|\d+\.|[a-z]+\.)/, ""));
+      expect(editing[i]!.textContent).toBe(paragraph.textContent === "" ? "" : paragraph.textContent!.replace(/^(●|○|■|\d+\.|[a-z]+\.)/, ""));
     });
     // The marker is the paragraph's data-marker here, and a span there.
-    expect(editing.map((e) => e.getAttribute("data-marker"))).toEqual(["•", "a.", null]);
-    expect([...drawn.querySelectorAll(".ks-marker")].map((e) => e.textContent)).toEqual(["•", "a."]);
+    expect(editing.map((e) => e.getAttribute("data-marker"))).toEqual(["●", "a.", null]);
+    expect([...drawn.querySelectorAll(".ks-marker")].map((e) => e.textContent)).toEqual(["●", "a."]);
   });
 });
 

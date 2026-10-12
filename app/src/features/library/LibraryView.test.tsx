@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { useShell } from "../../lib/store";
 import { AppShell } from "../../shell/AppShell";
+import { usePrefs } from "../workspace/prefs";
 import { MemoryVault } from "../workspace/preview/memory-vault";
 import { useWorkspace } from "../workspace/store";
 import { LibraryView } from "./LibraryView";
@@ -22,6 +23,8 @@ let vault: MemoryVault;
 async function openLibrary(seed: Record<string, string> = SEED, prepare?: (vault: MemoryVault) => void) {
   vault = new MemoryVault(seed);
   prepare?.(vault);
+  // The sidebar pins a few views; this one is pinned so its button is there to click.
+  usePrefs.setState({ navPinned: ["library"] });
   render(<AppShell connect={async () => ({ client: vault })} />);
   const sidebar = await screen.findByRole("navigation", { name: "Sidebar" });
   await act(async () => fireEvent.click(within(sidebar).getByRole("button", { name: "Card Library" })));

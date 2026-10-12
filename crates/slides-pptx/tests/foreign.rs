@@ -1,18 +1,35 @@
 //! Files that other programs made, in `fixtures/decks/pptx`: this crate's own export of the sample
-//! deck and the same file saved again by LibreOffice. They are made once and committed; a test
-//! only reads them. Everything imports, and nothing is dropped.
+//! deck (as it was written before list markers had styles, and as it is written now) and the same
+//! file saved again by LibreOffice. They are made once and committed; a test only reads them.
+//! Everything imports, and nothing is dropped.
 
 mod common;
 
-use slides_core::{Deck, Element, Slide};
-use slides_pptx::Options;
+use std::fs;
+use std::path::PathBuf;
+
+use slides_core::{Deck, Element, ListKind, ListStyle, Slide};
+use slides_pptx::{Options, export};
 
 use common::compare;
 use common::foreign::{all, fixture, sample, title, words};
 
+/// Writes `exported-current.pptx`, this crate's export of the sample deck as decks are written
+/// now. Run it by hand when the way a deck is written changes:
+/// `cargo test -p slides-pptx --test foreign write_the_current_export -- --ignored`.
+#[test]
+#[ignore = "writes fixtures/decks/pptx/exported-current.pptx; run by hand"]
+fn write_the_current_export() {
+    let exported = export(&sample(), &common::Files::default(), &Options::default())
+        .unwrap_or_else(|e| panic!("{e}"));
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/decks/pptx/exported-current.pptx");
+    fs::write(&path, exported.bytes).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+}
+
 #[test]
 fn our_own_export_of_the_sample_deck_comes_back_as_the_sample_deck() {
-    let imported = fixture("exported.pptx");
+    let imported = fixture("exported-current.pptx");
     assert!(
         imported.report.warnings.is_empty(),
         "{:?}",
@@ -21,6 +38,44 @@ fn our_own_export_of_the_sample_deck_comes_back_as_the_sample_deck() {
     assert!(imported.report.raw.is_empty());
     let diff = compare::compare(&sample(), &Options::default(), &imported, &|_| None);
     assert!(diff.is_empty(), "{}", diff.join("\n"));
+}
+
+#[test]
+fn an_export_from_before_markers_had_styles_keeps_the_markers_it_wrote() {
+    let imported = fixture("exported.pptx");
+    assert!(
+        imported.report.warnings.is_empty(),
+        "{:?}",
+        imported.report.warnings
+    );
+    assert!(imported.report.raw.is_empty());
+    let (a, b) = (sample(), &imported.deck);
+    assert_eq!(b.slides.len(), a.slides.len());
+    for (want, got) in a.slides.iter().zip(&b.slides) {
+        assert_eq!(title(got), title(want), "slide titles");
+    }
+    // The first slide's list: the same words and levels, each marker the one the file drew (a dash on
+    // the second level, hung from 24 and 48) and not the one the deck would have given it.
+    let items: Vec<_> = b
+        .slides
+        .iter()
+        .flat_map(all)
+        .filter_map(|e| match e {
+            Element::Text(t) => Some(&t.text.paragraphs),
+            _ => None,
+        })
+        .flatten()
+        .filter(|p| p.list == Some(ListKind::Bullet))
+        .collect();
+    assert!(items.len() >= 5, "{} bullets", items.len());
+    for p in items {
+        let (style, margin) = match p.level.unwrap_or(0) {
+            0 => (None, 24.0),
+            _ => (Some(ListStyle::Dash), 48.0),
+        };
+        assert_eq!(p.list_style, style, "{:?}", p.runs);
+        assert_eq!(p.margin_left, Some(margin), "{:?}", p.runs);
+    }
 }
 
 #[test]

@@ -1,8 +1,191 @@
 # Changelog
 
-Every release of Kasten, newest first. Versions follow
-[Semantic Versioning](https://semver.org); the vault format has its own
-version, described in [docs/vault-format.md](docs/vault-format.md).
+Every release of KastenFlow (called Kasten before 1.1.0), newest first.
+Versions follow [Semantic Versioning](https://semver.org); the vault format
+has its own version, described in [docs/vault-format.md](docs/vault-format.md).
+
+## 1.1.0
+
+### A new name
+
+- Kasten is now **KastenFlow**. Only the name changes: your vaults, settings,
+  saved keys and sign-ins carry on as they are, and vaults still keep their
+  own files in `.kasten/`.
+- The command-line tool is `kastenflow`; `kasten` still works.
+- On Windows, KastenFlow installs beside an earlier Kasten rather than over
+  it. Uninstall Kasten once KastenFlow is running.
+
+### Pages and the editor
+
+- `---` splits a page into sections: hover a divider for the section's title and
+  fold it; the first section folds from the block handle. Folding is only how the
+  page looks; the file does not change. **Present this page** shows one section at
+  a time, full screen, and a **smart layout** draws each section as a card with an
+  outline strip to jump to a section or move it.
+- Click below or beside the text to start writing. Shift+click or Shift+arrows
+  select several blocks, which move, duplicate, colour, turn into another kind
+  or group into a toggle together.
+- `@` understands dates and times (`@next fri 3pm` writes `[[2026-10-16]] 15:00`),
+  and also links boards, decks, tags and people, in to-dos too. A date in the title
+  sets the page's date.
+- A web address pasted on an empty line can become a link or a bookmark card.
+  Whiteboards and decks embed quietly in a page: `/deck` and `![[name.deck]]`.
+- Find in page has match case and whole word, finds toggle and callout titles,
+  opens what is folded, and can search the page's sub-pages. Replace works
+  across the page and its sub-pages as one change you can undo.
+- Quick capture picks its place by typing (recent places first), can send to any
+  page, and clips a web address like the in-app box.
+- Dates in the Library: filter by created or updated day, week or month, or a
+  range, and group by type, project, tag, month or week. Search also takes
+  `on:`, `created:`, `updated:` and `under:`. Library colours match the Tag
+  Database.
+
+### Opening and organising
+
+- One **Open** menu everywhere: new tab, to the right, side or centre peek, side
+  stack. Pages can open to the right by default or per page, and the tab "+"
+  button has a menu for a page, the journal, a deck or a whiteboard.
+- The sidebar shows pages under projects (quick notes live in the project home),
+  with pinned pages, a filter box and fifteen rows per project. The views list
+  is organised: pin the ones you use and find the rest under **More views**.
+- Whiteboards and decks on Home and project homes show the four newest as compact
+  rows with **Show all**; deck previews share one frame whatever the slide shape.
+- **Mind map from this page** makes one map per page, finds it again, and keeps
+  it in step with the page without deleting what you added.
+- The interface follows each screen: every display remembers its own size, with
+  an **Auto** choice, and page text has four sizes.
+- The Highlights page is redesigned.
+- **Home** is one short screen. A single line holds the greeting, the capture
+  field (type `/` for actions such as New page, New deck or Search), a **+ New**
+  menu and Customize. Below it, **Recent** lists ten items one per row, with
+  filters for pages, cards, boards, decks, diagrams and captures, a project
+  drop-down, a type-to-narrow field and a rows or grid switch (it remembers your
+  choices). A slim column shows today's events and to-dos, a short to-do list and
+  the inbox. Projects, the page directory, this week, the journal, whiteboards
+  and decks are optional and off until you turn them on in Customize, which now
+  drags to reorder and resets to the simple layout.
+- **Settings** is a window of two panes, as in VS Code: the groups on the left
+  under General, Connect, Data and System, one group at a time on the right, and a
+  search over every setting (press `/`) that marks what it found. Rows are short;
+  the longer explanation is behind a **?**, and a dot with a way back marks what you
+  changed. The palette opens Settings at a group (**Settings: Appearance**) or a
+  single setting.
+
+### Slides
+
+- New slides are blank, with no stray bullet; a text box lands where you click;
+  new decks have no slide numbers (a switch turns them on); one element can align
+  to the slide.
+- Page setup for 16:9, 16:10, 4:3, a square or your own size; eleven themes, seven
+  of them new, in a template gallery with example slides.
+- Smoother dragging and resizing, animated slide reordering, entering groups,
+  a selection bar and a fuller right-click menu, and a deck-wide transition.
+- Dragging, resizing and turning follow the pointer without redrawing the slide, so a
+  busy slide moves as smoothly as an empty one; Alt or Ctrl while dragging makes a copy,
+  guides show the size of an equal gap, and Esc glides everything back.
+- Zoom follows the wheel and a pinch about the pointer, glides for the menu and the
+  keys and keeps the place you are looking at; Space or the middle button drags the
+  slide about; undo, redo and align glide the elements to where they go.
+- Dragging slides in the filmstrip holds their thumbnails under the pointer, opens a
+  gap where they will land and scrolls by itself; a deleted slide folds away, Enter
+  adds a slide, and a run of arrow-key nudges is one step of undo.
+- A click on a text box writes in it, with the caret where you clicked.
+- Text and lists feel like Google Slides. Bullets and numbers hang properly, nine levels deep,
+  in twelve styles (disc, circle, square, arrow, check, dash, 1. 1) a. A. i. I.), with restart,
+  continue and a number to start at; `- `, `* `, `1. ` and `a. ` start a list as you type, Tab and
+  Shift+Tab move a level, and Enter on an empty item ends it. A marker follows its words: set the size
+  of the words and the bullet follows, an empty bullet has the size of the line it came from, and a
+  marker can be 25% to 400% of its words, in a colour of its own. Text can shrink to fit its box or
+  resize the box, wrap off, raised and lowered, small capitals, letter spacing, change case, paste with
+  its bold, links, colours and lists, and PowerPoint keeps all of it.
+- Clicking away lets go: a click on empty space, on the grey round the slide or on the bare top bar
+  clears the selection (one click, also when a text box is open), a click on a slide in the filmstrip
+  leaves the blocks on the slide, and the name of a section picks the slides in it. Several picked
+  slides go back to one when you click the slide.
+- Copy, cut and paste work wherever the focus is in the editor, on blocks and on slides, with no
+  permission prompt; they steer clear of the text box you are typing in. A paste is 16 down and right
+  of a copy (further each time), where it was on another slide or in another deck, or in place
+  (Ctrl+Shift+V); slides can be copied, cut and pasted between decks (notes, look, transition and
+  sections come along), and dragging slides with Alt or Ctrl copies them. A picture, words or
+  the text of a web page pasted from another program land where the pointer is.
+- Layouts of your own. Design a slide, choose **Save slide as layout** and it joins the
+  built-in layouts, as a live thumbnail, in the New slide menu. Edit a layout and every slide
+  that uses it follows (slides keep their words and any slot you moved by hand); **Reset slide
+  to layout** puts the slots back. A **Layouts** manager renames, copies, orders, edits and
+  deletes them, and a layout can be marked as the one new slides start from (a third choice
+  beside Blank and Same as current), which is how to give your blank slide its own background,
+  footer, logo or stripe.
+- Templates of your own. **Save as template** keeps a deck's colours, fonts, layouts and shape as
+  a plain file in the vault's `templates/slides/` folder; the New deck gallery lists them as
+  **My templates** beside the built-in ones (rename, copy, trash), and **Apply a template**
+  restyles a deck without touching its words. Layouts of your own export to PowerPoint as real
+  layouts.
+- A better **Insert**. The menu has two levels (Text & content, Media, Shapes & lines, Data,
+  Pages & links, Smart parts), each item with an icon, a line saying what it makes and its
+  keys. The **Insert gallery** (Ctrl+/, or the plus on the toolbar) finds anything by typing.
+  The keyboard shortcuts moved to Ctrl+Shift+/.
+- **Insert → Page…** puts a page of your vault on a slide four ways: embedded (a live,
+  read-only view that keeps up with the page), its contents as slide text or as a slide for
+  each heading, one section of it, or a link to it. What came from a page remembers it:
+  **Update from page** makes it again from the page as it is now (in one step of undo),
+  **Break link** keeps what is on the slide, and a deck can update every page at once from the
+  Tools menu. Links to pages open in a peek at the side from the editor (Ctrl+click), and in a
+  calm panel at the side in a presentation, which Esc puts away and returns to the slide.
+  Link a page from **Insert link** too.
+- Web pages and embedded pages are laid out for a window of their own (Desktop 1280 by 800,
+  Wide, Slide, Tablet, Phone, or a size you choose) and scaled to the box, so a page in a small
+  box keeps its layout instead of being squeezed. Fit the width, the whole page or fill the box,
+  or zoom from 25% to 300%: Ctrl and plus, minus or zero (and Ctrl with the wheel) zoom the
+  selected page instead of the slide. In a presentation a page is looked at until you click it,
+  then Ctrl and plus, minus or zero zoom it, and Esc gives the keys back to the slide.
+- Decks can hold charts (bars, lines, pie), timers and QR codes, which assistants and files can
+  make; the menus do not offer them yet.
+
+### Whiteboards
+
+- Quieter boards. Choosing something shows one small colour dot, and the colours
+  open only when you press it (the keys 1 to 9 pick one, 0 takes it off). The bar
+  over a selection holds just the few actions that fit what is chosen, with
+  **More** for the rest. Pink, brown and grey join the six colours.
+- The tools are a slim strip on the left; one small control in the lower left
+  holds undo, zoom and the minimap; Present and a **More** menu sit at the top
+  right. The bars rest faintly until the pointer comes, and **focus mode**
+  (`\`) hides them all. Settings → Whiteboards keeps the strip at full strength,
+  shows the minimap, and picks what a double-click makes: a card or a sticky.
+- Sections are soft frames with a small name chip; a connector tool (`L`) joins
+  things; **More → Export as an outline** copies a board as Markdown.
+
+### Graph, calendar and web
+
+- A **Graph** of your notes (whole vault, a project or around a page) and a
+  full-screen **project overview** with saved tables.
+- Subscribe to calendars by their private iCal address (Google, Outlook, iCloud,
+  your own domain): events show beside your notes, with an hour grid in the week.
+  Read only; nothing is written to your notes.
+- **Sign in with ChatGPT** as an AI provider, using your own ChatGPT plan.
+- An optional **built-in browser tab** with a capture bar, and a Chrome and Edge
+  extension that sends pages and selections into a **Captures** table. Both are
+  off until you turn them on.
+
+### Diagrams
+
+- A **Diagrams** view for flowcharts, architecture drawings and sketches,
+  drawn in draw.io (diagrams.net, Apache-2.0). The editor is not part of the
+  download: **Install diagram editor** fetches one pinned version, checks its
+  size and checksum, and keeps it in Kasten's data folder; **Remove** takes it
+  away again. It runs in a sandboxed frame with no way out to the web.
+- A diagram is a plain `.drawio` file with a `.drawio.svg` picture beside it.
+  Pages, slides and whiteboards show the picture, so nothing needs the editor
+  to see a diagram. The two files move, rename, duplicate, go to the trash and
+  come back together, and links and whiteboard cards follow a renamed diagram.
+- Changes are saved as you draw, with the picture; a diagram changed
+  elsewhere while open keeps your version in a copy beside it.
+- `/diagram` and `![[name.drawio]]` show a diagram in a page and edit it in
+  place; a whiteboard card shows its picture; **Insert → Image → Diagram…**
+  puts one on a slide as a PNG, and **Edit diagram** changes it from there.
+- Agents list, read, make and rewrite diagrams as XML in the MCP server and the
+  chat; a rewrite that takes a lot out, and anything sent to the trash, wait
+  for review.
 
 ## 1.0.0
 

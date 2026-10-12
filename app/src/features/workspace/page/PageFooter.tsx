@@ -6,7 +6,9 @@ import { Disclosure } from "../../../ui/Disclosure";
 import { DayActivity } from "../../journal/DayActivity";
 import { iconOf, readable, titleOf } from "../names";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
-import { howFrom, useWorkspace } from "../store";
+import { openMenuHandlers } from "../../../shell/open-menu";
+import { howFromPage } from "../open-how";
+import { useWorkspace } from "../store";
 import { childrenOf } from "../tree";
 
 /** Below the page, folded away until asked: its sub-pages, the pages that
@@ -37,14 +39,14 @@ export function PageFooter({ note, notes, client }: { note: NoteMeta; notes: Not
       {children.length > 0 && (
         <Disclosure id="page.subpages" title="Sub-pages" meta={children.length}>
           {children.map((child) => (
-            <FooterLink key={child.path} note={child} />
+            <FooterLink key={child.path} note={child} from={note.path} />
           ))}
         </Disclosure>
       )}
       {backlinks.length > 0 && (
         <Disclosure id="page.backlinks" title={`${backlinks.length} ${backlinks.length === 1 ? "page links" : "pages link"} here`}>
           {backlinks.map((link) => (
-            <FooterLink key={link.path} note={{ path: link.path, title: link.title, icon: link.icon, kind: "page" }} detail={readable(link.snippet)} />
+            <FooterLink key={link.path} note={{ path: link.path, title: link.title, icon: link.icon, kind: "page" }} from={note.path} detail={readable(link.snippet)} />
           ))}
         </Disclosure>
       )}
@@ -58,10 +60,13 @@ export function PageFooter({ note, notes, client }: { note: NoteMeta; notes: Not
 
 type Linked = Pick<NoteMeta, "path" | "title" | "icon" | "kind">;
 
-function FooterLink({ note, detail }: { note: Linked; detail?: string }) {
+/** A sub-page or backlink: a plain click follows the page's `opens` key or
+ * Settings, a click with a key what the key says; right-click shows the
+ * Open menu and the middle button opens a tab. */
+function FooterLink({ note, from, detail }: { note: Linked; from: string; detail?: string }) {
   const openPath = useWorkspace((s) => s.openPath);
   return (
-    <button type="button" className="kasten-footer-link" onClick={(e: MouseEvent) => openPath(note.path, howFrom(e))}>
+    <button type="button" className="kasten-footer-link" onClick={(e: MouseEvent) => openPath(note.path, howFromPage(e, from))} {...openMenuHandlers(note.path)}>
       <span className="kasten-footer-link-title">
         <IconOrEmoji icon={iconOf(note)} /> {titleOf(note)}
       </span>

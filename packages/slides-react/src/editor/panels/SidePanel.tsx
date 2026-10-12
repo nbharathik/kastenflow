@@ -3,18 +3,23 @@ import { type JSX, type KeyboardEvent, useId } from "react";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi, PanelName } from "../ui-state.ts";
 import { IconButton } from "../ui/Button.tsx";
+import { Icon, type IconName } from "../ui/Icon.tsx";
 import { useUiState } from "../useUi.ts";
 import { FormatPanel } from "./format/FormatPanel.tsx";
 import { FoldsProvider, useFolds } from "./format/PanelSection.tsx";
 import { AiPanel } from "./ai/AiPanel.tsx";
 import { CommentsTab } from "./Placeholders.tsx";
 import { StepsPanel } from "./steps/StepsPanel.tsx";
+import { ThemesPanel } from "./themes/ThemesPanel.tsx";
+import { TransitionsPanel } from "./transitions/TransitionsPanel.tsx";
 import "./side-panel.css";
 
-const TABS: { name: PanelName; label: string }[] = [
-  { name: "format", label: "Format options" },
-  { name: "steps", label: "Steps" },
-  { name: "ai", label: "Assistant" },
+const TABS: { name: PanelName; label: string; icon: IconName }[] = [
+  { name: "format", label: "Format options", icon: "sliders-horizontal" },
+  { name: "themes", label: "Themes", icon: "palette" },
+  { name: "transitions", label: "Transitions", icon: "film" },
+  { name: "steps", label: "Steps", icon: "wand-sparkles" },
+  { name: "ai", label: "Assistant", icon: "sparkles" },
 ];
 
 /**
@@ -39,14 +44,18 @@ function handBack(event: KeyboardEvent<HTMLElement>): void {
   if (stage) queueMicrotask(() => stage.focus({ preventScroll: true }));
 }
 
-/** The panel on the right: format options, steps, the assistant. */
-export function SidePanel({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
-  const { panel } = useUiState(ui);
+/**
+ * The panel on the right: format options, themes, transitions, steps, the assistant. Each tab is an icon, and the one that is open also
+ * says its name. `shown` is the panel to draw while it slides away (the window state already says there is none).
+ */
+export function SidePanel({ session, ui, shown }: { session: EditorSession; ui: EditorUi; shown?: PanelName | null }): JSX.Element {
+  const open = useUiState(ui).panel;
+  const panel = open ?? shown ?? null;
   const uid = useId();
   const tabId = (name: string) => `${uid}-tab-${name}`;
   const bodyId = `${uid}-body`;
-  // The sections a person folded stay folded while the panel is open, whichever tab is shown.
-  const folds = useFolds(["access"]);
+  // The sections a person folded stay folded, whichever tab is shown, and the next time the editor opens.
+  const folds = useFolds(ui, ["access"]);
 
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -79,6 +88,7 @@ export function SidePanel({ session, ui }: { session: EditorSession; ui: EditorU
             key={tab.name}
             id={tabId(tab.name)}
             data-panel={tab.name}
+            data-tip={tab.label}
             type="button"
             role="tab"
             className="ks-btn ks-sp-tab"
@@ -87,17 +97,18 @@ export function SidePanel({ session, ui }: { session: EditorSession; ui: EditorU
             tabIndex={panel === tab.name || (panel === "comments" && tab.name === "format") ? 0 : -1}
             onClick={() => ui.openPanel(tab.name)}
           >
-            {tab.label}
+            <Icon name={tab.icon} size={15} />
+            <span className="ks-sp-tab-label">{tab.label}</span>
           </button>
         ))}
         <IconButton icon="x" label="Close panel" className="ks-sp-close" onClick={() => ui.openPanel(null)} />
       </div>
       <div id={bodyId} className="ks-sp-body" role="tabpanel" aria-labelledby={tabId(panel ?? "format")}>
-        {panel === "format" ? (
-          <FoldsProvider folds={folds}>
-            <FormatPanel session={session} ui={ui} />
-          </FoldsProvider>
-        ) : null}
+        <FoldsProvider folds={folds}>
+          {panel === "format" ? <FormatPanel session={session} ui={ui} /> : null}
+          {panel === "themes" ? <ThemesPanel session={session} ui={ui} /> : null}
+          {panel === "transitions" ? <TransitionsPanel session={session} ui={ui} /> : null}
+        </FoldsProvider>
         {panel === "steps" ? <StepsPanel session={session} ui={ui} /> : null}
         {panel === "ai" ? <AiPanel session={session} ui={ui} /> : null}
         {panel === "comments" ? <CommentsTab /> : null}

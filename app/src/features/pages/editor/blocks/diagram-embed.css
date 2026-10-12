@@ -1,0 +1,58 @@
+/* A diagram inside a page (diagram-embed.ts): its picture, centred, with no
+   frame of its own. The title and the toolbar appear on hover or focus, and a
+   double click edits; the picture, the toolbar and the placeholder are
+   drawn by the window. */
+
+.kasten-page-editor .kasten-embed.kasten-diagram-embed {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-radius: var(--radius-lg);
+  cursor: default;
+
+  &:hover,
+  &:focus-within {
+    border: 0;
+    box-shadow: none;
+  }
+
+  /* The title sits on top of the picture's corner, out of the way, until the diagram is pointed at. */
+  & .kasten-embed-head {
+    position: absolute;
+    left: 6px;
+    top: 4px;
+    z-index: 2;
+    max-width: calc(100% - 140px);
+    padding: 2px 8px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-canvas);
+    box-shadow: var(--shadow-card);
+    font-size: var(--text-12);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--motion-fast) var(--ease-standard);
+  }
+
+  &:hover .kasten-embed-head,
+  &:focus-within .kasten-embed-head {
+    opacity: 1;
+  }
+
+  &.ProseMirror-selectednode {
+    box-shadow: 0 0 0 2px var(--notion-selection);
+  }
+}
+
+.kasten-page-editor .kasten-diagram-embed-body {
+  position: relative;
+  padding: 4px 0;
+  font-size: var(--text-14);
+
+  /* The window's view of the diagram, centred, as wide as its picture. */
+  & > div {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+}

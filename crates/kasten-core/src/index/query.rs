@@ -48,6 +48,8 @@ pub struct TaskRow {
     pub text: String,
     /// The day the task names, if any.
     pub due: Option<String>,
+    /// The time (`HH:MM`) that directly follows that day, if any.
+    pub at: Option<String>,
 }
 
 /// Words of a title as an FTS5 phrase, or None if nothing searchable remains.
@@ -166,7 +168,7 @@ impl Index {
     /// own page: by day, then newest first, one row per note and day.
     pub fn day_mentions(&self, from: &str, to: &str) -> Result<Vec<DayMention>> {
         let mut stmt = self.conn.prepare_cached(
-            "SELECT l.target, n.path, n.title, n.icon, n.kind, l.context FROM links l JOIN notes n ON n.num = l.num
+            "SELECT l.target, n.path, n.title, n.icon, n.kind, l.context, l.at FROM links l JOIN notes n ON n.num = l.num
              WHERE l.target BETWEEN ?1 AND ?2
                AND l.target GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
                AND n.kind != 'template' AND n.title_key != l.target
@@ -181,6 +183,7 @@ impl Index {
                 icon: r.get(3)?,
                 kind: r.get(4)?,
                 snippet: r.get(5)?,
+                at: r.get(6)?,
             })
         })?;
         // One per note and day: its first line that names the day.
@@ -231,7 +234,7 @@ impl Index {
     /// Every to-do outside templates, by note and line.
     pub fn tasks(&self) -> Result<Vec<TaskRow>> {
         let mut stmt = self.conn.prepare_cached(
-            "SELECT n.path, n.title, n.icon, t.line, t.done, t.text, t.due FROM tasks t JOIN notes n ON n.num = t.num
+            "SELECT n.path, n.title, n.icon, t.line, t.done, t.text, t.due, t.at FROM tasks t JOIN notes n ON n.num = t.num
              WHERE n.kind != 'template' ORDER BY n.modified DESC, n.path, t.line",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -243,6 +246,7 @@ impl Index {
                 done: r.get(4)?,
                 text: r.get(5)?,
                 due: r.get(6)?,
+                at: r.get(7)?,
             })
         })?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)

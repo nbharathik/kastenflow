@@ -82,7 +82,7 @@ for (const item of [...crates, ...npm, ...copied]) {
 
 const line = (item) => `${item.name} ${item.version} (${item.licence})${item.home ? ` ${item.home}` : ""}${item.texts.length ? "" : " [no licence file in the package]"}`;
 const parts = [
-  "Kasten is MIT-licensed. It includes the open-source software below, whose licences follow.",
+  "KastenFlow is MIT-licensed. It includes the open-source software below, whose licences follow.",
   "A package marked [no licence file] ships none of its own; the licence it names applies in its standard text.",
   "",
   `Rust crates (${crates.length})`,

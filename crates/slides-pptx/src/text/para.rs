@@ -1,14 +1,15 @@
 //! Paragraphs: alignment, spacing, indent and bullet, then the runs. A list
-//! item's marker hangs in the space its indent leaves, as the editor draws it.
+//! item's marker hangs in the room its indent leaves, as the editor draws it.
 
-use slides_core::{Align, ListKind, Paragraph, Run, Theme};
+use slides_core::list::{self, Geometry};
+use slides_core::{Align, ListKind, ListStyle, Paragraph, Run, Theme};
 
 use super::lists::{self, Number};
-use super::metrics::{DEFAULT_LINE_SPACING, LIST_INDENT, LIST_STEP};
+use super::metrics::DEFAULT_LINE_SPACING;
 use super::{resolve, run};
 use crate::color::Color;
 use crate::cx::Cx;
-use crate::units::{emu, hundredths};
+use crate::units::{emu, hundredths, thousandths};
 use crate::xml::Xml;
 
 fn align(a: &Align) -> &'static str {
@@ -31,20 +32,20 @@ fn spacing(x: &mut Xml, tag: &str, points: f64) {
     x.close();
 }
 
-/// What a list item needs besides its paragraph: its number, and how far its marker hangs.
+/// What a list item needs besides its paragraph: its number, and where its lines start.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Item {
     pub number: Option<Number>,
-    /// Slide units.
-    pub hang: f64,
+    /// Where the paragraph sets its lines; worked out for the paragraph alone when absent.
+    pub geometry: Option<Geometry>,
 }
 
 impl Item {
-    /// An item with the editor's indent.
+    /// An item with nothing said about it: the paragraph is set as if it stood alone.
     pub fn plain() -> Item {
         Item {
             number: None,
-            hang: LIST_INDENT,
+            geometry: None,
         }
     }
 }
@@ -59,22 +60,35 @@ pub struct Setting {
     pub space_before: f64,
     pub space_after: f64,
     pub list: Option<ListKind>,
+    /// The bullet or numbering style, when the paragraph is a list item.
+    pub style: Option<ListStyle>,
     pub level: usize,
     pub number: Option<Number>,
-    /// How far the marker hangs before the text.
-    pub hang: f64,
+    /// Where the paragraph's lines start.
+    pub geometry: Geometry,
+    /// The colour of the marker when the paragraph names one.
+    pub marker_color: Option<Color>,
+    /// The size of the marker as a share of the words', when the paragraph names one.
+    pub marker_size: Option<f64>,
     /// Set for a paragraph of a step that has not come yet, which keeps its place and shows
     /// nothing: the colour its bullet is drawn in, which is the page's, and no opacity.
     pub hidden: Option<Color>,
 }
 
 impl Setting {
-    /// The settings a style gives a list of `list` at `level`.
+    /// The settings a style gives a list of `list` at `level`: each level of the first sits under the words of the one above.
     pub fn of_style(style: &resolve::Style, list: Option<ListKind>, level: usize) -> Setting {
+        let listed = list.is_some();
+        let style_of_list = list.as_ref().map(|kind| list::default_style(kind, level));
         let number = matches!(list, Some(ListKind::Number)).then(|| Number {
-            scheme: lists::scheme(level),
+            scheme: lists::scheme(&list::default_style(&ListKind::Number, level)),
             start_at: None,
         });
+        let margin = if listed {
+            list::LIST_INDENT * (level + 1) as f64
+        } else {
+            list::LIST_STEP * level as f64
+        };
         Setting {
             align: style.align.clone(),
             line_spacing: style.line_spacing,
@@ -82,9 +96,15 @@ impl Setting {
             space_before: style.space_before,
             space_after: style.space_after,
             list,
+            style: style_of_list,
             level,
             number,
-            hang: LIST_INDENT,
+            geometry: Geometry {
+                margin,
+                indent: if listed { -list::LIST_INDENT } else { 0.0 },
+            },
+            marker_color: None,
+            marker_size: None,
             hidden: None,
         }
     }
@@ -110,14 +130,8 @@ fn line_height(multiple: f64, size: f64) -> i64 {
 /// its level, which a paragraph does and a style's level does not.
 pub fn open_settings(x: &mut Xml, tag: &str, s: &Setting, with_level: bool) {
     x.open(tag);
-    if s.list.is_some() {
-        let margin = s.hang + LIST_STEP * s.level as f64;
-        x.int("marL", emu(margin)).int("indent", -emu(s.hang));
-    } else {
-        // Nothing hangs, but a level still moves the words in a step, as the editor does.
-        x.int("marL", emu(LIST_STEP * s.level as f64))
-            .int("indent", 0);
-    }
+    x.int("marL", emu(s.geometry.margin))
+        .int("indent", emu(s.geometry.indent));
     if with_level && s.level > 0 {
         x.int("lvl", s.level as i64);
     }
@@ -129,17 +143,29 @@ pub fn open_settings(x: &mut Xml, tag: &str, s: &Setting, with_level: bool) {
     x.close();
     spacing(x, "a:spcBef", s.space_before);
     spacing(x, "a:spcAft", s.space_after);
-    if let (Some(ink), Some(_)) = (&s.hidden, &s.list) {
-        x.open("a:buClr");
-        ink.write(x, Some(0.0));
-        x.close();
-    }
-    match (&s.list, s.number) {
-        (Some(ListKind::Bullet), _) => {
-            x.leaf("a:buFont", &[("typeface", "Arial")]);
-            x.leaf("a:buChar", &[("char", lists::bullet(s.level))]);
+    if s.list.is_some() {
+        // A step that has not come yet draws its marker in the colour of the page; otherwise the paragraph's own, if it names one.
+        if let Some(ink) = s.hidden.as_ref() {
+            x.open("a:buClr");
+            ink.write(x, Some(0.0));
+            x.close();
+        } else if let Some(ink) = &s.marker_color {
+            x.open("a:buClr");
+            ink.write(x, None);
+            x.close();
         }
-        (Some(ListKind::Number), Some(n)) => {
+        if let Some(share) = s.marker_size {
+            x.open("a:buSzPct")
+                .int("val", thousandths(share).clamp(25_000, 400_000))
+                .close();
+        }
+    }
+    match (&s.list, s.number, s.style.as_ref().and_then(lists::bullet)) {
+        (Some(ListKind::Bullet), _, Some((glyph, face))) => {
+            x.leaf("a:buFont", &[("typeface", face)]);
+            x.leaf("a:buChar", &[("char", glyph)]);
+        }
+        (Some(ListKind::Number), Some(n), _) => {
             x.open("a:buFontTx").close();
             x.open("a:buAutoNum").attr("type", n.scheme);
             if let Some(start) = n.start_at {
@@ -153,8 +179,9 @@ pub fn open_settings(x: &mut Xml, tag: &str, s: &Setting, with_level: bool) {
     }
 }
 
-/// The type size of a paragraph, in points: its largest run's, or its style's
-/// when it has none. A line is as tall as the largest type on it.
+/// The type size of a paragraph, in points: its largest run's; its mark's (the size of
+/// its one empty run) when it has no words, or its style's when it has not even that.
+/// A line is as tall as the largest type on it.
 pub fn size_of(theme: &Theme, para: &Paragraph, base: &str) -> f64 {
     let style = resolve::style_for(theme, para.style.as_deref(), base);
     let shown = para
@@ -164,11 +191,14 @@ pub fn size_of(theme: &Theme, para: &Paragraph, base: &str) -> f64 {
     shown
         .map(|r| run::run_size(r, &style))
         .reduce(f64::max)
+        // A paragraph with no words is as tall as its mark, the one empty run it holds.
+        .or_else(|| para.runs.first().map(|r| run::run_size(r, &style)))
         .unwrap_or(style.size)
 }
 
 /// The type size of the marker of a list item, in points: the first run's that
-/// shows something, which is how the editor draws it and PowerPoint sets a bullet.
+/// shows something, which is how the editor draws it and PowerPoint sets a bullet, and the
+/// marker's own scale of it when the paragraph names one.
 pub fn marker_size(theme: &Theme, para: &Paragraph, base: &str) -> f64 {
     let style = resolve::style_for(theme, para.style.as_deref(), base);
     let first = para
@@ -176,11 +206,17 @@ pub fn marker_size(theme: &Theme, para: &Paragraph, base: &str) -> f64 {
         .iter()
         .find(|r| !r.t.is_empty())
         .or_else(|| para.runs.first());
-    first.map_or(style.size, |r| run::run_size(r, &style))
+    let size = first.map_or(style.size, |r| run::run_size(r, &style));
+    size * marker_share(para).unwrap_or(1.0)
+}
+
+/// The share of the words' size a paragraph's marker is set at, when it says.
+fn marker_share(para: &Paragraph) -> Option<f64> {
+    para.bullet_size.filter(|s| s.is_finite() && *s > 0.0)
 }
 
 /// Writes one paragraph. `base` is the text style of the box; the paragraph may
-/// name another. `item` says how a list item is numbered and indented.
+/// name another. `item` says how a list item is numbered and where it sits.
 pub fn write(x: &mut Xml, cx: &mut Cx, para: &Paragraph, base: &str, item: Item, opacity: f64) {
     let style = resolve::style_for(&cx.deck.theme, para.style.as_deref(), base);
     // A paragraph of a step that has not come keeps its place and shows nothing.
@@ -192,6 +228,27 @@ pub fn write(x: &mut Xml, cx: &mut Cx, para: &Paragraph, base: &str, item: Item,
             .and_then(|behind| Color::parse(&behind))
             .unwrap_or_else(|| Color::Rgb("000000".to_owned()))
     });
+    let geometry = item.geometry.unwrap_or_else(|| {
+        let size = marker_size(&cx.deck.theme, para, base);
+        list::layout(std::slice::from_ref(para), &[size])
+            .first()
+            .copied()
+            .unwrap_or(Geometry {
+                margin: 0.0,
+                indent: 0.0,
+            })
+    });
+    let list_style = list::style_of(para);
+    // A numbered paragraph that was not told where it is in its list is numbered by itself.
+    let number = item.number.or_else(|| {
+        let style = list_style
+            .as_ref()
+            .filter(|_| para.list == Some(ListKind::Number))?;
+        Some(Number {
+            scheme: lists::scheme(style),
+            start_at: None,
+        })
+    });
     let setting = Setting {
         align: para.align.clone().unwrap_or_else(|| style.align.clone()),
         line_spacing: para.line_spacing.unwrap_or(style.line_spacing),
@@ -199,9 +256,12 @@ pub fn write(x: &mut Xml, cx: &mut Cx, para: &Paragraph, base: &str, item: Item,
         space_before: para.space_before.unwrap_or(style.space_before),
         space_after: para.space_after.unwrap_or(style.space_after),
         list: para.list.clone(),
+        style: list_style,
         level: lists::level(para),
-        number: item.number,
-        hang: item.hang,
+        number,
+        geometry,
+        marker_color: para.bullet_color.as_deref().and_then(Color::parse),
+        marker_size: marker_share(para),
         hidden,
     };
     x.open("a:p");

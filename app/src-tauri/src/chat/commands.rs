@@ -11,13 +11,16 @@ use kasten_core::{Instant, Kasten, NoteFile};
 use tauri::{AppHandle, Emitter, State};
 
 use super::address;
+use super::chatgpt::{self, SIGN_IN_FIRST};
 use super::check::{self, ProviderCheck};
-use super::http::{self, HttpModel, Kind};
+use super::clients;
+use super::http::{HttpModel, Kind};
 use super::providers::{self, ChatProvider, ProviderInput};
 use super::threads::{self, Chats};
 use super::write::Writes;
 use super::{ChatEvent, ChatRequest, ChatTurn, Events};
 use crate::app_settings::AppSettings;
+use crate::closing::MAIN;
 use crate::commands::notes::{HUMAN, OpenVault};
 use crate::secrets::KeyStore;
 
@@ -27,7 +30,7 @@ pub struct ChatState {
     keys: Arc<dyn KeyStore>,
     /// Made on first use, so starting the app loads no TLS.
     http: OnceLock<Result<reqwest::Client, String>>,
-    /// The client for web pages, which follows redirects (http::web_client).
+    /// The client for web pages, which follows redirects (clients::web_client).
     web: OnceLock<Result<reqwest::Client, String>>,
     /// The one for a page asked for on the local network.
     local_web: OnceLock<Result<reqwest::Client, String>>,
@@ -35,6 +38,8 @@ pub struct ChatState {
     origins: Mutex<Origins>,
     /// The editor's AI answers under way.
     pub writes: Writes,
+    /// The ChatGPT account on this computer, whatever vault is open.
+    chatgpt: Arc<chatgpt::Account>,
 }
 
 /// The AI providers' addresses confirmed for the open vault on this
@@ -50,6 +55,7 @@ impl ChatState {
     pub fn new(keys: Arc<dyn KeyStore>) -> ChatState {
         ChatState {
             chats: Chats::default(),
+            chatgpt: Arc::new(chatgpt::Account::new(Arc::clone(&keys))),
             keys,
             http: OnceLock::new(),
             web: OnceLock::new(),
@@ -57,6 +63,11 @@ impl ChatState {
             origins: Mutex::new(Origins::default()),
             writes: Writes::default(),
         }
+    }
+
+    /// The ChatGPT account, which signs its provider's requests.
+    pub(crate) fn chatgpt(&self) -> Arc<chatgpt::Account> {
+        Arc::clone(&self.chatgpt)
     }
 
     fn origins(&self) -> MutexGuard<'_, Origins> {
@@ -92,7 +103,7 @@ impl ChatState {
             return Ok(());
         }
         Err(format!(
-            "This vault's settings send “{}” to {}. Kasten sends notes there only once you confirm it: open Settings, AI providers, and choose Confirm.",
+            "This vault's settings send “{}” to {}. KastenFlow sends notes there only once you confirm it: open Settings, AI providers, and choose Confirm.",
             provider.name,
             address::origin_of(provider)?
         ))
@@ -122,18 +133,20 @@ impl ChatState {
 
     /// The client for providers' APIs.
     pub(crate) fn http(&self) -> Result<reqwest::Client, String> {
-        self.http.get_or_init(http::client).clone()
+        self.http.get_or_init(clients::client).clone()
     }
 
     /// The client for web pages: the clipper and the update check.
     pub(crate) fn web(&self) -> Result<reqwest::Client, String> {
-        self.web.get_or_init(http::web_client).clone()
+        self.web.get_or_init(clients::web_client).clone()
     }
 
     /// The client for a page the person asked for on this computer or the
     /// local network.
     pub(crate) fn local_web(&self) -> Result<reqwest::Client, String> {
-        self.local_web.get_or_init(http::local_web_client).clone()
+        self.local_web
+            .get_or_init(clients::local_web_client)
+            .clone()
     }
 
     /// The key kept for `provider` at the address its requests go to.
@@ -154,13 +167,32 @@ impl ChatState {
     ) -> Result<HttpModel, String> {
         let provider = providers::find(kasten, provider)?;
         self.check_origin(&provider)?;
-        let key = match (Kind::of(&provider.kind)?, self.key(&provider).await) {
+        self.model_of(&provider, model).await
+    }
+
+    /// The model of `provider` (its address already confirmed): a key
+    /// from the keychain, or for ChatGPT the signed-in account, whose
+    /// token each request asks for afresh.
+    pub(crate) async fn model_of(
+        &self,
+        provider: &Provider,
+        model: &str,
+    ) -> Result<HttpModel, String> {
+        let kind = Kind::of(&provider.kind)?;
+        if kind == Kind::ChatGpt {
+            let account = self.chatgpt();
+            if !account.status().await.signed_in {
+                return Err(SIGN_IN_FIRST.to_owned());
+            }
+            return Ok(HttpModel::new(self.http()?, provider, None, model)?.with_account(account));
+        }
+        let key = match (kind, self.key(provider).await) {
             (_, Ok(key)) => key,
             // A local server may need no key; the Anthropic API always does.
             (Kind::OpenAi, Err(_)) => None,
-            (Kind::Anthropic, Err(err)) => return Err(err),
+            (_, Err(err)) => return Err(err),
         };
-        HttpModel::new(self.http()?, &provider, key, model)
+        HttpModel::new(self.http()?, provider, key, model)
     }
 }
 
@@ -169,7 +201,8 @@ struct Window(AppHandle);
 
 impl Events for Window {
     fn emit(&self, event: ChatEvent) {
-        let _ = self.0.emit("chat-event", &event);
+        // To the main window only: the browser tab's webviews never hear a chat.
+        let _ = self.0.emit_to(MAIN, "chat-event", &event);
     }
 }
 

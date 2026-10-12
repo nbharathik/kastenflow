@@ -1,19 +1,22 @@
 // Settings → AI providers: the endpoints chats talk to,
-// the Anthropic API or any OpenAI-compatible server such as a local vLLM
-// server, each with the model new chats start with. Keys are kept in the
-// system keychain by the backend; the window never sees them again.
+// the Anthropic API, any OpenAI-compatible server such as a local vLLM
+// server, or the person's ChatGPT plan, each with the model new chats start
+// with. Keys are kept in the system keychain by the backend; the window never
+// sees them again. ChatGPT takes no key: it signs in (AIChatGpt.tsx).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { takeProvidersJump } from "../../../chat/actions";
 import { useChat } from "../../../chat/store";
-import type { ChatProvider, ProviderCheck } from "../../../chat/types";
+import { isKeyed, type ChatKind, type ChatProvider, type ProviderCheck } from "../../../chat/types";
+import { Button, IconButton } from "../../../../ui/Button";
 import { Icon } from "../../../../ui/Icon";
-import { Group, Row } from "./parts";
+import { ChatGptModelForm, ChatGptSignIn } from "./AIChatGpt";
+import { Block, Group, Row } from "./parts";
 import { ProviderForm } from "./ProviderForm";
 import { CheckResult } from "./providers/CheckResult";
 
-const KINDS = { anthropic: "Anthropic", openai: "OpenAI-compatible" } as const;
+const KINDS: Record<ChatKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible", chatgpt: "ChatGPT plan" };
 const BUTTON = "ui-btn";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -26,36 +29,31 @@ export function AIProviders() {
   const problem = useChat((s) => s.providersError);
   const [editing, setEditing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
-  const top = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void useChat.getState().loadProviders();
-    // "Set up in Settings → AI providers" in the chat opens Settings here.
-    if (takeProvidersJump()) top.current?.scrollIntoView?.({ block: "start" });
+    // "Set up in Settings → AI providers" in the chat opens Settings here: this group is open now.
+    takeProvidersJump();
   }, []);
 
   const names = providers?.map((p) => p.name) ?? [];
   return (
-    <div ref={top} className="scroll-mt-6">
-      <Group title="AI providers" detail="Chat talks to these: the Anthropic API, or any OpenAI-compatible server such as a local vLLM server. Keys are kept in your system keychain, never in the vault.">
+    <Group title="AI providers">
+      <Block id="ai.providers">
         {problem && (
           <Row label="The providers could not be read" detail={problem}>
             {null}
           </Row>
         )}
-        {providers === null && (
-          <Row label="Reading the providers…">
-            {null}
-          </Row>
-        )}
-        {providers?.length === 0 && editing !== NEW && (
-          <Row label="No providers yet" detail="Add one to start chatting">
-            {null}
-          </Row>
-        )}
+        {providers === null && <Row label="Reading the providers…">{null}</Row>}
+        {providers?.length === 0 && editing !== NEW && <Row label="No providers yet" detail="Add one to start chatting">{null}</Row>}
         {providers?.map((provider) =>
           editing === provider.name ? (
-            <ProviderForm key={provider.name} provider={provider} taken={names} onDone={() => setEditing(null)} />
+            isKeyed(provider) ? (
+              <ProviderForm key={provider.name} provider={provider} taken={names} onDone={() => setEditing(null)} />
+            ) : (
+              <ChatGptModelForm key={provider.name} provider={provider} onDone={() => setEditing(null)} />
+            )
           ) : (
             <ProviderRow
               key={provider.name}
@@ -72,14 +70,15 @@ export function AIProviders() {
         {editing === NEW ? (
           <ProviderForm provider={null} taken={names} onDone={() => setEditing(null)} />
         ) : (
-          <div className="py-3">
-            <button type="button" className={BUTTON} disabled={providers === null} onClick={() => setEditing(NEW)}>
+          <div className="kasten-set-foot">
+            <Button size="sm" icon="plus" disabled={providers === null} onClick={() => setEditing(NEW)}>
               Add a provider
-            </button>
+            </Button>
           </div>
         )}
-      </Group>
-    </div>
+      </Block>
+      <ChatGptSignIn providers={providers} />
+    </Group>
   );
 }
 
@@ -120,13 +119,18 @@ function ProviderRow({ provider, removing, onEdit, onRemove }: { provider: ChatP
       setBusy(false);
     }
   };
-  const detail = `${KINDS[provider.kind]} · ${provider.model} · ${provider.baseUrl} · ${provider.hasKey ? "Key in your system keychain" : "No key stored"}`;
+  const chatgpt = provider.kind === "chatgpt";
+  const detail = chatgpt
+    ? `${KINDS.chatgpt} · ${provider.model} · ${provider.hasKey ? "Signed in with ChatGPT" : "Not signed in: choose Continue with ChatGPT below"}`
+    : `${KINDS[provider.kind]} · ${provider.model} · ${provider.hasKey ? "Key in your system keychain" : "No key stored"}`;
   if (removing) {
     return (
-      <div role="alertdialog" aria-label={`Remove ${provider.name}?`} className="flex flex-wrap items-center gap-3 py-3" onKeyDown={(e) => e.key === "Escape" && onRemove(false)}>
+      <div role="alertdialog" aria-label={`Remove ${provider.name}?`} className="kasten-set-ask" onKeyDown={(e) => e.key === "Escape" && onRemove(false)}>
         <div className="min-w-0 flex-1">
           <div className="text-14 font-medium">Remove “{provider.name}”?</div>
-          <div className="mt-0.5 text-13 text-muted">{error ?? "Its key is deleted from your system keychain too. Chats using it pick another provider."}</div>
+          <div className="mt-0.5 text-13 text-muted">
+            {error ?? (chatgpt ? "Chats using it pick another provider. You stay signed in with ChatGPT until you sign out." : "Its key is deleted from your system keychain too. Chats using it pick another provider.")}
+          </div>
         </div>
         <button type="button" className={BUTTON} onClick={() => onRemove(false)}>
           Cancel
@@ -141,22 +145,18 @@ function ProviderRow({ provider, removing, onEdit, onRemove }: { provider: ChatP
   // confirmed on this computer.
   const asking = provider.confirmed ? null : error ?? `This vault's settings send chats to this provider. Nothing goes to ${provider.baseUrl} from this computer until you confirm it.`;
   return (
-    <Row label={provider.name} detail={<ProviderDetail detail={detail} check={check} checking={checking} asking={asking} />}>
-      <div className="flex gap-2">
+    <Row label={provider.name} help={chatgpt ? undefined : `Address: ${provider.baseUrl}`} detail={<ProviderDetail detail={detail} check={check} checking={checking} asking={asking} />}>
+      <div className="flex items-center gap-1.5">
         {!provider.confirmed && (
-          <button type="button" className={BUTTON} aria-label={`Confirm ${provider.name}`} disabled={busy} onClick={() => void confirm()}>
+          <Button size="sm" tone="primary" aria-label={`Confirm ${provider.name}`} disabled={busy} onClick={() => void confirm()}>
             Confirm
-          </button>
+          </Button>
         )}
-        <button type="button" className={BUTTON} aria-label={`Test ${provider.name}`} disabled={checking} onClick={() => void test()}>
-          {checking ? "Testing…" : "Test connection"}
-        </button>
-        <button type="button" className={BUTTON} aria-label={`Change ${provider.name}`} onClick={onEdit}>
-          Change
-        </button>
-        <button type="button" className={BUTTON} aria-label={`Remove ${provider.name}`} onClick={() => onRemove(true)}>
-          Remove
-        </button>
+        <Button size="sm" icon="zap" aria-label={`Test ${provider.name}`} disabled={checking} onClick={() => void test()}>
+          {checking ? "Testing…" : "Test"}
+        </Button>
+        <IconButton icon="edit" label={`Change ${provider.name}`} onClick={onEdit} />
+        <IconButton icon="trash" label={`Remove ${provider.name}`} onClick={() => onRemove(true)} />
       </div>
     </Row>
   );

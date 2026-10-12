@@ -4,7 +4,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { KINDS, NO_FILTERS, SORT_LABELS, UPDATED, type Filters, type Sort } from "./filters";
+import { readDateFilter } from "./date-filter";
+import { KINDS, NO_FILTERS, SORT_LABELS, type Filters, type Sort } from "./filters";
+import { readGroupBy, type GroupBy } from "./groups";
 
 export type Mode = "grid" | "table";
 
@@ -12,9 +14,11 @@ export interface LibraryPrefs {
   mode: Mode;
   sort: Sort;
   filters: Filters;
+  /** How the cards are grouped under headings. */
+  group: GroupBy;
 }
 
-export const DEFAULT_PREFS: LibraryPrefs = { mode: "grid", sort: { key: "updated", dir: "desc" }, filters: NO_FILTERS };
+export const DEFAULT_PREFS: LibraryPrefs = { mode: "grid", sort: { key: "updated", dir: "desc" }, filters: NO_FILTERS, group: "none" };
 
 const KEY = "kasten.library";
 
@@ -43,10 +47,12 @@ export function readPrefs(raw: string | null): LibraryPrefs {
       kind: oneOf(filters.kind, KINDS.map((k) => k.id), NO_FILTERS.kind),
       place: text(filters.place),
       tag: text(filters.tag)?.toLowerCase() ?? null,
-      updated: oneOf(filters.updated, UPDATED.map((u) => u.id), NO_FILTERS.updated),
+      updated: readDateFilter(filters.updated),
+      created: readDateFilter(filters.created),
       noBoard: filters.noBoard === true,
       orphans: filters.orphans === true,
     },
+    group: readGroupBy(saved.group),
   };
 }
 

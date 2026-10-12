@@ -38,6 +38,40 @@
   background: var(--ks-accent);
 }
 
+/* The strip over the notes that folds them away, and the bar that is left of them when they are folded. */
+.ks-notes-head,
+.ks-notes-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: 100%;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  transition:
+    background var(--ks-fast) var(--ks-ease),
+    color var(--ks-fast) var(--ks-ease);
+}
+.ks-notes-bar {
+  border-top: 1px solid var(--ks-line);
+  background: var(--ks-canvas);
+}
+.ks-notes-head:hover,
+.ks-notes-bar:hover {
+  background: var(--ks-hover);
+  color: var(--ks-ink);
+}
+.ks-notes-head:focus-visible,
+.ks-notes-bar:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -2px;
+}
+
 .ks-notes-text {
   flex: 1;
   min-height: 0;

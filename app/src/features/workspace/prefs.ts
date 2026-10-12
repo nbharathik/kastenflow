@@ -5,14 +5,20 @@
 import { create } from "zustand";
 
 import { applyMotion, MOTION_PREFS, type MotionPref } from "../../lib/motion";
+import { isOpens, type Opens } from "./opens";
 import { readSets, type TabSet } from "./tab-sets";
 import { ACCENTS, applyAccent, applyTheme, loadTheme, type Accent, type ThemePref } from "./theme";
 
 export type PageFont = "default" | "serif" | "mono";
 
+/** The size of page text: 14, 16, 18 or 20 pixels. */
+export type TextSize = "small" | "normal" | "large" | "xl";
+export const TEXT_SIZES: readonly TextSize[] = ["small", "normal", "large", "xl"];
+
 interface Stored {
   font: PageFont;
-  smallText: boolean;
+  /** The size of page text, for every page that does not set its own. */
+  textSize: TextSize;
   fullWidth: boolean;
   spellcheck: boolean;
   /** The accent colour of buttons, selection and focus. */
@@ -31,6 +37,10 @@ interface Stored {
   newTabs: boolean;
   /** Home's sections in order, as Customize left them; null for the usual. */
   homeSections: string[] | null;
+  /** Home's recent list: the kind of thing it shows ("all", "page", "board"...), the project it is narrowed to (null for every one), and how it is laid out. */
+  homeFilter: string;
+  homeProject: string | null;
+  homeLayout: HomeLayout;
   /** Tabs saved together under a name, to open again. */
   tabSets: TabSet[];
   /** What the Calendar shows on its days. */
@@ -43,6 +53,20 @@ interface Stored {
   motion: MotionPref;
   /** Sidebar sections folded away, by title. */
   foldedSections: string[];
+  /** Where a plain click on a link or sub-page opens, unless the page says otherwise. */
+  pageLinksOpen: Opens;
+  /** "Open to the right" puts the page in the tab already there (true) or adds a tab. */
+  rightReplaces: boolean;
+  /** The "+" on the tab strip makes new tabs in the pane to the right. */
+  plusOpensRight: boolean;
+  /** Quick notes and captures show under their project in the sidebar. */
+  sidebarShowCards: boolean;
+  /** Pages pinned to the top of their project in the sidebar. */
+  pinnedPages: string[];
+  /** The views pinned to the sidebar, in order, by their ids; null for the usual ones. */
+  navPinned: string[] | null;
+  /** The sidebar's "More views" list is open. */
+  moreViews: boolean;
 }
 
 /** The sidebar's usual width and its limits. */
@@ -76,30 +100,39 @@ function readShow(value: unknown): CalendarShow {
 export type PeekMode = "center" | "side" | "full";
 const PEEKS: readonly PeekMode[] = ["center", "side", "full"];
 
+/** Home's recent list as rows, or as a denser grid of two columns. */
+export type HomeLayout = "list" | "grid";
+
 interface PrefsState extends Stored {
   theme: ThemePref;
   setTheme(theme: ThemePref): void;
   set(patch: Partial<Stored>): void;
   toggleFavourite(path: string): void;
-  /** Keeps favourites pointing at a note that moved or went away. */
+  /** Keeps favourites and pinned pages pointing at a note that moved or went away. */
   moveFavourite(from: string, to: string | null): void;
+  /** Pins a page to the top of its project in the sidebar, or unpins it. */
+  togglePinnedPage(path: string): void;
   /** Pins a project folder to the top of the list, or unpins it. */
   togglePinnedProject(project: string): void;
 }
 
 const KEY = "kasten.prefs";
-const DEFAULTS: Stored = { font: "default", smallText: false, fullWidth: false, spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [] };
+const DEFAULTS: Stored = { font: "default", textSize: "normal", fullWidth: false, spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list", tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [], pageLinksOpen: "here", rightReplaces: true, plusOpensRight: false, sidebarShowCards: false, pinnedPages: [], navPinned: null, moreViews: false };
 
 const names = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
 
 function load(): Stored {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Stored>;
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Stored> & { smallText?: unknown };
     const accent = ACCENTS.includes(saved.accent as Accent) ? (saved.accent as Accent) : "blue";
+    // Before there were four sizes there was one switch, "Small text".
+    const textSize = TEXT_SIZES.includes(saved.textSize as TextSize) ? (saved.textSize as TextSize) : saved.smallText === true ? "small" : "normal";
+    delete saved.smallText;
     return {
       ...DEFAULTS,
       ...saved,
       accent,
+      textSize,
       favourites: Array.isArray(saved.favourites) ? saved.favourites : [],
       projectOrder: names(saved.projectOrder),
       pinnedProjects: names(saved.pinnedProjects),
@@ -107,12 +140,22 @@ function load(): Stored {
       peekMode: PEEKS.includes(saved.peekMode as PeekMode) ? (saved.peekMode as PeekMode) : "center",
       newTabs: saved.newTabs === true,
       homeSections: Array.isArray(saved.homeSections) ? names(saved.homeSections) : null,
+      homeFilter: typeof saved.homeFilter === "string" ? saved.homeFilter : "all",
+      homeProject: typeof saved.homeProject === "string" ? saved.homeProject : null,
+      homeLayout: saved.homeLayout === "grid" ? "grid" : "list",
       tabSets: readSets(saved.tabSets),
       calendarShow: readShow(saved.calendarShow),
       weekStart: WEEK_STARTS.includes(saved.weekStart as WeekStart) ? (saved.weekStart as WeekStart) : 1,
       sidebarWidth: sidebarWidth(saved.sidebarWidth),
       motion: MOTION_PREFS.includes(saved.motion as MotionPref) ? (saved.motion as MotionPref) : "system",
       foldedSections: names(saved.foldedSections),
+      pageLinksOpen: isOpens(saved.pageLinksOpen) ? saved.pageLinksOpen : "here",
+      rightReplaces: saved.rightReplaces !== false,
+      plusOpensRight: saved.plusOpensRight === true,
+      sidebarShowCards: saved.sidebarShowCards === true,
+      pinnedPages: names(saved.pinnedPages),
+      navPinned: Array.isArray(saved.navPinned) ? names(saved.navPinned) : null,
+      moreViews: saved.moreViews === true,
     };
   } catch {
     return DEFAULTS;
@@ -120,9 +163,9 @@ function load(): Stored {
 }
 
 function save(state: Stored): void {
-  const { font, smallText, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections } = state;
+  const { font, textSize, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews } = state;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ font, smallText, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections }));
+    localStorage.setItem(KEY, JSON.stringify({ font, textSize, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews }));
   } catch {
     // Preferences fall back to their defaults next time.
   }
@@ -148,9 +191,17 @@ export const usePrefs = create<PrefsState>()((set, get) => {
       update({ favourites: favourites.includes(path) ? favourites.filter((p) => p !== path) : [...favourites, path] });
     },
     moveFavourite(from, to) {
-      const { favourites } = get();
-      if (!favourites.includes(from)) return;
-      update({ favourites: to ? favourites.map((p) => (p === from ? to : p)) : favourites.filter((p) => p !== from) });
+      const { favourites, pinnedPages } = get();
+      const follow = (list: string[]) => (to ? list.map((p) => (p === from ? to : p)) : list.filter((p) => p !== from));
+      // Pinned pages follow a page the way favourites do.
+      const patch: Partial<Stored> = {};
+      if (favourites.includes(from)) patch.favourites = follow(favourites);
+      if (pinnedPages.includes(from)) patch.pinnedPages = follow(pinnedPages);
+      if (patch.favourites || patch.pinnedPages) update(patch);
+    },
+    togglePinnedPage(path) {
+      const { pinnedPages } = get();
+      update({ pinnedPages: pinnedPages.includes(path) ? pinnedPages.filter((p) => p !== path) : [...pinnedPages, path] });
     },
     togglePinnedProject(project) {
       const { pinnedProjects } = get();

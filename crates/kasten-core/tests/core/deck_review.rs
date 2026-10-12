@@ -245,7 +245,7 @@ fn a_deck_that_is_not_one_or_has_a_bad_title_or_project_is_refused_before_anythi
     let before = k.decks().unwrap().len();
     let good = deck("Q3 review", &SIX[..2]);
     for (op, why) in [
-        (make("Q3 review", None, "{}"), "Not a Kasten deck"),
+        (make("Q3 review", None, "{}"), "Not a KastenFlow deck"),
         (make("A|B", None, &good), "title"),
         (make("   ", None, &good), "title"),
         (make("Q3 review", Some("nope"), &good), "nope"),

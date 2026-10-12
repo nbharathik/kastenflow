@@ -4,19 +4,22 @@
 // and Shift+Enter grow a mind map from the one thing selected. Single keys
 // make things (C card, S sticky, G section) and move the view (arrows with
 // nothing selected, F fit, + and − zoom), P presents the sections as
-// slides; Mod+C, X, V and D copy, cut, paste and duplicate; ? lists them
-// all (BoardHelp).
+// slides; 1 to 9 colour the selection (0 takes the colour off) and \ is
+// focus mode; Mod+C, X, V and D copy, cut, paste and duplicate; ? lists
+// them all (BoardHelp).
 
 import { useReactFlow, type XYPosition } from "@xyflow/react";
 import type { KeyboardEvent } from "react";
 
 import { motionMs } from "../../../../lib/motion";
+import { colorForKey } from "../colors";
 import { copySelection, cutSelection, duplicateSelection, hasCopied, pasteCopied } from "../state/clipboard";
 import type { BoardController } from "../state/controller";
-import { nudge, removeSelection, setCardSize, wrapInSection } from "../state/gestures";
+import { nudge, removeSelection, restyleEdge, setCardSize, setColor, wrapInSection } from "../state/gestures";
 import { addChild, addSibling, addSticky, newCard, openFile } from "../state/making";
-import { select, selectedNodes } from "../state/store";
+import { select, selectedEdges, selectedNodes } from "../state/store";
 import { present } from "../state/present";
+import { setFocus } from "../state/focus";
 import { setTool, type Tool } from "../state/tools";
 
 /** What the keys ask of the canvas around the board. */
@@ -30,6 +33,19 @@ export interface CanvasKeys {
   closeHelp(): void;
   /** Opens Find on this board. */
   find(): void;
+}
+
+/** Colours what is selected: nodes, else connections. False when nothing is. */
+function colourSelection(board: BoardController, color: string | null): boolean {
+  const state = board.store.getState();
+  const nodes = selectedNodes(state);
+  if (nodes.length > 0) {
+    setColor(board, nodes.map((n) => n.id), color);
+    return true;
+  }
+  const edges = selectedEdges(state);
+  for (const edge of edges) restyleEdge(board, edge.id, { color: color ?? "" });
+  return edges.length > 0;
 }
 
 /** How far the arrow keys move the view, in screen pixels. */
@@ -55,6 +71,7 @@ export function enterSelection(board: BoardController): void {
   const file = node.data.node.file;
   if (node.type === "card" && file) return openFile(board, file, "stack");
   if (node.type === "board" && file) return board.deps.enter(file);
+  if (node.type === "diagram" && file && !node.data.node.missing) return openFile(board, file, "here");
   if (node.type === "sticky" || node.type === "shape" || node.type === "section" || node.type === "link") board.store.setState({ editing: node.id });
 }
 
@@ -66,12 +83,17 @@ const TOOL_KEYS: Record<string, Tool> = {
   x: "erase",
   r: "shape:rect",
   o: "shape:ellipse",
+  l: "connect",
 };
 
 export function useBoardKeys(board: BoardController, canvas: CanvasKeys) {
   const flow = useReactFlow();
   return (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.nativeEvent.isComposing || editable(event.target)) return;
+    // The keys of a panel opened from a bar are the panel's, and Tab moves
+    // through a bar's buttons rather than growing a mind map.
+    const from = event.target instanceof Element ? event.target : null;
+    if (from?.closest(".kasten-pop") || (event.key === "Tab" && from?.closest(".kasten-toolbar, .kasten-chrome"))) return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     const state = board.store.getState();
@@ -107,7 +129,11 @@ export function useBoardKeys(board: BoardController, canvas: CanvasKeys) {
     else if (key === "Escape" && canvas.helpOpen()) canvas.closeHelp();
     else if (key === "Escape" && state.tool !== "select") setTool(board, "select");
     else if (key === "Escape" && any) select(board.store, []);
-    else if (!event.shiftKey && TOOL_KEYS[key]) setTool(board, TOOL_KEYS[key]!);
+    else if (key === "Escape" && state.focus) setFocus(board, false);
+    else if (key === "\\" || event.code === "Backslash") setFocus(board, !state.focus);
+    else if (!event.shiftKey && colorForKey(key) !== undefined && colourSelection(board, colorForKey(key) ?? null)) {
+      // 1 to 9 pick a colour, 0 takes it off: the same as the dot's panel, without opening it.
+    } else if (!event.shiftKey && TOOL_KEYS[key]) setTool(board, TOOL_KEYS[key]!);
     else if (event.shiftKey && event.code === "Digit1") void flow.fitView({ padding: 0.12, duration: motionMs(240), maxZoom: 1 });
     else if (event.shiftKey && event.code === "Digit0") void flow.zoomTo(1, { duration: motionMs(200) });
     else if (key === "e" && state.nodes.some((n) => n.selected && n.type === "card")) {

@@ -1,0 +1,329 @@
+/* The rows of Settings: a name and a ? on the left, the control on the right, a
+   dot in the margin when the value is not the usual one; and the odd parts that
+   sit in a card: blocks, notes, forms, the key editor. */
+
+.kasten-set-row {
+  position: relative;
+  display: flex;
+  min-height: 46px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 8px 16px;
+}
+
+/* The name takes what the control leaves; a control that does not fit goes under it. */
+.kasten-set-text {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.kasten-set-label {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kasten-set-name {
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.kasten-set-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-muted);
+}
+
+.kasten-set-detail,
+.kasten-set-why {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  line-height: 1.4;
+}
+
+/* In search results, what the setting says about itself: two lines at most. */
+.kasten-set-why {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.kasten-set-control {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.kasten-set-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* A row of choices wraps rather than running out of the pane. */
+.kasten-set-control .ui-seg {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.kasten-set-row.is-stacked .kasten-set-control {
+  flex-basis: 100%;
+  justify-content: flex-start;
+  margin-left: 0;
+}
+
+/* Changed from the usual: a dot in the margin of the row, level with its name. */
+.kasten-set-dot {
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  translate: 0 -50%;
+}
+
+.kasten-set-mark {
+  padding: 0 1px;
+  border-radius: var(--radius-xs);
+  background: var(--color-highlight-yellow);
+  color: inherit;
+}
+
+/* A row jumped to lands under the header, not behind it, and is marked for a moment. */
+.kasten-set-row,
+.kasten-set-block {
+  scroll-margin-top: 6rem;
+}
+
+.kasten-set-row.is-flash,
+.kasten-set-block.is-flash {
+  animation: kasten-set-flash 1600ms var(--ease-standard);
+}
+
+@keyframes kasten-set-flash {
+  0%,
+  45% {
+    background: var(--color-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* The ? and what it opens. */
+.kasten-set-help {
+  position: relative;
+  display: inline-flex;
+}
+
+.kasten-set-help-button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 9999px;
+  color: var(--color-faint);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.kasten-set-help-button:hover,
+.kasten-set-help-button[aria-expanded="true"] {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-set-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -8px;
+  z-index: 40;
+  display: block;
+  width: max-content;
+  max-width: min(20rem, 70vw);
+  padding: 8px 10px;
+  border-radius: var(--radius-xl);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-ink);
+  font-size: var(--text-12);
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  animation: kasten-fade var(--motion-fast) var(--ease-standard);
+}
+
+/* A found setting too big to draw: a line that opens its group at it. */
+.kasten-set-hit {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.kasten-set-hit:hover {
+  background: var(--color-hover);
+}
+
+.kasten-set-hit-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* ---- Blocks, notes and the odd parts inside a card ---- */
+
+.kasten-set-block {
+  padding-inline: 16px;
+}
+
+.kasten-set-block:empty {
+  display: none;
+}
+
+/* Rows inside a block sit in the block's own gutter, with a line between them. */
+.kasten-set-block > .kasten-set-row,
+.kasten-set-block > .kasten-set-ask,
+.kasten-set-block > .kasten-set-foot {
+  padding-inline: 0;
+}
+
+.kasten-set-block > .kasten-set-row + *,
+.kasten-set-block > * + .kasten-set-row,
+.kasten-set-block > .kasten-set-ask + .kasten-set-foot {
+  border-top: 1px solid var(--color-line);
+}
+
+.kasten-set-block > .kasten-set-form-title {
+  padding-top: 12px;
+}
+
+.kasten-set-form {
+  padding: 8px 0 12px;
+}
+
+.kasten-set-extra {
+  padding: 8px 16px 12px;
+}
+
+.kasten-set-foot {
+  padding: 10px 16px;
+}
+
+.kasten-set-note {
+  padding: 8px 16px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-set-note.is-danger {
+  color: var(--color-danger);
+}
+
+.kasten-set-note.is-warning {
+  color: var(--color-warning);
+}
+
+.kasten-set-quiet {
+  margin: 0;
+  padding-block: 4px 10px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
+.kasten-set-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.kasten-set-list-plain {
+  margin: 0;
+  padding: 0 0 10px;
+  list-style: none;
+  font-size: var(--text-13);
+}
+
+.kasten-set-path {
+  max-width: 16rem;
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+  font-size: var(--text-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-set-number {
+  width: 5rem;
+  height: 28px;
+  text-align: right;
+}
+
+.kasten-set-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 8px 4px;
+}
+
+.kasten-set-find {
+  height: 28px;
+  flex: 1;
+}
+
+.kasten-set-keys-title {
+  padding-block: 16px 4px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-weight: 500;
+}
+
+.kasten-set-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 3px;
+}
+
+.kasten-set-block:has(.kasten-set-key):not(:empty) {
+  padding-bottom: 12px;
+}
+
+/* ---- A pane that is not wide: a control goes under its name ---- */
+
+@container setmain (max-width: 34rem) {
+  .kasten-set-control {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .kasten-set-pair {
+    justify-content: flex-start;
+  }
+}

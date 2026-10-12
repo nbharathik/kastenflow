@@ -1,9 +1,9 @@
 ---
 name: kasten-slides
-description: Build, edit and check slide decks (.deck files, exportable to PowerPoint) through the Kasten Slides MCP server - turn an outline into a deck, add diagrams, pictures, code, formulas and step-by-step reveals, lint for layout problems, and export. Use when the user asks for a talk, presentation, slides, a deck, or a PowerPoint file.
+description: Build, edit and check slide decks (.deck files, exportable to PowerPoint) through the KastenFlow Slides MCP server - turn an outline into a deck, add diagrams, pictures, code, formulas and step-by-step reveals, lint for layout problems, and export. Use when the user asks for a talk, presentation, slides, a deck, or a PowerPoint file.
 ---
 
-# Making slide decks with Kasten Slides
+# Making slide decks with KastenFlow Slides
 
 A deck is one `.deck` file: a theme, and slides made of elements (text, shapes,
 connectors, pictures, tables, code, formulas ...) on a 960 by 540 canvas. You
@@ -22,7 +22,7 @@ The server is the `slides` program serving a folder of decks:
 ```
 
 With Claude Code: `claude mcp add slides -- slides mcp --folder ~/decks`. Inside
-Kasten the same tools are offered for the decks of the vault. If the tools are
+KastenFlow the same tools are offered for the decks of the vault. If the tools are
 not there, say so and stop; do not write `.deck` files by hand.
 
 When it connects, the server sends instructions: the deck conventions, what each
@@ -76,18 +76,26 @@ authority; this skill is the short version, with the habits that make decks good
 
 Look:
 - `list_decks`, `get_deck` (start here), `get_slide` (one slide in full), `get_outline`
-  (the deck as Markdown), `list_layouts` (the slots of each layout), `get_theme`,
+  (the deck as Markdown), `list_layouts` (the slots of each layout; one marked
+  `custom` was made by the deck's owner, so prefer it when it fits), `get_theme`,
   `search_assets` (pictures in `assets/`), `render_slide` (a slide as a picture;
   `step` draws it at a click) and `render_grid` (every slide in one picture).
 
 Make and arrange:
 - `create_deck`, `add_slide` (layout plus `content` by slot role, in Markdown),
   `duplicate_slide`, `delete_slides`, `reorder_slides`, `apply_layout`,
-  `apply_theme`, `edit_theme`, `set_title`, `set_notes`, `set_background`,
-  `set_slide_flags` (hidden, backup).
+  `apply_theme` (Light, Dark, Serif, Lecture, Minimal, Bold, Modern, Academic,
+  Pitch, Dark Studio, Warm Paper), `edit_theme`, `set_title`, `set_present` (slide
+  numbers on or off, a new deck has them off; `transition` is how every slide
+  arrives that names none), `set_page_size` (`16:9`, `16:10`, `4:3`, `1:1` or a `w`
+  and `h` in units of 1/96 inch: refits every slide and the theme), `set_notes`,
+  `set_background`, `set_slide_flags` (hidden, backup).
 
 Fill a slide:
-- `set_text` (Markdown: `**bold**`, `` `code` ``, `$latex$`, `- bullets`), `add_diagram`,
+- `set_text` (Markdown: `**bold**`, `` `code` ``, `$latex$`, `- bullets`),
+  `format_paragraphs` (change the list, marker style, number to start at, marker
+  size and colour, alignment, spacing and indents of some or all paragraphs of a
+  box without rewriting its words), `add_diagram`,
   `place_image` (keeps proportions; `placeholder`, `box` or `auto`), `add_elements`
   (any element, including the composites), `patch_elements`, `transform_elements`
   (move, resize, rotate), `align_elements`, `distribute_elements`, `group_elements`,

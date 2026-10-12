@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main window. Vault access goes through kasten-core commands, never through filesystem plugins. The window may go full screen, for presenting whiteboards, name itself after the open page, and zoom.",
-  "windows": ["main"],
+  "description": "Permissions for the main window's own webview, and only it: a browser tab's webviews are children of the same window, and they must get nothing, so this names the webview, not the window. Vault access goes through kasten-core commands, never through filesystem plugins. The window may go full screen, for presenting whiteboards, name itself after the open page, and zoom.",
+  "webviews": ["main"],
   "permissions": ["core:default", "core:window:allow-set-fullscreen", "core:window:allow-set-title", "core:webview:allow-set-webview-zoom"]
 }

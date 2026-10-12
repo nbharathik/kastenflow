@@ -1,5 +1,6 @@
-//! The in-app chat: a model from the Anthropic API or any
-//! OpenAI-compatible endpoint answers in a thread, and acts on the vault
+//! The in-app chat: a model from the Anthropic API, any
+//! OpenAI-compatible endpoint or the person's ChatGPT plan (chatgpt/)
+//! answers in a thread, and acts on the vault
 //! through the MCP server's tools, in the thread's own agent session, so
 //! its changes pass the same guardrails and undo together.
 //!
@@ -9,10 +10,13 @@
 
 pub mod address;
 pub mod anthropic;
+pub mod chatgpt;
 pub mod check;
+pub mod clients;
 pub mod commands;
 pub mod context;
 pub mod drafts;
+pub mod errors;
 pub mod http;
 
 pub mod model;
@@ -20,6 +24,7 @@ pub mod openai;
 pub mod prompt;
 pub mod providers;
 pub(crate) mod public_dns;
+pub mod responses;
 pub mod sse;
 pub mod summary;
 pub mod threads;

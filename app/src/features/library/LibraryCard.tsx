@@ -3,6 +3,7 @@ import { memo, useId, type MouseEvent, type DragEvent } from "react";
 import { relativeTime } from "../../lib/dates";
 import type { NoteStats } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
+import { openMenuHandlers } from "../../shell/open-menu";
 import { readable } from "../workspace/names";
 import type { Row } from "./filters";
 import { KindTile } from "./kind-tile";
@@ -47,6 +48,8 @@ export const LibraryCard = memo(function LibraryCard({ row, index, selected, sel
       data-index={index}
       data-library-item=""
       onClick={(event) => onClick(index, event)}
+      // Right-click shows the Open menu, middle-click opens a tab.
+      {...openMenuHandlers(row.path)}
       draggable
       onDragStart={(event) => onDragStart(index, event)}
       // Shift+click extends the selection, not the text selection.

@@ -1,15 +1,21 @@
-import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
 
 import type { Hit, NoteStats } from "../../lib/vault/types";
 import { dragNotes } from "../workspace/drag";
-import { matchesWords, type Row } from "./filters";
+import { matchesWords } from "./filters";
+import { GroupHeading } from "./GroupHeading";
+import { shownRows, type Group } from "./groups";
 import { LibraryCard } from "./LibraryCard";
-import { columnsOf, moveFocus } from "./selection";
+import { columnsOf, moveInGroups } from "./selection";
 
 export type OpenEvent = MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>;
 
 export interface CardGridProps {
-  rows: readonly Row[];
+  /** The cards as drawn, in groups (one group with no heading when not grouped). */
+  groups: readonly Group[];
+  /** Whether the groups have headings, which fold them. */
+  grouped: boolean;
+  onFold(key: string): void;
   selected: ReadonlySet<string>;
   stats: ReadonlyMap<string, NoteStats> | null;
   hits: ReadonlyMap<string, Hit> | null;
@@ -28,12 +34,16 @@ export interface CardGridProps {
   onSelectAll(): void;
 }
 
-/** Cards in responsive columns, Heptabase style. The arrow keys move across
- * the grid, Enter opens, Space selects and Ctrl+A selects everything shown. */
+const GRID = "grid grid-cols-[repeat(auto-fill,minmax(224px,1fr))] gap-4";
+
+/** Cards in responsive columns, Heptabase style, under foldable headings when
+ * grouped. The arrow keys move across the grid, Enter opens, Space selects and
+ * Ctrl+A selects everything shown. */
 export function CardGrid(props: CardGridProps) {
-  const { rows, selected, stats, hits, words, tagColors, marked } = props;
-  const grid = useRef<HTMLDivElement>(null);
+  const { groups, grouped, onFold, selected, stats, hits, words, tagColors, marked } = props;
+  const root = useRef<HTMLDivElement>(null);
   const [focus, setFocus] = useState(0);
+  const rows = useMemo(() => shownRows(groups), [groups]);
   const current = Math.min(focus, rows.length - 1);
 
   // Cards call back by index; the latest rows and handlers sit in a ref so
@@ -70,8 +80,8 @@ export function CardGrid(props: CardGridProps) {
     else if (event.key === " " && !mod) props.onPick(row.path, event.shiftKey);
     else {
       if (mod) return;
-      const cards = [...(grid.current?.children ?? [])] as HTMLElement[];
-      const next = moveFocus(index, event.key, columnsOf(cards.map((c) => c.getBoundingClientRect())), rows.length);
+      const cards = [...(root.current?.querySelectorAll<HTMLElement>("[data-index]") ?? [])];
+      const next = moveInGroups(index, event.key, columnsOf(cards.map((c) => c.getBoundingClientRect())), groups.map((g) => g.rows.length));
       if (next < 0) return;
       setFocus(next);
       cards[next]?.focus();
@@ -80,37 +90,58 @@ export function CardGrid(props: CardGridProps) {
     event.preventDefault();
   }
 
+  // The index of each group's first card, among all that are drawn.
+  let start = 0;
+  const cardsOf = (group: Group, first: number) =>
+    group.rows.map((row, i) => {
+      const index = first + i;
+      const hit = hits?.get(row.path);
+      // Cards found only in their full text show where the words are.
+      const snippet = hit?.snippet && !matchesWords(row, words) ? hit.snippet : null;
+      return (
+        <LibraryCard
+          key={row.path}
+          row={row}
+          index={index}
+          selected={selected.has(row.path)}
+          selecting={selected.size > 0}
+          current={index === current}
+          stats={stats?.get(row.path)}
+          snippet={snippet}
+          words={words}
+          tagColors={tagColors}
+          marked={marked.has(row.path)}
+          onClick={onClick}
+          onCheck={onCheck}
+          onFocus={setFocus}
+          onDragStart={onDragStart}
+        />
+      );
+    });
+
+  if (!grouped) {
+    return (
+      <div ref={root} role="listbox" aria-label="Cards" aria-multiselectable="true" onKeyDown={onKeyDown} className={GRID}>
+        {groups.map((group) => cardsOf(group, 0))}
+      </div>
+    );
+  }
   return (
-    <div
-      ref={grid}
-      role="listbox"
-      aria-label="Cards"
-      aria-multiselectable="true"
-      onKeyDown={onKeyDown}
-      className="grid grid-cols-[repeat(auto-fill,minmax(224px,1fr))] gap-4"
-    >
-      {rows.map((row, index) => {
-        const hit = hits?.get(row.path);
-        // Cards found only in their full text show where the words are.
-        const snippet = hit?.snippet && !matchesWords(row, words) ? hit.snippet : null;
+    <div ref={root} onKeyDown={onKeyDown} className="space-y-6">
+      {groups.map((group) => {
+        const first = start;
+        start += group.rows.length;
         return (
-          <LibraryCard
-            key={row.path}
-            row={row}
-            index={index}
-            selected={selected.has(row.path)}
-            selecting={selected.size > 0}
-            current={index === current}
-            stats={stats?.get(row.path)}
-            snippet={snippet}
-            words={words}
-            tagColors={tagColors}
-            marked={marked.has(row.path)}
-            onClick={onClick}
-            onCheck={onCheck}
-            onFocus={setFocus}
-            onDragStart={onDragStart}
-          />
+          <section key={group.key} aria-label={group.label}>
+            <div className="mb-2">
+              <GroupHeading group={group} tagColors={tagColors} onFold={onFold} />
+            </div>
+            {!group.folded && group.rows.length > 0 && (
+              <div role="listbox" aria-label={`${group.label} cards`} aria-multiselectable="true" className={GRID}>
+                {cardsOf(group, first)}
+              </div>
+            )}
+          </section>
         );
       })}
     </div>

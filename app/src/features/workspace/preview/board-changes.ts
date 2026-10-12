@@ -4,7 +4,7 @@
 
 import type { BoardChange, BoardEnd, BoardSide } from "../../../lib/vault/types";
 import { addDrawing, addShape, forgetDrawn, reshape, styleLine } from "./board-drawing";
-import { forget, restore, setCardSize, setCollapsed } from "./board-extras";
+import { forget, restore, setCardSize, setCollapsed, setSource } from "./board-extras";
 import { group, newNodeId, type Canvas } from "./memory-extras";
 
 /** Numbers beyond any real board. */
@@ -226,6 +226,9 @@ function applyOne(canvas: Canvas, change: BoardChange): string | null {
     }
     case "line":
       styleLine(canvas, change.id, change.line, change.dash);
+      return null;
+    case "source":
+      setSource(canvas, change.source ?? null);
       return null;
   }
 }

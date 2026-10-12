@@ -74,7 +74,7 @@ export async function exportHtml(deck: Deck, host: Pick<SlidesHost, "imageUrl" |
     .replaceAll(/\ssrc="ks-img:(\d+)"/g, ' data-ks-img="$1"');
 
   const { css: slideCss, missing: fonts } = await pageStyles(slides, deck, options.sheets ? { sheets: options.sheets } : {});
-  for (const family of fonts) warnings.push(told(`The font ${family} is not one Kasten Slides carries, so the page uses another where it is not installed.`));
+  for (const family of fonts) warnings.push(told(`The font ${family} is not one KastenFlow Slides carries, so the page uses another where it is not installed.`));
   const math = slides.includes('class="katex') ? await katexStyles(slides, options.sheets ? { sheets: options.sheets } : {}) : null;
   if (slides.includes('class="katex') && math === null) warnings.push(told("The formulas are set in the reader's own fonts: the font for them could not be read."));
   if (holds(deck.slides, "video")) warnings.push(told("Videos are not put in the page: it shows their stills."));

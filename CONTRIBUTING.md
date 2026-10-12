@@ -1,6 +1,6 @@
-# Contributing to Kasten
+# Contributing to KastenFlow
 
-Thank you for helping. Kasten keeps people's notes, so changes are held to
+Thank you for helping. KastenFlow keeps people's notes, so changes are held to
 one rule above the others: preserve what a person wrote and make recovery possible.
 
 ## Set up
@@ -100,17 +100,17 @@ change how something looks.
 | Folder | What it holds |
 | --- | --- |
 | `crates/kasten-core` | The engine: the vault, its index, git history, and every op that changes a note |
-| `crates/kasten-cli` | The `kasten` command |
+| `crates/kasten-cli` | The `kastenflow` command; `kasten` still works as an alias |
 | `crates/kasten-mcp` | The MCP server that lets AI agents work in a vault, within guardrails |
-| `crates/slides-core`, `crates/slides-cli` | Kasten Slides' engine and its `slides` command; Apache-2.0 |
-| `crates/slides-pptx`, `crates/slides-render`, `crates/slides-assets` | PowerPoint files in and out; slides drawn by a headless Chrome or Chromium; picture sidecars, sizes and thumbnails shared with Kasten; Apache-2.0 |
-| `packages` | Kasten Slides in TypeScript and WebAssembly: the canvas, the editor and the WebAssembly build; Apache-2.0, and they never import Kasten |
+| `crates/slides-core`, `crates/slides-cli` | KastenFlow Slides' engine and its `slides` command; Apache-2.0 |
+| `crates/slides-pptx`, `crates/slides-render`, `crates/slides-assets` | PowerPoint files in and out; slides drawn by a headless Chrome or Chromium; picture sidecars, sizes and thumbnails shared with KastenFlow; Apache-2.0 |
+| `packages` | KastenFlow Slides in TypeScript and WebAssembly: the canvas, the editor and the WebAssembly build; Apache-2.0, and they never import KastenFlow |
 | `app/src-tauri` | The desktop app's Rust side: Tauri commands over kasten-core |
 | `app/src` | The window: React, by feature folder |
 | `site` | The website, built with the demo by `scripts/build-site.mjs` |
 | `fixtures` | Sample vaults and import folders; tests use nothing else |
 
-[`docs/vault-format.md`](docs/vault-format.md) describes the files Kasten
+[`docs/vault-format.md`](docs/vault-format.md) describes the files KastenFlow
 writes.
 
 ## Rules

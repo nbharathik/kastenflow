@@ -15,11 +15,16 @@ const tagsHome = () => import("../features/tags/TagsHome");
 const tagDatabase = () => import("../features/tags/TagDatabase");
 const boardsHome = () => import("../features/boards/BoardsHome");
 const slidesHome = () => import("../features/slides/SlidesHome");
+const diagramsHome = () => import("../features/diagrams/DiagramsHome");
+const diagramView = () => import("../features/diagrams/DiagramView");
 const tasks = () => import("../features/tasks/TasksView");
 const trash = () => import("../features/workspace/views/Trash");
 const reader = () => import("../features/sources/reader/PdfReader");
 const highlights = () => import("../features/sources/HighlightsHome");
 const importView = () => import("../features/import/ImportView");
+const graph = () => import("../features/graph/GraphView");
+const projectOverview = () => import("../features/projects/overview/ProjectOverview");
+const browser = () => import("../features/browser/BrowserView");
 /** A project page's home; the page loads it itself, this only fetches it early. */
 const projectHome = () => import("../features/projects/ProjectHome");
 
@@ -33,12 +38,20 @@ export const TagsHome = lazy(() => tagsHome().then((m) => ({ default: m.TagsHome
 export const TagDatabase = lazy(() => tagDatabase().then((m) => ({ default: m.TagDatabase })));
 export const BoardsHome = lazy(() => boardsHome().then((m) => ({ default: m.BoardsHome })));
 export const SlidesHome = lazy(() => slidesHome().then((m) => ({ default: m.SlidesHome })));
+/** The Diagrams view, and a diagram open in a tab (the editor's frame loads with it). */
+export const DiagramsHome = lazy(() => diagramsHome().then((m) => ({ default: m.DiagramsHome })));
+export const DiagramView = lazy(() => diagramView().then((m) => ({ default: m.DiagramView })));
 export const Tasks = lazy(() => tasks().then((m) => ({ default: m.Tasks })));
 export const Trash = lazy(() => trash().then((m) => ({ default: m.Trash })));
 /** The PDF reader brings pdf.js, whose own code loads with the first PDF. */
 export const PdfReader = lazy(reader);
 export const HighlightsHome = lazy(() => highlights().then((m) => ({ default: m.HighlightsHome })));
 export const ImportView = lazy(() => importView().then((m) => ({ default: m.ImportView })));
+export const GraphView = lazy(() => graph().then((m) => ({ default: m.GraphView })));
+/** The full-screen project overview, with its tabs and saved tables. */
+export const ProjectOverview = lazy(() => projectOverview().then((m) => ({ default: m.ProjectOverview })));
+/** The browser tab: a native web view over a placeholder, with its bar and capture. */
+export const BrowserView = lazy(() => browser().then((m) => ({ default: m.BrowserView })));
 
 /** The views preloaded, most used first. */
 const PRELOADED = [projectHome, library, tasks, calendar, boardsHome, tagsHome, tagDatabase, chat, highlights, settings, history, review, trash];

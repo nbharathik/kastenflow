@@ -4,6 +4,8 @@ import "./grid.css";
 import "./chips.css";
 import "./bars.css";
 import "./days.css";
+import "./external/external.css";
+import "./external/hours.css";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -18,6 +20,12 @@ import { ActionsContext, type Adding, type CalendarActions, type Dragged } from 
 import { addOnDay } from "./add";
 import { AgendaList } from "./AgendaList";
 import { addDays, byDay, dateItems, dateRanges, type DateItem } from "./dates";
+import { canSubscribe } from "./external/api";
+import { EventPopoverProvider } from "./external/EventPopoverProvider";
+import { partsByDay } from "./external/external";
+import { HourWeek } from "./external/HourWeek";
+import { useHoursPref } from "./external/hours-pref";
+import { STALE_MINUTES, useExternalEvents, useFeeds } from "./external/store";
 import { EmptyState, Header } from "./Header";
 import { calendarKey, clampEnd, itemId, landing, periodDays, periodTitle, shiftAnchor, withMoves, withRangeMoves, type Mode } from "./layout";
 import { MonthGrid } from "./MonthGrid";
@@ -119,6 +127,10 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
   const periodRanges = useMemo(() => rangesBetween(shownRanges, first, last), [shownRanges, first, last]);
   const mentions = useDayMentions(client, first, last, notes, show.mentions);
   const made = useMadeByDay(notes, first, last, show.made);
+  // Events of the subscribed calendars: read-only, not in a tag database's calendar.
+  const externalEvents = useExternalEvents(first, last, !scopeTag);
+  const events = useMemo(() => partsByDay(externalEvents, first, last), [externalEvents, first, last]);
+  const [hours, toggleHours] = useHoursPref();
   const count = useMemo(() => {
     const paths = new Set<string>();
     for (const item of items) paths.add(item.path);
@@ -128,7 +140,12 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
   const loading = schemas === null || tasks === null;
   // Nothing on any day, whatever Show hides: the empty state explains.
   const anyDated = useMemo(() => schemas !== null && (dateItems(notes, schemas).length > 0 || dateRanges(notes, schemas).length > 0), [notes, schemas]);
-  const empty = !loading && (scopeTag ? items.length === 0 && ranges.length === 0 : !anyDated && (allTasks?.length ?? 0) === 0 && allJournals.size === 0);
+  const empty = !loading && (scopeTag ? items.length === 0 && ranges.length === 0 : !anyDated && (allTasks?.length ?? 0) === 0 && allJournals.size === 0 && externalEvents.length === 0);
+
+  // Opening the Calendar looks at the subscribed calendars not asked for lately.
+  useEffect(() => {
+    if (!scopeTag && canSubscribe()) void useFeeds.getState().refresh(STALE_MINUTES);
+  }, [scopeTag]);
 
   // Handlers read the latest state from here, so `actions` never changes.
   const latest = useRef({ shown, shownRanges, days, schemas, move: moves.move, mode, scope, journals: allJournals, home });
@@ -245,11 +262,13 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
       event.preventDefault();
       if (key === "prev" || key === "next") nav.turn(key === "prev" ? -1 : 1);
       else if (key === "today") nav.show(dayFrom(0));
-      else if (key !== "agenda" || !latest.current.scope) nav.setMode(key);
+      else if (key === "hours") {
+        if (latest.current.mode === "week") toggleHours();
+      } else if (key !== "agenda" || !latest.current.scope) nav.setMode(key);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nav]);
+  }, [nav, toggleHours]);
 
   const grid = {
     days,
@@ -260,6 +279,7 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
     journals,
     mentions,
     made,
+    events,
     colors,
     lit: drag.lit,
     adding,
@@ -270,19 +290,21 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
   };
   return (
     <ActionsContext.Provider value={actions}>
-      <div ref={root} className={`kasten-cal${scope ? " is-embedded" : ""}`} aria-busy={loading} data-dragging={drag.dragging ? "" : undefined}>
-        <Header title={periodTitle(anchor, mode, weekStart)} count={count} mode={mode} scoped={Boolean(scope)} onMode={nav.setMode} onStep={nav.turn} onToday={() => nav.show(dayFrom(0))} />
-        {empty && (
-          <EmptyState
-            scope={scope}
-            onAdd={() => {
-              setAnchor(today);
-              setAdding({ day: today, kind: "task" });
-            }}
-          />
-        )}
-        {mode === "month" ? <MonthGrid {...grid} month={anchor.slice(0, 7)} /> : mode === "week" ? <WeekGrid {...grid} /> : <AgendaList key={anchor.slice(0, 7)} {...grid} />}
-      </div>
+      <EventPopoverProvider>
+        <div ref={root} className={`kasten-cal${scope ? " is-embedded" : ""}`} aria-busy={loading} data-dragging={drag.dragging ? "" : undefined}>
+          <Header title={periodTitle(anchor, mode, weekStart)} count={count} mode={mode} scoped={Boolean(scope)} hours={hours} onHours={toggleHours} onMode={nav.setMode} onStep={nav.turn} onToday={() => nav.show(dayFrom(0))} />
+          {empty && (
+            <EmptyState
+              scope={scope}
+              onAdd={() => {
+                setAnchor(today);
+                setAdding({ day: today, kind: "task" });
+              }}
+            />
+          )}
+          {mode === "month" ? <MonthGrid {...grid} month={anchor.slice(0, 7)} /> : mode === "week" ? hours ? <HourWeek {...grid} /> : <WeekGrid {...grid} /> : <AgendaList key={anchor.slice(0, 7)} {...grid} />}
+        </div>
+      </EventPopoverProvider>
     </ActionsContext.Provider>
   );
 }

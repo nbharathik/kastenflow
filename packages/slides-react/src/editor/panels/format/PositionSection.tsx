@@ -9,7 +9,7 @@ const DISTRIBUTE = ["horizontal", "vertical"].map((axis) => `arrange.distribute-
 const ORDER = ["front", "forward", "backward", "back"].map((how) => `arrange.${how}`);
 
 /** Aligning, spreading and stacking: the Arrange commands, as buttons that are on when the selection is big enough for them. */
-export function PositionSection({ session, ui }: SectionProps) {
+export function PositionSection({ session, ui, elements }: SectionProps) {
   const context = { session, ui };
   const buttons = (ids: string[]) =>
     ids.map((id) => {
@@ -27,7 +27,8 @@ export function PositionSection({ session, ui }: SectionProps) {
     });
   return (
     <PanelSection id="position" title="Position">
-      <Row label="Align">
+      {/* One element aligns to the slide; two or more align to each other. */}
+      <Row label={elements.length > 1 ? "Align" : "Align to slide"}>
         <div className="ks-sp-buttons">{buttons(ALIGN)}</div>
       </Row>
       <Row label="Distribute">

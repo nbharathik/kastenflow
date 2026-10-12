@@ -98,7 +98,8 @@ describe("mind-map mode", () => {
 
   it("lays out what is connected as a mind map from the Layout menu", async () => {
     const { board } = await open();
-    fireEvent.click(within(board).getByRole("button", { name: "Layout" }));
+    fireEvent.click(within(board).getByRole("button", { name: "More" }));
+    fireEvent.click(within(board).getByRole("menuitem", { name: /^Layout/ }));
     fireEvent.click(within(board).getByRole("menuitem", { name: "Mind map" }));
     await waitFor(async () => expect((await onDisk()).nodes.find((n) => n.id === "near")!.x).toBe(320 + ACROSS));
     const nodes = (await onDisk()).nodes;

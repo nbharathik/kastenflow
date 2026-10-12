@@ -35,7 +35,7 @@ export function shapeBox(kind: ShapeKind, from: Point, to: Point): { x: number; 
 }
 
 /** The bars and menus over the board, which a tool never draws through. */
-const CHROME = ".kasten-bottombar, .kasten-tools, .kasten-toolbar, .kasten-zoombar, .kasten-board-menu, .kasten-pop, .react-flow__minimap, [role='dialog']";
+const CHROME = ".kasten-chrome, .kasten-toolbar, .kasten-board-menu, .kasten-pop, .react-flow__minimap, [role='dialog']";
 
 export function usePointerTools(board: BoardController, wrapper: RefObject<HTMLDivElement | null>) {
   const flow = useReactFlow();

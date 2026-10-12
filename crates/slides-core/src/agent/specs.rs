@@ -34,6 +34,22 @@ const HIDDEN: &[&str] = &[
     "collapse_slides",
     "add_slides",
     "replace_deck",
+    // The layouts and templates a person keeps are the editor's: an assistant reads them with
+    // `list_layouts` and uses them with `add_slide`.
+    "add_layout",
+    "save_layout",
+    "edit_layout",
+    "set_layout_design",
+    "delete_layout",
+    "move_layout",
+    "import_layouts",
+    "reset_slides",
+    "apply_template",
+    // What a person puts on a slide from a page of the host with Insert → Page. An assistant has no page to read it from
+    // and writes the slide with `add_slide` and `set_text`.
+    "add_page_contents",
+    "update_page_contents",
+    "add_page_slides",
 ];
 
 /// The order tools are listed in: look, make, change slides, change elements, steps, files.
@@ -55,10 +71,13 @@ const ORDER: &[&str] = &[
     "apply_theme",
     "edit_theme",
     "set_title",
+    "set_present",
+    "set_page_size",
     "set_notes",
     "set_background",
     "set_slide_flags",
     "set_text",
+    "format_paragraphs",
     "add_diagram",
     "place_image",
     "add_elements",
@@ -87,7 +106,7 @@ const ORDER: &[&str] = &[
 ];
 
 /// The kinds of element an assistant makes. `raw` is left out: an import makes those.
-const ELEMENT_KINDS: [&str; 16] = [
+const ELEMENT_KINDS: [&str; 19] = [
     "text",
     "shape",
     "line",
@@ -104,6 +123,9 @@ const ELEMENT_KINDS: [&str; 16] = [
     "step-label",
     "embed",
     "video",
+    "chart",
+    "timer",
+    "qr",
 ];
 
 pub(super) fn object(properties: Value, required: &[&str]) -> Value {
@@ -122,7 +144,7 @@ pub(super) fn slide_property() -> Value {
 fn compact_element() -> Value {
     json!({
         "type": "object",
-        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video; see the instructions for each). Give a box in slide units (x, y, w, h; the slide is 960 by 540) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
+        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; the slide is 960 by 540) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
         "required": ["type"],
         "properties": {
             "type": { "type": "string", "enum": ELEMENT_KINDS },
@@ -134,7 +156,7 @@ fn compact_element() -> Value {
             "alt": { "type": "string", "description": "What a person who cannot see it is told. Pictures need it." },
             "link": { "type": "string", "description": "A web address, or slide:<id>." },
             "style": { "type": "object", "description": "fill {color, alpha?}, stroke {color, width?, dash?}, radius, shadow {color, blur, dx, dy}, opacity 0 to 1, startArrow and endArrow (none, triangle, stealth, open, oval, diamond)." },
-            "text": { "type": "object", "description": "For text and shape: {paragraphs: [{runs: [{t, b?, i?, u?, color?, size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom)}." },
+            "text": { "type": "object", "description": "For text and shape: {paragraphs: [{runs: [{t, b?, i?, u?, color?, size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), listStyle? (disc, circle, square, arrow, check, dash, decimal, decimalParen, lowerAlpha, upperAlpha, lowerRoman, upperRoman), start? (a numbered item counts from this number), level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom), fit? (shrink: smaller type until it fits; resize: the box grows)}." },
             "markdown": { "type": "string", "description": "For text and shape: the words as Markdown instead of `text`: **bold**, *italic*, `code`, [link](url), - bullets, 1. numbers, one paragraph per line." },
             "shape": { "type": "string", "description": "For a shape: rect, roundRect, ellipse, triangle, diamond, chevron, rightArrow ..." },
             "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },

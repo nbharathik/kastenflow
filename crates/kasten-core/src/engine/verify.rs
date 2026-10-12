@@ -18,9 +18,9 @@ use crate::note::{NoteMeta, meta_for};
 #[serde(rename_all = "camelCase")]
 pub struct Problem {
     /// `unreadable`, `frontmatter`, `duplicate-id`, `unresolved-link`,
-    /// `board`, `board-node`, `deck`, `deck-image`, `git`, `remote`, `synced` (the vault is in
-    /// a folder a sync app copies), `name` (a name another computer can't
-    /// hold) or `case-twin` (two names that differ only in case).
+    /// `board`, `board-node`, `deck`, `deck-image`, `diagram`, `diagram-picture`, `git`, `remote`,
+    /// `synced` (the vault is in a folder a sync app copies), `name` (a name another computer
+    /// can't hold) or `case-twin` (two names that differ only in case).
     pub kind: String,
     pub path: Option<String>,
     pub detail: String,
@@ -32,6 +32,7 @@ pub struct Report {
     pub notes: usize,
     pub boards: usize,
     pub decks: usize,
+    pub diagrams: usize,
     pub git_objects: usize,
     pub problems: Vec<Problem>,
 }
@@ -108,11 +109,33 @@ impl Kasten {
             metas.push(meta);
         }
         let directory = Directory::new(&metas);
+        // A diagram shown in a page is a file, named by its path or just its
+        // file name, as pages' links to files are.
+        let diagram_paths: Vec<String> = self
+            .vault
+            .files(crate::diagrams::EXT)?
+            .into_iter()
+            .map(|f| f.path.to_lowercase())
+            .collect();
         for (at, target) in links {
             if is_day(&target) {
                 continue;
             }
             let from = &metas[at];
+            let wanted = target.trim().to_lowercase();
+            if wanted.ends_with(crate::diagrams::EXT) {
+                let there = diagram_paths
+                    .iter()
+                    .any(|p| *p == wanted || p.ends_with(&format!("/{wanted}")));
+                if !there {
+                    report.problems.push(problem(
+                        "unresolved-link",
+                        Some(&from.path),
+                        format!("[[{target}]] points to no file"),
+                    ));
+                }
+                continue;
+            }
             // A whiteboard or a tag's database shown in the page is a file.
             if target.ends_with(".canvas") || target.ends_with(".yaml") {
                 let there = self
@@ -221,6 +244,26 @@ impl Kasten {
                         format!("Image is missing: {image}"),
                     ));
                 }
+            }
+        }
+        for diagram in self.vault.files(crate::diagrams::EXT)? {
+            report.diagrams += 1;
+            let read = crate::diagrams::read_diagram(&self.vault, &diagram.path)
+                .and_then(|file| crate::diagrams::check_xml(&file.xml));
+            if let Err(err) = read {
+                report
+                    .problems
+                    .push(problem("diagram", Some(&diagram.path), err.to_string()));
+            }
+            // The picture is only ever shown, so it must be a picture; one
+            // that is out of date is not a problem, it is drawn again.
+            if let Ok(Some(svg)) = crate::diagrams::read_preview(&self.vault, &diagram.path)
+                && let Err(err) = crate::diagrams::check_svg(&svg)
+            {
+                let picture = crate::diagrams::sidecar_of(&diagram.path);
+                report
+                    .problems
+                    .push(problem("diagram-picture", Some(&picture), err.to_string()));
             }
         }
         if let Some(history) = self.history.get() {

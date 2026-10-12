@@ -14,4 +14,9 @@ master?: Array<Element>,
 /**
  * Opacity of a dimmed element, 0 to 1.
  */
-dimmedOpacity: number, highlight: Highlight, };
+dimmedOpacity: number, highlight: Highlight, 
+/**
+ * The layout a new slide starts from when the person asked for "my default layout"; the
+ * blank layout when absent or when the deck has no layout of that name.
+ */
+newSlideLayout?: string | null, };

@@ -7,7 +7,12 @@ import { addDays, isoDay } from "../../../lib/dates";
 import { zoomBy } from "../../../lib/zoom";
 import { dayOfPath } from "../../journal/feed";
 import { pickDay } from "../../journal/JournalBar";
+import { BOARD_COMMANDS } from "../../boards/commands";
 import { startNewBoard } from "../../boards/store";
+import { startNewDeck } from "../../slides/store";
+import { browserOn, onBrowserTab, runBrowserCommand } from "../../browser/commands";
+import { newDiagram } from "../../diagrams/actions";
+import { capturesPlace } from "../../extension/captures";
 import { searchLibrary } from "../../library/request";
 import { pickPdfs } from "../../sources/import";
 import { openHistory } from "../../panel/panel-store";
@@ -15,7 +20,11 @@ import { flipTheme } from "../theme";
 import { usePrefs } from "../prefs";
 import { flushOpenPage } from "../page/open-page";
 import { useWorkspace } from "../store";
+import type { Place } from "../tabs";
 import { movable, noteAt } from "../tree";
+import { foldAllSections } from "../../pages/editor/sections/registry";
+import { openCurrentOverview } from "../../projects/overview/open";
+import { openSettingsAt } from "../views/settings/jump";
 import { PAGE_COMMANDS } from "./page-commands";
 
 export interface Command {
@@ -42,6 +51,7 @@ export const COMMANDS: Command[] = [
   { id: "journal-page", label: "Open today's journal page", words: "daily day today diary", run: () => void workspace().openJournal() },
   { id: "home", label: "Go to Home", words: "start", run: () => workspace().go({ view: "home" }) },
   { id: "inbox", label: "Go to Inbox", run: () => workspace().go({ view: "inbox" }) },
+  { id: "captures", label: "Go to Captures", words: "capture clip web pages links saved browser extension table database", run: () => workspace().go(capturesPlace) },
   { id: "library", label: "Go to Card Library", words: "all pages", run: () => workspace().go({ view: "library" }) },
   { id: "search", label: "Search everything", words: "find full text filter tag project", run: () => searchLibrary() },
   { id: "tasks", label: "Go to Tasks", words: "todo to-do checklist", run: () => workspace().go({ view: "tasks" }) },
@@ -49,7 +59,19 @@ export const COMMANDS: Command[] = [
   { id: "calendar", label: "Go to Calendar", words: "month week dates due schedule", run: () => workspace().go({ view: "calendar" }) },
   { id: "boards", label: "Go to Whiteboards", words: "board canvas map spatial heptabase", run: () => workspace().go({ view: "boards" }) },
   { id: "new-board", label: "New whiteboard", words: "board canvas map brainstorm create", run: () => startNewBoard() },
+  { id: "slides", label: "Go to Slides", words: "decks presentation talk powerpoint", run: () => workspace().go({ view: "slides" }) },
+  { id: "new-deck", label: "New deck", words: "slides presentation talk powerpoint create", run: () => startNewDeck() },
+  { id: "diagrams", label: "Go to Diagrams", words: "draw drawio flowchart architecture sketch uml", run: () => workspace().go({ view: "diagrams" }) },
+  { id: "new-diagram", label: "New diagram", words: "draw drawio flowchart architecture sketch uml create", run: () => void newDiagram() },
   { id: "highlights", label: "Go to Highlights", words: "pdf reader sources papers annotations quotes", run: () => workspace().go({ view: "highlights" }) },
+  { id: "graph", label: "Open graph", words: "go to links network map connections backlinks orphans ghosts missing pages", run: () => workspace().go({ view: "graph" }) },
+  { id: "graph-page", label: "Graph around this page", words: "local links neighbours network connections", run: () => onOpenPlace((place) => workspace().openRight({ view: "graph", path: place.path })) },
+  { id: "browser", label: "Open browser", words: "web internet site page search google capture clip", when: browserOn, run: () => workspace().go({ view: "web" }) },
+  { id: "browser-address", label: "Browser: go to the address box", words: "web url search location bar", when: onBrowserTab, run: () => runBrowserCommand("address") },
+  { id: "browser-capture-page", label: "Browser: capture the page", words: "web clip save keep bookmark", when: onBrowserTab, run: () => runBrowserCommand("capture-page") },
+  { id: "browser-capture-selection", label: "Browser: capture the selection", words: "web clip save keep quote highlight", when: onBrowserTab, run: () => runBrowserCommand("capture-selection") },
+  { id: "extension-pair", label: "Browser extension: pair with Chrome or Edge…", words: "connect code settings capture clip web send", run: () => openSettingsAt({ group: "extension", row: "extension.pair" }) },
+  { id: "project-overview", label: "Open project overview", words: "project expand full screen tabs tables captures tasks board dashboard", run: () => openCurrentOverview() },
   { id: "import-pdf", label: "Import a PDF…", words: "open file paper source reader highlight", run: () => pickPdfs() },
   { id: "import-notes", label: "Import notes…", words: "obsidian notion heptabase markdown vault export migrate move bring", run: () => workspace().go({ view: "import" }) },
   { id: "chat-dock", label: "Chat about the pages open", words: "ai ask assistant chat dock side panel claude", run: () => shell().toggleChat() },
@@ -57,13 +79,15 @@ export const COMMANDS: Command[] = [
   { id: "trash", label: "Go to Trash", words: "deleted restore", run: () => workspace().go({ view: "trash" }) },
   { id: "history", label: "Go to History", words: "changes versions agents sessions undo", run: () => workspace().go({ view: "history" }) },
   { id: "review", label: "Go to Review", words: "agents proposals accept reject", run: () => workspace().go({ view: "review" }) },
-  { id: "settings", label: "Settings", words: "preferences options", run: () => workspace().go({ view: "settings" }) },
+  { id: "settings", label: "Settings", words: "preferences options search", run: () => openSettingsAt({ focusSearch: true }) },
   { id: "theme", label: "Switch light / dark", words: "theme dark mode night", run: () => toggleTheme() },
   { id: "sidebar", label: "Show or hide the sidebar", run: () => shell().toggleSidebar() },
   { id: "panel", label: "Show or hide the right panel", words: "outline properties tags links backlinks details word count", run: () => shell().togglePanel(workspace().layout.focus) },
   { id: "page-history", label: "Page history", words: "versions restore time machine undo", run: () => openHistory() },
   { id: "focus", label: "Focus mode", words: "zen distraction free", run: () => shell().toggleFocus() },
   { id: "markdown", label: "Show the Markdown file", words: "source raw", run: () => shell().toggleSource() },
+  { id: "fold-sections", label: "Fold all sections", words: "collapse close divider hide ---", run: () => foldSectionsOfPage(true) },
+  { id: "unfold-sections", label: "Unfold all sections", words: "expand open divider show ---", run: () => foldSectionsOfPage(false) },
   { id: "move", label: "Move this page to…", words: "project relocate file", run: () => moveOpenPage() },
   { id: "duplicate", label: "Duplicate this page", words: "copy clone", run: () => onOpenPage((path) => void workspace().duplicate(path)) },
   { id: "full-width", label: "Full width pages", words: "wide", run: () => usePrefs.getState().set({ fullWidth: !usePrefs.getState().fullWidth }) },
@@ -73,16 +97,31 @@ export const COMMANDS: Command[] = [
   { id: "close-tab", label: "Close tab", run: () => workspace().closeTab() },
   { id: "reopen-tab", label: "Reopen closed tab", words: "undo close", run: () => workspace().reopenTab() },
   { id: "split", label: "Open in split view", words: "side by side pane", run: () => workspace().splitRight() },
+  { id: "open-right", label: "Open this page to the right", words: "beside next pane side by side", run: () => onOpenPlace((place) => workspace().openRight(place)) },
+  { id: "pin-page", label: "Pin or unpin this page in the sidebar", words: "top project favourite keep", run: () => onOpenPage((path) => usePrefs.getState().togglePinnedPage(path)) },
+  { id: "sidebar-cards", label: "Show or hide quick notes under projects in the sidebar", words: "cards captures inbox notes list short", run: () => usePrefs.getState().set({ sidebarShowCards: !usePrefs.getState().sidebarShowCards }) },
   { id: "stack", label: "Show or hide the side stack", words: "heptabase cards side panel beside", run: () => workspace().toggleStack() },
   { id: "stack-page", label: "Open this page in the side stack", words: "beside heptabase", run: () => onOpenPage((path) => workspace().openInStack(path)) },
   { id: "shortcuts", label: "Keyboard shortcuts", words: "help keys", run: () => shell().setShortcuts(true) },
   ...PAGE_COMMANDS,
+  ...BOARD_COMMANDS,
   { id: "zoom-in", label: "Zoom in", words: "bigger larger scale magnify", run: () => void zoomBy(1).then(sayZoom) },
   { id: "zoom-out", label: "Zoom out", words: "smaller scale", run: () => void zoomBy(-1).then(sayZoom) },
   { id: "zoom-reset", label: "Actual size", words: "zoom reset 100", run: () => void zoomBy(0).then(sayZoom) },
 ];
 
 const sayZoom = (level: number) => workspace().toast(`Zoom ${Math.round(level * 100)}%`);
+
+/** Folds or unfolds every section of the page in front, saying how to make some when it has none. */
+function foldSectionsOfPage(folded: boolean): void {
+  if (foldAllSections(folded) === 0) workspace().toast("This page has no sections yet: a line of --- starts one.");
+}
+
+/** Runs `action` on the place in the focused tab when it is something to open (a page, whiteboard or deck). */
+function onOpenPlace(action: (place: Place) => void): void {
+  const { place } = workspace();
+  if (place.path) action(place);
+}
 
 /** Runs `action` on the open page when it is a page or card. */
 function onOpenPage(action: (path: string) => void): void {
@@ -155,6 +194,8 @@ export const EDITOR_SHORTCUTS: { title: string; rows: [string, string][] }[] = [
       ["Ctrl+Shift+↑ / ↓", "Move up / down"],
       ["Ctrl+Enter", "Tick a to-do, open a toggle"],
       ["Esc, then ↑ / ↓", "Select blocks"],
+      ["Esc, then Shift+↑ / ↓", "Select several blocks"],
+      ["Ctrl+Alt+T", "Group blocks into a toggle"],
       ["Ctrl+/", "Turn into, colour, delete"],
     ],
   },

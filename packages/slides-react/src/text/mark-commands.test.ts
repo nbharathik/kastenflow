@@ -4,7 +4,7 @@ import type { Paragraph, Text, Theme } from "@kasten-slides/wasm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { formatStateOf, linkAtSelection } from "./format-state.ts";
-import { clearFormatting, setLink, setValueMark, sizeAtStart, stepFontSize, toggleFlag } from "./mark-commands.ts";
+import { clearFormatting, setFlag, setLink, setValueMark, sizeAtStart, stepFontSize, toggleFlag } from "./mark-commands.ts";
 import { nextSize } from "./sizes.ts";
 import { type Rig, rig, run, textOf, type as typeIn } from "./test-state.ts";
 import { themeNamed } from "./test-support.ts";
@@ -44,6 +44,13 @@ describe("switches: bold, italic, underline, strike, code", () => {
     const partly = text(p({ t: "ab", b: true }, { t: "cd" }));
     const on = run(light.state(partly, [0, 0], [0, 4]), toggleFlag("bold", light.ctx));
     expect(runsOf(on, partly)).toEqual([{ t: "abcd", b: true }]);
+  });
+
+  it("is set on or off for all of a selection whatever is on in it, which is how several boxes are toggled as one", () => {
+    const partly = text(p({ t: "ab", b: true }, { t: "cd" }));
+    const wanted = (on: boolean) => runsOf(run(light.state(partly, [0, 0], [0, 4]), setFlag("bold", on)), partly);
+    expect(wanted(true)).toEqual([{ t: "abcd", b: true }]);
+    expect(wanted(false)).toEqual([{ t: "abcd" }]);
   });
 
   it("reaches over paragraphs", () => {

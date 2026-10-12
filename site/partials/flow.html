@@ -1,82 +1,43 @@
-<section class="section flow" id="flow" aria-labelledby="flow-title">
-        <div class="wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-zap" /></svg>How it flows</p>
-            <h2 id="flow-title">From a passing thought to a finished plan</h2>
-            <p class="lead">Kasten follows an idea from the moment you catch it to the day you present it, and keeps it findable after.</p>
-          </header>
+<section class="app-panel" id="view-inbox" role="tabpanel" aria-labelledby="tab-inbox">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-inbox" /></svg>Capture</h2>
+              <p>Press <kbd>Ctrl</kbd> <kbd>N</kbd> to create a note. Use the Inbox to sort notes into projects, add them to boards or assign tags.</p>
+            </header>
+            <picture class="view-shot">
+              <source srcset="img/inbox-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
+              <img src="img/inbox.webp" width="2400" height="1500" alt="The Inbox: quick notes by the day they were caught" loading="lazy" />
+            </picture>
+          </section>
 
-          <div class="flow-grid">
-            <ol class="flow-steps">
-              <li class="flow-step" data-step="0">
-                <span class="flow-icon"><svg class="i" aria-hidden="true"><use href="#i-inbox" /></svg></span>
-                <div>
-                  <h3>Capture</h3>
-                  <p>Press <kbd>Ctrl</kbd> <kbd>N</kbd> anywhere and jot it down. Thoughts land in the Inbox, where a key files each one into a project, onto a board or under a tag.</p>
-                  <picture class="flow-inline">
-                    <source srcset="img/inbox-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-                    <img src="img/inbox.webp" width="2400" height="1500" alt="The Inbox: quick notes by the day they were caught" loading="lazy" />
-                  </picture>
-                </div>
-              </li>
-              <li class="flow-step" data-step="1">
-                <span class="flow-icon"><svg class="i" aria-hidden="true"><use href="#i-project" /></svg></span>
-                <div>
-                  <h3>Organise</h3>
-                  <p>Every project opens on its own home: a summary, its pages and to-dos, and its whiteboards. Drag a page onto a project to move it there.</p>
-                  <picture class="flow-inline">
-                    <source srcset="img/project-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-                    <img src="img/project.webp" width="2880" height="1800" alt="A project's home: a summary, its pages, whiteboards and to-dos" loading="lazy" />
-                  </picture>
-                </div>
-              </li>
-              <li class="flow-step" data-step="2">
-                <span class="flow-icon"><svg class="i" aria-hidden="true"><use href="#i-board" /></svg></span>
-                <div>
-                  <h3>Arrange</h3>
-                  <p>Drag pages onto a whiteboard as cards, connect them with arrows and gather them into sections. Sketch beside them with the pen and shapes.</p>
-                  <picture class="flow-inline">
-                    <source srcset="img/whiteboard-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-                    <img src="img/whiteboard.webp" width="2880" height="1800" alt="A whiteboard with cards, a section and a labelled arrow" loading="lazy" />
-                  </picture>
-                </div>
-              </li>
-              <li class="flow-step" data-step="3">
-                <span class="flow-icon"><svg class="i" aria-hidden="true"><use href="#i-present" /></svg></span>
-                <div>
-                  <h3>Present</h3>
-                  <p>Press <kbd>P</kbd> on a board and each section becomes a slide, shown full screen. Escape brings back the view you had.</p>
-                  <picture class="flow-inline">
-                    <source srcset="img/present-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-                    <img src="img/present.webp" width="2400" height="1500" alt="A whiteboard section presented as a slide" loading="lazy" />
-                  </picture>
-                </div>
-              </li>
-              <li class="flow-step" data-step="4">
-                <span class="flow-icon"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg></span>
-                <div>
-                  <h3>Find it again</h3>
-                  <p>Months later, search and the Card Library bring back any note by its words, tags, project or date.</p>
-                  <picture class="flow-inline">
-                    <source srcset="img/library-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-                    <img src="img/library.webp" width="2400" height="1500" alt="The Card Library: every note as a card, with filters" loading="lazy" />
-                  </picture>
-                </div>
-              </li>
-            </ol>
+          <section class="app-panel" id="view-projects" role="tabpanel" aria-labelledby="tab-projects">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-project" /></svg>Organise</h2>
+              <p>Each project has a home with its summary, pages, to-dos and whiteboards. Drag a page onto a project to move it there.</p>
+            </header>
+            <picture class="view-shot">
+              <source srcset="img/project-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
+              <img src="img/project.webp" width="2880" height="1800" alt="A project's home: a summary, its pages, whiteboards and to-dos" loading="lazy" />
+            </picture>
+          </section>
 
-            <div class="flow-stage" aria-hidden="true">
-              <div class="window flow-window">
-                <div class="window-bar"><i></i><i></i><i></i><span data-flow-title>Inbox</span></div>
-                <div class="flow-shots">
-                  <picture class="flow-shot is-active" data-title="Inbox"><source srcset="img/inbox-dark.webp" media="(prefers-color-scheme: dark)" data-dark /><img src="img/inbox.webp" width="2400" height="1500" alt="" loading="lazy" /></picture>
-                  <picture class="flow-shot" data-title="Note-taking study"><source srcset="img/project-dark.webp" media="(prefers-color-scheme: dark)" data-dark /><img src="img/project.webp" width="2880" height="1800" alt="" loading="lazy" /></picture>
-                  <picture class="flow-shot" data-title="brainstorm"><source srcset="img/whiteboard-dark.webp" media="(prefers-color-scheme: dark)" data-dark /><img src="img/whiteboard.webp" width="2880" height="1800" alt="" loading="lazy" /></picture>
-                  <picture class="flow-shot" data-title="Presenting"><source srcset="img/present-dark.webp" media="(prefers-color-scheme: dark)" data-dark /><img src="img/present.webp" width="2400" height="1500" alt="" loading="lazy" /></picture>
-                  <picture class="flow-shot" data-title="Card Library"><source srcset="img/library-dark.webp" media="(prefers-color-scheme: dark)" data-dark /><img src="img/library.webp" width="2400" height="1500" alt="" loading="lazy" /></picture>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <section class="app-panel" id="view-present" role="tabpanel" aria-labelledby="tab-present">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-present" /></svg>Present</h2>
+              <p>Press <kbd>P</kbd> on a board and each section becomes a slide, shown full screen. Escape brings back the view you had.</p>
+            </header>
+            <picture class="view-shot">
+              <source srcset="img/present-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
+              <img src="img/present.webp" width="2400" height="1500" alt="A whiteboard section presented as a slide" loading="lazy" />
+            </picture>
+          </section>
+
+          <section class="app-panel" id="view-library" role="tabpanel" aria-labelledby="tab-library">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-library" /></svg>Find notes</h2>
+              <p>Use search or the Card Library to find notes by text, kind, tag, project or date, as cards or a table.</p>
+            </header>
+            <picture class="view-shot">
+              <source srcset="img/library-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
+              <img src="img/library.webp" width="2400" height="1500" alt="The Card Library: every note as a card, with filters" loading="lazy" />
+            </picture>
+          </section>

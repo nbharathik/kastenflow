@@ -13,30 +13,39 @@ import type {
   BackupStatus,
   ChangedFile,
   CommitInfo,
+  FindSpec,
+  GraphScope,
   ImportOptions,
   ImportSummary,
   Imported,
   NewNote,
   NoteFile,
+  NoteMatches,
   Placed,
   NoteStats,
   PropDef,
   RelatedNote,
+  ReplaceRequest,
+  Replaced,
   TagSchema,
   TagView,
   TaskRow,
   Undone,
   VaultClient,
   VaultConfig,
+  VaultGraph,
   VaultRestore,
   VaultStatus,
   VerifyReport,
 } from "../../../lib/vault/types";
 import { splitCapture } from "./capture-split";
 import { dayMentionsIn } from "./day-mentions";
+import { dueAt } from "./day-times";
 import { tasksIn } from "../tasks";
 import { deckHead } from "./memory-decks";
 import { MemoryPictures } from "./memory-pictures";
+import { filesOf, graphIn, linkRowsOf } from "./memory-graph";
+import { findUnderIn, planReplace } from "./memory-replace";
 import { appendUnder, parseSchema, propsBlock, replaceSection } from "./memory-extras";
 import { Directory, placeOf } from "../links";
 import { linkingByNote } from "./keep-links";
@@ -57,11 +66,9 @@ const DEFAULT_CONFIG: VaultConfig = {
 
 const isDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-/** The first day a task names (extract.rs `due_date`). */
+/** The first day a task names (dates.rs `due_date`): a day that exists. */
 export function dueDate(text: string): string | null {
-  const linked = wikiLinks(text).find(isDay);
-  if (linked) return linked;
-  return /(?:@|📅\s?)(\d{4}-\d{2}-\d{2})/u.exec(text)?.[1] ?? null;
+  return dueAt(text)?.day ?? null;
 }
 
 const PREVIEW_IMPORT = "Importing reads a folder on your computer, so it needs the desktop app. The browser preview keeps its notes in the browser.";
@@ -136,6 +143,22 @@ export class MemoryVault extends MemoryPictures implements VaultClient {
 
   async undoCommit(_commit: string): Promise<Undone> {
     throw new Error("Undoing one change needs the desktop app; undo a chat or an agent's changes from History");
+  }
+
+  async findUnder(root: string, spec: FindSpec, maxNotes = 200): Promise<NoteMatches[]> {
+    return findUnderIn(await this.list(), (path) => this.get(path), root, spec, maxNotes);
+  }
+
+  /** Each page is written as its own version; there is no one commit to undo (`commit` is null). */
+  async replaceUnder(request: ReplaceRequest): Promise<Replaced> {
+    const edits = planReplace(await this.list(), (path) => this.get(path), request);
+    for (const edit of edits) this.put(edit.path, edit.text);
+    return { commit: null, notes: edits.map((e): [string, number] => [e.path, e.count]), total: edits.reduce((sum, e) => sum + e.count, 0) };
+  }
+
+  async graph(scope: GraphScope): Promise<VaultGraph> {
+    const notes = await this.list();
+    return graphIn(notes, linkRowsOf(notes, (path) => this.data.files[path]?.text ?? ""), filesOf(this.data.boards, this.data.decks), scope);
   }
 
   async pushNow(): Promise<BackupStatus> {
@@ -213,7 +236,7 @@ export class MemoryVault extends MemoryPictures implements VaultClient {
     for (const meta of notes) {
       const text = this.data.files[meta.path]!.text;
       const cached = known.get(meta.path);
-      const found = cached?.text === text ? cached.found : tasksIn(splitFrontmatter(text).body).map((task) => ({ line: task.line, done: task.done, text: readableLine(task.text), due: dueDate(task.text) }));
+      const found = cached?.text === text ? cached.found : tasksIn(splitFrontmatter(text).body).map((task) => ({ line: task.line, done: task.done, text: readableLine(task.text), due: dueDate(task.text), at: dueAt(task.text)?.at ?? null }));
       this.taskCache.set(meta.path, { text, found });
       for (const task of found) out.push({ path: meta.path, title: meta.title, icon: meta.icon, ...task });
     }

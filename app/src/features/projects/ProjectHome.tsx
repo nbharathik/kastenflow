@@ -11,8 +11,10 @@ import type { NoteMeta } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
 import { Customize } from "../dashboard/Customize";
 import { DashEmpty, DashGrid } from "../dashboard/DashCard";
+import { howFrom } from "../workspace/store";
 import { PROJECT_DEFAULT, PROJECT_SECTIONS, projectHome } from "./home";
 import { saveHome } from "./home-actions";
+import { openOverview } from "./overview/open";
 import { ProjectSection } from "./ProjectSections";
 
 const FOLD_KEY = "kasten.project-home.folded";
@@ -61,6 +63,10 @@ export function ProjectHome({ project }: { project: NoteMeta }) {
           Project home
         </button>
         <span className="flex-1" />
+        <button type="button" className="ui-btn is-quiet is-sm" title="Open the project overview full size" onClick={(event) => openOverview(project, howFrom(event))}>
+          <Icon name="expand" className="size-[14px]" />
+          Expand
+        </button>
         <Customize
           label="Project home"
           defs={PROJECT_SECTIONS}

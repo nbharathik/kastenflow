@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clickAction, columnsOf, moveFocus, selectRange, toggle } from "./selection";
+import { clickAction, columnsOf, moveFocus, moveInGroups, selectRange, toggle } from "./selection";
 
 const ORDER = ["a", "b", "c", "d", "e", "f"];
 
@@ -85,6 +85,49 @@ describe("moveFocus", () => {
   it("treats a missing layout as one column", () => {
     expect(moveFocus(2, "ArrowDown", 0, 5)).toBe(3);
     expect(moveFocus(-1, "ArrowRight", 3, 5)).toBe(1);
+  });
+});
+
+describe("moveInGroups", () => {
+  // Three groups of 5, 2 and 3 cards in 3 columns: rows 0-2 and 3-4, then 5-6, then 7-9.
+  const move = (index: number, key: string, sizes = [5, 2, 3]) => moveInGroups(index, key, 3, sizes);
+
+  it("moves like one grid inside a group", () => {
+    expect(move(0, "ArrowDown")).toBe(3);
+    expect(move(3, "ArrowUp")).toBe(0);
+    // Into a shorter last row, the last card is the one below.
+    expect(move(2, "ArrowDown")).toBe(4);
+    expect(move(4, "ArrowRight")).toBe(5);
+    expect(move(5, "ArrowLeft")).toBe(4);
+    expect(move(8, "Home")).toBe(0);
+    expect(move(1, "End")).toBe(9);
+  });
+
+  it("goes down from a group's last row to the next group's first, in the same column", () => {
+    expect(move(3, "ArrowDown")).toBe(5);
+    expect(move(4, "ArrowDown")).toBe(6);
+    // The next group is shorter than the column asks: its last card.
+    expect(move(6, "ArrowDown")).toBe(8);
+    expect(move(9, "ArrowDown")).toBe(9);
+  });
+
+  it("goes up from a group's first row to the last row of the one before", () => {
+    expect(move(5, "ArrowUp")).toBe(3);
+    expect(move(6, "ArrowUp")).toBe(4);
+    expect(move(7, "ArrowUp")).toBe(5);
+    expect(move(9, "ArrowUp")).toBe(6);
+    expect(move(0, "ArrowUp")).toBe(0);
+  });
+
+  it("steps over a folded group with no cards", () => {
+    expect(move(0, "ArrowDown", [2, 0, 2])).toBe(2);
+    expect(move(2, "ArrowUp", [2, 0, 2])).toBe(0);
+  });
+
+  it("is moveFocus for one group, and says -1 for no cards or other keys", () => {
+    expect(moveInGroups(6, "ArrowDown", 4, [10])).toBe(moveFocus(6, "ArrowDown", 4, 10));
+    expect(moveInGroups(0, "ArrowDown", 3, [0, 0])).toBe(-1);
+    expect(move(0, "a")).toBe(-1);
   });
 });
 

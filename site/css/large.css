@@ -1,0 +1,55 @@
+/* Big screens: the page grows with the screen instead of sitting in a narrow
+   column in the middle. Sections widen, the banner's window grows taller and
+   the type steps up. Loaded last, so these win over the sizes set before. */
+
+@media (min-width: 1680px) {
+  :root {
+    --wrap: 1400px;
+  }
+
+  body {
+    font-size: 17px;
+  }
+
+  .hero h1 {
+    font-size: clamp(76px, 4.6vw, 96px);
+  }
+
+  .section-head {
+    max-width: 54rem;
+  }
+
+  .section-head h2 {
+    font-size: clamp(56px, 3.6vw, 72px);
+  }
+
+  .lead {
+    font-size: clamp(19px, 1.15vw, 22px);
+  }
+
+  .hero[data-scroll] .hero-live {
+    --stage-max: 860px;
+  }
+
+  .hero[data-scroll] .tab-title {
+    font-size: clamp(38px, 2.3vw, 48px);
+  }
+
+  .hero[data-scroll] .tab-text {
+    font-size: clamp(17.5px, 1vw, 20px);
+  }
+}
+
+@media (min-width: 2200px) {
+  :root {
+    --wrap: 1680px;
+  }
+
+  body {
+    font-size: 18px;
+  }
+
+  .hero[data-scroll] .hero-live {
+    --stage-max: 1000px;
+  }
+}

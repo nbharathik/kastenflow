@@ -253,6 +253,8 @@ mod tests {
     fn the_theme_s_own_elements_are_drawn_on_the_master_after_its_placeholders() {
         let mut deck = deck();
         deck.theme = slides_core::themes::lecture();
+        // A new deck shows no number; this one asks for it.
+        deck.present.slide_numbers = true;
         let (xml, _) = master(&deck);
         // The header bar, the logo slot (empty, so not written) and the slide number.
         assert!(xml.contains("slidenum"), "{xml}");
@@ -273,7 +275,8 @@ mod tests {
         deck.present.slide_numbers = false;
         let (xml, _) = master(&deck);
         assert!(!xml.contains("slidenum"), "{xml}");
-        let (on, _) = master(&crate::testing::deck());
+        deck.present.slide_numbers = true;
+        let (on, _) = master(&deck);
         assert!(on.contains("slidenum"));
     }
 

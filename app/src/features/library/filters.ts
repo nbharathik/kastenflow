@@ -6,9 +6,11 @@
 import type { NoteMeta, NoteStats } from "../../lib/vault/types";
 import { iconOf, titleOf } from "../workspace/names";
 import { openable } from "../workspace/tree";
+import { dateFilterSpan, spanOfValue, type DateFilter, type Span } from "./date-filter";
+
+export { updatedSince } from "./date-filter";
 
 export type Kind = "all" | "card" | "page" | "project" | "journal";
-export type Updated = "any" | "today" | "week" | "month";
 export type SortKey = "updated" | "created" | "title" | "type" | "place" | "tags" | "boards" | "backlinks";
 export type SortDir = "asc" | "desc";
 
@@ -23,14 +25,17 @@ export interface Filters {
   place: string | null;
   /** Lower-case tag, or null for any. */
   tag: string | null;
-  updated: Updated;
+  /** When the note was last changed: a preset, a month or a range (date-filter.ts). */
+  updated: DateFilter;
+  /** When the note was made, by its own `created` date; notes without one never match. */
+  created: DateFilter;
   /** Only notes on no board. */
   noBoard: boolean;
   /** Only notes with no links in or out and on no board. */
   orphans: boolean;
 }
 
-export const NO_FILTERS: Filters = { kind: "all", place: null, tag: null, updated: "any", noBoard: false, orphans: false };
+export const NO_FILTERS: Filters = { kind: "all", place: null, tag: null, updated: "any", created: "any", noBoard: false, orphans: false };
 
 export const KINDS: readonly { id: Kind; label: string }[] = [
   { id: "all", label: "All" },
@@ -38,13 +43,6 @@ export const KINDS: readonly { id: Kind; label: string }[] = [
   { id: "page", label: "Pages" },
   { id: "project", label: "Projects" },
   { id: "journal", label: "Journal" },
-];
-
-export const UPDATED: readonly { id: Updated; label: string }[] = [
-  { id: "any", label: "Any time" },
-  { id: "today", label: "Today" },
-  { id: "week", label: "This week" },
-  { id: "month", label: "This month" },
 ];
 
 /** The sort menu's presets; table headers can sort by the other keys too. */
@@ -155,46 +153,41 @@ export interface Query {
    * in the core. */
   after: number | null;
   before: number | null;
+  /** From `on:` (a day, a month `2026-10`, a year or `a..b`): made or last
+   * changed in it. `created:` is made in it, `updated:` last changed in it. */
+  on: Span | null;
+  created: Span | null;
+  updated: Span | null;
 }
 
 /** Reads the search box the way the core's search does. */
 export function parseQuery(text: string): Query {
-  const query: Query = { words: [], tags: [], projects: [], types: [], after: null, before: null };
+  const query: Query = { words: [], tags: [], projects: [], types: [], after: null, before: null, on: null, created: null, updated: null };
   for (const match of text.toLowerCase().matchAll(/"([^"]*)"?|(\S+)/g)) {
     const [, phrase, token] = match;
     if (phrase !== undefined) {
       if (phrase.trim()) query.words.push(phrase.trim());
       continue;
     }
-    const filter = /^(tag|project|type|after|before):(.+)$/.exec(token!);
+    const filter = /^(tag|project|type|after|before|on|created|updated):(.+)$/.exec(token!);
     const [key, value] = filter ? [filter[1], filter[2]!] : [null, token!];
     if (key === "tag" || (!key && value.startsWith("#") && value.length > 1)) query.tags.push(value.replace(/^#/, ""));
     else if (key === "project") query.projects.push(value);
     else if (key === "type") query.types.push(value);
     else if (key === "after") query.after = parseDate(value, 1);
     else if (key === "before") query.before = parseDate(value);
-    else query.words.push(value);
+    else if (key === "on" || key === "created" || key === "updated") {
+      // A value that is no date is an ordinary word, as in the core.
+      const span = spanOfValue(value);
+      if (span) query[key] = span;
+      else query.words.push(token!);
+    } else query.words.push(value);
   }
   return query;
 }
 
 /** Whether every word of the query is in the row's title, tags or excerpt. */
 export const matchesWords = (row: Row, words: readonly string[]) => words.every((w) => row.haystack.includes(w));
-
-/** When "Updated" starts for each choice: midnight, Monday or the 1st. */
-export function updatedSince(choice: Updated, now: number): number {
-  const d = new Date(now);
-  switch (choice) {
-    case "any":
-      return Number.NEGATIVE_INFINITY;
-    case "today":
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    case "week":
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)).getTime();
-    case "month":
-      return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-  }
-}
 
 export interface FilterContext {
   /** Link and board counts by path; null while they load. */
@@ -203,20 +196,29 @@ export interface FilterContext {
   /** Paths the full-text search found for the query, if it has answered. */
   hits: ReadonlySet<string> | ReadonlyMap<string, unknown> | null;
   now: number;
+  /** The day weeks start on, for "This week" (Settings → Calendar): 1 Monday, 0 Sunday, 6 Saturday. */
+  weekStart?: number;
 }
 
 const ZERO = { backlinks: 0, links: 0, boards: 0 };
 
+const within = (millis: number | null, span: Span): boolean => millis !== null && millis >= span.from && millis < span.to;
+
 /** The rows that pass every filter, in the order given. */
-export function filterRows(rows: readonly Row[], filters: Filters, { stats, query, hits, now }: FilterContext): Row[] {
-  const since = updatedSince(filters.updated, now);
+export function filterRows(rows: readonly Row[], filters: Filters, { stats, query, hits, now, weekStart = 1 }: FilterContext): Row[] {
+  const updated = dateFilterSpan(filters.updated, now, weekStart);
+  const created = dateFilterSpan(filters.created, now, weekStart);
   // Board and link counts decide nothing until they have loaded.
   const counted = stats !== null && (filters.noBoard || filters.orphans);
   return rows.filter((row) => {
     if (filters.kind !== "all" && row.note.kind !== filters.kind) return false;
     if (filters.place !== null && row.place !== filters.place) return false;
     if (filters.tag !== null && !row.tags.includes(filters.tag)) return false;
-    if (row.updated < since) return false;
+    if (updated && !within(row.updated, updated)) return false;
+    if (created && !within(row.created, created)) return false;
+    if (query.updated && !within(row.updated, query.updated)) return false;
+    if (query.created && !within(row.created, query.created)) return false;
+    if (query.on && !within(row.updated, query.on) && !within(row.created, query.on)) return false;
     if (counted) {
       const s = stats!.get(row.path) ?? ZERO;
       if (s.boards > 0) return false;
@@ -232,7 +234,7 @@ export function filterRows(rows: readonly Row[], filters: Filters, { stats, quer
 }
 
 export const hasFilters = (f: Filters) =>
-  f.kind !== "all" || f.place !== null || f.tag !== null || f.updated !== "any" || f.noBoard || f.orphans;
+  f.kind !== "all" || f.place !== null || f.tag !== null || f.updated !== "any" || f.created !== "any" || f.noBoard || f.orphans;
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
 

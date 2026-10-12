@@ -74,7 +74,7 @@ describe("Choosing the vault", () => {
     const picker = await screen.findByRole("dialog", { name: "Where to make the vault" });
     const folders = within(picker).getByRole("list", { name: "Folders" });
     expect(await within(folders).findByText("Obsidian vault")).toBeTruthy();
-    expect(within(folders).getByText("Kasten vault")).toBeTruthy();
+    expect(within(folders).getByText("KastenFlow vault")).toBeTruthy();
     // Into a folder and back up.
     await act(async () => fireEvent.doubleClick(within(folders).getByRole("button", { name: /^Notes/ })));
     expect(await within(picker).findByText("No folders here")).toBeTruthy();
@@ -131,7 +131,7 @@ describe("Choosing the vault", () => {
 
     // A vault from a newer Kasten is not opened.
     fireEvent.change(folder, { target: { value: "/home/a/Documents/Future" } });
-    expect(await within(open).findByText(/made by a newer version of Kasten/, {}, SURVEYED)).toBeTruthy();
+    expect(await within(open).findByText(/made by a newer version of KastenFlow/, {}, SURVEYED)).toBeTruthy();
     expect((within(open).getByRole("button", { name: "Open folder" }) as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.change(folder, { target: { value: "/nowhere" } });
@@ -150,7 +150,7 @@ describe("Choosing the vault", () => {
     const create = await screen.findByRole("region", { name: "Create a new vault" });
     await waitFor(() => expect(value(within(create).getByLabelText("Location"))).toBe("/home/a/Documents"));
     fireEvent.change(within(create).getByLabelText("Location"), { target: { value: "/home/a/OneDrive/Documents" } });
-    expect(await within(create).findByText(/This folder is inside OneDrive, which copies files while Kasten writes them/, {}, CHECKED)).toBeTruthy();
+    expect(await within(create).findByText(/This folder is inside OneDrive, which copies files while KastenFlow writes them/, {}, CHECKED)).toBeTruthy();
     // Out of it, the warning goes; a vault can still be made there if wanted.
     fireEvent.change(within(create).getByLabelText("Location"), { target: { value: "/home/a/Notes" } });
     await waitFor(() => expect(within(create).queryByText(/inside OneDrive/)).toBeNull(), CHECKED);

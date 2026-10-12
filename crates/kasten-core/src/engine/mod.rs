@@ -20,9 +20,12 @@ mod create;
 mod deck_agent;
 mod deck_limits;
 mod decks;
+mod diagram_agent;
+mod diagrams;
 mod edit;
 mod empty_trash;
 mod execute;
+mod graph;
 mod highlight_cards;
 mod init;
 mod kits;
@@ -34,6 +37,7 @@ mod ops;
 mod placing;
 mod reads;
 mod references;
+mod replace;
 mod restore;
 mod review;
 mod sources;
@@ -68,6 +72,9 @@ pub use kits::{AddedKit, KitInfo, kits};
 pub use latest::{Latest, LatestOutcome};
 pub use placing::Placed;
 pub use references::MAX_BIB_BYTES;
+pub use replace::{
+    Expected, MAX_REPLACE_NOTES, MAX_REPLACEMENTS, NoteMatches, ReplaceRequest, Replaced,
+};
 pub use restore::VaultRestore;
 pub use undo::{ChangedFile, SessionInfo, UndoConflict, Undone};
 pub use verify::{Problem, Report};
@@ -177,7 +184,7 @@ impl Kasten {
         // Before anything is written: a newer format is left as it is.
         if config.format > FORMAT {
             return Err(Error::Invalid(format!(
-                "This vault was made by a newer version of Kasten (format {}; this one reads up to {FORMAT}). Update Kasten to open it.",
+                "This vault was made by a newer version of KastenFlow (format {}; this one reads up to {FORMAT}). Update KastenFlow to open it.",
                 config.format
             )));
         }

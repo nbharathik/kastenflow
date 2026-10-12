@@ -39,6 +39,10 @@ function keepSame<T extends { id: string }>(old: readonly T[], next: readonly T[
 export function reconcile(old: BoardDoc, next: BoardDoc): BoardDoc {
   const nodes = keepSame(old.nodes, next.nodes);
   const edges = keepSame(old.edges, next.edges);
-  if (!nodes && !edges && old.title === next.title && old.path === next.path) return old;
-  return { ...next, nodes: nodes ?? old.nodes, edges: edges ?? old.edges };
+  // What a page's map remembers about its page: the old object while it is the same.
+  const same = old.source === next.source || (old.source !== undefined && next.source !== undefined && sameRecord(old.source, next.source));
+  if (!nodes && !edges && same && old.title === next.title && old.path === next.path) return old;
+  const out: BoardDoc = { ...next, nodes: nodes ?? old.nodes, edges: edges ?? old.edges };
+  if (same && old.source) out.source = old.source;
+  return out;
 }

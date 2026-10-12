@@ -10,13 +10,25 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use tauri::ipc::Channel;
+use tauri::{AppHandle, Emitter, State};
 
 use super::commands::ChatState;
 use super::context::{attr, fence_tags};
 use super::model::{Call, Message, Model, Stop};
+use crate::closing::MAIN;
 use crate::commands::notes::OpenVault;
+
+/// The event an answer's text comes on, to the main window only. (An IPC
+/// channel would do too, but the browser tab's webviews are on the same
+/// window, and what is sent should be addressed to the one that asked.)
+pub const TEXT_EVENT: &str = "ai-write-text";
+
+/// A piece of the answer being written for request `id`.
+#[derive(Clone, Serialize)]
+struct Piece<'a> {
+    id: &'a str,
+    text: &'a str,
+}
 
 /// The characters of the page sent from each side of the selection.
 pub const AROUND: usize = 2_000;
@@ -221,13 +233,14 @@ impl Writes {
     }
 }
 
-/// Writes an answer for the editor, streaming its text to `on_text`.
+/// Writes an answer for the editor, streaming its text as `ai-write-text`
+/// events to the main window.
 #[tauri::command]
 pub async fn ai_write(
+    app: AppHandle,
     vault: State<'_, OpenVault>,
     state: State<'_, ChatState>,
     request: WriteRequest,
-    on_text: Channel<String>,
 ) -> Result<Written, String> {
     let kasten = vault.require()?;
     let model = state
@@ -235,7 +248,14 @@ pub async fn ai_write(
         .await?;
     let running = state.writes.start(&request.id)?;
     let send = |piece: &str| {
-        let _ = on_text.send(piece.to_owned());
+        let _ = app.emit_to(
+            MAIN,
+            TEXT_EVENT,
+            Piece {
+                id: &request.id,
+                text: piece,
+            },
+        );
     };
     write(&model, &request, &send, running.flag()).await
 }

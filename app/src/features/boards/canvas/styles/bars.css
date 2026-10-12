@@ -1,229 +1,131 @@
-/* The board's bars and toolbars; its popovers and menus are in menus.css. */
+/* The small bar over a selection, and the colour dot with its swatches. The
+   strip of tools, the view control and the actions at the top are in
+   chrome.css; the panels and menus that open from them are in menus.css. */
 
-/* ---- Bars, menus, popovers ------------------------------------------ */
+/* ---- Surfaces ---------------------------------------------------------- */
 
+/* One surface for everything that floats over the board: raised, with the
+   shadow's own hairline (no border as well). */
 .kasten-toolbar,
-.kasten-bottombar,
-.kasten-zoombar,
-.kasten-crumbs,
+.kasten-tools,
+.kasten-view,
+.kasten-actions,
 .kasten-board-menu,
 .kasten-pop {
   contain: layout style;
-  border: 1px solid var(--color-line);
-  background: var(--board-card);
-  box-shadow: var(--shadow-lift);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-pop);
   color: var(--color-ink);
   user-select: none;
 }
 
+/* ---- The bar over a selection ------------------------------------------ */
+
 .kasten-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: 1px;
+  padding: 3px;
   border-radius: var(--radius-xl);
   white-space: nowrap;
+  /* It comes back after a drag or a menu without a jump. */
+  animation: kasten-fade var(--motion-base) var(--ease-standard);
 }
 
-.kasten-toolbar button {
+/* Only the bar's own buttons, not what is in the panels that open from it. */
+.kasten-toolbar > button,
+.kasten-toolbar > span > button {
   display: grid;
   place-items: center;
-  min-width: 28px;
-  height: 28px;
+  min-width: 26px;
+  height: 26px;
   padding: 0 4px;
   border-radius: var(--radius-lg);
   color: var(--color-muted);
 }
 
-.kasten-toolbar button:hover,
+.kasten-toolbar > button:hover,
+.kasten-toolbar > span > button:hover,
 .kasten-tool:hover:not(:disabled),
-.kasten-zoom-value:hover {
+.kasten-zoom-value:hover,
+.kasten-action:hover {
   background: var(--color-hover);
   color: var(--color-ink);
 }
 
-.kasten-toolbar button[aria-pressed="true"],
-.kasten-tool[aria-pressed="true"] {
-  background: var(--color-soft);
-  color: var(--color-accent);
+.kasten-toolbar > button[aria-pressed="true"],
+.kasten-toolbar > span > button[aria-expanded="true"],
+.kasten-tool[aria-pressed="true"],
+.kasten-tool[aria-expanded="true"] {
+  background: var(--color-selected);
+  color: var(--color-ink);
 }
 
 .kasten-toolbar-sep {
   flex: none;
   width: 1px;
-  height: 18px;
-  margin: 0 4px;
+  height: 16px;
+  margin: 0 3px;
   background: var(--color-line);
+}
+
+/* ---- Colour: one dot, the swatches on request -------------------------- */
+
+.kasten-dot-button {
+  display: grid;
+  place-items: center;
+}
+
+.kasten-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+  border-radius: 50%;
+}
+
+/* No colour: an open ring. Several different colours: a dashed one. */
+.kasten-dot.is-none {
+  background: transparent;
+}
+
+.kasten-dot.is-mixed {
+  border-style: dashed;
+  background: transparent;
+}
+
+.kasten-color-pop {
+  padding: 6px 8px;
 }
 
 .kasten-board-swatches {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 4px;
+  gap: 6px;
 }
 
 .kasten-toolbar .kasten-board-swatch,
 .kasten-board-swatch {
-  width: 16px;
-  min-width: 16px;
-  height: 16px;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
   border-radius: 50%;
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .kasten-board-swatch.is-none {
-  background: linear-gradient(135deg, transparent 45%, color-mix(in srgb, var(--color-ink) 45%, transparent) 45% 55%, transparent 55%), var(--board-card);
+  background: linear-gradient(135deg, transparent 45%, color-mix(in srgb, var(--color-ink) 45%, transparent) 45% 55%, transparent 55%), var(--color-raised);
 }
 
-.kasten-toolbar .kasten-board-swatch:hover {
-  transform: scale(1.15);
+.kasten-toolbar .kasten-board-swatch:hover,
+.kasten-board-swatch:hover {
+  transform: scale(1.12);
 }
 
 .kasten-board-swatch[aria-pressed="true"] {
   box-shadow:
-    0 0 0 2px var(--board-card),
-    0 0 0 3.5px var(--color-accent);
-}
-
-.kasten-segmented {
-  display: inline-flex;
-  gap: 1px;
-  padding: 2px;
-  border-radius: var(--radius-lg);
-  background: var(--color-hover);
-}
-
-.kasten-toolbar .kasten-segmented button {
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--radius-lg);
-  font-size: var(--text-12);
-  font-weight: 550;
-}
-
-.kasten-toolbar .kasten-segmented button[aria-pressed="true"] {
-  background: var(--board-card);
-  box-shadow: var(--shadow-card);
-  color: var(--color-ink);
-}
-
-.kasten-bottombar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 5px;
-  border-radius: var(--radius-2xl);
-  transform: translateX(-50%);
-}
-
-.kasten-tool {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-lg);
-  color: color-mix(in srgb, var(--color-ink) 82%, transparent);
-}
-
-.kasten-tool:disabled {
-  opacity: 0.35;
-}
-
-.kasten-zoombar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  padding: 4px;
-  border-radius: var(--radius-xl);
-}
-
-.kasten-zoombar .kasten-tool {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-lg);
-}
-
-.kasten-zoom-value {
-  min-width: 48px;
-  height: 30px;
-  border-radius: var(--radius-lg);
-  color: var(--color-muted);
-  font-size: var(--text-12);
-  font-variant-numeric: tabular-nums;
-}
-
-.kasten-minimap.react-flow__minimap {
-  margin: 58px 12px 0 0;
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-xl);
-  background: var(--board-card);
-  box-shadow: var(--shadow-lift);
-}
-
-.kasten-crumbs {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  max-width: calc(100% - 24px);
-  padding: 3px;
-  border-radius: var(--radius-xl);
-  font-size: var(--text-13);
-}
-
-.kasten-crumb {
-  max-width: 220px;
-  padding: 3px 8px;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  color: var(--color-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-button.kasten-crumb:hover {
-  background: var(--color-hover);
-  color: var(--color-ink);
-}
-
-.kasten-crumb.is-root {
-  display: grid;
-  place-items: center;
-  padding: 3px 5px;
-}
-
-.kasten-crumb.is-current {
-  color: var(--color-ink);
-  font-weight: 600;
-}
-
-.kasten-crumb-sep {
-  color: color-mix(in srgb, var(--color-muted) 60%, transparent);
-}
-
-.kasten-board-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: var(--color-muted);
-  font-size: var(--text-13);
-  pointer-events: none;
+    0 0 0 2px var(--color-raised),
+    0 0 0 3px color-mix(in srgb, var(--color-ink) 70%, transparent);
 }

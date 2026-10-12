@@ -9,19 +9,28 @@
   padding: 0 8px 2px;
 }
 .ks-menubar .ks-menubar-item {
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ks-control);
   padding: 0 9px;
   color: var(--ks-ink);
   font-size: 13px;
-  line-height: 24px;
-  transition: background var(--ks-fast);
+  line-height: 1;
+  transition: background var(--ks-fast) var(--ks-ease);
 }
 .ks-menubar .ks-menubar-item:hover {
   background: var(--ks-hover);
 }
+.ks-menubar .ks-menubar-item:active {
+  background: var(--ks-pressed);
+}
 .ks-menubar .ks-menubar-item.is-open,
 .ks-menubar .ks-menubar-item.is-open:hover {
   background: var(--ks-selected);
+}
+.ks-menubar.is-collapsed .ks-menubar-item .ks-icon {
+  color: var(--ks-muted);
 }
 
 /* Menus opened from the bar, the toolbar and a right click are a little wider than the shared minimum, so a label and its keys do not touch. */
@@ -47,4 +56,74 @@
 .ks-menu-item:focus-visible .ks-preview,
 .ks-menu-item.is-open .ks-preview {
   color: var(--ks-ink);
+}
+
+/* The search over the menus: a field, and what it finds with where each row lives and its keys. */
+.ks-menu-find {
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - 16px);
+}
+.ks-menu-find-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ks-line);
+  color: var(--ks-muted);
+}
+.ks-menu-find-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ks-ink);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.ks-menu-hits {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.ks-menu-hit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 2px 8px 2px 4px;
+  border-radius: var(--ks-radius);
+  cursor: pointer;
+}
+.ks-menu-hit.is-active {
+  background: var(--ks-hover);
+}
+.ks-menu-hit.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ks-menu-hit-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ks-menu-hit-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ks-menu-hit-place {
+  color: var(--ks-faint);
+  font-size: 11.5px;
+}
+.ks-menu-hits-note {
+  padding: 14px 10px;
+  color: var(--ks-muted);
+  text-align: center;
 }

@@ -80,6 +80,10 @@ export function readView(raw: unknown): TagView | null {
     if (value) view[key] = value;
     else delete view[key];
   }
+  if ("scope" in raw) {
+    if (raw.scope === "project" || raw.scope === "vault") view.scope = raw.scope;
+    else delete view.scope;
+  }
   return view;
 }
 
@@ -114,6 +118,15 @@ export function newView(kind: TagViewKind, schema: TagSchema | null, views: read
 /** Keys every note has besides its properties. */
 export const BUILT_IN: Record<string, string> = { title: "Title", created: "Created", updated: "Updated", modified: "Edited" };
 
+/** Three more keys, for views that span more than one tag, such as a project's
+ * saved tables (their `scope` key is set): what they are called. A tag's own
+ * views do not treat them as built in, so a property of the same name is still
+ * only a property there. */
+export const ROW_LABELS: Record<string, string> = { project: "Project", type: "Type", tags: "Tags" };
+
+/** What a key is called in a view's chips and headers. */
+export const keyLabel = (view: TagView, key: string): string => BUILT_IN[key] ?? (view.scope !== undefined ? ROW_LABELS[key] : undefined) ?? key;
+
 /** A note's value for `key`: its property, else a built-in field. */
 export function valueOf(note: NoteMeta, key: string): unknown {
   if (Object.hasOwn(note.props, key)) return note.props[key];
@@ -126,10 +139,36 @@ export function valueOf(note: NoteMeta, key: string): unknown {
       return note.updated;
     case "modified":
       return note.modified;
+    case "project":
+      return note.project;
+    case "type":
+      return note.kind;
+    case "tags":
+      return note.tags;
     default:
       return null;
   }
 }
+
+/** The built-in fields only a view that spans tags and projects offers (it has a `scope`): a tag's own views are of one tag. */
+export const ROW_FIELDS = ["project", "type", "tags"] as const;
+
+/** Whether a view spans tags and projects: a project's saved table, which has a `scope`. */
+export const spans = (view: TagView): boolean => view.scope !== undefined;
+
+/** How far a saved table reaches: only the notes of the project it is saved in (the default), or the whole vault. */
+export type TableScope = "project" | "vault";
+
+/** The notes a view with a `scope` covers: the pages and cards in `folder` (not the project's own page) for a project's table, every note for a vault-wide one; a view without a scope is a tag's and covers what it is given. */
+export function scoped(notes: readonly NoteMeta[], view: TagView, folder: string | null): NoteMeta[] {
+  const scope = view.scope;
+  if (scope === undefined) return [...notes];
+  const open = notes.filter((n) => n.kind !== "template");
+  return scope === "vault" ? open : open.filter((n) => folder !== null && n.project === folder && n.kind !== "project");
+}
+
+/** The project folder a page lives in, from its path (`projects/trip/pages/plan.md` is `trip`); null for a page that is in no project. */
+export const projectFolderOf = (path: string | null | undefined): string | null => /^projects\/([^/]+)\//.exec(path ?? "")?.[1] ?? null;
 
 const isEmpty = (value: unknown) => value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
 const textOf = (value: unknown): string => (Array.isArray(value) ? value.map(textOf).join(" ") : value === null || value === undefined ? "" : lower(String(value)));

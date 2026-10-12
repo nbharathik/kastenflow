@@ -7,6 +7,11 @@
 .ks-dg-left {
   margin-right: auto;
 }
+.ks-dg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .ks-dg-form {
   display: flex;
   flex-direction: column;
@@ -250,6 +255,14 @@
 .ks-dg-theme .ks-sp-strip {
   height: 22px;
 }
+/* A theme's first example slide, drawn small, above its colours. */
+.ks-dg-theme-thumb {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: 3px;
+  line-height: 0;
+}
 .ks-dg-theme-line {
   display: flex;
   align-items: center;
@@ -309,4 +322,57 @@
 .ks-dialog .ks-seg:focus-visible {
   outline: 2px solid var(--ks-accent);
   outline-offset: -2px;
+}
+
+/* Page setup: the sizes as cards with the shape of each drawn in proportion, and the fields for a size of one's own. */
+.ks-dg-ratios {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.ks-dg-ratio-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 112px;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-canvas);
+}
+.ks-dg-ratio-card:hover {
+  background: var(--ks-hover);
+}
+.ks-dg-ratio-card.is-on {
+  border-color: var(--ks-accent);
+  box-shadow: 0 0 0 1px var(--ks-accent);
+}
+.ks-dg-ratio-card:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-dg-ratio {
+  display: block;
+  border: 1.5px solid var(--ks-muted);
+  border-radius: 2px;
+  background: var(--ks-panel);
+}
+.ks-dg-ratio-card.is-on .ks-dg-ratio {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+}
+.ks-dg-ratio-name {
+  font-weight: 600;
+}
+.ks-dg-ratio-size {
+  color: var(--ks-muted);
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ks-dg-sizes {
+  display: flex;
+  gap: 16px;
 }

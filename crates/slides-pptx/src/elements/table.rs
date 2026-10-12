@@ -214,6 +214,7 @@ fn write_cell(x: &mut Xml, cx: &mut Cx, cell: Option<&Laid>, covered: (bool, boo
         wrap: true,
         opacity,
         flipped: false,
+        area: None,
     };
     text::write_cell_body(x, cx, &text, &look);
     let space = insets(&text);

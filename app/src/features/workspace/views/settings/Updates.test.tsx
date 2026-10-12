@@ -11,7 +11,7 @@ const newer: UpdateInfo = {
   latest: "0.3.0",
   newer: true,
   url: "https://github.com/example/kasten/releases/tag/v0.3.0",
-  name: "Kasten 0.3.0",
+  name: "KastenFlow 0.3.0",
   published: "2026-10-01T09:00:00Z",
   notes: "- Mind maps",
 };
@@ -27,7 +27,7 @@ describe("Settings: Updates", () => {
   it("checks when asked and opens what is new", async () => {
     render(<Updates check={vi.fn(async () => newer)} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Check now" })));
-    expect(await screen.findByText(/Kasten 0.3.0 is out \(this is 0.2.0\) · checked just now/)).toBeTruthy();
+    expect(await screen.findByText(/KastenFlow 0.3.0 is out \(this is 0.2.0\) · checked just now/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "What’s new" }));
     expect(useUpdates.getState().open).toBe(true);
   });

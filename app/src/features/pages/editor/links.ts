@@ -16,10 +16,23 @@ export interface PageLink {
   where?: string;
 }
 
-/** Where a followed link opens: here, a new tab, a split, the side stack,
- * or a peek. The editor asks for the first four, from the click's keys; a
- * page shown in a peek or a quick-glance card sends a plain click on. */
-export type LinkHow = "here" | "tab" | "split" | "stack" | "peek";
+/** Where a followed link opens: here, a new tab, a split, the pane to the
+ * right, the side stack, or a peek (as chosen, at the side or in the
+ * centre). The editor asks for the first five, from the click's keys; a page
+ * shown in a peek or a quick-glance card sends a plain click on. */
+export type LinkHow = "here" | "tab" | "split" | "right" | "stack" | "peek" | "peek-side" | "peek-center";
+
+/** The way a click on a link asks to open it: Ctrl or Cmd for a tab, with Alt
+ * for the pane to the right, Shift for the side stack, Alt for a split; the
+ * middle button for a tab. */
+export function linkHowOf(event: { button?: number; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean }): LinkHow {
+  if (event.button === 1) return "tab";
+  if ((event.ctrlKey || event.metaKey) && event.altKey) return "right";
+  if (event.ctrlKey || event.metaKey) return "tab";
+  if (event.shiftKey) return "stack";
+  if (event.altKey) return "split";
+  return "here";
+}
 
 /** Where a link goes: a page, pages to choose from, or none. */
 export type LinkFound = { page: PageLink } | { choices: PageLink[] } | null;
@@ -58,10 +71,40 @@ export interface LinkProvider {
    * resolves to its path, or null when it was refused. */
   createBoard?(title: string): Promise<string | null>;
   /** Draws the whiteboard at `path` into `host`, live, and returns how to
-   * take it away again. */
-  mountBoard?(host: HTMLElement, path: string): () => void;
+   * take it away again. `embedded` keeps its bars hidden until it is used. */
+  mountBoard?(host: HTMLElement, path: string, options?: { embedded?: boolean }): () => void;
   /** Opens the whiteboard at `path`. */
   openBoard?(path: string, how?: LinkHow): void;
+  /** Slide decks a page can show (`![[path/talk.deck]]`), newest first. */
+  decks?(): DeckLink[];
+  /** Makes a deck called `title` beside this page (in its project);
+   * resolves to its path, or null when it was refused. */
+  createDeck?(title: string): Promise<string | null>;
+  /** Draws the deck at `path` into `host`, slide by slide, and returns how
+   * to take it away again. */
+  mountDeck?(host: HTMLElement, path: string): () => void;
+  /** Opens the deck at `path`. */
+  openDeck?(path: string, how?: LinkHow): void;
+  /** Diagrams a page can show (`![[Flow.drawio]]`), newest first. */
+  diagrams?(): DiagramLink[];
+  /** Makes a diagram called `title` beside this page (in its project) and opens its editor;
+   * resolves to its path, or null when it was refused. */
+  createDiagram?(title: string): Promise<string | null>;
+  /** Draws the picture of the diagram at `path` into `host`, with its toolbar, and returns how to take it away. */
+  mountDiagram?(host: HTMLElement, path: string): () => void;
+  /** Opens the diagram at `path` in a tab (or as `how` says). */
+  openDiagram?(path: string, how?: LinkHow): void;
+  /** Shows the Open menu at a right-click on a link to the vault file at
+   * `path`; true when it did (it has taken the click, so the browser's own
+   * menu stays away). */
+  openMenu?(event: MouseEvent, path: string): boolean;
+  /** The title of the web page at `url`, read when a pasted link is turned
+   * into a bookmark or a mention; null when it could not be read. */
+  webTitle?(url: string): Promise<string | null>;
+  /** The people the `@` menu lists first: pages tagged `person` or `people`. */
+  people?(): PageLink[];
+  /** The day weeks start on, for `@next week`: 1 Monday, 0 Sunday, 6 Saturday. */
+  weekStart?(): number;
   /** Tag databases a page can show (`![[tags/paper.yaml]]`). */
   databases?(): DatabaseLink[];
   /** Draws the tag database `tag` into `host`, on its view called `view`
@@ -84,6 +127,10 @@ export interface DatabaseLink {
   path: string;
   /** How many notes carry it. */
   count: number;
+  /** For a page in a project, when the tag has a view that shows only what is
+   * filed in a project (its `This project`): that view's name, and how many of
+   * this project's notes carry the tag. */
+  inThisProject?: { view: string; count: number };
 }
 
 /** A tag from a database's typed name: "Reading list" is `reading-list`. */
@@ -129,6 +176,66 @@ export function findBoard(boards: readonly BoardLink[], target: string): BoardLi
     boards.find((b) => b.path.toLowerCase().endsWith(`/${lower}`) || b.path.toLowerCase() === lower) ??
     boards.find((b) => b.title.toLowerCase() === title)
   );
+}
+
+export interface DeckLink {
+  path: string;
+  title: string;
+  /** Where it lives, such as its project. */
+  hint?: string;
+}
+
+/** Whether a link names a slide deck: its target is a `.deck` file. */
+export const isDeckTarget = (target: string) => /\.deck$/i.test(target.trim());
+
+/** The deck a link names: by its path, else its file name, else its title. */
+export function findDeck(decks: readonly DeckLink[], target: string): DeckLink | undefined {
+  const wanted = target.trim();
+  const lower = wanted.toLowerCase();
+  const title = lower.replace(/\.deck$/, "");
+  return (
+    decks.find((d) => d.path === wanted) ??
+    decks.find((d) => d.path.toLowerCase().endsWith(`/${lower}`) || d.path.toLowerCase() === lower) ??
+    decks.find((d) => d.title.toLowerCase() === title)
+  );
+}
+
+export interface DiagramLink {
+  path: string;
+  title: string;
+  /** Where it lives, such as its project. */
+  hint?: string;
+}
+
+/** Whether a link names a diagram: its target is a `.drawio` file (or the picture beside it, `.drawio.svg`). */
+export const isDiagramTarget = (target: string) => /\.drawio(?:\.svg)?$/i.test(target.trim());
+
+/** The diagram a link names: by its path, else its file name, else its title. */
+export function findDiagram(diagrams: readonly DiagramLink[], target: string): DiagramLink | undefined {
+  const wanted = target.trim().replace(/\.svg$/i, "");
+  const lower = wanted.toLowerCase();
+  const title = lower.replace(/\.drawio$/, "");
+  return (
+    diagrams.find((d) => d.path === wanted) ??
+    diagrams.find((d) => d.path.toLowerCase().endsWith(`/${lower}`) || d.path.toLowerCase() === lower) ??
+    diagrams.find((d) => d.title.toLowerCase() === title)
+  );
+}
+
+/** Extensions that make a link's target a file rather than a page title, so a
+ * link to one that is not there never offers to make a page of that name
+ * (`Node.js` and `v2.0` stay titles). */
+const FILE_EXTENSIONS = new Set([
+  ...["deck", "canvas", "drawio", "yaml", "yml", "json", "csv", "tsv", "bib", "txt", "xml", "html", "ics"],
+  ...["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "heic", "ico"],
+  ...["mp3", "wav", "m4a", "ogg", "flac", "mp4", "mov", "webm", "mkv", "avi"],
+  ...["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "epub", "zip", "tar", "gz", "7z"],
+]);
+
+/** Whether a link's target names a file (by its extension), not a page. */
+export function isFileTarget(target: string): boolean {
+  const extension = /\.([A-Za-z0-9]{1,6})$/.exec(target.trim())?.[1];
+  return extension !== undefined && FILE_EXTENSIONS.has(extension.toLowerCase());
 }
 
 export interface EmbedSource {

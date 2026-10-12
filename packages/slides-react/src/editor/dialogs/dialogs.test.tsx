@@ -13,9 +13,9 @@ describe("Dialogs", () => {
     const kit = await mountDialogs();
     expect(document.querySelector("[role=dialog]")).toBeNull();
     edit(() => kit.ui.openDialog("about"));
-    expect(screen.getByRole("dialog", { name: "About Kasten Slides" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "About KastenFlow Slides" })).toBeTruthy();
     edit(() => kit.ui.openDialog("layouts"));
-    expect(screen.queryByRole("dialog", { name: "About Kasten Slides" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "About KastenFlow Slides" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "Layouts" })).toBeTruthy();
     edit(() => kit.ui.openDialog(null));
     expect(document.querySelector("[role=dialog]")).toBeNull();
@@ -28,7 +28,7 @@ describe("Dialogs", () => {
   });
 
   it("has a dialog for every name the window knows", async () => {
-    const names = ["find", "layouts", "theme", "background", "shortcuts", "transition", "insert", "table", "link", "export", "about"] as const;
+    const names = ["find", "layouts", "theme", "background", "shortcuts", "insert", "table", "link", "export", "about"] as const;
     for (const name of names) {
       const kit = await mountDialogs({ dialog: name, elements: [textBox({ x: 10, y: 10, w: 100, h: 40 }, "Hi")] });
       expect(document.querySelector("[role=dialog]"), name).not.toBeNull();
@@ -81,55 +81,6 @@ describe("Layouts", () => {
   });
 });
 
-describe("Transition", () => {
-  it("shows the kind and duration the slide has", async () => {
-    await mountDialogs({ dialog: "transition" });
-    expect(screen.getByRole("radio", { name: "None" }).getAttribute("aria-checked")).toBe("true");
-    expect((screen.getByLabelText("Duration") as HTMLInputElement).disabled).toBe(true);
-    expect(button("Apply to all slides").hasAttribute("disabled")).toBe(false);
-  });
-
-  it("takes a kind and a duration in seconds", async () => {
-    await mountDialogs({ dialog: "transition" });
-    fireEvent.click(screen.getByRole("radio", { name: "Morph" }));
-    const duration = screen.getByLabelText("Duration") as HTMLInputElement;
-    expect(duration.disabled).toBe(false);
-    expect(duration.value).toBe("0.6");
-    fireEvent.click(screen.getByRole("radio", { name: "Fade" }));
-    expect((screen.getByLabelText("Duration") as HTMLInputElement).value).toBe("0.4");
-    fireEvent.change(screen.getByLabelText("Duration"), { target: { value: "1.5" } });
-    fireEvent.keyDown(screen.getByLabelText("Duration"), { key: "Enter" });
-    expect((screen.getByLabelText("Duration") as HTMLInputElement).value).toBe("1.5");
-  });
-
-  it("keeps the choice for the slide shown, as one step of undo", async () => {
-    const kit = await mountDialogs({ dialog: "transition" });
-    fireEvent.click(screen.getByRole("radio", { name: "Fade" }));
-    fireEvent.click(button("Apply"));
-    const shown = kit.session.slide;
-    expect(shown.transition).toEqual({ kind: "fade", duration: 0.4 });
-    expect(kit.session.deck.slides.filter((s) => s.transition)).toHaveLength(1);
-    expect(kit.ui.state.dialog).toBeNull();
-    act(() => kit.session.undo());
-    expect(kit.session.slide.transition).toBeUndefined();
-  });
-
-  it("keeps the choice for every slide", async () => {
-    const kit = await mountDialogs({ dialog: "transition" });
-    fireEvent.click(screen.getByRole("radio", { name: "Slide" }));
-    fireEvent.click(button("Apply to all slides"));
-    expect(kit.session.deck.slides.every((s) => s.transition?.kind === "slide")).toBe(true);
-  });
-
-  it("closes without keeping anything", async () => {
-    const kit = await mountDialogs({ dialog: "transition" });
-    fireEvent.click(screen.getByRole("radio", { name: "Morph" }));
-    fireEvent.click(button("Cancel"));
-    expect(kit.ui.state.dialog).toBeNull();
-    expect(kit.session.slide.transition).toBeUndefined();
-  });
-});
-
 describe("Print or save as PDF", () => {
   it("prints each slide once, without notes, unless told otherwise", async () => {
     const print = vi.fn();
@@ -158,7 +109,7 @@ describe("Print or save as PDF", () => {
 
 describe("The small dialogs", () => {
   it.each([
-    ["about", "About Kasten Slides"],
+    ["about", "About KastenFlow Slides"],
   ] as const)("%s has a title, one sentence and a way out", async (name, title) => {
     const kit = await mountDialogs({ dialog: name });
     const dialog = screen.getByRole("dialog", { name: title });

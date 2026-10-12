@@ -1,127 +1,23 @@
-/* The end of the page: privacy, download, questions, the last call and the
-   footer. */
+/* The end of the page: the questions, the last call in the banner's glow
+   with the installers, and the footer in the dark zone under a large mark. */
 
-.private-grid {
+/* Questions: the heading stays beside the answers as they are read. */
+
+.faq-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: start;
 }
 
-.private-grid article {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.private-grid .i {
-  width: 22px;
-  height: 22px;
-  margin-bottom: 8px;
-  color: var(--accent);
-}
-
-.private-grid h3 {
-  font-size: 18px;
-  letter-spacing: -0.02em;
-}
-
-.private-grid p {
-  color: var(--muted);
-  font-size: 15px;
-}
-
-.private-grid code {
-  padding: 1px 5px;
-  border-radius: 5px;
-  background: var(--well);
-}
-
-/* Download. */
-
-.download-card {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 18px;
-  overflow: hidden;
-  padding: clamp(40px, 6vw, 72px) clamp(20px, 5vw, 64px);
-  border: 1px solid var(--line-strong);
-  border-radius: 24px;
-  background:
-    radial-gradient(60% 80% at 50% 0%, var(--glow-a), transparent 70%),
-    radial-gradient(40% 60% at 85% 100%, var(--glow-b), transparent 70%),
-    var(--surface);
-  box-shadow: var(--shadow-lg);
-  text-align: center;
-}
-
-.download-mark {
-  width: 64px;
-  height: 64px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--btn);
-  color: var(--on-btn);
-  box-shadow: var(--shadow-md);
-}
-
-.download-card h2 {
-  font-size: clamp(34px, 5vw, 56px);
-}
-
-.systems {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  width: min(760px, 100%);
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.systems li {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 14px 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  transition: border-color 200ms, box-shadow 200ms;
-}
-
-.systems li.is-you {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.systems .i {
-  color: var(--muted);
-}
-
-.systems span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.download-card .small {
-  max-width: 40em;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-/* Questions. */
-
-.faq-wrap {
-  max-width: 820px;
+.faq-grid .section-head {
+  position: sticky;
+  top: 100px;
+  margin: 0;
 }
 
 .faq {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-strong);
 }
 
 .faq details {
@@ -133,10 +29,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 4px;
-  font-size: 18px;
+  padding: 20px 2px;
+  font-family: var(--display);
+  font-size: 18.5px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   list-style: none;
   cursor: pointer;
 }
@@ -146,22 +43,19 @@
 }
 
 .faq summary::after {
-  content: "";
   flex: none;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: translateY(-3px) rotate(45deg);
-  transition: transform 250ms var(--ease);
+  color: var(--muted);
+  font: 400 22px/1 var(--mono);
+  content: "+";
+  transition: rotate 250ms var(--ease);
 }
 
 .faq details[open] summary::after {
-  transform: translateY(2px) rotate(225deg);
+  rotate: 45deg;
 }
 
 .faq details p {
-  padding: 0 4px 22px;
+  padding: 0 2px 22px;
   color: var(--muted);
   font-size: 16px;
   animation: msg-in 300ms var(--ease);
@@ -170,40 +64,105 @@
 /* The last call. */
 
 .closing {
-  padding: clamp(72px, 10vw, 128px) 0;
+  overflow: hidden;
   border-top: 1px solid var(--line);
-  background:
-    radial-gradient(50% 60% at 50% 100%, var(--glow-a), transparent 70%),
-    var(--bg-alt);
 }
 
-.closing-inner {
+.download-head {
   display: grid;
   justify-items: center;
   gap: 20px;
+  max-width: 820px;
+  margin: 0 auto clamp(40px, 5vw, 64px);
   text-align: center;
 }
 
-.closing-mark {
-  width: 72px;
-  height: 72px;
-  color: var(--ink);
+.download-head h2 {
+  font-size: clamp(40px, 5.2vw, 68px);
+  letter-spacing: -0.04em;
 }
 
-.closing-mark .km-cards {
+.download-head .lead {
+  max-width: 36em;
+}
+
+.download-head .cta-row {
+  justify-content: center;
+}
+
+.download-mark {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--btn);
+  color: var(--on-btn);
+  box-shadow: var(--shadow-md);
+}
+
+.download-mark .km-cards {
   animation: cards-rise 3.2s var(--ease) infinite;
 }
 
-.closing h2 {
-  font-size: clamp(36px, 5.6vw, 64px);
+.systems {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
 }
 
-/* Footer. */
+.systems li {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(10px);
+  transition: border-color 200ms, box-shadow 200ms;
+}
+
+.systems li.is-you {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.systems .i {
+  margin-bottom: 10px;
+  color: var(--muted);
+}
+
+.systems b {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.systems span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.closing .small {
+  max-width: 44em;
+  margin: 24px auto 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* The footer: columns, then the name, large and quiet. */
 
 .site-footer {
-  padding: 56px 0 40px;
-  border-top: 1px solid var(--line);
-  font-size: 14.5px;
+  overflow: hidden;
+  padding-top: clamp(56px, 7vw, 88px);
+  font-size: 15px;
 }
 
 .footer-grid {
@@ -214,45 +173,53 @@
 
 .footer-brand p {
   max-width: 24em;
-  margin-top: 12px;
+  margin-top: 14px;
   color: var(--muted);
 }
 
 .site-footer nav {
   display: grid;
   align-content: start;
-  gap: 9px;
+  gap: 10px;
 }
 
 .site-footer h2 {
-  margin-bottom: 4px;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .site-footer nav a {
-  color: var(--muted);
+  color: var(--ink-2);
   text-decoration: none;
 }
 
 .site-footer nav a:hover {
-  color: var(--ink);
+  color: var(--accent);
+}
+
+.footer-mark {
+  margin: clamp(40px, 6vw, 72px) 0 -0.12em;
+  color: var(--panel);
+  font: 600 clamp(56px, 15vw, 226px) / 0.86 var(--display);
+  letter-spacing: -0.075em;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
 }
 
 .footer-bottom {
-  margin-top: 40px;
-  padding-top: 24px;
+  padding: 20px 0 28px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 13.5px;
 }
 
 @media (max-width: 900px) {
-  .private-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .faq-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .faq-grid .section-head {
+    position: static;
   }
 
   .footer-grid {
@@ -265,7 +232,6 @@
 }
 
 @media (max-width: 640px) {
-  .private-grid,
   .systems {
     grid-template-columns: 1fr;
   }
@@ -276,7 +242,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .closing-mark .km-cards {
+  .download-mark .km-cards {
     animation: none;
   }
 }

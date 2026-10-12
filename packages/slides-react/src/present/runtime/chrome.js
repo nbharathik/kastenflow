@@ -206,7 +206,12 @@ export function attachChrome(reveal, host, options = {}) {
   // The arrows show while the pointer moves, and go when it rests.
   const stage = host.parentElement;
   let restTimer = 0;
+  let wokeAt = 0;
   const wake = () => {
+    // A pointer moves many times a frame; the timer is set again a few times a second, not for each step.
+    const now = win.performance.now();
+    if (now - wokeAt < 200 && stage?.classList.contains("is-active")) return;
+    wokeAt = now;
     stage?.classList.add("is-active");
     win.clearTimeout(restTimer);
     restTimer = win.setTimeout(() => stage?.classList.remove("is-active"), 2500);

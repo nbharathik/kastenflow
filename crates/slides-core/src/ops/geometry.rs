@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::util::{each_mut, round2};
+use super::util::{each_mut, path_of, round2};
 use crate::model::{Anchor, Element, Side, Slide, Theme};
 use crate::resolve::{Rect, box_in};
 
@@ -149,6 +149,23 @@ pub fn refit(e: &mut Element) {
         .collect();
     if let Some(r) = union(boxes) {
         set_rect(e, r);
+    }
+}
+
+/// The outermost group that holds the element with `id`, by its id, or `None` for an element that
+/// is not in a group (or is not there).
+pub fn outer_group(slide: &Slide, id: &str) -> Option<String> {
+    let path = path_of(&slide.elements, id)?;
+    (path.len() > 1).then(|| slide.elements[path[0]].id().to_owned())
+}
+
+/// Puts the groups that held elements of `holders` (named by `outer_group` before the change) back
+/// to the box that holds what is in them now. A group that is gone is skipped.
+pub fn settle_groups(slide: &mut Slide, holders: &HashSet<String>) {
+    for e in &mut slide.elements {
+        if holders.contains(e.id()) {
+            refit(e);
+        }
     }
 }
 

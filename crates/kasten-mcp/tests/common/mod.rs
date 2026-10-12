@@ -89,6 +89,7 @@ impl Client {
             }),
         );
         assert_eq!(init["serverInfo"]["name"], json!("kasten"), "{init}");
+        assert_eq!(init["serverInfo"]["title"], json!("KastenFlow"), "{init}");
         c.instructions = init["instructions"].as_str().unwrap_or_default().to_owned();
         c.send(json!({"jsonrpc": "2.0", "method": "notifications/initialized"}));
         c

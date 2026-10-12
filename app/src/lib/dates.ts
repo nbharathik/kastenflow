@@ -15,7 +15,24 @@ export function dayFrom(offset = 0, now = new Date()): string {
   return isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
 }
 
-export const isDay = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+/** Whether year, month (1-12) and day name a day that exists, leap years included. */
+export function isRealDate(year: number, month: number, day: number): boolean {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1) return false;
+  return day <= daysInMonth(year, month);
+}
+
+/** How many days `month` (1-12) of `year` has. */
+export function daysInMonth(year: number, month: number): number {
+  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+/** Whether `value` is `YYYY-MM-DD` and a day that exists on the calendar:
+ * `2026-13-45` and `2026-02-29` are not. */
+export function isDay(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match !== null && isRealDate(Number(match[1]), Number(match[2]), Number(match[3]));
+}
 
 /** `day` moved by `days`. */
 export function addDays(day: string, days: number): string {
@@ -24,6 +41,22 @@ export function addDays(day: string, days: number): string {
   const date = new Date(2000, 0, 1);
   date.setFullYear(y!, m! - 1, d! + days);
   return isoDay(date);
+}
+
+/** A day as a local date at midnight; setFullYear, as the Date constructor
+ * reads years 0 to 99 as 1900 to 1999. */
+export function dateOf(day: string): Date {
+  const [y, m, d] = day.split("-").map(Number);
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(y!, m! - 1, d!);
+  return date;
+}
+
+/** The first day of the week holding `date`, as the week starts on
+ * `weekStart`: 1 Monday, 0 Sunday, 6 Saturday. */
+export function startOfWeek(date: Date, weekStart: number): Date {
+  const shift = (date.getDay() - weekStart + 7) % 7;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - shift);
 }
 
 const utcDay = (day: string) => Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10)));

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type KeyboardEvent } from "react";
 
 import { useShell } from "../../lib/store";
 import type { NoteMeta } from "../../lib/vault/types";
+import { openMenuHandlers } from "../../shell/open-menu";
 import { byDay, caughtAt } from "../workspace/capture";
 import { dragNotes } from "../workspace/drag";
 import { iconOf, titleOf } from "../workspace/names";
@@ -135,7 +136,7 @@ function CaptureRow({ card, open, setOpen, picked, picking, onPick, carries }: R
           </span>
         )}
       </span>
-      <button type="button" data-capture={card.path} aria-keyshortcuts="X T B M P D" className="min-w-0 flex-1 rounded-sm text-left" onClick={(e) => openPath(card.path, howFrom(e))}>
+      <button type="button" data-capture={card.path} aria-keyshortcuts="X T B M P D" className="min-w-0 flex-1 rounded-sm text-left" onClick={(e) => openPath(card.path, howFrom(e))} {...openMenuHandlers(card.path)}>
         <span className="block text-14 font-medium leading-[22px] [overflow-wrap:anywhere]">{title}</span>
         {card.excerpt && <span className="mt-0.5 line-clamp-2 block text-13 leading-[20px] text-muted">{card.excerpt}</span>}
         {(long || card.tags.length > 0) && (

@@ -56,7 +56,7 @@ impl OpenVault {
             .spawn(work);
         if let Err(err) = started {
             let _ = opened.set(Opened::problem(format!(
-                "Kasten could not start opening the vault: {err}"
+                "KastenFlow could not start opening the vault: {err}"
             )));
         }
         OpenVault { opened }
@@ -69,7 +69,7 @@ impl OpenVault {
     /// The open vault, or why none is open.
     pub(crate) fn require(&self) -> Result<Arc<Kasten>, String> {
         match self.opened.get() {
-            None => Err("Kasten is still opening the vault".into()),
+            None => Err("KastenFlow is still opening the vault".into()),
             Some(opened) => opened
                 .kasten
                 .clone()
@@ -141,7 +141,7 @@ mod tests {
         };
         assert_eq!(
             opening.require().unwrap_err(),
-            "Kasten is still opening the vault"
+            "KastenFlow is still opening the vault"
         );
         let failed = OpenVault {
             opened: Arc::new(OnceLock::new()),

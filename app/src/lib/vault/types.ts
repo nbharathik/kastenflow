@@ -5,7 +5,10 @@ import type { AgentMark, ChangedFile, Proposal, SessionInfo, Undone } from "./ag
 import type { AssetOps } from "./asset-types";
 import type { BoardAdded, BoardApplied, BoardChange, BoardInfo, BoardView } from "./board-types";
 import type { DeckFile, DeckInfo, DeckSaved } from "./deck-types";
+import type { DiagramOps } from "./diagram-types";
+import type { GraphOps } from "./graph-types";
 import type { ImportOps } from "./import-types";
+import type { ReplaceOps } from "./replace-types";
 import type { SourceOps } from "./source-types";
 
 export type NoteKind = "page" | "card" | "journal" | "project" | "highlight" | "chat";
@@ -97,6 +100,9 @@ export interface DayMention {
   kind: string;
   /** The line that holds the link. */
   snippet: string;
+  /** The time, `HH:MM`, written directly after the link
+   * (`[[2026-10-07]] 09:00`), if any. */
+  at?: string | null;
 }
 
 export interface Backlink {
@@ -140,8 +146,11 @@ export interface TaskRow {
   line: number;
   done: boolean;
   text: string;
-  /** The day the task names, YYYY-MM-DD. */
+  /** The day the task names, YYYY-MM-DD (a day that exists on the calendar). */
   due: string | null;
+  /** The time, `HH:MM` (24 hours), that directly follows that day link or
+   * `@date` (`[[2026-10-07]] 09:00`), if any. */
+  at?: string | null;
 }
 
 /** What restoring the whole vault did. */
@@ -312,17 +321,27 @@ export interface TagView {
 export type { Highlight, HighlightColor, HighlightEdit, NewHighlight, PdfRect, SourceHighlights, SourceInfo, SourceOps } from "./source-types";
 export type { ImportKind, ImportOps, ImportOptions, ImportSummary, Imported } from "./import-types";
 
+// Find and replace across a page and its sub-pages: see replace-types.ts.
+export type { Expected, FindSpec, MatchSample, NoteMatches, ReplaceOps, ReplaceRequest, Replaced } from "./replace-types";
+export { REPLACE_LIMITS, replaceWasStale } from "./replace-types";
+
+// The link graph: see graph-types.ts.
+export type { GraphEdge, GraphKind, GraphNode, GraphOps, GraphScope, VaultGraph } from "./graph-types";
+
 // Agents' proposals, sessions and marks: see agent-types.ts.
 export type { AgentMark, AgentOp, ChangedFile, Proposal, SessionInfo, Undone } from "./agent-types";
 
 // Slide decks: see deck-types.ts.
 export type { DeckFile, DeckInfo, DeckSaved } from "./deck-types";
 
+// Diagrams (a `.drawio` source and its `.drawio.svg` picture): see diagram-types.ts.
+export type { DiagramFile, DiagramInfo, DiagramMoved, DiagramOps, DiagramPreview, DiagramSaved } from "./diagram-types";
+
 // The gallery's pictures: see asset-types.ts.
 export type { AddedAsset, AssetEdit, AssetInfo, AssetOps, AssetSourceName, AssetUsage, ClipRect, DeckUse, NewAsset, PdfClip, SlideUse, UsePlace } from "./asset-types";
 
 // Whiteboards: see board-types.ts.
-export type { BoardAdded, BoardApplied, BoardChange, BoardDrawing, BoardEdge, BoardEnd, BoardInfo, BoardNode, BoardSide, BoardView, LineStyle, ShapeKind } from "./board-types";
+export type { BoardAdded, BoardApplied, BoardChange, BoardDrawing, BoardEdge, BoardEnd, BoardInfo, BoardNode, BoardSide, BoardSource, BoardView, LineStyle, ShapeKind, SourceBranch } from "./board-types";
 
 /** What the core tells the window while it runs. */
 export interface VaultEvents {
@@ -334,7 +353,7 @@ export interface VaultEvents {
 }
 
 /** Every vault operation the app uses. Each maps to one kasten-core op. */
-export interface VaultClient extends SourceOps, ImportOps, AssetOps {
+export interface VaultClient extends SourceOps, ImportOps, AssetOps, ReplaceOps, GraphOps, DiagramOps {
   /** `vault` for a folder on disk through the core, `preview` in a plain browser. */
   readonly kind: "vault" | "preview";
   /** Where the notes live, for the status bar. */
@@ -460,6 +479,10 @@ export interface VaultClient extends SourceOps, ImportOps, AssetOps {
   createDeck(title: string, project: string | null, text: string): Promise<string>;
   /** Saves a deck if the file is still the one read (`baseHash`); if it changed, the text goes to a copy beside it. */
   saveDeck(path: string, text: string, baseHash: string): Promise<DeckSaved>;
+  /** The slide templates kept in the vault (`templates/slides/`), by title. They are decks to read and save like any (`deck`, `saveDeck`, `trash`), and are not among `decks()`. */
+  deckTemplates(): Promise<DeckInfo[]>;
+  /** Saves a deck's look as a template (the Slides engine makes `text`); resolves to its path. Only a person does this: an assistant cannot write a template. */
+  createDeckTemplate(title: string, text: string): Promise<string>;
   proposals(): Promise<Proposal[]>;
   acceptProposal(id: string): Promise<unknown>;
   rejectProposal(id: string): Promise<void>;
@@ -481,7 +504,7 @@ export interface VaultClient extends SourceOps, ImportOps, AssetOps {
 }
 
 /** The frontmatter keys `setMeta` changes. */
-export type MetaField = "title" | "icon" | "cover" | "font" | "width" | "text" | "locked";
+export type MetaField = "title" | "icon" | "cover" | "font" | "width" | "text" | "locked" | "opens" | "layout";
 
 /** A starter kit the app offers (kasten-core `KitInfo`). */
 export interface KitInfo {

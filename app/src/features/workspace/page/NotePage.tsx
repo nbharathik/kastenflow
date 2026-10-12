@@ -5,13 +5,18 @@ import "./note-page.css";
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
+import { webTitle } from "../../../lib/api";
 import { isDay } from "../../../lib/dates";
 import { useShell } from "../../../lib/store";
-import type { NoteMeta, VaultClient } from "../../../lib/vault/types";
+import { showOpenMenu } from "../../../shell/open-menu";
+import type { VaultClient } from "../../../lib/vault/types";
 import { refreshMentions } from "../../pages/editor/blocks/wikilink-view";
 import type { LinkHow, LinkProvider } from "../../pages/editor/links";
 import { PageEditor, type PageEditorHandle } from "../../pages/editor/PageEditor";
 import { PageHeader } from "../../pages/page/PageHeader";
+import { PagePresenter } from "../../pages/present/PagePresenter";
+import { SectionStrip } from "../../pages/present/SectionStrip";
+import { usePresenting } from "../../pages/present/use-presenting";
 import { readPageMeta, type MetaKey, type PageMeta } from "../../pages/page/page-meta";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import { useBoards } from "../../boards/store";
@@ -25,22 +30,29 @@ import { usePrefs, type PageFont } from "../prefs";
 import { useWorkspace } from "../store";
 import { usePaneId } from "../pane-context";
 import { isArchived } from "../project-order";
-import { movable, noteAt, projects } from "../tree";
+import { movable, noteAt } from "../tree";
 import { ArchivedBanner } from "./ArchivedBanner";
 import { boardLinks } from "./board-links";
 import { databaseLinks } from "./database-links";
+import { deckLinks } from "./deck-links";
+import { diagramLinks } from "./diagram-links";
 import { usePageJumps } from "./jump";
 import { HOLDS_PAGES, newPageHome } from "./new-page-home";
 import { pageFiles } from "./page-files";
+import { pageDateProps } from "./page-date";
+import { subPageFind } from "./sub-page-find";
 import { clicksOpen, linkedNote, pageLink, pageLinks } from "./page-links";
+import { peopleLinks } from "./people-links";
 import { PageFooter } from "./PageFooter";
 import { PageProperties } from "./PageProperties";
 import { passTyping, setPagePass, setPageView } from "./open-page";
 import type { PageSession } from "./page-session";
 import { useAgentMarks } from "./use-agent-marks";
 import { useNoteSession, type LoadedNote } from "./use-note-session";
-import { keepLayout, readLayout, shownLayout, usePageLayouts } from "./page-layout";
-import { Icon } from "../../../ui/Icon";
+import { keepLayout, readLayout, setLayout, shownLayout, usePageLayouts } from "./page-layout";
+import { inProject, placeLabel } from "./place-label";
+import { SourcePanel } from "./SourcePanel";
+import { pageFontSize } from "./text-size";
 import { projectTemplateFor } from "../../projects/page-template";
 
 const ProjectHome = lazy(() => import("../../projects/ProjectHome").then((m) => ({ default: m.ProjectHome })));
@@ -128,6 +140,14 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   const sourceOpen = useShell((s) => s.sourceOpen);
   const notes = useWorkspace((s) => s.notes);
   const live = noteAt(notes, session.path) ?? note.meta;
+  // The sections layout (`layout: sections`) and the page being presented.
+  const smart = own.layout === "sections";
+  const pageKey = live.id || session.path;
+  const frame = useRef<HTMLDivElement>(null);
+  const presenting = usePresenting(frame) !== null;
+  /** "/smart page" in the editor: the page keeps the layout in its frontmatter. */
+  const keepSmart = useCallback(() => setLayout(session, "layout", "sections"), [session]);
+  const scroller = useCallback(() => bodyRoot.current?.closest<HTMLElement>(".kasten-page-main") ?? null, []);
   const source = useMemo(() => (live.kind === "highlight" ? sourceOf(loaded.prefix) : null), [live.kind, loaded.prefix]);
 
   const boards = useBoards((s) => s.list);
@@ -167,6 +187,14 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
         return Boolean(spot);
       },
       ...boardLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
+      ...deckLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
+      ...diagramLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
+      ...peopleLinks(),
+      webTitle,
+      openMenu: (event, path) => {
+        showOpenMenu(event, path);
+        return true;
+      },
       ...databaseLinks(() => (HOLDS_PAGES.has(noteAt(useWorkspace.getState().notes, session.path)?.kind ?? "") ? session.path : null)),
       embed: (target) => {
         const note = linkedNote(session.path, target);
@@ -186,6 +214,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   );
 
   const files = useMemo(() => pageFiles(client, () => session.path), [client, session]);
+  const subPages = useMemo(() => subPageFind(client, () => session.path), [client, session]);
   // Properties under the title: not in the side stack's cards or a journal day.
   const panelPage = useMemo(() => ({ client, session, onReload }), [client, session, onReload]);
   const [addingProp, setAddingProp] = useState(false);
@@ -266,16 +295,17 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
 
   const style = {
     "--page-font": FONTS[layout.font],
-    "--page-font-size": layout.small ? "14px" : "16px",
+    "--page-font-size": pageFontSize(layout.text),
   } as CSSProperties;
   const shownHeader = journal ? { ...header, title: titleOf(live) } : header;
 
   return (
-    <div className={`kasten-page${layout.full ? " is-full-width" : ""}${compact ? " is-compact" : ""}${headless ? " is-headless" : ""}`} style={style}>
+    <div ref={frame} tabIndex={presenting ? -1 : undefined} className={`kasten-page${layout.full ? " is-full-width" : ""}${compact ? " is-compact" : ""}${headless ? " is-headless" : ""}${smart ? " is-sections" : ""}${presenting ? " is-presenting" : ""}`} style={style}>
+      {smart && !compact && !headless && !peek && <SectionStrip editor={editor} body={body} ready={editorReady} />}
       <div className="kasten-page-main">
         {conflict && (
           <div className="kasten-note-banner" role="alert">
-            <span>This page changed outside Kasten, so your latest edits were kept in a copy.</span>
+            <span>This page changed outside KastenFlow, so your latest edits were kept in a copy.</span>
             <button type="button" onClick={() => useWorkspace.getState().openPath(conflict)}>
               Open the copy
             </button>
@@ -297,6 +327,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
             onAddProperty={showProps && !hasProps && !addingProp ? () => setAddingProp(true) : undefined}
             fresh={blank}
             files={files}
+            {...pageDateProps(live, panelPage, showProps && !session.path.startsWith("templates/"))}
           />
         )}
         {showProps && <PageProperties note={live} page={panelPage} adding={addingProp} onAdding={setAddingProp} />}
@@ -308,64 +339,16 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
             </Suspense>
           </div>
         )}
-        <div ref={bodyRoot} className="kasten-page-column kasten-page-body" spellCheck={prefs.spellcheck}>
-          <PageEditor body={loaded.body} onChange={onBody} onReady={onReady} links={links} files={files} marks={marks} agent={agent} title={titleOf(live)} onTemplate={journal || compact ? undefined : pickTemplate} />
-          <div
-            className="kasten-page-tail"
-            aria-hidden="true"
-            onMouseDown={(event) => {
-              event.preventDefault();
-              editor.current?.focusEnd();
-            }}
-          />
+        {/* A click in the margins or below the text writes there, a drag selects blocks (the editor's gutter). */}
+        <div ref={bodyRoot} className="kasten-page-column kasten-page-body" data-editor-gutter="" spellCheck={prefs.spellcheck}>
+          <PageEditor body={loaded.body} onChange={onBody} onReady={onReady} links={links} files={files} marks={marks} agent={agent} title={titleOf(live)} onTemplate={journal || compact ? undefined : pickTemplate} pageKey={pageKey} smart={smart} onSmartPage={keepSmart} subPageFind={compact || headless ? undefined : subPages} />
+          <div className="kasten-page-tail" aria-hidden="true" />
           {!compact && <PageFooter note={live} notes={notes} client={client} />}
         </div>
       </div>
       {panelOpen && !compact && !peek && <RightPanel note={live} body={body} root={bodyRoot} client={client} session={session} onReload={onReload} />}
       {sourceOpen && !compact && !peek && <SourcePanel session={session} client={client} body={body} />}
+      <PagePresenter root={frame} scroller={scroller} />
     </div>
-  );
-}
-
-/** Where a page lives, in a word or two: its project, its parent page, or the library. */
-/** In a project, or under another page, rather than loose in Pages or the
- * Inbox. A loose page's "Add to project" is in the top bar (TopBar.tsx). */
-const inProject = (note: NoteMeta) => Boolean(note.project || note.parent);
-
-function placeLabel(note: NoteMeta, notes: readonly NoteMeta[]): string {
-  if (note.parent) {
-    const parent = notes.find((n) => n.id === note.parent);
-    if (parent) return titleOf(parent);
-  }
-  if (note.project) {
-    const project = projects(notes).find((p) => p.project === note.project);
-    return project ? titleOf(project) : note.project;
-  }
-  return note.path.startsWith("inbox/") ? "Inbox" : "Library";
-}
-
-/** The Markdown file as it is on disk, for the curious. */
-function SourcePanel({ session, client, body }: { session: PageSession; client: VaultClient; body: string }) {
-  const [text, setText] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      void session.flush().then(() => client.read(session.path)).then((note) => !cancelled && setText(note.text));
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [session, client, body]);
-  return (
-    <aside className="kasten-page-source" aria-label="Markdown on disk">
-      <div className="kasten-page-source-bar">
-        <span>Markdown file</span>
-        <button type="button" onClick={() => useShell.getState().toggleSource()} aria-label="Close Markdown">
-          <Icon name="close" className="size-4" />
-        </button>
-      </div>
-      <pre>{text}</pre>
-    </aside>
   );
 }

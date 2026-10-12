@@ -11,27 +11,31 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { nudge, scrollerOf, SLOP, swallowClick } from "../../../../ui/pointer-drag";
 import { carryFolds } from "../blocks/toggle-view";
 import { el } from "../ui/dom";
+import { blocksIn, type BlocksAt } from "./block-range";
 import { keepBlockSelected } from "./block-nav";
 import { moveBlockTo } from "./move-block";
+import { moveBlocksTo } from "./move-blocks";
 import { blockNear, dropGap, type BlockAt } from "./units";
 
 /** Attributes the copy must not carry: it is only a picture. */
 const PICTURE_ONLY = ["id", "contenteditable", "draggable", "tabindex", "role", "aria-label", "data-testid"];
 
-/** A copy of the block to carry, with the same look. */
-function picture(block: HTMLElement, width: number): HTMLElement {
+/** A copy of the blocks to carry, with the same look. */
+function picture(blocks: readonly HTMLElement[], width: number): HTMLElement {
   const ghost = el("div", "ProseMirror kasten-block-ghost");
   ghost.setAttribute("aria-hidden", "true");
-  const copy = block.cloneNode(true) as HTMLElement;
-  // Fields keep what they show: a toggle's title is an input's value.
-  const fields = block.querySelectorAll<HTMLInputElement>("input, textarea");
-  copy.querySelectorAll<HTMLInputElement>("input, textarea").forEach((field, i) => {
-    field.value = fields[i]?.value ?? "";
-  });
-  for (const node of [copy, ...copy.querySelectorAll<HTMLElement>("*")]) for (const name of PICTURE_ONLY) node.removeAttribute(name);
-  copy.classList.remove("ProseMirror-selectednode", "kasten-block-lifted");
+  for (const block of blocks) {
+    const copy = block.cloneNode(true) as HTMLElement;
+    // Fields keep what they show: a toggle's title is an input's value.
+    const fields = block.querySelectorAll<HTMLInputElement>("input, textarea");
+    copy.querySelectorAll<HTMLInputElement>("input, textarea").forEach((field, i) => {
+      field.value = fields[i]?.value ?? "";
+    });
+    for (const node of [copy, ...copy.querySelectorAll<HTMLElement>("*")]) for (const name of PICTURE_ONLY) node.removeAttribute(name);
+    copy.classList.remove("ProseMirror-selectednode", "kasten-block-lifted", "kasten-range-picked");
+    ghost.append(copy);
+  }
   ghost.style.width = `${width}px`;
-  ghost.append(copy);
   return ghost;
 }
 
@@ -62,17 +66,25 @@ interface Press {
   view: EditorView;
   /** The editor's positioned wrapper, where the copy and the line are drawn. */
   root: HTMLElement;
+  /** The block whose grip was pressed. */
   source: BlockAt & { el: HTMLElement };
+  /** Several blocks selected as a range, the grabbed one among them: they all move. */
+  range?: BlocksAt;
   event: PointerEvent;
-  /** The block was lifted, or put down (null). */
-  onLift(block: BlockAt | null): void;
+  /** The blocks were lifted, or put down (null). */
+  onLift(blocks: BlockAt[] | null): void;
   /** The press is over, dragged or not. */
   onEnd(): void;
 }
 
 /** Follows a press on a block's grip; returns what ends it early, quietly (the editor is going). */
-export function pressBlock({ view, root, source, event, onLift, onEnd }: Press): () => void {
+export function pressBlock({ view, root, source, range, event, onLift, onEnd }: Press): () => void {
   const pointer = event.pointerId;
+  // What is carried: the block, or the whole range it is in.
+  const several = range && range.count > 1 ? range : null;
+  const start = several ? several.from : source.pos;
+  const end = several ? several.to : source.pos + source.node.nodeSize;
+  const moveTo = (state: typeof view.state, pos: number) => (several ? moveBlocksTo(state, several, pos) : moveBlockTo(state, source, pos));
   const x0 = event.clientX;
   const y0 = event.clientY;
   let x = x0;
@@ -90,15 +102,15 @@ export function pressBlock({ view, root, source, event, onLift, onEnd }: Press):
   const gapAt = () => {
     const unit = unitAt(view, y);
     if (!unit) return null;
-    // Over the block itself, or inside it: it stays where it is.
-    if (unit.pos >= source.pos && unit.pos < source.pos + source.node.nodeSize) return null;
+    // Over the blocks themselves, or inside them: they stay where they are.
+    if (unit.pos >= start && unit.pos < end) return null;
     const { doc } = view.state;
     const box = view.dom.getBoundingClientRect();
     const rect = unit.el.getBoundingClientRect();
     const held = level + (x - x0);
     const gap = dropGap(doc, unit, y > rect.top + rect.height / 2, (at) => levelOf(view, at) - held);
     const beside = view.nodeDOM(gap.at.pos);
-    if (!(beside instanceof HTMLElement) || !moveBlockTo(view.state, source, gap.pos)) return null;
+    if (!(beside instanceof HTMLElement) || !moveTo(view.state, gap.pos)) return null;
     const edge = beside.getBoundingClientRect();
     return { pos: gap.pos, left: levelOf(view, gap.at), right: Math.max(edge.right, box.right), y: gap.after ? edge.bottom : edge.top };
   };
@@ -127,12 +139,19 @@ export function pressBlock({ view, root, source, event, onLift, onEnd }: Press):
     grab = { x: x0 - rect.left, y: y0 - rect.top };
     level = levelOf(view, source);
     scroller = scrollerOf(view.dom);
-    ghost = picture(source.el, rect.width);
+    const carried: BlockAt[] = several ? blocksIn(view.state.doc, several).map((node, i, all) => ({ node, pos: start + all.slice(0, i).reduce((sum, n) => sum + n.nodeSize, 0) })) : [source];
+    ghost = picture(
+      carried.flatMap((block) => {
+        const dom = view.nodeDOM(block.pos);
+        return dom instanceof HTMLElement ? [dom] : [];
+      }),
+      rect.width,
+    );
     line = el("div", "kasten-drop-line");
     line.dataset.show = "false";
     root.append(line, ghost);
     document.documentElement.classList.add("kasten-dragging-block");
-    onLift(source);
+    onLift(carried);
   };
 
   const onMove = (e: PointerEvent) => {
@@ -184,10 +203,10 @@ export function pressBlock({ view, root, source, event, onLift, onEnd }: Press):
     }
     if (ghost && !quiet) {
       onLift(null);
-      const tr = land && target !== null ? moveBlockTo(view.state, source, target) : null;
+      const tr = land && target !== null ? moveTo(view.state, target) : null;
       if (tr) {
         // An open toggle stays open where it lands.
-        carryFolds(view, source.pos, source.pos + source.node.nodeSize);
+        carryFolds(view, start, end);
         view.dispatch(tr);
         keepBlockSelected(view);
       }

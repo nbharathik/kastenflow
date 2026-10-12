@@ -82,7 +82,7 @@ export function VaultChooser({ problem, onCancel }: { problem?: string | null; o
       <div className="flex items-center gap-3">
         <BrandMark tile className="size-12" />
         <div className="flex-1">
-          <h1 className="text-28 font-bold tracking-tight">{onCancel ? "Switch vault" : "Welcome to Kasten"}</h1>
+          <h1 className="text-28 font-bold tracking-tight">{onCancel ? "Switch vault" : "Welcome to KastenFlow"}</h1>
           <p className="text-14 text-muted">Your notes stay plain Markdown files in a folder you own, with history for every change.</p>
         </div>
         {onCancel && (
@@ -98,7 +98,7 @@ export function VaultChooser({ problem, onCancel }: { problem?: string | null; o
       )}
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <Card icon="sparkle" title="Create a new vault" detail="A folder in Kasten’s own format: projects, journal, inbox, templates and tags, with history from the start.">
+        <Card icon="sparkle" title="Create a new vault" detail="A folder in KastenFlow’s own format: projects, journal, inbox, templates and tags, with history from the start.">
           <form onSubmit={submit(() => void go(where, true, "Creating…"))} className="flex flex-1 flex-col gap-2">
             <Field label="Name" value={name} onChange={setName} placeholder="Kasten" />
             <Field label="Location" value={location} onChange={setLocation} placeholder="~/Documents" mono browse={choices ? () => setPicking("location") : undefined} />
@@ -115,7 +115,7 @@ export function VaultChooser({ problem, onCancel }: { problem?: string | null; o
             </Button>
           </form>
         </Card>
-        <Card icon="folder-open" title="Open a folder" detail="A Kasten vault, or any folder of Markdown notes, such as an Obsidian vault: it says what it holds before you open it.">
+        <Card icon="folder-open" title="Open a folder" detail="A KastenFlow vault, or any folder of Markdown notes, such as an Obsidian vault: it says what it holds before you open it.">
           <form onSubmit={submit(() => void go(folder, false, "Opening…"))} className="flex flex-1 flex-col gap-2">
             <Field label="Folder" value={folder} onChange={setFolder} placeholder="~/Notes" mono browse={choices ? () => setPicking("folder") : undefined} />
             <FolderNote survey={survey} />

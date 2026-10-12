@@ -120,6 +120,41 @@ export function gapAt(layout: FilmLayout, y: number, slideCount: number): number
   return slideCount;
 }
 
+/** How far each row and header sits from where the list puts it while slides are in the hand: every other one makes room. */
+export interface Shifts {
+  /** By slide id, in pixels down (negative is up). */
+  rows: Map<string, number>;
+  /** By the id of the slide a section starts at. */
+  headers: Map<string, number>;
+}
+
+/**
+ * Where the rows go while `dragged` slides are in the hand and would land before the slide at index `gap`: the slides in the
+ * hand are out of the list, so the rows after them close up, and a gap their size opens at the place they would land. Rows that
+ * stay where they are, and all of them when the slides would land where they were, are not named.
+ */
+export function gapShifts(layout: FilmLayout, dragged: ReadonlySet<string>, gap: number): Shifts {
+  const shifts: Shifts = { rows: new Map(), headers: new Map() };
+  const lifted = layout.entries.filter((entry) => entry.kind === "slide" && dragged.has(entry.id)).length;
+  let top = LIST_PAD;
+  let opened = false;
+  for (const entry of layout.entries) {
+    if (entry.kind === "slide" && dragged.has(entry.id)) continue;
+    const place = entry.kind === "slide" ? entry.index : entry.first;
+    if (!opened && place >= gap) {
+      top += lifted * layout.rowHeight;
+      opened = true;
+    }
+    const by = top - entry.top;
+    if (by !== 0) {
+      if (entry.kind === "slide") shifts.rows.set(entry.id, by);
+      else shifts.headers.set(entry.key, by);
+    }
+    top += entry.height;
+  }
+  return shifts;
+}
+
 /** Where the line that shows a drop is drawn for a gap, as a height in the list. */
 export function gapTop(layout: FilmLayout, gap: number): number {
   const at = layout.entries.find((entry) => (entry.kind === "slide" ? entry.index : entry.first) === gap);

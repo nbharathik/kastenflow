@@ -1,0 +1,85 @@
+.ks-embed-chip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ks-pr-tool-line, var(--ks-line));
+  border-radius: 8px;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  color: var(--ks-pr-tool-fg, var(--ks-ink));
+  font: 12px/1 var(--ks-font, system-ui, sans-serif);
+  box-shadow: var(--ks-shadow-pop, none);
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ks-embed-chip-btn {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ks-embed-chip-btn:hover {
+  background: var(--ks-hover, rgb(128 128 128 / 0.2));
+}
+
+.ks-embed-chip-btn:focus-visible {
+  outline: 2px solid var(--ks-accent, currentcolor);
+  outline-offset: -2px;
+}
+
+.ks-embed-chip-btn[aria-pressed="true"] {
+  background: var(--ks-selected, rgb(128 128 128 / 0.3));
+}
+
+.ks-embed-chip-value {
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Over a page that can be used: a cover that says so, and hands the page the pointer once clicked. */
+.ks-embed-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ks-pr-tool-fg, var(--ks-ink));
+  font: 13px/1 var(--ks-font, system-ui, sans-serif);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ks-embed-cover > span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  opacity: 0;
+  transition: opacity var(--ks-base, 140ms) var(--ks-ease, ease);
+}
+
+.ks-embed-cover:hover > span,
+.ks-embed-cover:focus-visible > span {
+  opacity: 1;
+}
+
+.ks-embed-cover:focus-visible {
+  outline: 2px solid var(--ks-accent, currentcolor);
+  outline-offset: -2px;
+}

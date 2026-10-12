@@ -1,22 +1,32 @@
 // A page's own layout: its font, width and text size, as `font: serif`,
-// `width: full` and `text: small` in its frontmatter, over the defaults in
+// `width: full` and `text: large` in its frontmatter, over the defaults in
 // Settings → Pages. A page carries only what differs from the defaults:
 // picking the default clears its key. A value set by hand that Kasten does
-// not know stays in the file as it is, and the default shows.
+// not know stays in the file as it is, and the default shows. The same
+// header also holds where its links open (`opens`) and how it is drawn
+// (`layout`), which have no default to differ from.
 
 import { create } from "zustand";
 
 import { readKeys } from "../../pages/page/page-meta";
-import type { PageFont } from "../prefs";
+import { OPENS } from "../opens";
+import type { PageFont, TextSize } from "../prefs";
 import type { PageSession } from "./page-session";
 
-export type LayoutKey = "font" | "width" | "text";
+export type LayoutKey = "font" | "width" | "text" | "opens" | "layout";
+
+/** The keys of a page's style, which "Use the default style" clears: the
+ * others say how it behaves, not how it looks. */
+export const STYLE_KEYS = ["font", "width", "text"] as const;
+export type StyleKey = (typeof STYLE_KEYS)[number];
 
 /** The values each key takes, as the core checks them. */
 export const LAYOUT_VALUES = {
   font: ["sans", "serif", "mono"],
   width: ["normal", "full"],
-  text: ["normal", "small"],
+  text: ["small", "normal", "large", "xl"],
+  opens: OPENS,
+  layout: ["sections"],
 } as const satisfies Record<LayoutKey, readonly string[]>;
 
 export type PageLayout = { [K in LayoutKey]?: (typeof LAYOUT_VALUES)[K][number] };
@@ -36,13 +46,13 @@ export function readLayout(prefix: string): PageLayout {
 
 export interface LayoutDefaults {
   font: PageFont;
-  smallText: boolean;
+  textSize: TextSize;
   fullWidth: boolean;
 }
 
 export interface ShownLayout {
   font: PageFont;
-  small: boolean;
+  text: TextSize;
   full: boolean;
 }
 
@@ -50,15 +60,15 @@ export interface ShownLayout {
 export function shownLayout(own: PageLayout, defaults: LayoutDefaults): ShownLayout {
   return {
     font: own.font === undefined ? defaults.font : own.font === "sans" ? "default" : own.font,
-    small: own.text === undefined ? defaults.smallText : own.text === "small",
+    text: own.text ?? defaults.textSize,
     full: own.width === undefined ? defaults.fullWidth : own.width === "full",
   };
 }
 
-/** The key's value for showing `shown`, or null when that is the default. */
-export function layoutValue(key: LayoutKey, shown: ShownLayout, defaults: LayoutDefaults): string | null {
+/** The style key's value for showing `shown`, or null when that is the default. */
+export function layoutValue(key: StyleKey, shown: ShownLayout, defaults: LayoutDefaults): string | null {
   if (key === "font") return shown.font === defaults.font ? null : shown.font === "default" ? "sans" : shown.font;
-  if (key === "text") return shown.small === defaults.smallText ? null : shown.small ? "small" : "normal";
+  if (key === "text") return shown.text === defaults.textSize ? null : shown.text;
   return shown.full === defaults.fullWidth ? null : shown.full ? "full" : "normal";
 }
 

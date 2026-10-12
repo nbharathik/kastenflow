@@ -51,7 +51,7 @@ export function FolderNote({ survey }: { survey: FolderState | null }) {
       <p className="kasten-folder-note" role="status">
         <Icon name="cards" className="size-4 shrink-0" />
         <span>
-          A Kasten vault: <strong>{survey.name}</strong>. It opens as it is.
+          A KastenFlow vault: <strong>{survey.name}</strong>. It opens as it is.
         </span>
       </p>
     );
@@ -61,7 +61,7 @@ export function FolderNote({ survey }: { survey: FolderState | null }) {
       <p className="kasten-folder-note is-warning" role="status">
         <Icon name="alert" className="size-4 shrink-0" />
         <span>
-          <strong>{survey.name}</strong> was made by a newer version of Kasten (format {survey.format}). Update Kasten to open it; it stays as it is.
+          <strong>{survey.name}</strong> was made by a newer version of KastenFlow (format {survey.format}). Update KastenFlow to open it; it stays as it is.
         </span>
       </p>
     );
@@ -78,7 +78,7 @@ export function FolderNote({ survey }: { survey: FolderState | null }) {
     return (
       <p className="kasten-folder-note" role="status">
         <Icon name="info" className="size-4 shrink-0" />
-        <span>No notes here yet. To start a vault in this folder, create one instead: it gets Kasten’s folders and templates.</span>
+        <span>No notes here yet. To start a vault in this folder, create one instead: it gets KastenFlow’s folders and templates.</span>
       </p>
     );
   }
@@ -88,8 +88,8 @@ export function FolderNote({ survey }: { survey: FolderState | null }) {
       <Icon name="folder" className="size-4 shrink-0" />
       <span>
         {obsidian ? "An Obsidian vault" : "A folder of Markdown notes"}: {count(notes, more, "note")}
-        {folders.length > 0 && ` in ${count(folders.length, false, "folder")}`}. It opens as it is: its folders stay folders, and Kasten keeps its index in a hidden
-        <code>.kasten</code> folder. To bring the notes into Kasten’s own format instead, use Import in your Kasten vault; the original stays as it is.
+        {folders.length > 0 && ` in ${count(folders.length, false, "folder")}`}. It opens as it is: its folders stay folders, and KastenFlow keeps its index in a hidden
+        <code>.kasten</code> folder. To bring the notes into KastenFlow’s own format instead, use Import in your KastenFlow vault; the original stays as it is.
       </span>
     </p>
   );

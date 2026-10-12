@@ -185,8 +185,13 @@ impl Vault {
     /// Every file ending in `ext` outside private folders, sorted by path,
     /// with times and sizes but not contents.
     pub fn files(&self, ext: &str) -> Result<Vec<FileStat>> {
+        self.files_among(&[ext])
+    }
+
+    /// `files` for several endings in one walk of the vault.
+    pub fn files_among(&self, exts: &[&str]) -> Result<Vec<FileStat>> {
         let mut out = Vec::new();
-        self.walk_stats(&self.root, "", ext, &mut out)?;
+        self.walk_stats(&self.root, "", exts, &mut out)?;
         out.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(out)
     }
@@ -202,7 +207,7 @@ impl Vault {
         self.no_links(dir)?;
         let mut out = Vec::new();
         if fs::symlink_metadata(&path).is_ok_and(|meta| meta.is_dir()) {
-            self.walk_stats(&path, dir, ext, &mut out)?;
+            self.walk_stats(&path, dir, &[ext], &mut out)?;
         }
         out.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(out)
@@ -212,21 +217,30 @@ impl Vault {
         &self,
         dir: &Path,
         prefix: &str,
-        ext: &str,
+        exts: &[&str],
         out: &mut Vec<FileStat>,
     ) -> Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
-            let name = entry.file_name().to_string_lossy().into_owned();
+            let file_name = entry.file_name();
+            let name = file_name.to_string_lossy();
             let kind = entry.file_type()?;
-            let rel = if prefix.is_empty() {
-                name.clone()
-            } else {
-                format!("{prefix}/{name}")
+            // The path is made only for what is used: a folder to go into or
+            // a file that is wanted, not for each of the vault's other files.
+            let rel = || {
+                if prefix.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{prefix}/{name}")
+                }
             };
             if kind.is_dir() && !private(&name) {
-                self.walk_stats(&entry.path(), &rel, ext, out)?;
-            } else if kind.is_file() && name.ends_with(ext) && !name.starts_with('.') {
+                self.walk_stats(&entry.path(), &rel(), exts, out)?;
+            } else if kind.is_file()
+                && !name.starts_with('.')
+                && exts.iter().any(|ext| name.ends_with(ext))
+            {
+                let rel = rel();
                 let meta = entry.metadata()?;
                 let modified = meta
                     .modified()

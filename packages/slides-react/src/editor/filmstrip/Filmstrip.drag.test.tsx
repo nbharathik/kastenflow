@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LIST_PAD } from "./model.ts";
-import { ROW, drag, rowY, rows, setup } from "./list-support.tsx";
+import { ROW, drag, list, rowY, rows, setup } from "./list-support.tsx";
 import { idsOf } from "./test-support.ts";
 
 afterEach(cleanup);
@@ -83,33 +83,59 @@ describe("dragging to reorder", () => {
     expect(idsOf(session)).toEqual(ids);
   });
 
-  it("stops on Escape", async () => {
+  const shifts = () => rows().map((row) => row.style.transform);
+
+  it("stops on Escape, and the rows come back", async () => {
     const { session } = await five();
     const before = session.deck;
     drag(rows()[1]!, [{ y: rowY(1) }, { y: rowY(4) }], { release: false });
-    expect(document.querySelector(".ks-fs-drop")).not.toBeNull();
+    // The slide pulled is out of the list: the rows between it and the gap close up.
+    expect(shifts()).toEqual(["", "", `translateY(${-ROW}px)`, `translateY(${-ROW}px)`, ""]);
+    expect(document.querySelector(".ks-drag-ghost")).not.toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(document.querySelector(".ks-fs-drop")).toBeNull();
+    expect(shifts().every((shift) => shift === "")).toBe(true);
+    expect(document.querySelector(".ks-drag-ghost")).toBeNull();
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: rowY(4) });
     expect(session.deck).toBe(before);
   });
 
-  it("shows where the slides would land with a line, and only when that changes something", async () => {
+  it("opens a gap where the slides would land, and only when that changes something", async () => {
     await five();
     drag(rows()[1]!, [{ y: rowY(1) }, { y: rowY(3) }], { release: false });
-    const line = document.querySelector<HTMLElement>(".ks-fs-drop");
-    expect(line).not.toBeNull();
-    // The gap before the fourth slide is at the top of its row, less half the line.
-    expect(line!.style.top).toBe(`${LIST_PAD + 3 * ROW - 1}px`);
+    // Pulled to the gap before the fourth slide: the third closes up, and the fourth and fifth are where the gap leaves them.
+    expect(shifts()).toEqual(["", "", `translateY(${-ROW}px)`, "", ""]);
+    expect(list().classList.contains("is-shifted")).toBe(true);
     expect(rows()[1]!.classList.contains("is-dragging")).toBe(true);
     expect(rows()[2]!.classList.contains("is-dragging")).toBe(false);
+    // Back over its own place: the gap is where the slide was, so nothing is shifted.
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 10, clientY: rowY(2) });
-    expect(document.querySelector(".ks-fs-drop")).toBeNull();
+    expect(shifts().every((shift) => shift === "")).toBe(true);
+    // Past the last: every row after it closes up.
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 10, clientY: 5000 });
-    expect(document.querySelector<HTMLElement>(".ks-fs-drop")!.style.top).toBe(`${LIST_PAD + 5 * ROW - 1}px`);
+    expect(shifts()).toEqual(["", "", `translateY(${-ROW}px)`, `translateY(${-ROW}px)`, `translateY(${-ROW}px)`]);
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: 5000 });
-    expect(document.querySelector(".ks-fs-drop")).toBeNull();
+    // Put down: nothing is shifted, nothing is in the hand, and the rows do not glide to places they made room at.
+    expect(shifts().every((shift) => shift === "")).toBe(true);
     expect(rows().some((row) => row.classList.contains("is-dragging"))).toBe(false);
+    expect(list().hasAttribute("data-still")).toBe(true);
+    expect(document.querySelector(".ks-drag-ghost")).toBeNull();
+  });
+
+  it("holds a copy of each thumbnail under the pointer, stacked", async () => {
+    await five();
+    drag(rows()[2]!, [{ y: rowY(2) }, { y: rowY(4) }], { release: false });
+    expect(document.querySelectorAll(".ks-drag-ghost .ks-drag-card")).toHaveLength(1);
+    expect(document.querySelector(".ks-drag-ghost .ks-fs-frame")).not.toBeNull();
+    // One slide has no count.
+    expect(document.querySelector(".ks-drag-badge")).toBeNull();
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: rowY(4) });
+    // The click the browser sends after a release is not a click on a slide, and is let go by.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    fireEvent.click(rows()[0]!);
+    fireEvent.click(rows()[2]!, { shiftKey: true });
+    drag(rows()[0]!, [{ y: rowY(0) }, { y: rowY(4) }], { release: false });
+    expect(document.querySelectorAll(".ks-drag-ghost .ks-drag-card")).toHaveLength(3);
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: rowY(4) });
   });
 
   it("says how many slides are in the hand when there are several", async () => {

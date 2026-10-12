@@ -9,7 +9,8 @@ import { iconOf } from "../names";
 import { openable } from "../tree";
 import { openAt } from "./jump";
 import { pageHeadings } from "./page-headings";
-import { useWorkspace } from "../store";
+import { linkOpens } from "../open-how";
+import { howFromName, useWorkspace } from "../store";
 import { whereIfShared } from "../where";
 
 const pageCache = new WeakMap<readonly NoteMeta[], PageLink[]>();
@@ -60,10 +61,13 @@ export function pageLinks(path: () => string): Pick<LinkProvider, "pages" | "fin
       const note = page.path ? dir.note(page.path) : undefined;
       return note ? dir.inner(note, placeAt(notes, path())) : page.title;
     },
-    open: (target, how, heading) => {
+    open: (target, asked, heading) => {
       const workspace = useWorkspace.getState();
       const found = target ? directoryOf(workspace.notes).resolve(target, placeAt(workspace.notes, path())) : { note: { path: path() } };
       const to = found && ("note" in found ? found.note.path : found.choices[0]!.path);
+      // A plain click follows this page's `opens` key, else Settings → Pages
+      // (a peek or the side stack has chosen already, before it gets here).
+      const how = asked && asked !== "here" ? howFromName(asked) : linkOpens(path());
       if (to && heading) return openAt(to, { heading }, how);
       if (to) return workspace.openPath(to, how);
       void workspace.openTitle(target, how);
@@ -76,12 +80,14 @@ export function pageLinks(path: () => string): Pick<LinkProvider, "pages" | "fin
 export function clicksOpen(links: LinkProvider, here: LinkHow): LinkProvider {
   if (here === "here") return links;
   const to = (how?: LinkHow): LinkHow => (!how || how === "here" ? here : how);
-  const { openFile, openBoard, openDatabase } = links;
+  const { openFile, openBoard, openDeck, openDiagram, openDatabase } = links;
   return {
     ...links,
     open: (target, how, heading) => links.open(target, to(how), heading),
     ...(openFile && { openFile: (href: string, how?: LinkHow) => openFile(href, to(how)) }),
     ...(openBoard && { openBoard: (path: string, how?: LinkHow) => openBoard(path, to(how)) }),
+    ...(openDeck && { openDeck: (path: string, how?: LinkHow) => openDeck(path, to(how)) }),
+    ...(openDiagram && { openDiagram: (path: string, how?: LinkHow) => openDiagram(path, to(how)) }),
     ...(openDatabase && { openDatabase: (tag: string, how?: LinkHow) => openDatabase(tag, to(how)) }),
   };
 }

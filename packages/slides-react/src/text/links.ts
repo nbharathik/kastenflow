@@ -1,8 +1,8 @@
 // Which addresses a link may have. A slide's text can come from anywhere (a
 // pasted page, an imported file, an agent), and whoever presents the slide
-// follows its links, so only ordinary addresses and links to slides are kept.
+// follows its links, so only ordinary addresses and links to slides and to pages of the host are kept.
 
-const SCHEMES = new Set(["http:", "https:", "mailto:", "tel:", "slide:"]);
+const SCHEMES = new Set(["http:", "https:", "mailto:", "tel:", "slide:", "page:"]);
 
 /** The address if it is an ordinary one (web, mail, phone, or a slide); null for anything else, such as `javascript:`. */
 export function safeLink(href: string | null | undefined): string | null {

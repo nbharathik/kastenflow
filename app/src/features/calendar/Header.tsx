@@ -13,6 +13,9 @@ interface HeaderProps {
   mode: Mode;
   /** A tag database's calendar: no Show menu and no agenda. */
   scoped?: boolean;
+  /** The week shows its hour grid; the button that switches it is in the week view. */
+  hours?: boolean;
+  onHours?(): void;
   onMode(mode: Mode): void;
   onStep(step: 1 | -1): void;
   onToday(): void;
@@ -24,7 +27,7 @@ const MODES: { id: Mode; label: string; key: string }[] = [
   { id: "agenda", label: "Agenda", key: "A" },
 ];
 
-export function Header({ title, count, mode, scoped = false, onMode, onStep, onToday }: HeaderProps) {
+export function Header({ title, count, mode, scoped = false, hours = false, onHours, onMode, onStep, onToday }: HeaderProps) {
   const unit = mode === "week" ? "week" : "month";
   return (
     <header className="kasten-cal-head">
@@ -40,6 +43,12 @@ export function Header({ title, count, mode, scoped = false, onMode, onStep, onT
       </div>
       <div className="kasten-cal-controls">
         {!scoped && <ShowMenu />}
+        {mode === "week" && !scoped && onHours && (
+          <button type="button" className="kasten-cal-today kasten-cal-hours-toggle" aria-pressed={hours} title="Show the week by the hour (H)" onClick={onHours}>
+            <Icon name="clock" className="size-4" />
+            Hours
+          </button>
+        )}
         <button type="button" className="kasten-cal-today" title="Today (T)" onClick={onToday}>
           Today
         </button>

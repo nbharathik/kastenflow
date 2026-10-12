@@ -59,7 +59,7 @@ fn line(stamp: &str, marks: &[(String, u64)]) -> String {
         })
         .collect();
     format!(
-        "{stamp} Kasten {} {}\n",
+        "{stamp} KastenFlow {} {}\n",
         env!("CARGO_PKG_VERSION"),
         parts.join(" ")
     )
@@ -112,7 +112,7 @@ mod tests {
         assert_eq!(
             text,
             format!(
-                "2026-09-28T10:00:00Z Kasten {} setup=85 page:listedx=590 ready=610\n",
+                "2026-09-28T10:00:00Z KastenFlow {} setup=85 page:listedx=590 ready=610\n",
                 env!("CARGO_PKG_VERSION")
             )
         );

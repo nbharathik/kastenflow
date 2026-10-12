@@ -20,7 +20,7 @@ pub struct Head {
 }
 
 fn not_a_deck(why: &str) -> Error {
-    Error::Invalid(format!("Not a Kasten deck: {why}"))
+    Error::Invalid(format!("Not a KastenFlow deck: {why}"))
 }
 
 /// Reads the envelope of the deck in `text`, or says why it is not one.

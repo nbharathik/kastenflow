@@ -29,13 +29,13 @@ const REWORDED: [(&str, &str); 5] = [
 ];
 
 /// Said of the tools that can take slides out of a deck: by removing them, or by leaving them with nothing on them.
-const REMOVING_NOTE: &str = " In Kasten a call that takes slides out of decks (removes them, or leaves them with nothing on them) waits, as a whole, for the person's review once the slides you have taken out in the last 10 minutes come to more than 3 (the person sets the number).";
+const REMOVING_NOTE: &str = " In KastenFlow a call that takes slides out of decks (removes them, or leaves them with nothing on them) waits, as a whole, for the person's review once the slides you have taken out in the last 10 minutes come to more than 3 (the person sets the number).";
 
 /// Said of the tool that writes a deck out: a Markdown outline is not kept as a file, since a vault reads every `.md` file as a note.
 const EXPORT_NOTE: &str = " In a vault only pptx is kept as a file; get_outline gives the outline as Markdown, and create_note keeps it as a note.";
 
 /// Said of the tool that puts a deck in the trash.
-const TRASH_DECK_NOTE: &str = " In Kasten this always waits for the person to accept it.";
+const TRASH_DECK_NOTE: &str = " In KastenFlow this always waits for the person to accept it.";
 
 fn adapt(mut spec: ToolSpec) -> ToolSpec {
     if let Some(deck) = spec.input_schema.pointer_mut("/properties/deck") {
@@ -205,6 +205,11 @@ mod tests {
             "add_to_board",
             "connect",
             "group_on_board",
+            "list_diagrams",
+            "get_diagram",
+            "create_diagram",
+            "update_diagram",
+            "trash_diagram",
         ];
         for tool in specs() {
             assert!(

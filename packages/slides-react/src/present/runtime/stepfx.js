@@ -23,9 +23,10 @@ function framesOf(effect) {
   }
 }
 
-/** Whether the person asked their system for less movement. */
+/** Whether the person asked for less movement: the app's own motion setting (the page says `data-motion="off"`), or their system's. */
 function calm() {
   try {
+    if (typeof document !== "undefined" && document.documentElement.dataset.motion === "off") return true;
     return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   } catch {
     return false;

@@ -2,7 +2,7 @@
 
 Everything tests read lives here. Tests never touch a real vault.
 
-- `dev-vault/`: the test vault, a small vault in Kasten's format with sample
+- `dev-vault/`: the test vault, a small vault in KastenFlow's format with sample
   pages, boards and PDFs (`scripts/sample-pdf.mjs` writes a text primer with
   highlights, `scripts/figures-pdf.mjs` a two-page paper with three figures to
   clip, its bibliography entry included: run one again and it writes the same
@@ -16,8 +16,8 @@ Everything tests read lives here. Tests never touch a real vault.
   one kind of trouble: alternative list markers and emphasis styles, setext
   headings, CRLF and mixed line endings, a byte order mark, trailing whitespace,
   a missing final newline, HTML comments, footnotes, reference links and
-  Kasten's own syntax (wiki-links, embeds, callouts, toggles, math).
-- `decks/`: small Kasten Slides decks, one for each kind of trouble: a
+  KastenFlow's own syntax (wiki-links, embeds, callouts, toggles, math).
+- `decks/`: small KastenFlow Slides decks, one for each kind of trouble: a
   minimal deck, shapes and connectors, a text-heavy deck, four slides of
   three elements, and a deck with unknown fields that must survive a read
   and write. The tests of the Slides packages open them and re-save them

@@ -1,6 +1,6 @@
 [package]
 name = "kasten-core"
-description = "Vault model, parser, ops, guardrails, index and git for Kasten"
+description = "Vault model, parser, ops, guardrails, index and git for KastenFlow"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

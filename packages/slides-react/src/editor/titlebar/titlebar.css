@@ -1,12 +1,26 @@
-/* The title bar: the deck's name, where saving stands, and the buttons at the right.
+/* The title bar: one slim row with the deck's name and star, the menus and their search, and the buttons at the right.
    Rules that adjust shell.css and editor.css (read after this file) name .ks-editor first. */
 .ks-editor .ks-titlebar {
-  gap: 10px;
-  min-height: 46px;
-  padding: 6px 14px 6px 12px;
+  gap: 6px;
+  min-height: calc(var(--ks-bar) + 4px);
+  padding: 2px 12px 2px 8px;
 }
 .ks-title-spacer {
   flex: 1;
+}
+.ks-title-block {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+/* The menus sit in the same row as the name, after it. */
+.ks-editor .ks-titlebar .ks-menubar {
+  flex: none;
+  min-height: 0;
+  padding: 0;
+  margin-left: 6px;
 }
 
 /* A quiet tint and a line under the whole bar while saving is paused: the choice cannot be missed. */
@@ -15,12 +29,16 @@
   box-shadow: inset 0 -3px 0 var(--ks-warning);
 }
 
-/* In a narrow window the banner takes a row under the rest. */
+/* A message that has to be read (saving paused, or failed) takes a row under the rest. */
 .ks-editor .ks-titlebar.is-stacked {
   flex-wrap: wrap;
   row-gap: 6px;
 }
-.ks-titlebar.is-stacked .ks-conflict {
+.ks-titlebar.is-stacked .ks-title-block {
+  display: contents;
+}
+.ks-titlebar.is-stacked .ks-conflict,
+.ks-titlebar.is-stacked .ks-save.is-error {
   order: 9;
   flex: 1 1 100%;
 }
@@ -29,7 +47,7 @@
 .ks-title-field {
   display: inline-grid;
   min-width: 96px;
-  max-width: min(44vw, 560px);
+  max-width: min(32vw, 420px);
 }
 .ks-title-field::after {
   content: attr(data-value);
@@ -38,7 +56,7 @@
   height: 0;
   padding: 0 9px;
   overflow: hidden;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   white-space: pre;
 }
@@ -46,7 +64,7 @@
   grid-area: 1 / 1;
   width: 100%;
   min-width: 0;
-  height: 30px;
+  height: calc(var(--ks-control) + 2px);
   margin: 0;
   padding: 0 8px;
   border: 1px solid transparent;
@@ -54,10 +72,12 @@
   background: transparent;
   color: var(--ks-ink);
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   text-overflow: ellipsis;
-  transition: border-color var(--ks-fast);
+  transition:
+    border-color var(--ks-fast) var(--ks-ease),
+    background var(--ks-fast) var(--ks-ease);
 }
 .ks-title-input:hover {
   border-color: var(--ks-line-strong);
@@ -69,11 +89,25 @@
   background: var(--ks-canvas);
 }
 
+/* The star: quiet until the deck is a favourite. */
+.ks-titlebar .ks-star.ks-icon-btn {
+  color: var(--ks-faint);
+}
+.ks-titlebar .ks-star.ks-icon-btn.is-on,
+.ks-titlebar .ks-star.ks-icon-btn.is-on:hover:not(:disabled) {
+  background: transparent;
+  color: var(--ks-favourite);
+}
+.ks-titlebar .ks-star.is-on .ks-icon path {
+  fill: currentColor;
+}
+
 /* Where saving stands. */
 .ks-save {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  margin-left: 4px;
   color: var(--ks-muted);
   font-size: 12px;
   white-space: nowrap;
@@ -123,7 +157,30 @@
   white-space: nowrap;
 }
 
-/* Present, and the caret beside it. */
+/* The search over the menus. */
+.ks-menu-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ks-control);
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--ks-line);
+  background: var(--ks-canvas);
+  color: var(--ks-muted);
+  transition:
+    border-color var(--ks-fast) var(--ks-ease),
+    color var(--ks-fast) var(--ks-ease);
+}
+.ks-menu-search:hover {
+  border-color: var(--ks-line-strong);
+  color: var(--ks-ink);
+}
+.ks-menu-search[aria-expanded="true"] {
+  border-color: var(--ks-accent);
+  color: var(--ks-ink);
+}
+
+/* Slideshow, and the caret beside it. */
 .ks-present {
   display: inline-flex;
 }

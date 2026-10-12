@@ -17,4 +17,10 @@ export interface ViewProps {
   project?: string | null;
   /** Leaves out the view's own bar, for a view inside a dashboard. */
   bare?: boolean;
+  /** Makes the note "+ New" adds, for a table that is not one tag's (a
+   * project's saved table); the table lists it once it exists. Without it,
+   * New makes a note carrying the tag. */
+  add?(title: string): Promise<NoteMeta | null>;
+  /** What the table is called for screen readers, in place of "Notes tagged #tag". */
+  label?: string;
 }

@@ -48,7 +48,7 @@ export class ViewBoundary extends Component<Props, State> {
   }
 
   private copy = (error: Error) => {
-    const report = [`Kasten: the view at “${this.props.place}” failed`, "", error.stack ?? String(error), "", "Components:", (this.state.stack ?? "").trim(), "", navigator.userAgent].join("\n");
+    const report = [`KastenFlow: the view at “${this.props.place}” failed`, "", error.stack ?? String(error), "", "Components:", (this.state.stack ?? "").trim(), "", navigator.userAgent].join("\n");
     void navigator.clipboard?.writeText(report).then(
       () => this.setState({ copied: true }),
       () => {},

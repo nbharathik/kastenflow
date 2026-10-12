@@ -12,7 +12,7 @@
   /* reveal.js's own variables: its progress bar, arrows and overlays. */
   --r-link-color: rgb(255 255 255 / 0.85);
   --r-link-color-hover: #fff;
-  --r-background-color: #000;
+  --r-background-color: var(--ks-show-matte, #000);
   --r-main-color: #fff;
   --r-overlay-element-bg-color: 0, 0, 0;
   --r-overlay-element-fg-color: 240, 240, 240;
@@ -20,7 +20,8 @@
   inset: 0;
   z-index: 2147483000;
   overflow: hidden;
-  background: #000;
+  /* Round a slide on a screen of another shape: the matte the person chose (black unless they chose another). The slide is never cropped. */
+  background: var(--ks-show-matte, #000);
   color: var(--ks-pr-tool-fg);
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   outline: none;
@@ -30,10 +31,19 @@
   visibility: hidden;
 }
 
+/* The host's motion setting off: nothing fades or glides while presenting either. */
+:root[data-motion="off"] .ks-show,
+:root[data-motion="off"] .ks-show *,
+:root[data-motion="off"] .ks-show *::before,
+:root[data-motion="off"] .ks-show *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 .ks-show .ks-show-reveal {
   position: absolute;
   inset: 0;
-  background: #000;
+  background: var(--ks-show-matte, #000);
 }
 
 /* The slide is its own; reveal.js gives it a place to be and nothing else. */
@@ -161,6 +171,8 @@
     0 0 6px 2px var(--ks-pr-laser),
     0 0 18px 6px rgb(255 45 45 / 0.45);
   pointer-events: none;
+  /* On a layer of its own, the glow is drawn once and the dot is only moved: following the pointer costs the page nothing. */
+  will-change: transform;
 }
 
 .ks-show .ks-show-laser[hidden],

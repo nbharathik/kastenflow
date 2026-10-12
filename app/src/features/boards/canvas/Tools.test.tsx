@@ -57,15 +57,40 @@ describe("board tools", () => {
     const bar = screen.getByRole("toolbar", { name: "Tools" });
     await act(async () => fireEvent.keyDown(board, { key: "d" }));
     expect(board.className).toContain("is-tool-draw");
-    expect(within(bar).getByRole("button", { name: "Draw" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(bar).getByRole("button", { name: "Pen" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("group", { name: "Pen" })).toBeTruthy();
     await act(async () => fireEvent.keyDown(board, { key: "Escape" }));
     expect(board.className).toContain("is-tool-select");
-    fireEvent.click(within(bar).getByRole("button", { name: "Eraser" }));
+    // The pen's own options hold the eraser, and the key X reaches it too.
+    expect(within(bar).queryByRole("button", { name: "Eraser" })).toBeNull();
+    fireEvent.click(within(bar).getByRole("button", { name: "Pen" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Pen" })).getByRole("button", { name: "Eraser" }));
+    expect(board.className).toContain("is-tool-erase");
+    await act(async () => fireEvent.keyDown(board, { key: "Escape" }));
+    await act(async () => fireEvent.keyDown(board, { key: "x" }));
     expect(board.className).toContain("is-tool-erase");
     fireEvent.click(within(bar).getByRole("button", { name: "Shapes" }));
     fireEvent.click(within(screen.getByRole("group", { name: "Shapes" })).getByRole("button", { name: "Diamond" }));
     expect(within(bar).getByRole("button", { name: "Shapes" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps the strip to select, hand, sticky, shapes, pen, connector, section and +", async () => {
+    await open();
+    const bar = screen.getByRole("toolbar", { name: "Tools" });
+    expect(within(bar).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Select", "Hand", "Sticky", "Shapes", "Pen", "Connector", "Section", "Add"]);
+  });
+
+  it("joins two things with the connector tool and then goes back to selecting", async () => {
+    const { board, view } = await open();
+    await act(async () => fireEvent.keyDown(board, { key: "l" }));
+    expect(board.className).toContain("is-tool-connect");
+    expect(within(screen.getByRole("toolbar", { name: "Tools" })).getByRole("button", { name: "Connector" }).getAttribute("aria-pressed")).toBe("true");
+    // Nothing moves or opens while it is the tool.
+    const sticky = view.container.querySelector<HTMLElement>('.react-flow__node[data-id="s1"]')!;
+    fireEvent.click(sticky);
+    expect(useWorkspace.getState().stack).toEqual([]);
+    await act(async () => fireEvent.keyDown(board, { key: "Escape" }));
+    expect(board.className).toContain("is-tool-select");
   });
 
   it("clears the selection when a drawing tool is picked", async () => {

@@ -23,6 +23,9 @@ impl Element {
             Element::StepLabel(e) => &e.base,
             Element::Embed(e) => &e.base,
             Element::Video(e) => &e.base,
+            Element::Chart(e) => &e.base,
+            Element::Timer(e) => &e.base,
+            Element::Qr(e) => &e.base,
         }
     }
 
@@ -45,6 +48,9 @@ impl Element {
             Element::StepLabel(e) => &mut e.base,
             Element::Embed(e) => &mut e.base,
             Element::Video(e) => &mut e.base,
+            Element::Chart(e) => &mut e.base,
+            Element::Timer(e) => &mut e.base,
+            Element::Qr(e) => &mut e.base,
         }
     }
 
@@ -72,6 +78,9 @@ impl Element {
             Element::StepLabel(_) => "step-label",
             Element::Embed(_) => "embed",
             Element::Video(_) => "video",
+            Element::Chart(_) => "chart",
+            Element::Timer(_) => "timer",
+            Element::Qr(_) => "qr",
         }
     }
 
@@ -112,6 +121,9 @@ impl Element {
                 | Element::StepLabel(_)
                 | Element::Embed(_)
                 | Element::Video(_)
+                | Element::Chart(_)
+                | Element::Timer(_)
+                | Element::Qr(_)
         )
     }
 

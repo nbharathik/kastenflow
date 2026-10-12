@@ -119,9 +119,23 @@
   color: var(--color-muted);
 }
 
-.kasten-tab-new:hover {
+.kasten-tab-new:hover,
+.kasten-tab-new-more:hover,
+.kasten-tab-new-more[aria-expanded="true"] {
   background: color-mix(in srgb, var(--color-line) 60%, transparent);
   color: var(--color-ink);
+}
+
+/* The small arrow beside "+", for the other ways to start a tab. */
+.kasten-tab-new-more {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 16px;
+  height: 26px;
+  margin-left: -2px;
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
 }
 
 /* With several panes, the one keys act on is marked. */

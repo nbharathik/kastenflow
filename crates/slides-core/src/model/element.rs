@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    CardGridEl, ChatEl, CitationEl, CodeEl, EmbedEl, Extra, Fill, MathEl, StepLabelEl, StepState,
-    Style, Text, TokenProbsEl, VideoEl, is_false,
+    CardGridEl, ChartEl, ChatEl, CitationEl, CodeEl, EmbedEl, Extra, Fill, MathEl, PageSource,
+    QrEl, StepLabelEl, StepState, Style, Text, TimerEl, TokenProbsEl, VideoEl, is_false,
 };
 
 model! {
@@ -53,12 +53,15 @@ model! {
         pub alt: Option<String>,
         #[serde(default, skip_serializing_if = "is_false")]
         pub locked: bool,
-        /// A web address, or `slide:<id>`.
+        /// A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub link: Option<String>,
         /// Pairs this element with one of another id in a Morph.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub morph_id: Option<String>,
+        /// The page of the host this element was made from, or points at: what "Update from page" reads again.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub source: Option<PageSource>,
     }
 
     #[serde(rename_all = "camelCase")]
@@ -274,6 +277,9 @@ model! {
         StepLabel(StepLabelEl),
         Embed(EmbedEl),
         Video(VideoEl),
+        Chart(ChartEl),
+        Timer(TimerEl),
+        Qr(QrEl),
     }
 }
 
@@ -296,6 +302,7 @@ impl Base {
             locked: false,
             link: None,
             morph_id: None,
+            source: None,
         }
     }
 

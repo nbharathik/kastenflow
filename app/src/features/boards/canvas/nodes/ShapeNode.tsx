@@ -24,7 +24,7 @@ export const ShapeNode = memo(function ShapeNode({ id, data, selected, width, he
       <svg className="kasten-shape-outline" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
         <path d={outlinePath(shape, w, h, 1.5)} />
       </svg>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={40} minHeight={30} />}
       <div className="kasten-shape-label">
         {editing ? <StickyEditor text={node.text ?? ""} onDone={(text) => setText(board, id, text)} /> : node.text?.trim() ? <StickyText text={node.text} /> : null}

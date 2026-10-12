@@ -77,6 +77,9 @@ export function describe(elements: readonly Element[]): string {
     "step-label": ["Step label", "step labels"],
     embed: ["Embedded page", "embedded pages"],
     video: ["Video", "videos"],
+    chart: ["Chart", "charts"],
+    timer: ["Timer", "timers"],
+    qr: ["QR code", "QR codes"],
   };
   const first = elements[0];
   if (!first) return "";

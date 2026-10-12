@@ -4,8 +4,10 @@
 
 import "./overlays.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { boxOf } from "../../browser/bounds";
+import { useOccludes, useOcclusion } from "../../browser/occlusion";
 import { useWorkspace, type Toast } from "../store";
 import { Icon } from "../../../ui/Icon";
 
@@ -14,9 +16,15 @@ export const TOAST_MS = { plain: 4000, action: 8000, leave: 140 };
 
 export function Toasts() {
   const toasts = useWorkspace((s) => s.toasts);
+  // With a browser tab's page on show, the toasts keep to the bottom left,
+  // which its native view does not cover (the page is drawn above them); where
+  // one would still be under it, the page steps aside while they show.
+  const browsing = useOcclusion((s) => Object.keys(s.areas).length > 0);
+  const stack = useRef<HTMLDivElement>(null);
+  useOccludes(toasts.length > 0, () => (stack.current ? boxOf(stack.current.getBoundingClientRect()) : null));
   // Always there, so screen readers hear what arrives in it.
   return (
-    <div className="kasten-toasts" role="status" aria-live="polite">
+    <div ref={stack} className={`kasten-toasts${browsing ? " is-left" : ""}`} role="status" aria-live="polite">
       {toasts.map((toast) => (
         <ToastCard key={toast.id} toast={toast} />
       ))}

@@ -5,6 +5,7 @@ import "./styles/items.css";
 import "./styles/far.css";
 import "./styles/bars.css";
 import "./styles/menus.css";
+import "./styles/chrome.css";
 import "./styles/drawing.css";
 import "./styles/present.css";
 
@@ -35,12 +36,12 @@ export function boardDeps(client: VaultClient, path: string): BoardDeps {
   };
 }
 
-/** An open board's canvas. */
-export function BoardView({ board }: { board: BoardController }) {
+/** An open board's canvas. `embedded`: it is shown inside a page. */
+export function BoardView({ board, embedded = false }: { board: BoardController; embedded?: boolean }) {
   return (
     <BoardContext.Provider value={board}>
       <ReactFlowProvider>
-        <Canvas />
+        <Canvas embedded={embedded} />
       </ReactFlowProvider>
     </BoardContext.Provider>
   );
@@ -48,7 +49,7 @@ export function BoardView({ board }: { board: BoardController }) {
 
 /** A whiteboard: an infinite canvas of cards,
  * stickies, sections, links, images and nested boards, joined by edges. */
-export function BoardCanvas({ path }: { path: string }) {
+export function BoardCanvas({ path, embedded = false }: { path: string; embedded?: boolean }) {
   const client = useWorkspace((s) => s.client);
   const [board, setBoard] = useState<BoardController | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -72,5 +73,5 @@ export function BoardCanvas({ path }: { path: string }) {
     );
   }
   if (!board) return <div className="grid h-full place-items-center text-13 text-muted">Opening the board…</div>;
-  return <BoardView board={board} />;
+  return <BoardView board={board} embedded={embedded} />;
 }

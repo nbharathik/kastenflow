@@ -14,6 +14,8 @@ pub(super) const MAX_LEVEL: usize = 5;
 pub fn parse(md: &str) -> Vec<Paragraph> {
     let lines: Vec<&str> = md.lines().collect();
     let mut out = Vec::new();
+    // The number each paragraph was written with, for those that are numbered.
+    let mut typed: Vec<Option<u32>> = Vec::new();
     let mut fence: Option<(char, usize)> = None;
     let mut i = 0;
     while i < lines.len() {
@@ -24,6 +26,7 @@ pub fn parse(md: &str) -> Vec<Paragraph> {
                 fence = None;
             } else {
                 out.push(code_line(line));
+                typed.push(None);
             }
             continue;
         }
@@ -52,8 +55,13 @@ pub fn parse(md: &str) -> Vec<Paragraph> {
                 }
             }
         }
-        out.extend(paragraph(&head, &text));
+        if let Some(made) = paragraph(&head, &text) {
+            out.push(made);
+            typed.push(head.number);
+        }
     }
+    // An item written with a number it would not have had by counting on is told where to begin.
+    crate::list::reconcile(&mut out, &typed);
     out
 }
 
@@ -61,6 +69,8 @@ pub fn parse(md: &str) -> Vec<Paragraph> {
 struct Head<'a> {
     list: Option<ListKind>,
     level: u8,
+    /// The number a numbered item was written with.
+    number: Option<u32>,
     style: Option<&'static str>,
     /// `###` and deeper: body text that is bold.
     bold: bool,
@@ -77,12 +87,14 @@ fn classify(line: &str) -> Head<'_> {
     let mut head = Head {
         list: None,
         level: 0,
+        number: None,
         style: None,
         bold: false,
         content: rest,
     };
-    if let Some((kind, content)) = list_marker(rest) {
+    if let Some((kind, content, number)) = list_marker(rest) {
         head.list = Some(kind);
+        head.number = number;
         head.level = (indent / 2).min(MAX_LEVEL) as u8;
         head.content = content;
     } else if hashes > 0
@@ -109,13 +121,15 @@ fn after(rest: &str, len: usize) -> Option<&str> {
     (tail.is_empty() || tail.starts_with(char::is_whitespace)).then(|| tail.trim_start())
 }
 
-fn list_marker(rest: &str) -> Option<(ListKind, &str)> {
+/// The kind of list a line starts, the text after the marker, and the number a numbered item is written with.
+fn list_marker(rest: &str) -> Option<(ListKind, &str, Option<u32>)> {
     if rest.starts_with(['-', '*', '+']) {
-        return after(rest, 1).map(|text| (ListKind::Bullet, text));
+        return after(rest, 1).map(|text| (ListKind::Bullet, text, None));
     }
     let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
     if (1..=9).contains(&digits) && matches!(rest.as_bytes().get(digits), Some(b'.' | b')')) {
-        return after(rest, digits + 1).map(|text| (ListKind::Number, text));
+        let number = rest[..digits].parse::<u32>().ok().map(|n| n.max(1));
+        return after(rest, digits + 1).map(|text| (ListKind::Number, text, number));
     }
     None
 }

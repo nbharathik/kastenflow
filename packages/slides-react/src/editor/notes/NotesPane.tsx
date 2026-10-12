@@ -3,6 +3,8 @@ import { type JSX, type KeyboardEvent, type PointerEvent, useCallback, useEffect
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { undoKey } from "../filmstrip/keys.ts";
+import { useUiValue } from "../chrome/useUiValue.ts";
+import { Icon } from "../ui/Icon.tsx";
 import { useEditorValue } from "../useEditor.ts";
 import { MAX_HEIGHT, MIN_HEIGHT, clampHeight, readHeight, saveHeight } from "./height.ts";
 import "./notes.css";
@@ -10,8 +12,12 @@ import "./notes.css";
 /** How long after the last key the words are written to the slide. */
 export const WRITE_DELAY = 600;
 
-/** The speaker notes under the slide. */
-export function NotesPane({ session }: { session: EditorSession; ui: EditorUi }): JSX.Element {
+/**
+ * The speaker notes under the slide, with a strip above them that folds them away (and a bar to bring them back): the slide gets the
+ * room while the notes are not wanted, and the person need not go to a menu to change that.
+ */
+export function NotesPane({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
+  const open = useUiValue(ui, (state) => state.notesOpen);
   const slideId = useEditorValue(session, (state) => state.slideId);
   const [height, setHeight] = useState(readHeight);
   const [resizing, setResizing] = useState(false);
@@ -59,8 +65,21 @@ export function NotesPane({ session }: { session: EditorSession; ui: EditorUi })
     change(next);
   };
 
+  if (!open) {
+    return (
+      <button type="button" className="ks-btn ks-notes-bar" aria-label="Show speaker notes" data-tip="Show speaker notes" onClick={() => ui.toggleNotes()}>
+        <Icon name="chevron-up" size={14} />
+        <span>Speaker notes</span>
+      </button>
+    );
+  }
+
   return (
     <section className="ks-notes" aria-label="Speaker notes" style={{ height }}>
+      <button type="button" className="ks-btn ks-notes-head" aria-label="Hide speaker notes" data-tip="Hide speaker notes" onClick={() => ui.toggleNotes()}>
+        <Icon name="chevron-down" size={14} />
+        <span>Speaker notes</span>
+      </button>
       <div
         className={`ks-notes-grip${resizing ? " is-active" : ""}`}
         role="separator"

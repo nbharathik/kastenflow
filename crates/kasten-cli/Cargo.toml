@@ -1,11 +1,19 @@
 [package]
 name = "kasten-cli"
-description = "The `kasten` command-line tool"
+description = "The `kastenflow` command-line tool, also installed as `kasten`"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+default-run = "kasten"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "kastenflow"
+path = "src/bin/kastenflow.rs"
 
 [[bin]]
 name = "kasten"

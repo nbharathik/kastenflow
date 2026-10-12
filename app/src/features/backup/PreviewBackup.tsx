@@ -12,7 +12,7 @@ export function PreviewBackup({ Row }: { Row: RowComponent }) {
   const tell = () => useWorkspace.getState().toast(NEEDS_APP);
   return (
     <>
-      <Row label="Back up to GitHub" detail="Sign in, and Kasten makes a private repository in your account for this vault.">
+      <Row label="Back up to GitHub" detail="Sign in, and KastenFlow makes a private repository in your account for this vault.">
         <button type="button" className={BUTTON} onClick={tell}>
           Sign in with GitHub
         </button>

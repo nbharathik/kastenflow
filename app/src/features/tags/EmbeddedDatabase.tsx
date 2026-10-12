@@ -12,7 +12,7 @@ import type { TagView } from "../../lib/vault/types";
 import { schemaOf } from "../panel/properties/schemas";
 import { useWorkspace } from "../workspace/store";
 import { NoteHomeContext } from "./home";
-import { applyView, notesWith, viewsOf } from "./model";
+import { applyView, notesWith, projectFolderOf, scoped, viewsOf } from "./model";
 import { SchemaEditor } from "./SchemaEditor";
 import { useTags } from "./store";
 import { NewNote, ViewBody } from "./TagDatabase";
@@ -46,15 +46,21 @@ export function EmbeddedDatabase({
     views.findIndex((v) => v.name.toLowerCase() === active.toLowerCase()),
   );
   const view = views[index]!;
-  const tagged = useMemo(() => notesWith(notes, name), [notes, name]);
+  // Read on every draw; a rename or a move changes the notes, which draws.
+  const parent = page();
+  // A view saved with `scope: project` (a tag's "This project") shows only what is
+  // filed in the project this page is in, and nothing in a page with none.
+  const folder = projectFolderOf(parent);
+  const tagged = useMemo(
+    () => scoped(notesWith(notes, name), view, folder),
+    [notes, name, view, folder],
+  );
   const shown = useMemo(
     () => applyView(tagged, view, schema),
     [tagged, view, schema],
   );
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
-  // Read on every draw; a rename or a move changes the notes, which draws.
-  const parent = page();
   const home = useMemo(() => ({ project: null, parent }), [parent]);
   const saveViews = (next: TagView[]) =>
     void useTags.getState().saveViews(name, next);

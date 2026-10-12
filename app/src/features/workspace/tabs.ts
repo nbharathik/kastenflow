@@ -3,12 +3,14 @@
 // own tabs and its own back and forward. Pure functions over the layout,
 // so the store stays small and this stays easy to test.
 
-export type ViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "tags" | "highlights" | "chat" | "history" | "review" | "import";
+export type ViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "diagrams" | "tags" | "highlights" | "chat" | "history" | "review" | "import" | "graph" | "overview" | "web";
 
 export interface Place {
   view: ViewId;
   /** The open note, for `page`. */
   path?: string;
+  /** The address a browser tab shows, for `web`; none is its start page. */
+  url?: string;
 }
 
 export interface Tab {
@@ -43,7 +45,22 @@ const MAX_CLOSED = 20;
 let seq = 0;
 const nextId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(++seq).toString(36)}`;
 
-export const samePlace = (a: Place, b: Place) => a.view === b.view && a.path === b.path;
+export const samePlace = (a: Place, b: Place) => a.view === b.view && a.path === b.path && a.url === b.url;
+
+/** A browser tab went to `url`: the tab's place says so without a step in its
+ * way back (the page keeps its own history), so the tab reopens where it was. */
+export function setWebUrl(layout: Layout, tabId: string, url: string): Layout {
+  let found = false;
+  const panes = layout.panes.map((pane) => ({
+    ...pane,
+    tabs: pane.tabs.map((tab) => {
+      if (tab.id !== tabId || tab.place.view !== "web" || tab.place.url === url) return tab;
+      found = true;
+      return { ...tab, place: { ...tab.place, url } };
+    }),
+  }));
+  return found ? { ...layout, panes } : layout;
+}
 
 /** With pages opening in new tabs (Settings), whether going from `current`
  * to `next` gets its own tab: a page, board, PDF or tag database does,
@@ -92,9 +109,10 @@ function withTab(pane: Pane, tabId: string, change: (tab: Tab) => Tab): Pane {
   return { ...pane, tabs: pane.tabs.map((t) => (t.id === tabId ? change(t) : t)) };
 }
 
-/** Goes to `place` in the focused tab, keeping the way back. */
-export function navigate(layout: Layout, place: Place): Layout {
-  const pane = focusedPane(layout);
+/** Goes to `place` in the focused tab (or in the active tab of the pane
+ * `paneId`), keeping the way back. */
+export function navigate(layout: Layout, place: Place, paneId = layout.focus): Layout {
+  const pane = layout.panes.find((p) => p.id === paneId) ?? focusedPane(layout);
   const tab = activeTab(pane);
   if (samePlace(tab.place, place)) return layout;
   return withPane(layout, pane.id, (p) =>
@@ -207,6 +225,21 @@ export function split(layout: Layout, place: Place): Layout {
   }
   const target = layout.panes[Math.min(index + 1, layout.panes.length - 1)]!;
   return openTab(layout, place, target.id);
+}
+
+/** Opens `place` in the pane to the right of the focused one, which takes
+ * the focus. With `replace` it goes into that pane's active tab (a pinned
+ * tab keeps its page: a new tab is added instead); without, a tab is added.
+ * A tab already showing it is selected. With no pane to the right, the
+ * focused pane splits, as `split` does. */
+export function openRight(layout: Layout, place: Place, replace = true): Layout {
+  const index = layout.panes.findIndex((p) => p.id === layout.focus);
+  const right = layout.panes[index + 1];
+  if (!right) return split(layout, place);
+  const shown = right.tabs.find((t) => samePlace(t.place, place));
+  if (shown) return { ...withPane(layout, right.id, (p) => ({ ...p, active: shown.id })), focus: right.id };
+  if (replace && !activeTab(right).pinned) return { ...navigate(layout, place, right.id), focus: right.id };
+  return openTab(layout, place, right.id);
 }
 
 export function closePane(layout: Layout, paneId: string): Layout {

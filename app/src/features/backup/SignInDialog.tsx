@@ -16,7 +16,7 @@ export function SignInDialog({ code, onCancel }: { code: SignInCode; onCancel: (
     <Modal label="Sign in with GitHub" onClose={onCancel} className="ui-dialog">
       <h2 className="ui-dialog-title">Sign in with GitHub</h2>
       <div className="ui-dialog-body">
-        <p>Type this code on GitHub's page to let Kasten back up this vault to a private repository in your account.</p>
+        <p>Type this code on GitHub's page to let KastenFlow back up this vault to a private repository in your account.</p>
         <output aria-label="Sign-in code" className="kasten-sign-in-code">
           {code.userCode}
         </output>

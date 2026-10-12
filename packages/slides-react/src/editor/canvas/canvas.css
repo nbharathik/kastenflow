@@ -1,3 +1,13 @@
+/* The motion the canvas uses, in the host's tokens: Kasten maps its own `--motion-*` and `--ease-standard` onto these, and they are
+   nothing while its motion setting is off. */
+.ks-editor {
+  --ks-slow: 200ms;
+  --ks-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* The smart guides, and what is written on them. */
+  --ks-guide: #e5389b;
+  --ks-on-guide: #ffffff;
+}
+
 /* The stage: the slide on a grey table, and what is drawn over it. */
 .ks-stage {
   position: relative;
@@ -5,9 +15,22 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
+  /* The stage's own scrolling and panning never reach the window behind it. A touch pans it with one finger; two fingers are the editor's (it zooms). */
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   background: var(--ks-well);
   outline: none;
   display: grid;
+}
+/* Space held, or the middle button: the pointer is a hand and the slide is what it takes hold of. */
+.ks-stage[data-pan] .ks-page,
+.ks-stage[data-pan] .ks-page * {
+  cursor: grab !important;
+}
+.ks-stage[data-pan="drag"],
+.ks-stage[data-pan="drag"] .ks-page,
+.ks-stage[data-pan="drag"] .ks-page * {
+  cursor: grabbing !important;
 }
 .ks-page-wrap {
   margin: auto;
@@ -42,18 +65,53 @@
   inset: 0;
   pointer-events: none;
 }
+
+/* Outlines and handles come in softly when they appear (a selection): the outline fades, the handles fade and grow from small. */
+@keyframes ks-appear {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ks-pop {
+  from {
+    opacity: 0;
+    scale: 0.55;
+  }
+}
 .ks-outline {
   position: absolute;
   border: 1.5px solid var(--ks-accent);
   transform-origin: center;
   pointer-events: none;
+  animation: ks-appear var(--ks-fast) var(--ks-ease);
 }
+/* One of several selected: a thinner line, so the box round them all is what stands out. */
+.ks-outline.is-member {
+  border-width: 1px;
+}
+/* The outline of what the pointer is over stays in the page, and fades in and out. */
 .ks-outline.is-hover {
   border-width: 1px;
+  opacity: 0;
+  animation: none;
+  transition: opacity var(--ks-fast) var(--ks-ease);
+}
+.ks-outline.is-hover.is-on {
   opacity: 0.6;
 }
 .ks-outline.is-locked {
   border-style: dashed;
+}
+/* A group the person went into: its frame stays, dashed and quiet, round what they are working on in it. */
+.ks-outline.is-entered {
+  border-width: 1px;
+  border-style: dashed;
+  opacity: 0.7;
+}
+/* What a selection rectangle would take, while it is dragged. */
+.ks-outline.is-hover.is-hit {
+  opacity: 0.85;
+  transition: none;
 }
 .ks-outline.is-group {
   border-width: 1px;
@@ -67,6 +125,29 @@
   border: 1.5px solid var(--ks-accent);
   border-radius: 2px;
   pointer-events: auto;
+  animation: ks-pop var(--ks-base) var(--ks-ease);
+  transition: opacity var(--ks-fast) var(--ks-ease);
+}
+/* A handle is a small square to look at and a larger place to grab: the pointer finds it a few pixels before it is on it. */
+.ks-handle::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+/* While things are moved the handles step out of the way; a resize or a turn keeps them. */
+.ks-overlay[data-gesture="move"] .ks-handle:not(.ks-end),
+.ks-overlay[data-gesture="grab"] .ks-handle:not(.ks-end),
+.ks-overlay[data-gesture="move"] .ks-rotate-stem,
+.ks-overlay[data-gesture="grab"] .ks-rotate-stem {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-outline,
+  .ks-handle,
+  .ks-marquee,
+  .ks-readout {
+    animation: none;
+  }
 }
 .ks-handle.ks-end {
   border-radius: 50%;
@@ -76,7 +157,11 @@
   left: 50%;
   top: -24px;
   border-radius: 50%;
-  cursor: grab;
+  /* A bent arrow, white under black so that it reads on any slide; a hand if the browser cannot draw it. */
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4' stroke='%23fff' stroke-width='4.5'/%3E%3Cpath d='M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E")
+      12 12,
+    grab;
 }
 .ks-rotate-stem {
   position: absolute;
@@ -85,19 +170,60 @@
   height: 24px;
   width: 0;
   border-left: 1px solid var(--ks-accent);
+  transition: opacity var(--ks-fast) var(--ks-ease);
 }
-.ks-guide {
+
+/* ---- smart guides: lines the box being moved or sized has come to, and the gaps it has made equal */
+/* A guide is a node of one pixel at the slide's corner, put in place and stretched with `translate` and `scale` (guides-dom.ts):
+   nothing about it moves the page's layout. The parts of a guide are in a set, which fades in and out. */
+.ks-guide-set {
   position: absolute;
-  background: #e5389b;
+  inset: 0;
+  pointer-events: none;
+  /* Put away until a guide uses it: shown by writing `visibility`, which costs the page nothing; the fade is the browser's own animation. */
+  visibility: hidden;
+}
+.ks-guide,
+.ks-guide-tick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
+  background: var(--ks-guide);
   pointer-events: none;
 }
-.ks-guide.is-centre {
-  background: #f0a30a;
+.ks-guide.is-margin {
+  opacity: 0.7;
 }
+/* A gap that matches another: a line across it with a tick at each end, and the size of the gap on it. */
+.ks-guide-tick[data-axis="y"] {
+  height: 9px;
+}
+.ks-guide-tick[data-axis="x"] {
+  width: 9px;
+}
+.ks-guide-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 0 4px;
+  border-radius: var(--ks-radius);
+  background: var(--ks-guide);
+  color: var(--ks-on-guide);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .ks-marquee {
   position: absolute;
   border: 1px solid var(--ks-accent);
   background: var(--ks-soft);
+  animation: ks-appear var(--ks-fast) var(--ks-ease);
 }
 .ks-drawing {
   position: absolute;
@@ -114,19 +240,45 @@
   stroke-width: 2;
   stroke-dasharray: 5 4;
 }
-.ks-angle {
+/* The angle or the size, under what is being turned or sized. */
+.ks-readout {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  transform: translateX(-50%);
   padding: 2px 8px;
   border-radius: var(--ks-radius);
-  background: #262524;
-  color: #f4f3f1;
+  background: var(--ks-ink);
+  color: var(--ks-canvas);
   font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: ks-appear var(--ks-fast) var(--ks-ease);
 }
 .ks-editing-host {
   position: absolute;
   transform-origin: center;
+}
+
+/* The bar over a selection of several things: Group, Align, Order. It floats over the page, centred on the selection. */
+.ks-selbar {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-canvas);
+  box-shadow: var(--ks-shadow-pop);
+  pointer-events: auto;
+  cursor: default;
+  animation: ks-appear var(--ks-fast) var(--ks-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-selbar {
+    animation: none;
+  }
 }
 
 /* ---- the move handle: a chip out beyond a block's top left corner, grabbed to move the block. It is drawn here over the slide, never
@@ -152,6 +304,7 @@
   cursor: move;
   pointer-events: auto;
   touch-action: none;
+  animation: ks-pop var(--ks-base) var(--ks-ease);
   transition:
     background var(--ks-fast),
     box-shadow var(--ks-fast);
@@ -184,4 +337,9 @@
   content: "";
   position: absolute;
   inset: -8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-move {
+    animation: none;
+  }
 }

@@ -1,0 +1,277 @@
+/* Home's Recent: the filters, then the rows. One row height (32px), and a
+   column for each thing a row says, so titles and times line up down the list. */
+
+.kasten-home-recent {
+  min-width: 0;
+}
+.kasten-home-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.kasten-home-chipset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.kasten-home-filter {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  font-weight: 500;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+.kasten-home-filter:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.kasten-home-filter[aria-pressed="true"] {
+  background: var(--color-selected);
+  color: var(--color-ink);
+}
+.kasten-home-tools {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* The project list is the library's drop-down: as tall as the chips beside it. */
+.kasten-home-tools button[aria-haspopup="listbox"] {
+  height: 28px;
+  max-width: 10rem;
+}
+.kasten-home-find {
+  display: flex;
+  min-width: 7rem;
+  flex: 0 1 168px;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 8px;
+  border-radius: var(--radius);
+  background: var(--color-canvas);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+.kasten-home-find:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent),
+    0 0 0 3px var(--color-soft);
+}
+.kasten-home-find input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  font-size: var(--text-13);
+  outline: none;
+}
+.kasten-home-find input::placeholder {
+  color: var(--color-faint);
+}
+.kasten-home-find-clear {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+}
+.kasten-home-find-clear:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-home-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -8px;
+  list-style: none;
+}
+.kasten-home-row {
+  display: grid;
+  width: 100%;
+  height: 32px;
+  grid-template-columns: 20px minmax(0, 1fr) minmax(0, 9rem) 3.5rem;
+  align-items: center;
+  column-gap: 10px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+button.kasten-home-row:hover {
+  background: var(--color-hover);
+}
+.kasten-home-row-icon {
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+}
+.kasten-home-row-title,
+.kasten-home-row-project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-home-row-meta {
+  display: contents;
+}
+.kasten-home-row-project {
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+.kasten-home-row-time {
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The same rows as a denser grid: two columns, the details under the title. */
+.kasten-home-rows[data-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8px;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row {
+  height: 48px;
+  grid-template-areas:
+    "icon title"
+    "icon meta";
+  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  row-gap: 0;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-icon {
+  grid-area: icon;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-title {
+  grid-area: title;
+  align-self: end;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-meta {
+  display: flex;
+  grid-area: meta;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  align-self: start;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-project {
+  min-width: 0;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-time {
+  flex: none;
+}
+.kasten-home-rows[data-layout="grid"] .kasten-home-row-project:not(:empty) + .kasten-home-row-time::before {
+  content: "· ";
+}
+
+/* A short window gives up the last two rows. */
+@media (max-height: 820px) {
+  .kasten-home-item:nth-child(n + 9) {
+    display: none;
+  }
+}
+
+/* Holding places, so the layout is the same before and after the vault answers. */
+.kasten-home-row.is-skeleton {
+  pointer-events: none;
+}
+.kasten-home-bone {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-well);
+}
+.kasten-home-bone.is-icon {
+  width: 16px;
+  height: 16px;
+  justify-self: center;
+}
+.kasten-home-bone.is-title {
+  width: 48%;
+}
+.kasten-home-bone.is-chip {
+  width: 96px;
+  height: 20px;
+  margin-inline: 4px;
+}
+.kasten-home-bone.is-time {
+  grid-column: 4;
+  width: 28px;
+  justify-self: end;
+}
+
+.kasten-home-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding: 0 0 0 8px;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+.kasten-home-link {
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  color: var(--color-muted);
+}
+.kasten-home-link:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.kasten-home-nothing {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+.kasten-home-nothing.is-failed {
+  min-height: 0;
+  padding: 8px;
+}
+
+/* A pane of a laptop's width: a row gives up its project (it is in the tooltip),
+   and the chips have a line to themselves with the tools on the next. */
+@container kasten-home (max-width: 980px) {
+  .kasten-home-row {
+    grid-template-columns: 20px minmax(0, 1fr) 3.5rem;
+  }
+  .kasten-home-rows:not([data-layout="grid"]) .kasten-home-row-project {
+    display: none;
+  }
+  .kasten-home-bone.is-time {
+    grid-column: 3;
+  }
+  .kasten-home-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+  .kasten-home-find {
+    flex: 1 1 8rem;
+  }
+}
+@container kasten-home (max-width: 540px) {
+  .kasten-home-rows[data-layout="grid"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,6 +1,6 @@
 // Page links: the `[[` and `@` menus, the `]]` shortcut and the mention view.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useTestEditor } from "../../../../test/editor";
 import type { LinkProvider } from "../links";
@@ -10,7 +10,9 @@ const pages = [
   { title: "Duplicate score for photos", icon: "💡" },
   { title: "Photo organiser roadmap", icon: "🗺️" },
 ];
+let weekStart = 1;
 const links: LinkProvider = {
+  weekStart: () => weekStart,
   pages: () => pages,
   open: vi.fn(),
   create: vi.fn(),
@@ -111,6 +113,74 @@ describe("@ mentions", () => {
     editor.open("mail\n").caret("mail", true);
     editor.type("@host");
     expect(mentionQuery(editor.view.state)).toBeNull();
+  });
+
+  it("offer only days that exist", () => {
+    editor.open("x\n").caret("x", true);
+    editor.type(" @2026-13-45");
+    expect(keys()).toEqual([]);
+    editor.press("Escape");
+    editor.open("x\n").caret("x", true);
+    editor.type(" @2026-02-29");
+    expect(keys()).toEqual([]);
+    editor.press("Escape");
+    editor.open("x\n").caret("x", true);
+    editor.type(" @2024-02-29");
+    expect(keys()).toEqual(["day:2024-02-29"]);
+  });
+});
+
+describe("@ dates and times", () => {
+  // Wednesday 7 October 2026, 10:30: only the clock is faked, the editor needs its timers.
+  beforeEach(() => void vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 9, 7, 10, 30) }));
+  afterEach(() => void vi.useRealTimers());
+
+  it("link a day with a time as `[[day]] time`", () => {
+    editor.open("Standup\n").caret("Standup", true);
+    editor.type(" @next fri 3pm");
+    expect(keys()).toEqual(["day:2026-10-16 15:00"]);
+    editor.press("Enter");
+    expect(editor.save()).toBe("Standup [[2026-10-16]] 15:00\n");
+  });
+
+  it("put today's day link before a time typed alone", () => {
+    editor.open("Call\n").caret("Call", true);
+    editor.type(" @14:00");
+    expect(keys()).toEqual(["day:2026-10-07 14:00"]);
+    editor.press("Enter");
+    expect(editor.save()).toBe("Call [[2026-10-07]] 14:00\n");
+  });
+
+  it("let writing go on after the time", () => {
+    editor.open("x\n").caret("x", true);
+    editor.type(" @tomorrow 9am");
+    editor.press("Enter");
+    editor.type("review");
+    expect(editor.save()).toBe("x [[2026-10-08]] 09:00 review\n");
+  });
+
+  it("read weekdays, and days without a time keep the plain link", () => {
+    editor.open("x\n").caret("x", true);
+    editor.type(" @fri");
+    expect(keys()).toEqual(["day:2026-10-09"]);
+    editor.press("Enter");
+    expect(editor.save()).toBe("x [[2026-10-09]]\n");
+  });
+
+  it("follow the day the week starts on", () => {
+    weekStart = 0;
+    editor.open("x\n").caret("x", true);
+    editor.type(" @next week");
+    expect(keys()).toEqual(["day:2026-10-11"]);
+    weekStart = 1;
+    editor.press("Escape");
+  });
+
+  it("work in a to-do", () => {
+    editor.open("- [ ] Call Sam\n").caret("Call Sam", true);
+    editor.type(" @friday");
+    editor.press("Enter");
+    expect(editor.save()).toBe("- [ ] Call Sam [[2026-10-09]]\n");
   });
 });
 

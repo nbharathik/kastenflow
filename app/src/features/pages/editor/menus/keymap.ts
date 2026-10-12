@@ -16,11 +16,11 @@ import { $prose } from "@milkdown/kit/utils";
 import { applyColor, lastColor } from "../blocks/color";
 import { backspaceInToggle, enterInToggle } from "../blocks/toggle-keys";
 import { flipToggleAt } from "../blocks/toggle-view";
-import { duplicateBlock } from "./block-ops";
 import { openBlockMenu } from "./block-menu";
-import { currentBlock, editSelectedBlock, moveBlock, selectCurrentBlock, stepBlockSelection } from "./block-nav";
+import { currentBlock, editSelectedBlock, extendBlockSelection, moveBlock, selectCurrentBlock, stepBlockSelection } from "./block-nav";
+import { pickedBlocks } from "./block-range";
 import type { BlockKind } from "./catalog";
-import { turnInto } from "./transform";
+import { deleteRange, duplicateSelected, groupSelected, leaveRange, turnSelected } from "./range-keys";
 
 /** Ctrl+Alt+digit turns the block into Notion's kind for that digit. */
 const DIGITS: Record<string, BlockKind> = {
@@ -65,15 +65,10 @@ const flip: Command = (state, dispatch) => {
   return false;
 };
 
-const duplicate: Command = (state, dispatch) => {
-  const block = currentBlock(state);
-  return block ? duplicateBlock(block.pos)(state, dispatch) : false;
-};
-
-/** Keys typed while a whole block is selected: Enter edits it, letters are
- * ignored rather than replacing the block. */
+/** Keys typed while a whole block, or several, are selected: Enter edits
+ * them, letters are ignored rather than replacing the blocks. */
 function guardSelectedBlock(view: EditorView, event: KeyboardEvent): boolean {
-  if (!(view.state.selection instanceof NodeSelection)) return false;
+  if (!pickedBlocks(view.state.selection)) return false;
   if (event.key === "Enter" && !event.ctrlKey && !event.metaKey) return editSelectedBlock(view.state, view.dispatch);
   return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
 }
@@ -89,24 +84,30 @@ function bindings(ctx: Ctx): Record<string, Command> {
     "Mod-Shift-x": run(toggleStrikethroughCommand.key),
     "Mod-k": (state) => !state.selection.empty && !(state.selection instanceof NodeSelection) && ctx.get(commandsCtx).call(toggleLinkCommand.key),
     "Mod-Shift-h": highlight,
-    "Mod-d": duplicate,
+    "Mod-d": duplicateSelected,
+    "Mod-Alt-t": groupSelected,
     "Mod-Shift-ArrowUp": moveBlock(-1),
     "Mod-Shift-ArrowDown": moveBlock(1),
     "Alt-Shift-ArrowUp": moveBlock(-1),
     "Alt-Shift-ArrowDown": moveBlock(1),
     ArrowUp: stepBlockSelection(-1),
     ArrowDown: stepBlockSelection(1),
-    Escape: selectCurrentBlock,
+    // With blocks selected, Shift and an arrow grow the selection; in text they select text as usual.
+    "Shift-ArrowUp": extendBlockSelection(-1),
+    "Shift-ArrowDown": extendBlockSelection(1),
+    Escape: (state, dispatch, view) => leaveRange(state, dispatch, view) || selectCurrentBlock(state, dispatch, view),
     "Mod-Enter": flip,
     Enter: enterInToggle,
-    Backspace: backspaceInToggle,
+    Backspace: (state, dispatch, view) => deleteRange(state, dispatch, view) || backspaceInToggle(state, dispatch, view),
+    Delete: deleteRange,
   };
-  for (const [digit, kind] of Object.entries(DIGITS)) map[`Mod-Alt-${digit}`] = turnInto(kind);
+  for (const [digit, kind] of Object.entries(DIGITS)) map[`Mod-Alt-${digit}`] = turnSelected(kind);
   return map;
 }
 
-/** Ctrl+/ opens the block menu for the block around the caret. */
+/** Ctrl+/ opens the block menu for the block around the caret, or for the blocks selected. */
 function openMenuHere(view: EditorView): boolean {
+  const picked = pickedBlocks(view.state.selection);
   const block = currentBlock(view.state);
   if (!block) return false;
   const caret = (() => {
@@ -116,7 +117,7 @@ function openMenuHere(view: EditorView): boolean {
       return view.dom.getBoundingClientRect();
     }
   })();
-  openBlockMenu(view, block.pos, () => caret);
+  openBlockMenu(view, picked?.from ?? block.pos, () => caret, picked && picked.count > 1 ? picked : undefined);
   return true;
 }
 

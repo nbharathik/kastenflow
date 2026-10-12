@@ -89,6 +89,25 @@ fn takes_the_main_part_or_else_the_body() {
 }
 
 #[test]
+fn reads_only_a_pages_title() {
+    let url = "https://example.com/blog/smart-notes.html";
+    assert_eq!(title_of(url, PAGE), "How to Take Smart Notes: A Review");
+    // A page cut off after its head, as a limited fetch leaves it, still has one.
+    let head = &PAGE[..PAGE.find("<body>").unwrap()];
+    assert_eq!(title_of(url, head), "How to Take Smart Notes: A Review");
+    // Line breaks and runs of spaces in a title are one space.
+    assert_eq!(
+        title_of(url, "<title>\n  Two\n   lines </title>"),
+        "Two lines"
+    );
+    // Without one, the address without its scheme.
+    assert_eq!(
+        title_of("https://example.com/notes/x/", "<p>t</p>"),
+        "example.com/notes/x"
+    );
+}
+
+#[test]
 fn resolves_links_against_the_page() {
     let base = "https://example.com/a/b/page.html?q=1#frag";
     assert_eq!(resolve(base, "c.png"), "https://example.com/a/b/c.png");

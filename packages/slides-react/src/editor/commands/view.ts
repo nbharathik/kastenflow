@@ -129,7 +129,8 @@ export const viewCommands: Command[] = [
     id: "help.shortcuts",
     label: "Keyboard shortcuts",
     icon: "keyboard",
-    keys: ["Mod+/"],
+    // Ctrl+/ is the Insert gallery's; the shortcuts are one Shift away, as the question mark is.
+    keys: ["Mod+Shift+?", "Mod+Shift+/"],
     scope: "global",
     run: ({ ui }) => ui.openDialog("shortcuts"),
   },

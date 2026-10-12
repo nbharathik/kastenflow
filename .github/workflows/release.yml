@@ -104,21 +104,21 @@ jobs:
           find "target/$TARGET/release/bundle" -maxdepth 2 -type f \
             \( -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.dmg' \) \
             -exec cp {} out/ \;
-          # Both Macs name their update archive Kasten.app.tar.gz: here it
+          # Both Macs name their update archive KastenFlow.app.tar.gz: here it
           # gets the version and processor, as the other files have.
           for file in "target/$TARGET/release/bundle/macos/"*.app.tar.gz; do
             [ -e "$file" ] || continue
             arch=x64
             [ "$NAME" = macos-arm64 ] && arch=aarch64
-            cp "$file" "out/Kasten_$(node scripts/check-version.mjs --print)_$arch.app.tar.gz"
+            cp "$file" "out/KastenFlow_$(node scripts/check-version.mjs --print)_$arch.app.tar.gz"
           done
           bin="target/$TARGET/release"
           cp LICENSE "$bin/"
           cp app/public/third-party-notices.txt "$bin/THIRD-PARTY-NOTICES.txt"
           if [ "$RUNNER_OS" = Windows ]; then
-            (cd "$bin" && 7z a "$GITHUB_WORKSPACE/out/kasten-cli-$TAG-$NAME.zip" kasten.exe kasten-mcp.exe LICENSE THIRD-PARTY-NOTICES.txt)
+            (cd "$bin" && 7z a "$GITHUB_WORKSPACE/out/kasten-cli-$TAG-$NAME.zip" kastenflow.exe kasten.exe kasten-mcp.exe LICENSE THIRD-PARTY-NOTICES.txt)
           else
-            tar -czf "out/kasten-cli-$TAG-$NAME.tar.gz" -C "$bin" kasten kasten-mcp LICENSE THIRD-PARTY-NOTICES.txt
+            tar -czf "out/kasten-cli-$TAG-$NAME.tar.gz" -C "$bin" kastenflow kasten kasten-mcp LICENSE THIRD-PARTY-NOTICES.txt
           fi
           ls -l out
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
@@ -205,4 +205,4 @@ jobs:
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" out/* --draft --verify-tag --title "Kasten $TAG" --notes-file .github/release-notes.md --generate-notes
+        run: gh release create "$TAG" out/* --draft --verify-tag --title "KastenFlow $TAG" --notes-file .github/release-notes.md --generate-notes

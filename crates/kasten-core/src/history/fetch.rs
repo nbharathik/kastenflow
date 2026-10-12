@@ -152,7 +152,7 @@ pub fn clone_backup(url: &str, token: Option<&GitToken>, target: &Path) -> Resul
             .strip_prefix("refs/heads/")
             .filter(|b| git2::Reference::is_valid_name(&format!("refs/heads/{b}")))
             .ok_or_else(|| {
-                Error::Invalid("The backup's branch has a name Kasten can't use".into())
+                Error::Invalid("The backup's branch has a name KastenFlow can't use".into())
             })?
             .to_owned();
         let mut options = FetchOptions::new();

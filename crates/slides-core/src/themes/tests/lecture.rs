@@ -62,17 +62,27 @@ fn the_logo_is_an_empty_image_inside_the_bar_at_its_right_end() {
 }
 
 #[test]
-fn every_theme_numbers_its_slides_in_the_same_place() {
+fn every_theme_numbers_its_slides_the_same_way_and_the_first_four_in_the_same_place() {
     for theme in all() {
         let Element::Text(number) = element(&theme, "master-number") else {
             panic!("{}: the number is a text box", theme.name)
         };
-        assert_eq!(
-            number.base.rect(),
-            Some((860.0, 500.0, 80.0, 24.0)),
-            "{}",
-            theme.name
-        );
+        let (x, y, w, h) = number.base.rect().expect("the number has a box");
+        if ["Light", "Dark", "Serif", "Lecture"].contains(&theme.name.as_str()) {
+            assert_eq!((x, y, w, h), (860.0, 500.0, 80.0, 24.0), "{}", theme.name);
+        } else {
+            // A designed theme may keep the number clear of its own marks, but it stays in the
+            // bottom right corner of the slide.
+            assert_eq!((w, h), (80.0, 24.0), "{}", theme.name);
+            assert!(
+                x + w <= SLIDE_WIDTH - 16.0
+                    && x >= SLIDE_WIDTH - 200.0
+                    && y >= 496.0
+                    && y + h <= 540.0,
+                "{}: the number is at {x}, {y}",
+                theme.name
+            );
+        }
         let [paragraph] = number.text.paragraphs.as_slice() else {
             panic!("{}: the number is one paragraph", theme.name)
         };

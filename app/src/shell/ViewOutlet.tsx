@@ -7,7 +7,7 @@ import { Home } from "../features/home/Home";
 import { Inbox } from "../features/inbox/Inbox";
 import { JournalView } from "../features/journal/JournalView";
 import { howFromView, useWorkspace, type Place } from "../features/workspace/store";
-import { BoardsHome, CalendarView, ChatView, HighlightsHome, History, ImportView, LibraryView, PdfReader, Review, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
+import { BoardsHome, BrowserView, CalendarView, ChatView, DiagramsHome, DiagramView, GraphView, HighlightsHome, History, ImportView, LibraryView, PdfReader, ProjectOverview, Review, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
 import { ViewBoundary } from "../ui/ViewBoundary";
 
 /** Renders a tab's place; views load their code when first opened. */
@@ -39,6 +39,9 @@ function View({ place }: { place: Place }) {
       return place.path ? <LazyBoard key={place.path} path={place.path} /> : <BoardsHome />;
     case "slides":
       return place.path ? <LazyDeck key={place.path} path={place.path} /> : <SlidesHome />;
+    case "diagrams":
+      // Not keyed by path: after a conflict the editor goes on with a copy, and the tab follows it without reloading.
+      return place.path ? <DiagramView path={place.path} /> : <DiagramsHome />;
     case "library":
       // Ctrl+click opens a card in a tab, Shift+click on the side stack.
       return <LibraryView onOpen={(path, event) => useWorkspace.getState().openPath(path, howFromView(event))} />;
@@ -62,6 +65,14 @@ function View({ place }: { place: Place }) {
       return <Review />;
     case "history":
       return <History />;
+    case "graph":
+      // Around the page it was opened from, when it names one.
+      return <GraphView key={place.path ?? ""} path={place.path} />;
+    case "overview":
+      return place.path ? <ProjectOverview key={place.path} path={place.path} /> : <Home />;
+    case "web":
+      // Not keyed by address: the page moves the tab's address as it goes, and keeps its view.
+      return <BrowserView place={place} />;
     default:
       return <Home />;
   }

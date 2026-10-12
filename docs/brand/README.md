@@ -1,13 +1,13 @@
-# Kasten brand
+# KastenFlow brand
 
-<img src="logo.svg" width="96" alt="The Kasten logo: a white card box on a dark tile, two index cards fanned in a box with a label slot">
+<img src="logo.svg" width="96" alt="The KastenFlow logo: a white card box on a dark tile, two index cards fanned in a box with a label slot">
 
 The mark is a **card box**:
 
 - two index cards, fanned evenly;
 - standing in a box with a label slot.
 
-A *Kasten* is a box, as in *Zettelkasten*, the box of index cards the app is named after. The mark shows what the app keeps: notes as cards, in one box that is yours. It is one flat shape in one colour, and it reads at 16 px.
+A *Kasten* is a box, as in *Zettelkasten*, the box of index cards KastenFlow is named after. The mark shows what the app keeps: notes as cards, in one box that is yours. It is one flat shape in one colour, and it reads at 16 px.
 
 ## Files
 
@@ -42,7 +42,7 @@ From `/tmp/icons`, copy back into `app/src-tauri/icons/` only the files `tauri.c
 In the app, `BrandMark` (`app/src/ui/BrandMark.tsx`) draws the same shapes in the theme's colours:
 
 - the sidebar and the first-run screen show it on a tile;
-- `working` makes the cards rise out of the box and settle, while Kasten works: a chat thinking, a brainstorm under way. Under reduced motion they rest.
+- `working` makes the cards rise out of the box and settle, while KastenFlow works: a chat thinking, a brainstorm under way. Under reduced motion they rest.
 
 ## Colour
 
@@ -55,7 +55,7 @@ In the app, the mark follows the theme (`--color-ink` and `--color-canvas`). The
 
 ## Type
 
-The wordmark is the word *Kasten* in the system UI font, weight 700, tracked in by 2–3 %. The app ships no web fonts. The social preview was rendered once with Inter (SIL Open Font License), which is not part of the app.
+The wordmark is the word *KastenFlow*, one word with a capital F, in the system UI font, weight 700, tracked in by 2–3 %. The app ships no web fonts. The social preview was rendered once with Inter (SIL Open Font License), which is not part of the app.
 
 ## Do and don't
 

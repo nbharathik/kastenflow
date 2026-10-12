@@ -53,6 +53,10 @@ pub struct Reply {
     /// Anthropic's content blocks as they came, thinking and signatures
     /// included: sent back unchanged, as the API requires.
     pub blocks: Option<Vec<Value>>,
+    /// The Responses API's output items as they go back (reasoning with its
+    /// encrypted content, text, function calls). Only that API reads them:
+    /// a thread that switches provider sends the text and calls instead.
+    pub items: Option<Vec<Value>>,
 }
 
 impl Reply {

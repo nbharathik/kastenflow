@@ -1,4 +1,5 @@
-/* The header: the mark, the sections, the theme and the demo. */
+/* The header: the mark, the sections, the theme and the demo. It sits clear
+   over the banner's clouds and frosts once the page scrolls. */
 
 .site-header {
   position: sticky;
@@ -10,22 +11,22 @@
 
 .site-header.is-stuck {
   border-color: var(--line);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px);
+  -webkit-backdrop-filter: saturate(1.4) blur(16px);
 }
 
 .header-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  height: 64px;
+  gap: 28px;
+  height: 68px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   text-decoration: none;
 }
 
@@ -35,6 +36,7 @@
 }
 
 .brand-name {
+  font-family: var(--display);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -42,18 +44,18 @@
 
 .nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-inline: auto;
 }
 
 .nav a {
-  padding: 7px 12px;
-  border-radius: 9px;
-  color: var(--muted);
-  font-size: 14.5px;
-  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  color: var(--ink-2);
+  font-size: 15px;
+  letter-spacing: -0.01em;
   text-decoration: none;
-  transition: color 160ms, background-color 160ms;
+  transition: background-color 160ms, color 160ms;
 }
 
 .nav a:hover {
@@ -64,7 +66,13 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.header-cta {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 14.5px;
 }
 
 .menu-btn {
@@ -73,14 +81,14 @@
 
 /* On phones the sections fold into a menu. */
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .menu-btn {
     display: inline-grid;
   }
 
   .nav {
     position: absolute;
-    top: 64px;
+    top: 68px;
     left: 12px;
     right: 12px;
     display: none;
@@ -88,7 +96,7 @@
     gap: 2px;
     padding: 8px;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-md);
     background: var(--surface);
     box-shadow: var(--shadow-lg);
   }
@@ -98,7 +106,7 @@
   }
 
   .nav a {
-    padding: 11px 12px;
+    padding: 12px;
     font-size: 16px;
   }
 

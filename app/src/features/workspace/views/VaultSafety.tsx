@@ -47,7 +47,7 @@ export function VaultSafety({ Row }: { Row: RowComponent }) {
       {status?.synced && (
         <Row
           label="Vault folder"
-          detail={`This vault is ${syncedWords(status.synced)} Quit Kasten, move the vault folder out of it, then open the folder from its new place. Backup below keeps a copy in the cloud instead.`}
+          detail={`This vault is ${syncedWords(status.synced)} Quit KastenFlow, move the vault folder out of it, then open the folder from its new place. Backup below keeps a copy in the cloud instead.`}
         >
           <span role="status" className="text-13 text-warning">
             In {status.synced}

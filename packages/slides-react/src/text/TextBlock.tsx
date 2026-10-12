@@ -3,13 +3,14 @@
 // with the same styles and elements the editor does.
 
 import type { Insets, Paragraph, Run, Text, Theme, VAlign } from "@kasten-slides/wasm";
-import { type CSSProperties, type JSX, type ReactNode, createElement } from "react";
+import { type CSSProperties, type JSX, type ReactNode, type Ref, createElement } from "react";
 
 import { colorOf } from "../theme/index.ts";
 import { boxCss } from "./box-style.ts";
-import { listNumbers, markerFor } from "./lists.ts";
+import type { Geometry } from "./lists.ts";
+import { markerTexts } from "./lists.ts";
 import { wrapsOfRun } from "./marks.ts";
-import { paragraphCss } from "./text-style.ts";
+import { paragraphCss, textGeometry } from "./text-style.ts";
 import "./text.css";
 
 /** What the fields of a text stand for: the slide's number, how many slides there are, and the step label. */
@@ -38,6 +39,10 @@ export interface TextBlockProps {
   /** Shown dimmed when every run is empty. */
   emptyPrompt?: string;
   className?: string;
+  /** How much "shrink text on overflow" has set the type smaller: 1 is as written. The box's insets keep their size. */
+  fitScale?: number;
+  /** Receives the box element, for whoever measures the words. */
+  boxRef?: Ref<HTMLDivElement>;
 }
 
 /** What a run shows: a field's value when it stands for one that is given, else its own text. */
@@ -74,17 +79,19 @@ interface ParagraphViewProps {
   theme: Theme;
   baseStyle: string;
   paragraph: Paragraph;
-  number: number | null;
+  /** What the list marker shows; null for a paragraph that is not a list item. */
+  marker: string | null;
+  geometry: Geometry;
   fields: TextFields | undefined;
   step: number | undefined;
 }
 
-function ParagraphView({ theme, baseStyle, paragraph, number, fields, step }: ParagraphViewProps): JSX.Element {
+function ParagraphView({ theme, baseStyle, paragraph, marker, geometry, fields, step }: ParagraphViewProps): JSX.Element {
   return (
-    <div className="ks-p" style={paragraphCss(theme, baseStyle, paragraph, { step })}>
-      {paragraph.list ? (
+    <div className="ks-p" style={paragraphCss(theme, baseStyle, paragraph, { step, geometry })}>
+      {marker !== null ? (
         <span className="ks-marker" aria-hidden="true">
-          {markerFor(paragraph, number ?? 1)}
+          {marker}
         </span>
       ) : null}
       {paragraph.runs.map((run, i) => runNode(theme, run, fields, i))}
@@ -110,16 +117,17 @@ function Prompt({ theme, baseStyle, paragraph, prompt }: { theme: Theme; baseSty
 }
 
 export function TextBlock(props: TextBlockProps): JSX.Element {
-  const { theme, text, baseStyle, width, height, insets, valign, fields, step, emptyPrompt, className } = props;
-  const numbers = listNumbers(text.paragraphs);
+  const { theme, text, baseStyle, width, height, insets, valign, fields, step, emptyPrompt, className, fitScale, boxRef } = props;
+  const markers = markerTexts(text.paragraphs);
+  const geometry = textGeometry(theme, baseStyle, text.paragraphs);
   const showPrompt = emptyPrompt !== undefined && emptyPrompt !== "" && isBlank(text);
   return (
-    <div className={className ? `ks-text ${className}` : "ks-text"} style={boxCss({ width, height, insets, valign }, text)}>
+    <div ref={boxRef} className={className ? `ks-text ${className}` : "ks-text"} style={boxCss({ width, height, insets, valign, scale: fitScale }, text)}>
       {showPrompt ? (
         <Prompt theme={theme} baseStyle={baseStyle} paragraph={text.paragraphs[0]} prompt={emptyPrompt} />
       ) : (
         text.paragraphs.map((paragraph, i) => (
-          <ParagraphView key={i} theme={theme} baseStyle={baseStyle} paragraph={paragraph} number={numbers[i] ?? null} fields={fields} step={step} />
+          <ParagraphView key={i} theme={theme} baseStyle={baseStyle} paragraph={paragraph} marker={markers[i] ?? null} geometry={geometry[i] ?? { margin: 0, indent: 0 }} fields={fields} step={step} />
         ))
       )}
     </div>

@@ -30,7 +30,8 @@ export function OutlineView({ session, ui }: { session: EditorSession; ui: Edito
         ui.setView("edit");
       },
       addAfter(id) {
-        const added = session.slides.add({ after: id });
+        // The outline writes titles and points into a slide's own boxes, so the slide it adds has some: a blank one could not be typed into here.
+        const added = session.slides.add({ after: id, likeCurrent: true });
         if (added) wanted.current = added;
       },
       focusTitleAfter(id) {

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
 publish.workspace = true
-description = "Kasten Slides: export a deck as an editable PowerPoint (.pptx) file"
+description = "KastenFlow Slides: export a deck as an editable PowerPoint (.pptx) file"
 
 [dependencies]
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }

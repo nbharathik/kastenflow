@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type { AddedAsset, AssetInfo, AssetUsage } from "./asset-types";
+import { tauriDiagrams } from "./diagrams-tauri";
 import type {
   AddedKit,
   KitInfo,
@@ -29,12 +30,14 @@ import type {
   Hit,
   NewNote,
   NoteFile,
+  NoteMatches,
   NoteMeta,
   Placed,
   NoteStats,
   Proposal,
   RelatedNote,
   Renamed,
+  Replaced,
   Saved,
   SessionInfo,
   SourceHighlights,
@@ -47,6 +50,7 @@ import type {
   VaultConfig,
   VaultEvents,
   VaultRestore,
+  VaultGraph,
   VaultStatus,
   VerifyReport,
 } from "./types";
@@ -156,6 +160,8 @@ export function tauriVault(label: string): VaultClient {
     references: () => invoke<string>("references"),
     createDeck: (title, project, text) => invoke<string>("create_deck", { title, project, text }),
     saveDeck: (path, text, baseHash) => invoke<DeckSaved>("save_deck", { path, text, baseHash }),
+    deckTemplates: () => invoke<DeckInfo[]>("list_deck_templates"),
+    createDeckTemplate: (title, text) => invoke<string>("create_deck_template", { title, text }),
     proposals: () => invoke<Proposal[]>("list_proposals"),
     acceptProposal: (id) => invoke<unknown>("accept_proposal", { id }),
     rejectProposal: (id) => invoke<void>("reject_proposal", { id }),
@@ -164,12 +170,16 @@ export function tauriVault(label: string): VaultClient {
     planImport: (source, options) => invoke<ImportSummary>("plan_import", { source, options }),
     importNotes: (source, options) => invoke<Imported>("import_notes", { source, options }),
     undoCommit: (commit) => invoke<Undone>("undo_commit", { commit }),
+    findUnder: (root, spec, maxNotes) => invoke<NoteMatches[]>("find_under", { root, spec, maxNotes: maxNotes ?? null }),
+    replaceUnder: (request) => invoke<Replaced>("replace_under", { request }),
+    graph: (scope) => invoke<VaultGraph>("vault_graph", { scope }),
     clipUrl: (url) => invoke<NoteFile>("clip_url", { url }),
     trustSession: (session, minutes) => invoke<void>("trust_session", { session, minutes }),
     commitChanges: (rev) => invoke<ChangedFile[]>("commit_changes", { rev }),
     agentMarks: (path) => invoke<AgentMark[]>("agent_marks", { path }),
     acceptAgentMarks: (path) => invoke<void>("accept_agent_marks", { path }),
     agentMarked: (paths) => invoke<string[]>("agent_marked", { paths }),
+    ...tauriDiagrams,
     watch: watchVault,
   };
 }

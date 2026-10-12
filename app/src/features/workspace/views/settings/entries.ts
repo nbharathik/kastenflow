@@ -1,0 +1,169 @@
+// Every setting in the Settings window: its label, the explanation behind its
+// ? icon and the words that find it. A row on the page names its entry by id
+// (`<Row id="appearance.theme">`) and takes the label and explanation from
+// here, so the page and the search cannot drift apart.
+
+import { SHOW_OPTIONS } from "../../../calendar/show";
+import { HOME_SECTIONS } from "../../../home/sections";
+import type { GroupId, SettingEntry } from "./index";
+
+type Spec = [id: string, label: string, help?: string, words?: string, extra?: Partial<SettingEntry>];
+
+/** The entries of one group; `card` names the card of the group's page they sit in, unless a spec says another. */
+function make(group: GroupId, specs: Spec[], card?: string): SettingEntry[] {
+  return specs.map(([id, label, help, words, extra]) => ({ id: `${group}.${id}`, group, label, ...(card ? { card } : {}), ...(help ? { help } : {}), ...(words ? { words } : {}), ...extra }));
+}
+
+const PAGE_OWN = "For every page; a page can pick its own in its ••• menu.";
+
+/** The rows that limit what an agent may change, by their key in the vault's settings. */
+export const LIMIT_SPECS: Spec[] = [
+  ["limit.max_removed_fraction", "Largest removal", "An edit removing more of a note's text waits for review.", "percent delete"],
+  ["limit.max_notes_per_session_10min", "Notes changed in 10 minutes", "Past this, a session's further changes wait for review."],
+  ["limit.max_trash_per_session", "Notes trashed per session", "Past this, moving notes to the trash waits for review."],
+  ["limit.max_board_nodes_removed", "Cards removed from a board at once", "More than this waits for review.", "whiteboard"],
+  ["limit.max_slides_removed", "Slides taken out of decks in 10 minutes", "Removing slides or emptying them; past this a change waits for review, even in a trusted session. A deck moved to the trash always waits.", "presentation"],
+  ["limit.max_write_bytes", "Largest single write", "Bigger writes are refused outright.", "size kb"],
+  ["limit.max_asset_bytes", "Largest picture an agent may add", "Bigger pictures and files are refused outright.", "image file size mb"],
+  ["limit.max_assets_per_session_10min", "Pictures added in 10 minutes", "Past this a session's pictures are refused; a PowerPoint file comes in whole or not at all.", "images files"],
+  ["limit.max_asset_bytes_per_session_10min", "Picture data added in 10 minutes", "Past this a session's pictures are refused.", "images files size mb"],
+];
+
+export const ENTRIES: SettingEntry[] = [
+  ...make(
+    "appearance",
+    [
+      ["theme", "Theme", "Light, dark, or follow your computer.", "dark light mode night colour scheme system"],
+      ["accent", "Accent colour", "Buttons, selection and highlights.", "color blue violet green orange pink graphite"],
+      ["zoom", "Interface size", "How large everything draws on this display. Each display keeps its own size; Auto picks one from the display's width.", "zoom scale bigger smaller magnify display ctrl percent 100%"],
+    ],
+    "Frequently used",
+  ),
+  ...make("appearance", [["motion", "Motion", "Menus, dialogs and views ease in as they open. System follows your computer's reduce-motion setting. Typing never moves.", "animation animate reduce transitions"]], "Animation"),
+  ...make(
+    "pages",
+    [
+      ["font", "Font", PAGE_OWN, "typeface serif mono sans reading"],
+      ["textSize", "Text size", PAGE_OWN, "font size larger smaller bigger reading"],
+      ["fullWidth", "Full width", "Use the whole window for page text.", "wide column margins"],
+      ["spellcheck", "Check spelling", "Underline words the spell checker does not know.", "spell typos"],
+    ],
+    "Reading",
+  ),
+  ...make(
+    "pages",
+    [
+      ["newTabs", "Open pages in a new tab", "What you click opens in its own tab, so the page you are on stays open, Home included.", "click tabs"],
+      ["peek", "Open pages from views in", "A page picked in the calendar, a table, a board of cards or Tasks.", "peek center side full"],
+      ["links", "Open links and sub-pages in", "A plain click on a link, a sub-page or a page in the sidebar. Ctrl, Shift and Alt clicks, and what a page chooses in its ••• menu, still win.", "same tab peek stack right"],
+      ["right", "Open to the right", "What a page opened to the right does to the pane there.", "split replace add tab"],
+    ],
+    "Opening pages",
+  ),
+  ...make("sidebar", [
+    ["cards", "Show quick notes under projects", "Quick notes and captures stay on their project's home and in the Inbox; turn this on to list them under the project as well.", "cards captures inbox"],
+    ["views", "Views in the sidebar", "Pin the ones you use every day; the rest stay under More views, and a view that is open or has a count shows anyway.", "pin unpin order arrange navigation more views", { jump: true }],
+  ]),
+  ...make(
+    "home",
+    HOME_SECTIONS.map((s): Spec => [s.id, s.label, s.hint, "section show hide customize"]),
+  ),
+  ...make("boards", [
+    [
+      "toolbar",
+      "Always show the toolbar",
+      "Off, the strip of tools on a board's left edge rests faintly until the pointer comes to it, so it stays out of the way while you work. Every tool is also a key (V, H, D, R, O, L), and every action is in the palette.",
+      "tools strip left edge canvas hide",
+    ],
+    ["minimap", "Show the minimap", "A small map of the board in a corner, for large boards. M turns it on and off on a board.", "overview map corner large"],
+    ["doubleClick", "Double-click on empty space makes", "What a double-click on an empty part of a board makes. The + menu on a board sets it too.", "card sticky note create empty"],
+  ]),
+  ...make("ai", [
+    ["providers", "Providers", "Anthropic, any OpenAI-compatible server, or your ChatGPT plan, each with the model new chats start with. Keys are kept in your system keychain.", "anthropic claude openai gpt api key model vllm ollama local server base url add test remove", { jump: true }],
+    [
+      "chatgpt",
+      "Use your ChatGPT plan",
+      "Sign in with your ChatGPT account instead of an API key. Chats, AI writing, brainstorms and suggestions then count against your ChatGPT plan; you set the limit in ChatGPT → Settings → Usage. Image generation and some tools are not available. Your notes go to OpenAI only while this provider is the one chosen.",
+      "sign in chatgpt openai subscription plus pro account login",
+    ],
+  ]),
+  ...make("agents", [
+    ["claude", "Connect Claude Code", "Run this once in a terminal.", "mcp command cli claude code"],
+    ["config", "Claude Desktop, Cursor and other MCP apps", "Add this to the app's MCP settings (its mcpServers).", "mcp json config cursor"],
+    ["url", "Clients that connect by URL", "Start the server with the command, then connect to its address with the token as a bearer. It answers this computer only.", "http token bearer server address"],
+    ["review", "Changes waiting and past sessions", "Accept or reject proposals; undo a whole session.", "review history proposals undo"],
+    ...LIMIT_SPECS.map((spec): Spec => [spec[0], spec[1], spec[2], spec[3], { card: "Review limits" }]),
+  ]),
+  ...make("calendar", [
+    ["weekStart", "Weeks start on", "For the Calendar and the journal's month.", "monday sunday saturday week first day"],
+    ...SHOW_OPTIONS.map((o): Spec => [`show.${o.key}`, o.label, o.detail, "show days calendar"]),
+    ["feeds", "Subscribed calendars", "Their events show in the Calendar and on Home, read-only. Nothing is written to your notes and nothing is sent back to the calendar.", "google outlook ics ical feed subscribe refresh", { card: "Subscribed calendars", jump: true, only: "desktop" }],
+    ["subscribe", "Subscribe to a calendar", "Paste the calendar's address; KastenFlow checks it before keeping it.", "google outlook ics ical webcal url", { card: "Subscribed calendars" }],
+  ]),
+  ...make("browser", [
+    ["enabled", "Use the browser", "Adds Browser to the sidebar and the new tab menu.", "web internet turn on"],
+    ["engine", "Search engine", "What the address box searches with, when what you type is not an address.", "google duckduckgo bing"],
+    ["addEngine", "Add a search engine", "A name and an address with %s where the words go.", "custom url", { jump: true }],
+    ["favourites", "Favourite sites", "Shown on the start page of a new browser tab.", "bookmarks start page", { jump: true }],
+    ["webLinks", "Open web links in", "For links in your pages, cards and chats. Shift+click uses the other one. A browser tab needs the browser turned on.", "system browser tab"],
+    ["clear", "Browsing data", "Cookies, history and cached files of the browser. Your notes and KastenFlow's own data are not touched.", "cookies history cache clear delete"],
+    ["signin", "Signing in", "Some sites, Google among them, may refuse sign-in inside an embedded browser like this one. Open the page in your system browser instead (the arrow beside the address).", "google login"],
+  ]),
+  ...make("extension", [
+    ["enabled", "Let the browser extension reach KastenFlow", "Off until you turn it on.", "chrome edge capture clip turn on"],
+    ["port", "Port", "KastenFlow listens here on 127.0.0.1. The extension asks for the same port (in its own popup, under Advanced).", "network address"],
+    ["pair", "Pair an extension", "Make a code in KastenFlow, then type it into the extension's popup. It works once.", "code connect chrome edge"],
+    ["paired", "Paired extensions", "The extensions that can add captures, each with a way to revoke it.", "revoke unpair"],
+    ["install", "Put the extension in Chrome or Edge", "Load it unpacked from KastenFlow's source download, pin it, then pair.", "install developer mode load unpacked steps", { jump: true }],
+  ]),
+  ...make("vault", [
+    ["location", "Notes live in", "Every page is a Markdown file in this folder.", "folder path directory where"],
+    ["import", "Import notes", "From Obsidian, Notion, Heptabase or a folder of Markdown, as a project you can undo.", "obsidian notion heptabase markdown migrate"],
+    ["switch", "Switch vault", "Open another folder, or make a new vault; the window restarts on it.", "open another folder new vault change", { only: "desktop" }],
+    ["copy", "Copy vault settings", "The vault's own settings (AI provider addresses, agent limits, the journal template) as text. Keys are never in it.", "config yaml export json", { only: "desktop" }],
+  ]),
+  ...make("history", [
+    ["synced", "Vault folder", "Quit KastenFlow, move the vault folder out of the synced folder, then open the folder from its new place.", "dropbox onedrive google drive icloud synced cloud", { quiet: true }],
+    ["history", "History", "Saved changes are recorded in local Git history so you can restore earlier versions.", "git versions restore undo"],
+    ["github", "Back up to GitHub", "Sign in, and KastenFlow makes a private repository in your account for this vault.", "sign in remote repository"],
+    ["remote", "Backup remote", "A private git repository on any host, such as GitLab, Gitea or your own server. Pushes happen 2 minutes after changes and at least hourly, never forced.", "git gitlab gitea server push token url"],
+    ["status", "Backup status", "When this vault was last backed up, and a button to back up now.", "push now", { quiet: true }],
+    ["latest", "Get latest", "Brings in what you changed on another computer. Nothing here is overwritten: a page changed on both keeps the other version beside yours.", "pull sync another computer restore", { quiet: true }],
+    ["token", "Backup token", "A personal access token that can read and write the backup repository. It is checked now and sent to that server only.", "password credentials git", { quiet: true }],
+    ["files", "Backup files", "For Dropbox, Google Drive, OneDrive or a disk: a file of the whole vault in their folder, written daily. Not encrypted.", "folder bundle dropbox drive onedrive disk"],
+    ["check", "Check the vault", "Looks for broken frontmatter, repeated ids, links to missing pages and damaged history.", "verify problems integrity repair"],
+  ]),
+  ...make("search", [
+    ["provider", "Provider", "An OpenAI-compatible one: OpenAI, or a local server such as vLLM or Ollama. Add one under AI providers first.", "embeddings openai vllm ollama", { only: "desktop" }],
+    ["model", "Embedding model", "OpenAI's text-embedding-3-small, or the embedding model your server runs.", "embeddings vectors text-embedding", { only: "desktop" }],
+    ["vectors", "Vectors", "Make a vector for each note, so searching by meaning can find it.", "make stop index embeddings notes", { only: "desktop", quiet: true }],
+    ["unavailable", "Search by meaning works in the desktop app", "It asks an embedding model, with a key kept in your system keychain.", "embeddings vectors", { only: "preview" }],
+  ]),
+  ...make("diagrams", [
+    ["editor", "Diagram editor", "A separate download, checked against a fixed checksum before it is unpacked. Apache-2.0. It never reaches the network.", "draw.io drawio install remove download flowchart"],
+    ["credit", "Credit", "KastenFlow is not made by, affiliated with or endorsed by the editor's authors. Its licence and notices are kept with the installed copy and in the docs.", "drawio licence apache"],
+  ]),
+  ...make("templates", [
+    ["count", "Templates", "Pages in the templates folder; {{title}}, {{date}}, {{time}}, {{weekday}}, {{week}}, {{month}} and {{year}} are filled in.", "gallery browse placeholders"],
+    ["journal", "Journal days start from", "The template each new day's page is made from; days already written keep theirs.", "daily diary"],
+    ["kits", "Starter kits", "A daily planner, a second brain, a Zettelkasten, Getting Things Done, student or research: pages, templates and tag databases in one step that Undo takes back.", "gtd planner zettelkasten para"],
+    ["missing", "New starter templates", "Starter templates a newer KastenFlow added since this vault was made.", "add", { quiet: true }],
+  ]),
+  ...make("desktop", [
+    ["keepRunning", "Keep running when the window closes", "KastenFlow stays in the tray, so quick capture and backups carry on. Quit from the tray icon.", "tray background close", { only: "desktop" }],
+    ["capture", "Quick capture", "A small box over any app: type, Tab to choose where it goes, Enter to save.", "shortcut global key hotkey capture", { only: "desktop" }],
+    ["notifications", "Notifications", "Only while KastenFlow is in the background: when a backup starts failing, or a new version is ready. Never a note's words.", "alerts", { only: "desktop" }],
+    ["about", "Quick capture and the tray", "Capture from any app with a shortcut, keep KastenFlow in the tray and hear when a backup fails: these come with the desktop app.", "tray capture", { only: "preview" }],
+  ]),
+  ...make("shortcuts", [
+    ["sheet", "All shortcuts on one sheet", "Every key on one page, to read.", "list cheat sheet help"],
+    ["editor", "Change a command's keys", "Click a key to change it. Keys need Ctrl, ⌘ or Alt, so typing never runs a command. Backspace removes a key and Escape cancels.", "keys keyboard shortcuts bindings hotkeys rebind record reset command", { jump: true }],
+  ]),
+  ...make("about", [
+    ["version", "KastenFlow", "The version, and the licence: MIT.", "version build core mit"],
+    ["updates", "Updates", "See whether a newer KastenFlow is out.", "check new version release upgrade"],
+    ["autoCheck", "Check for new versions", "Once a day, and when KastenFlow starts, asks GitHub for the latest release. Off until you turn it on.", "automatic daily update github"],
+    ["autoDownload", "Download new versions automatically", "A new version the check finds downloads in the background. It installs only when you choose Restart to update.", "automatic install background update", { quiet: true }],
+    ["licences", "Open-source licences", "The libraries KastenFlow is built on, and their licences.", "third party notices credits"],
+  ]),
+];

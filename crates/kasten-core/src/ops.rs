@@ -255,14 +255,20 @@ pub fn create_note(vault: &Vault, new: &NewNote, now: Instant) -> Result<NoteFil
 const HEADER_KEYS: [&str; 3] = ["title", "icon", "cover"];
 
 /// Keys with a fixed set of values: a page's own layout over the app's
-/// defaults, and the lock that makes it read-only for agents (cleared, not
-/// set to false). A value set by hand that is not one of these is left as
-/// it is.
-const CHOICE_KEYS: [(&str, &[&str]); 4] = [
+/// defaults, where links opened from the page go, how its sections are
+/// drawn, and the lock that makes it read-only for agents (cleared, not set
+/// to false). A value set by hand that is not one of these is left as it is
+/// (another tool's `layout: post` stays untouched).
+const CHOICE_KEYS: [(&str, &[&str]); 6] = [
     ("font", &["sans", "serif", "mono"]),
     ("width", &["normal", "full"]),
-    ("text", &["normal", "small"]),
+    ("text", &["small", "normal", "large", "xl"]),
     ("locked", &["true"]),
+    (
+        "opens",
+        &["here", "tab", "right", "peek-side", "peek-center", "stack"],
+    ),
+    ("layout", &["sections"]),
 ];
 
 /// Sets or removes one header key, editing only its line, and bumps `updated`.

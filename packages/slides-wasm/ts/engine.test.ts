@@ -86,6 +86,38 @@ describe("the engine", () => {
     expect(engine.canUndo).toBe(false);
   });
 
+  it("makes a deck with the slide numbers off, and turns them on and off as one step each", () => {
+    const engine = DeckEngine.create("Talk", "Light", 9);
+    expect(engine.deck.present.slideNumbers).toBe(false);
+    engine.apply("set_present", { slideNumbers: true });
+    expect(engine.deck.present.slideNumbers).toBe(true);
+    expect(plain(engine.deck)).toEqual(saved(engine));
+    expect(engine.undoLabel).toBe("set_present");
+    engine.undo();
+    expect(engine.deck.present.slideNumbers).toBe(false);
+    // Asking for what already is leaves nothing to undo.
+    const quiet = DeckEngine.create("Talk", "Light", 9);
+    quiet.apply("set_present", { slideNumbers: false });
+    expect(quiet.canUndo).toBe(false);
+  });
+
+  it("joins an operation to the last step when that step covers it, and keeps the copy of the deck in step", () => {
+    const engine = DeckEngine.create("Talk", "Light", 10);
+    const slide = engine.apply("add_slide", { layout: "blank" }).output.slide;
+    const before = engine.save();
+    const box = { type: "text", id: "", x: 10, y: 10, w: 200, h: 50, text: { paragraphs: [{ runs: [{ t: "" }] }] } } as const;
+    const id = engine.apply("add_elements", { slide, elements: [box as never] }).output.ids[0] ?? "";
+    engine.applyIntoLast("set_rich_text", { slide, id, text: { paragraphs: [{ runs: [{ t: "Hello" }] }] } });
+    expect(plain(engine.deck)).toEqual(saved(engine));
+    expect(JSON.stringify(engine.deck.slides[1])).toContain("Hello");
+    expect(engine.undoLabel).toBe("add_elements");
+    engine.undo();
+    expect(engine.save()).toBe(before);
+    expect(plain(engine.deck)).toEqual(saved(engine));
+    engine.redo();
+    expect(JSON.stringify(engine.deck.slides[1])).toContain("Hello");
+  });
+
   it("opens the text it saved", () => {
     const engine = DeckEngine.create("Talk", "Serif", 6);
     engine.apply("add_slide", { layout: "quote", content: { quote: "Be brief." } });

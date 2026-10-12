@@ -184,12 +184,15 @@ describe("a day's entries", () => {
       ["odd", "chartreuse"],
       ["paper", "blue"],
     ]);
-    expect(chipTone(item("a.md", "2026-10-01", { tag: "task" }), colors)).toBe("green");
-    expect(chipTone(item("a.md", "2026-10-01", { note: note("a.md", { tags: ["plain", "Travel"] }) }), colors)).toBe("green");
-    expect(chipTone(item("a.md", "2026-10-01", { note: note("a.md", { tags: ["odd"] }) }), colors)).toBe("gray");
+    const tone = (name: string) => ({ fg: `var(--notion-${name})`, bg: `var(--notion-${name}-bg)` });
+    expect(chipTone(item("a.md", "2026-10-01", { tag: "task" }), colors)).toEqual(tone("green"));
+    // Teal is teal, as in the Tag Database; a colour written as #hex keeps its own.
+    expect(chipTone(item("a.md", "2026-10-01", { note: note("a.md", { tags: ["plain", "Travel"] }) }), colors)).toEqual(tone("teal"));
+    expect(chipTone(item("a.md", "2026-10-01", { note: note("a.md", { tags: ["odd"] }) }), colors)).toEqual(tone("gray"));
+    expect(chipTone(item("a.md", "2026-10-01", { note: note("a.md", { tags: ["brand"] }) }), new Map([["brand", "#ff8800"]]))?.fg).toBe("#ff8800");
     expect(chipTone(item("a.md", "2026-10-01"), colors)).toBeNull();
     // Ranges take their tone the same way.
-    expect(chipTone(range("t.md", "2026-10-01", "2026-10-03", { tag: "paper" }), colors)).toBe("blue");
+    expect(chipTone(range("t.md", "2026-10-01", "2026-10-03", { tag: "paper" }), colors)).toEqual(tone("blue"));
   });
 
   it("names a range briefly, with the year only when it is not this one", () => {

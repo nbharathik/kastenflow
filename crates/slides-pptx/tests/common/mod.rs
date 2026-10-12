@@ -5,6 +5,7 @@
 pub mod compare;
 pub mod decks;
 pub mod foreign;
+pub mod lists;
 pub mod pictures;
 pub mod samples;
 pub mod variety;

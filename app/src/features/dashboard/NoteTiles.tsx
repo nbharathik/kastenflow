@@ -1,13 +1,17 @@
-// Notes and boards as a dashboard shows them: gallery tiles with a cover
-// (or a tint of their own), and compact rows.
+// Notes, boards and decks as a dashboard shows them: gallery tiles with a
+// cover (or a tint of their own), and compact rows. Right-click on any of
+// them shows the Open menu; the middle button opens a tab.
 
 import type { MouseEvent, ReactNode } from "react";
 
 import { relativeTime } from "../../lib/dates";
-import type { BoardInfo, NoteMeta } from "../../lib/vault/types";
+import type { BoardInfo, DeckInfo, NoteMeta } from "../../lib/vault/types";
+import { openMenuHandlers } from "../../shell/open-menu";
 import { BoardThumb } from "../boards/BoardThumb";
 import { usePreview } from "../boards/previews";
 import { coverBackground } from "../pages/page/covers";
+import { DeckThumb } from "../slides/DeckThumb";
+import { useDeckPreview } from "../slides/previews";
 import { iconOf, titleOf } from "../workspace/names";
 import { howFrom, howFromView, useWorkspace } from "../workspace/store";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
@@ -21,13 +25,12 @@ export function tint(text: string): string {
 }
 
 const open = (path: string, peek = false) => (e: MouseEvent) => useWorkspace.getState().openPath(path, peek ? howFromView(e) : howFrom(e));
-const middle = (path: string) => (e: MouseEvent) => e.button === 1 && useWorkspace.getState().openPath(path, "tab");
 
 /** A page or card: its cover or a tint, its icon, title and a detail line.
  * `peek` opens it as views of many do (a plain click peeks). */
 export function NoteTile({ note, detail, peek = false }: { note: NoteMeta; detail?: ReactNode; peek?: boolean }) {
   return (
-    <button type="button" onClick={open(note.path, peek)} onAuxClick={middle(note.path)} className="kasten-tile">
+    <button type="button" onClick={open(note.path, peek)} {...openMenuHandlers(note.path)} className="kasten-tile">
       <span className="kasten-tile-cover" style={{ background: (note.cover && coverBackground(note.cover)) || tint(note.title) }} aria-hidden="true" />
       <span className="kasten-tile-body">
         <span className="kasten-tile-icon"><IconOrEmoji icon={iconOf(note)} /></span>
@@ -43,7 +46,7 @@ export function NoteTile({ note, detail, peek = false }: { note: NoteMeta; detai
 export function BoardTile({ board, detail }: { board: BoardInfo; detail?: ReactNode }) {
   const view = usePreview(board);
   return (
-    <button type="button" onClick={open(board.path)} onAuxClick={middle(board.path)} className="kasten-tile is-board">
+    <button type="button" onClick={open(board.path)} {...openMenuHandlers(board.path)} className="kasten-tile is-board">
       <span className="kasten-tile-sketch" aria-hidden="true">
         <BoardThumb board={view} />
       </span>
@@ -57,15 +60,61 @@ export function BoardTile({ board, detail }: { board: BoardInfo; detail?: ReactN
   );
 }
 
-/** One note as a row: icon, title and a detail at the right. */
-export function NoteRow({ note, detail }: { note: NoteMeta; detail?: ReactNode }) {
+/** A deck, with its first slide on top. */
+export function DeckTile({ deck, detail }: { deck: DeckInfo; detail?: ReactNode }) {
+  const preview = useDeckPreview(deck);
+  const slides = deck.slides === 1 ? "1 slide" : `${deck.slides} slides`;
   return (
-    <button type="button" onClick={open(note.path)} onAuxClick={middle(note.path)} className="kasten-dash-row">
-      <span className="kasten-dash-row-icon" aria-hidden="true">
-        <IconOrEmoji icon={iconOf(note)} />
+    <button type="button" onClick={open(deck.path)} {...openMenuHandlers(deck.path)} className="kasten-tile is-deck">
+      <span className="kasten-tile-sketch" aria-hidden="true">
+        <DeckThumb deck={preview} frame="fill" />
       </span>
-      <span className="kasten-dash-row-title">{titleOf(note)}</span>
-      <span className="kasten-dash-row-detail">{detail ?? relativeTime(note.modified)}</span>
+      <span className="kasten-tile-body">
+        <span className="kasten-tile-title">
+          <IconOrEmoji icon={lineIcon("present")} /> {deck.title}
+        </span>
+        <span className="kasten-tile-detail">{detail ?? `Deck · ${slides} · ${relativeTime(deck.modified)}`}</span>
+      </span>
     </button>
   );
 }
+
+/** A whiteboard as a compact row: a small sketch, a one-line title and what is on it. */
+export function BoardMini({ board }: { board: BoardInfo }) {
+  const view = usePreview(board);
+  const things = board.nodes === 1 ? "1 thing" : `${board.nodes} things`;
+  return (
+    <button type="button" onClick={open(board.path)} {...openMenuHandlers(board.path)} className="kasten-mini" title={board.title}>
+      <span className="kasten-mini-sketch" aria-hidden="true">
+        <BoardThumb board={view} />
+      </span>
+      <span className="kasten-mini-text">
+        <span className="kasten-mini-title">{board.title}</span>
+        <span className="kasten-mini-detail">
+          {things} · {relativeTime(board.modified)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** A deck as a compact row: its first slide small, a one-line title and its length. */
+export function DeckMini({ deck }: { deck: DeckInfo }) {
+  const preview = useDeckPreview(deck);
+  const slides = deck.slides === 1 ? "1 slide" : `${deck.slides} slides`;
+  return (
+    <button type="button" onClick={open(deck.path)} {...openMenuHandlers(deck.path)} className="kasten-mini" title={deck.title}>
+      <span className="kasten-mini-sketch is-deck" aria-hidden="true">
+        <DeckThumb deck={preview} frame="fill" />
+      </span>
+      <span className="kasten-mini-text">
+        <span className="kasten-mini-title">{deck.title}</span>
+        <span className="kasten-mini-detail">
+          {slides} · {relativeTime(deck.modified)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+export { NoteRow } from "./NoteRow";

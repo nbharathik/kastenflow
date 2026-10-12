@@ -4,7 +4,7 @@
 // as one. Anything else (a resize, a turn) changes what is drawn, and goes
 // through the slide as before.
 
-import type { Slide, Theme } from "@kasten-slides/wasm";
+import type { Element, Slide, Theme } from "@kasten-slides/wasm";
 
 import { boxOf } from "../../theme/index.ts";
 import type { Placement } from "../session/elements.ts";
@@ -22,7 +22,15 @@ export function splitMoves(slide: Slide, theme: Theme, overrides: ReadonlyMap<st
   const moves = new Map<string, Shift>();
   const rest = new Map<string, Placement>();
   if (overrides.size === 0) return { moves, rest };
-  const byId = new Map(slide.elements.map((e) => [e.id, e]));
+  // What is dragged may be inside a group the person went into.
+  const byId = new Map<string, Element>();
+  const index = (list: readonly Element[]): void => {
+    for (const element of list) {
+      byId.set(element.id, element);
+      if (element.type === "group") index(element.children);
+    }
+  };
+  index(slide.elements);
   for (const [id, to] of overrides) {
     const element = byId.get(id);
     const from = element ? boxOf(theme, slide.layout, element) : null;

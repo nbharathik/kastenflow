@@ -4,9 +4,12 @@ import { Suspense, useEffect } from "react";
 
 import { longDay } from "../../lib/dates";
 import { LazyBoard } from "../../features/boards/canvas/LazyBoard";
+import { boxOf } from "../../features/browser/bounds";
+import { useOccludes } from "../../features/browser/occlusion";
 import { BlankDay, journalDayOf } from "../../features/journal/BlankDay";
 import { useBoards } from "../../features/boards/store";
 import { usePeek, type Peek } from "../../features/peek/store";
+import { useDecks } from "../../features/slides/store";
 import { useSources } from "../../features/sources/store";
 import { LazyNotePage } from "../../features/workspace/page/LazyNotePage";
 import { useWorkspace } from "../../features/workspace/store";
@@ -19,7 +22,7 @@ import { IconOrEmoji } from "../../ui/IconOrEmoji";
 import { lineIcon } from "../../ui/glyph";
 import { noteAt } from "../../features/workspace/tree";
 
-const placeOf = (path: string): Place => ({ view: path.endsWith(".canvas") ? "boards" : /\.pdf$/i.test(path) ? "highlights" : "page", path });
+const placeOf = (path: string): Place => ({ view: path.endsWith(".canvas") ? "boards" : path.endsWith(".deck") ? "slides" : path.endsWith(".drawio") ? "diagrams" : /\.pdf$/i.test(path) ? "highlights" : "page", path });
 
 /** A page shown over the view it was picked in (Notion's peeks): in the
  * center as a modal, or at the side. Escape or a click outside closes it;
@@ -27,7 +30,18 @@ const placeOf = (path: string): Place => ({ view: path.endsWith(".canvas") ? "bo
 export function PagePeek() {
   const peek = usePeek((s) => s.peek);
   if (!peek) return null;
+  // A deck or a diagram is not shown in a peek: it opens as a tab of its own.
+  if (peek.path.endsWith(".deck") || peek.path.endsWith(".drawio")) return <DeckInstead path={peek.path} />;
   return peek.mode === "center" ? <CenterPeek peek={peek} /> : <SidePeek peek={peek} />;
+}
+
+/** Where a peek at a deck ends up, should anything ask for one: a full tab. */
+function DeckInstead({ path }: { path: string }) {
+  useEffect(() => {
+    usePeek.getState().close();
+    useWorkspace.getState().openPath(path, "tab");
+  }, [path]);
+  return null;
 }
 
 function CenterPeek({ peek }: { peek: Peek }) {
@@ -40,6 +54,11 @@ function CenterPeek({ peek }: { peek: Peek }) {
 }
 
 function SidePeek({ peek }: { peek: Peek }) {
+  // Over a browser tab's page it would be hidden behind it (a center peek is a Modal, which steps it aside).
+  useOccludes(true, () => {
+    const side = document.querySelector(".kasten-peek-side");
+    return side ? boxOf(side.getBoundingClientRect()) : null;
+  });
   useEffect(() => {
     // A press in the views behind closes it; menus and pickers the page
     // opens float outside them, so using those keeps it open.
@@ -67,11 +86,12 @@ function SidePeek({ peek }: { peek: Peek }) {
 function PeekHeader({ peek }: { peek: Peek }) {
   const notes = useWorkspace((s) => s.notes);
   const boards = useBoards((s) => s.list);
+  const decks = useDecks((s) => s.list);
   const sources = useSources((s) => s.list) ?? [];
   const place = placeOf(peek.path);
   // A journal page is named by its day, written or not.
   const day = journalDayOf(peek.path);
-  const face = day ? { icon: lineIcon("journal"), title: longDay(day) } : tabFace(place, notes, boards, sources);
+  const face = day ? { icon: lineIcon("journal"), title: longDay(day) } : tabFace(place, notes, boards, sources, decks);
   const { close, setMode } = usePeek.getState();
   return (
     <header className="kasten-peek-head">

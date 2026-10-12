@@ -1,0 +1,241 @@
+/* The browser tab: a bar, a capture panel and a stage. The page itself is a
+   native view laid over the stage; the stage shows its own words when there is
+   no page to show. */
+
+.kasten-browser {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.kasten-browser-bar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.kasten-browser-address {
+  min-width: 12rem;
+  flex: 1;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  outline: none;
+}
+
+.kasten-browser-address:focus {
+  border-color: var(--color-accent);
+  background: var(--color-canvas);
+}
+
+.kasten-browser-loading {
+  height: 2px;
+  flex-shrink: 0;
+  background: var(--color-accent);
+  animation: kasten-browser-load 1.2s var(--ease-standard) infinite;
+  transform-origin: left;
+}
+
+@keyframes kasten-browser-load {
+  from {
+    transform: scaleX(0.05);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.kasten-browser-stage {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.kasten-browser-note {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+  text-align: center;
+}
+
+.kasten-browser-note strong {
+  color: var(--color-ink);
+  font-size: var(--text-16);
+  font-weight: 600;
+}
+
+.kasten-browser-start {
+  display: flex;
+  max-width: 40rem;
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 14px;
+  padding: 40px 24px;
+}
+
+.kasten-browser-favourites {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 8px;
+}
+
+.kasten-browser-favourite {
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.kasten-browser-favourite:hover {
+  background: var(--color-hover);
+}
+
+/* What would be kept, before it is. */
+.kasten-browser-capture {
+  display: flex;
+  max-height: 22rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+  font-size: var(--text-13);
+}
+
+.kasten-browser-title {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-size: var(--text-14);
+  font-weight: 500;
+  outline: none;
+}
+
+.kasten-browser-title:focus {
+  border-color: var(--color-accent);
+}
+
+.kasten-browser-excerpt {
+  max-height: 9rem;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.kasten-browser-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The capture window's place picker, in a box of its own here. */
+.kasten-browser-picker {
+  position: relative;
+  height: 16rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+}
+
+.kasten-browser-picker .kasten-capture-picker {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.kasten-browser-picker .kasten-capture-search {
+  flex: none;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-14);
+}
+
+.kasten-browser-picker .kasten-capture-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.kasten-browser-picker .kasten-capture-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+.kasten-browser-picker .kasten-capture-option.is-active {
+  background: var(--color-selected);
+}
+
+.kasten-browser-picker .kasten-capture-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-browser-picker .kasten-capture-option-hint,
+.kasten-browser-picker .kasten-capture-none {
+  flex: none;
+  padding: 0 4px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}

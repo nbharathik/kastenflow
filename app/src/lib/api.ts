@@ -37,6 +37,13 @@ export async function openUrl(url: string): Promise<void> {
   await invoke("open_url", { url });
 }
 
+/** The title of the web page at `url`, read by the desktop app (which reads
+ * no more than the page's head); null in a browser or when it could not be read. */
+export async function webTitle(url: string): Promise<string | null> {
+  if (!inTauri()) return null;
+  return invoke<string>("web_title", { url }).catch(() => null);
+}
+
 /** What the update check found. */
 export interface UpdateInfo {
   current: string;

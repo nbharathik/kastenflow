@@ -15,6 +15,7 @@ mod edit;
 mod extras;
 mod files;
 mod geometry;
+mod source;
 mod style;
 #[cfg(test)]
 mod tests;

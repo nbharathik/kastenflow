@@ -1,0 +1,73 @@
+/* The diagram editor's frame and the places that show a diagram's picture.
+   Colours, sizes and motion come from the app's tokens. */
+
+.kasten-diagram-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--color-canvas);
+}
+
+/* A diagram drawn again for its picture, off screen but laid out, so the
+   editor can measure its text; never seen, never focused. */
+.kasten-diagram-hidden {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 900px;
+  height: 700px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A picture of a diagram in a page, a card or a tile: it has its own white
+   ground, so it reads in the dark theme too. */
+.kasten-diagram-picture {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  background: var(--color-knob);
+}
+
+.kasten-diagram-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-knob);
+}
+
+.kasten-diagram-thumb > img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.kasten-diagram-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.kasten-diagram-editor > .kasten-diagram-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.kasten-diagram-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, 94vw);
+  height: min(800px, 88vh);
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-modal);
+}

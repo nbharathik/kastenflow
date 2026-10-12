@@ -4,6 +4,8 @@
 //! catches up with edits made while no one was watching.
 
 mod embed;
+mod filters;
+mod graph;
 mod marks;
 mod query;
 mod related;
@@ -18,10 +20,11 @@ use rusqlite::Connection;
 
 use crate::error::{Error, Result};
 
+pub use filters::{DateRange, Filters, parse_query};
+pub use graph::LinkRow;
 pub(crate) use marks::MarksRow;
 pub use query::TaskRow;
 pub use related::Related;
-pub use search::{Filters, parse_query};
 
 pub struct Index {
     conn: Connection,
@@ -41,7 +44,7 @@ impl From<rusqlite::Error> for Error {
 
 /// Bump when the tables, or what is extracted into them, change; an older
 /// index is dropped and rebuilt.
-const SCHEMA_VERSION: &str = "4";
+const SCHEMA_VERSION: &str = "5";
 
 const SCHEMA: &str = "
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -69,13 +72,14 @@ CREATE TABLE notes (
 );
 CREATE INDEX notes_title ON notes(title_key);
 CREATE INDEX notes_id ON notes(id);
+CREATE INDEX notes_parent ON notes(parent);
 CREATE TABLE tags (num INTEGER NOT NULL, tag TEXT NOT NULL);
 CREATE INDEX tags_tag ON tags(tag);
 CREATE INDEX tags_num ON tags(num);
-CREATE TABLE links (num INTEGER NOT NULL, target TEXT NOT NULL, embed INTEGER NOT NULL, line INTEGER NOT NULL, context TEXT NOT NULL);
+CREATE TABLE links (num INTEGER NOT NULL, target TEXT NOT NULL, embed INTEGER NOT NULL, line INTEGER NOT NULL, context TEXT NOT NULL, at TEXT);
 CREATE INDEX links_target ON links(target);
 CREATE INDEX links_num ON links(num);
-CREATE TABLE tasks (num INTEGER NOT NULL, line INTEGER NOT NULL, done INTEGER NOT NULL, text TEXT NOT NULL, due TEXT);
+CREATE TABLE tasks (num INTEGER NOT NULL, line INTEGER NOT NULL, done INTEGER NOT NULL, text TEXT NOT NULL, due TEXT, at TEXT);
 CREATE INDEX tasks_num ON tasks(num);
 CREATE INDEX tasks_due ON tasks(due);
 CREATE VIRTUAL TABLE fts USING fts5(title, body, tokenize = 'unicode61 remove_diacritics 2', prefix = '2 3');

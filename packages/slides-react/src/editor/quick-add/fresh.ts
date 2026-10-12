@@ -23,6 +23,15 @@ export function markFresh(session: EditorSession, id: string): void {
   marks.set(session, { id, slide: session.state.slideId, revision: session.state.revision });
 }
 
+/**
+ * Whether the box was made just now on that slide and nothing has been done to the deck since: the words typed into it then
+ * join the step that made it, so one undo takes the box and its words back together.
+ */
+export function isUntouched(session: EditorSession, id: string, slide: string): boolean {
+  const mark = marks.get(session);
+  return mark !== undefined && mark.id === id && mark.slide === slide && mark.revision === session.state.revision && session.state.undoLabel === "add_elements";
+}
+
 const isBlank = (text: Text): boolean => text.paragraphs.every((paragraph) => paragraph.runs.every((run) => run.t === "" && !run.field));
 
 /** A fill or an outline is something to see even where there are no words. */

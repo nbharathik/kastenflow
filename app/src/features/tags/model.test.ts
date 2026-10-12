@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { TagSchema } from "../../lib/vault/types";
+import type { TagSchema, TagView } from "../../lib/vault/types";
 import { metaFor } from "../workspace/preview/note-meta";
-import { applyView, columnsOf, freshName, groupDef, newView, notesWith, passes, vaultTags, viewsOf } from "./model";
+import { BUILT_IN, applyView, columnsOf, freshName, groupDef, keyLabel, newView, notesWith, passes, readView, scoped, valueOf, vaultTags, viewsOf } from "./model";
 
 const note = (path: string, title: string, tags: string[], props: Record<string, string | number | boolean | string[]> = {}) => {
   const lines = Object.entries(props).map(([k, v]) => `  ${k}: ${Array.isArray(v) ? `[${v.join(", ")}]` : v}`);
@@ -136,5 +136,63 @@ describe("tag database model", () => {
       ["2", ["p.md"]],
       ["3", ["q.md"]],
     ]);
+  });
+});
+
+describe("keys for views that span tags and projects", () => {
+  const spanning = (extra: Partial<TagView> = {}): TagView => ({ name: "T", type: "table", scope: "project", ...extra });
+  const there = metaFor("projects/trip/pages/plan.md", "---\ntitle: Plan\ntags: [Paper, idea]\n---\nBody\n", 0);
+  const elsewhere = metaFor("library/x.md", "---\ntitle: X\n---\nBody\n", 0);
+  const card = metaFor("projects/trip/cards/c.md", "---\ntitle: C\ntype: card\n---\nBody\n", 0);
+  const own = metaFor("projects/trip/_project.md", "---\ntitle: Trip\ntype: project\n---\nBody\n", 0);
+
+  it("read a note's project, type and tags", () => {
+    expect(valueOf(there, "project")).toBe("trip");
+    expect(valueOf(there, "type")).toBe("page");
+    expect(valueOf(there, "tags")).toEqual(["Paper", "idea"]);
+    expect(valueOf(elsewhere, "project")).toBeNull();
+    // A property of the same name still wins, as it always did.
+    const prop = metaFor("library/y.md", "---\ntitle: Y\nprops:\n  project: mine\n---\nBody\n", 0);
+    expect(valueOf(prop, "project")).toBe("mine");
+  });
+
+  it("filter and sort on them", () => {
+    expect(passes(there, { key: "tags", op: "contains", value: "PAP" }, undefined)).toBe(true);
+    expect(passes(there, { key: "tags", op: "is", value: "idea" }, undefined)).toBe(true);
+    expect(passes(there, { key: "type", op: "is", value: "card" }, undefined)).toBe(false);
+    expect(passes(card, { key: "type", op: "is", value: "card" }, undefined)).toBe(true);
+    expect(passes(elsewhere, { key: "project", op: "empty" }, undefined)).toBe(true);
+    const order = (key: string, dir: "asc" | "desc") => applyView([there, elsewhere, card], spanning({ sort: [{ key, dir }] }), null).map((n) => n.path);
+    expect(order("type", "asc")).toEqual(["projects/trip/cards/c.md", "projects/trip/pages/plan.md", "library/x.md"]);
+    // A note with no project goes last whichever way.
+    expect(order("project", "asc")[2]).toBe("library/x.md");
+    expect(order("project", "desc")[2]).toBe("library/x.md");
+  });
+
+  it("are named in chips and headers only where the view spans", () => {
+    expect(keyLabel(spanning(), "project")).toBe("Project");
+    expect(keyLabel(spanning(), "tags")).toBe("Tags");
+    expect(keyLabel(spanning(), "updated")).toBe("Updated");
+    expect(keyLabel(spanning(), "venue")).toBe("venue");
+    // A tag's own view keeps naming a property `project` as it is written.
+    expect(keyLabel({ name: "All", type: "table" }, "project")).toBe("project");
+    expect(keyLabel({ name: "All", type: "table" }, "title")).toBe("Title");
+    expect(Object.keys(BUILT_IN)).toEqual(["title", "created", "updated", "modified"]);
+  });
+
+  it("read a scope, and leave one that is not a scope out", () => {
+    expect(readView({ name: "A", type: "table", scope: "project" })!.scope).toBe("project");
+    expect(readView({ name: "A", type: "table", scope: "vault" })!.scope).toBe("vault");
+    expect("scope" in readView({ name: "A", type: "table", scope: "everywhere" })!).toBe(false);
+    expect("scope" in readView({ name: "A", type: "table" })!).toBe(false);
+  });
+
+  it("cover the notes of the project (not its own page), or every note", () => {
+    const all = [there, elsewhere, card, own, metaFor("templates/t.md", "---\ntitle: T\n---\n", 0)];
+    expect(scoped(all, spanning(), "trip").map((n) => n.path)).toEqual(["projects/trip/pages/plan.md", "projects/trip/cards/c.md"]);
+    expect(scoped(all, spanning(), null)).toEqual([]);
+    expect(scoped(all, spanning({ scope: "vault" }), "trip")).toHaveLength(4);
+    // A tag's own view covers what it is given.
+    expect(scoped(all, { name: "All", type: "table" }, "trip")).toHaveLength(5);
   });
 });

@@ -5,6 +5,7 @@
 
 import { useRef } from "react";
 
+import { holdWhile } from "../features/browser/occlusion";
 import { useWorkspace } from "../features/workspace/store";
 import type { Pane } from "../features/workspace/tabs";
 import { BIG_STEP, STEP } from "../ui/ResizeHandle";
@@ -62,6 +63,8 @@ export function PaneDivider({ left, right }: { left: Pane; right: Pane }) {
           e.currentTarget.setPointerCapture?.(e.pointerId);
           e.currentTarget.classList.add("is-dragging");
           document.body.classList.add("kasten-resizing");
+          // A browser tab's native view would swallow the pointer as it crosses it.
+          holdWhile("pane-divider");
           drag.current = { x: e.clientX, left: found.l, right: found.r, width: found.lw + found.rw, from: found.lw, share, last: [left.size ?? 1, right.size ?? 1] };
         }}
         onPointerMove={(e) => {

@@ -3,16 +3,10 @@
 
 import type { Element, ExpandComposite, ExpandedComposite } from "@kasten-slides/wasm";
 
-import { COMPOSITES, isCompositeType } from "../composite-kinds.ts";
+import { INSERTABLE, isCompositeType } from "../composite-kinds.ts";
 import { insertComposite } from "../insert-composite.ts";
-import type { EditorState } from "../session/types.ts";
+import { selectedElements } from "../session/scope.ts";
 import type { Command } from "./types.ts";
-
-/** The elements on the shown slide that are selected. */
-function selectedElements(state: EditorState): Element[] {
-  const chosen = new Set(state.selection);
-  return state.deck.slides.find((slide) => slide.id === state.slideId)?.elements.filter((element) => chosen.has(element.id)) ?? [];
-}
 
 /**
  * Whether "Ungroup to shapes" can do something to an element: it is a composite
@@ -21,7 +15,7 @@ function selectedElements(state: EditorState): Element[] {
  */
 export const ungroupable = (element: Element): boolean => isCompositeType(element.type) && element.type !== "math";
 
-const insertCommands: Command[] = COMPOSITES.map(
+const insertCommands: Command[] = INSERTABLE.map(
   (spec): Command => ({
     id: `insert.${spec.kind}`,
     label: spec.label,
@@ -38,10 +32,10 @@ export const compositesCommands: Command[] = [
   ...insertCommands,
   {
     id: "insert.palette",
-    label: "Insert palette",
+    label: "Insert gallery…",
     icon: "search",
     // The slash is for when the slide has the keys: in a text box, or any field, it is a letter to type.
-    keys: ["Mod+Shift+P", "/"],
+    keys: ["Mod+/", "Mod+Shift+P", "/"],
     scope: "global",
     run: ({ ui }) => ui.openDialog("insert"),
   },

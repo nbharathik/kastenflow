@@ -9,6 +9,7 @@ mod changes;
 mod files;
 mod head;
 mod structure;
+mod templates;
 mod uses;
 
 pub use changes::{REPLACES_DECK, SlideChanges, SlideRef, slide_changes};
@@ -17,4 +18,5 @@ pub use files::{
 };
 pub use head::{FORMAT, Head, MAX_BYTES, head_of, images_of};
 pub use structure::{check_structure, structure_problem};
+pub use templates::{TEMPLATE_FOLDER, create_template, is_template};
 pub use uses::{DeckImages, images_by_slide};

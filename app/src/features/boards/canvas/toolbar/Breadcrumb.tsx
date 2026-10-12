@@ -1,5 +1,5 @@
-// Top left: the way here. Whiteboards, then the boards you came through to
-// reach this nested one, then this board.
+// Top left: the way here, quietly. Whiteboards, then the boards you came
+// through to reach this nested one, then this board's title.
 
 import { Icon } from "../../../../ui/Icon";
 import { useWorkspace } from "../../../workspace/store";
@@ -13,7 +13,7 @@ export function Breadcrumb() {
   const list = useBoards((s) => s.list);
   const way = trailOf(board.path);
   return (
-    <nav className="kasten-crumbs" aria-label="Board breadcrumb">
+    <nav className="kasten-chrome kasten-crumbs" aria-label="Board breadcrumb">
       <button type="button" className="kasten-crumb is-root" onClick={() => useWorkspace.getState().go({ view: "boards" })} title="All whiteboards">
         <Icon name="board" className="size-4" />
       </button>

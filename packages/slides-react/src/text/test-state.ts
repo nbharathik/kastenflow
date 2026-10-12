@@ -6,6 +6,7 @@ import { history } from "prosemirror-history";
 import { EditorState, TextSelection, type Transaction } from "prosemirror-state";
 
 import { docToText, textToDoc } from "./convert.ts";
+import { paragraphMarks } from "./paragraph-mark.ts";
 import { type TextSchema, createTextSchema } from "./schema.ts";
 import type { Command } from "./mark-commands.ts";
 import type { EditorContext } from "./selection-info.ts";
@@ -23,7 +24,7 @@ export function rig(theme: Theme, baseStyle = "body"): Rig {
     ctx: { theme, baseStyle },
     schema,
     state(text, from, to) {
-      const state = EditorState.create({ schema, doc: textToDoc(text, schema), plugins: [history()] });
+      const state = EditorState.create({ schema, doc: textToDoc(text, schema), plugins: [history(), paragraphMarks()] });
       return from ? select(state, from, to ?? from) : state;
     },
   };

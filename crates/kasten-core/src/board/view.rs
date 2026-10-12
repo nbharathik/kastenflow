@@ -21,6 +21,10 @@ pub struct BoardView {
     /// Lowest in z-order first.
     pub nodes: Vec<NodeView>,
     pub edges: Vec<EdgeView>,
+    /// What the board remembers about the page it was made from, as the
+    /// app wrote it (`x-kasten.source`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<serde_json::Value>,
 }
 
 /// One node. Only the fields of its kind are set.
@@ -135,6 +139,10 @@ pub fn file_title(vault: &Vault, file: &str) -> Option<String> {
     if file.ends_with(".deck") {
         return Some(crate::deck::title_at(vault, file));
     }
+    // A diagram, or the picture beside it, is named by its file.
+    if file.ends_with(crate::diagrams::EXT) || file.ends_with(crate::diagrams::SIDECAR_EXT) {
+        return Some(crate::diagrams::title_of(file));
+    }
     // A tag's schema is named as the tag.
     if let Some(stem) = file
         .strip_prefix("tags/")
@@ -241,6 +249,7 @@ impl BoardView {
             title: board_title(path, Some(canvas)),
             nodes,
             edges,
+            source: canvas.source().cloned(),
         }
     }
 

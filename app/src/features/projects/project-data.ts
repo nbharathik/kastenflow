@@ -2,7 +2,7 @@
 // the newest first, and when anything in it last changed. Pure, from the
 // window's lists of notes and boards.
 
-import type { BoardInfo, NoteMeta, TaskRow } from "../../lib/vault/types";
+import type { BoardInfo, DeckInfo, NoteMeta, TaskRow } from "../../lib/vault/types";
 import { titleOf } from "../workspace/names";
 import { childrenOf, projectNotes } from "../workspace/tree";
 
@@ -17,6 +17,8 @@ export interface ProjectParts {
   cards: NoteMeta[];
   /** Whiteboards, newest first. */
   boards: BoardInfo[];
+  /** Slide decks, newest first. */
+  decks: DeckInfo[];
   /** When anything in it last changed, in milliseconds. */
   edited: number;
 }
@@ -24,7 +26,7 @@ export interface ProjectParts {
 const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
 const newest = (a: { modified: number }, b: { modified: number }) => b.modified - a.modified;
 
-export function partsOf(notes: readonly NoteMeta[], boards: readonly BoardInfo[], project: NoteMeta): ProjectParts {
+export function partsOf(notes: readonly NoteMeta[], boards: readonly BoardInfo[], project: NoteMeta, decks: readonly DeckInfo[] = []): ProjectParts {
   const folder = project.project;
   const mine = folder ? notes.filter((n) => n.project === folder && n.path !== project.path && n.kind !== "template") : [];
   const pages = mine.filter((n) => n.kind === "page");
@@ -34,8 +36,9 @@ export function partsOf(notes: readonly NoteMeta[], boards: readonly BoardInfo[]
     .sort((a, b) => collator.compare(titleOf(a), titleOf(b)))
     .map((note) => ({ note, children: childrenOf(notes, note).length }));
   const own = folder ? boards.filter((b) => b.project === folder).sort(newest) : [];
-  const edited = Math.max(project.modified, ...mine.map((n) => n.modified), ...own.map((b) => b.modified));
-  return { recent: [...mine].sort(newest), pages, top, cards, boards: own, edited };
+  const ownDecks = folder ? decks.filter((d) => d.project === folder).sort(newest) : [];
+  const edited = Math.max(project.modified, ...mine.map((n) => n.modified), ...own.map((b) => b.modified), ...ownDecks.map((d) => d.modified));
+  return { recent: [...mine].sort(newest), pages, top, cards, boards: own, decks: ownDecks, edited };
 }
 
 /** Whether a to-do lives in the project's folder. */

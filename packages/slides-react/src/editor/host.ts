@@ -6,6 +6,7 @@ import type { Deck } from "@kasten-slides/wasm";
 import type { ComponentType } from "react";
 
 import type { PresentSync } from "../present/sync.ts";
+import type { TemplatesHost } from "./layouts/templates-host.ts";
 
 /** What a save did. */
 export type SaveOutcome =
@@ -54,6 +55,66 @@ export interface ImageUse {
   boards: { path: string; title: string }[];
   /** Decks that show it: the slides (from 1) and whether the deck's theme does. */
   decks: { path: string; title: string; slides: { number: number; id: string }[]; theme: boolean }[];
+}
+
+/**
+ * A diagram drawn into a picture the deck can hold. The picture is a PNG in the host's image store: PowerPoint, PDF and the HTML
+ * export carry that anywhere, which a diagram's own SVG (it draws its labels with HTML) does not survive.
+ */
+export interface DiagramPicture {
+  /** The picture's path in the image store, as a deck stores it in an image element's `src`. */
+  path: string;
+  /** The diagram it is a picture of, as the host names diagrams (a vault path in Kasten). The deck keeps it with the picture, so the picture can be edited again. */
+  source: string;
+  /** What the diagram is called. */
+  name: string;
+  /** The picture's size in pixels, when the host knows it. */
+  width?: number;
+  height?: number;
+}
+
+/** A page of the host (a Kasten page) as the editor lists and links it. */
+export interface HostPage {
+  /** The path a deck keeps in a link or a source: a vault path in Kasten, such as `projects/talk/plan.md`. */
+  path: string;
+  /** A stable name for the page when the host has one, so that a page that was moved is found again. */
+  id?: string;
+  title: string;
+  /** A glyph or an emoji. */
+  icon?: string;
+  /** The project it belongs to (its folder's name), when it is in one. */
+  project?: string | null;
+  /** When it last changed, in milliseconds. */
+  modified?: number;
+  /** Its first words, for a preview. */
+  excerpt?: string;
+}
+
+/** A page as it reads now: its Markdown, without the frontmatter. */
+export interface HostPageText extends HostPage {
+  markdown: string;
+}
+
+/** A heading of a page and the Markdown under it, up to the next heading at its level or above. */
+export interface HostPageSection {
+  /** The heading as it is written, marks and all: what `pageSection` finds the section by. */
+  heading: string;
+  /** What a person calls it. */
+  title: string;
+  /** 1 for `#` to 6 for `######`. */
+  level: number;
+  markdown: string;
+}
+
+/** Where a page opens, as the host's own Open menu has them: in place of this one, in a tab, in the pane to the right, or in a peek. */
+export type OpenPageWay = "here" | "tab" | "right" | "peek";
+
+/** What the host's page panel is told: the page to show over the presentation, and how to put it away. */
+export interface PagePanelProps {
+  path: string;
+  /** The heading to scroll to, when the link names one. */
+  section: string | null;
+  onClose(): void;
 }
 
 /** A finished file handed to the person: an export. */
@@ -132,6 +193,17 @@ export interface SlidesHost {
   /** Opens a note, board or deck of the host's, from a place an image is used. */
   openPath?(path: string): void;
   /**
+   * Lets the person choose a diagram of the host's (or make one) and resolves to a picture of it, or to null when they did not
+   * choose. A host with no diagrams, such as the standalone `slides dev`, leaves this out, and the editor does not offer Insert → Diagram.
+   */
+  pickDiagram?(): Promise<DiagramPicture | null>;
+  /**
+   * Opens the diagram `source` (what a `DiagramPicture` named) in the host's editor, and when it is closed resolves to a picture of it
+   * as it is now, or to null when it did not change (a picture with the path the slide already has is left alone too).
+   * Without this the editor does not offer Edit diagram.
+   */
+  editDiagram?(source: string): Promise<DiagramPicture | null>;
+  /**
    * The editor now holds `text` as what is saved: it took a version from
    * outside (a change made elsewhere, or the file's version after a conflict).
    * A host that tracks which version it saved over updates that here.
@@ -139,6 +211,34 @@ export interface SlidesHost {
   synced?(text: string): void;
   /** Opens a web address outside the editor. */
   openUrl?(url: string): void;
+  /**
+   * Lets the person choose a page of the host, and resolves to it, or to null when they did not. A host with no pages (the
+   * standalone `slides dev`) leaves this out, and the editor does not offer Insert → Page.
+   */
+  pickPage?(): Promise<HostPage | null>;
+  /** A page as it reads now; undefined when there is no such page (it was moved or trashed). Without this a page cannot be embedded, inserted or updated. */
+  readPage?(path: string): Promise<HostPageText | undefined>;
+  /** The headings of a page, each with the Markdown under it. Left out, they are read from `readPage`'s Markdown by the engine. */
+  pageSections?(path: string): Promise<HostPageSection[]>;
+  /** The pages the host holds, newest first: what a link to a page is checked against. Left out, links to pages are not checked. */
+  listPages?(): Promise<HostPage[]>;
+  /** Opens a page of the host (a link followed in the editor). `section` is a heading to go to. */
+  openPage?(path: string, how?: OpenPageWay, section?: string | null): void;
+  /** Calls `onChange` with the paths of pages that changed (edited here, or somewhere else); returns how to stop. */
+  watchPages?(onChange: (paths: string[]) => void): () => void;
+  /**
+   * A calm panel for a page, drawn by the host over the presentation: a link to a page opens it at the side, and Esc puts it away
+   * and returns to the slide. Left out, a link to a page does nothing while presenting.
+   */
+  pagePanel?: ComponentType<PagePanelProps>;
+  /**
+   * A picture of a web page as it looks in a window of `width` by `height`, kept in the image store; resolves to its path, or to
+   * null when it could not be taken. Taking one needs a window of the page that only the desktop app has; without this a snapshot
+   * is a picture the person chooses.
+   */
+  snapshotPage?(address: string, width: number, height: number): Promise<string | null>;
+  /** The readable text of a web page, as Markdown, for the Reader mode of an embedded page; null when it cannot be made. */
+  readerPage?(address: string): Promise<{ title: string; markdown: string } | null>;
   /** Tells the person something short. */
   notify?(message: string): void;
   /**
@@ -162,4 +262,23 @@ export interface SlidesHost {
    * available here.
    */
   aiPanel?: ComponentType<AiPanelProps>;
+  /**
+   * The templates the host keeps, so that a deck's look can be saved as one and put on this deck or another. A host without them
+   * (the standalone page) leaves this out, and the editor offers no templates.
+   */
+  templates?: TemplatesHost;
+  /**
+   * Whether the deck is a favourite of the host's (a star beside its name), and how to change that. A host without favourites leaves
+   * this out, and the title bar shows no star.
+   */
+  favourite?: DeckFavourite;
+}
+
+/** The deck's star: read it, change it, and hear when it was changed somewhere else (the sidebar). */
+export interface DeckFavourite {
+  /** Whether the deck is a favourite now. */
+  isOn(): boolean;
+  set(on: boolean): void;
+  /** Calls `onChange` when it changed; returns how to stop. */
+  watch(onChange: () => void): () => void;
 }

@@ -143,6 +143,41 @@ fn reads_inline_math_as_its_tex() {
 }
 
 #[test]
+fn keeps_the_time_after_a_day_link_or_an_at_date() {
+    let body = "Call [[2026-10-07]] 09:00 now\nSee [[Some page]] 10:00 and [[2026-10-08]] later\n- [ ] Book @2026-10-08 9:05\n- [x] Plan [[2026-10-09|friday]] 17:30\n- [ ] Odd [[2026-02-30]] 10:00 and @2026-13-45\n- [ ] Code `[[2026-10-10]] 08:00` only\n";
+    let e = extract(body);
+    let links: Vec<(&str, Option<&str>)> = e
+        .links
+        .iter()
+        .map(|l| (l.target.as_str(), l.at.as_deref()))
+        .collect();
+    assert_eq!(
+        links,
+        [
+            ("2026-10-07", Some("09:00")),
+            ("Some page", None),
+            ("2026-10-08", None),
+            ("2026-10-09", Some("17:30")),
+            ("2026-02-30", None),
+        ]
+    );
+    let tasks: Vec<(Option<&str>, Option<&str>)> = e
+        .tasks
+        .iter()
+        .map(|t| (t.due.as_deref(), t.at.as_deref()))
+        .collect();
+    assert_eq!(
+        tasks,
+        [
+            (Some("2026-10-08"), Some("09:05")),
+            (Some("2026-10-09"), Some("17:30")),
+            (None, None),
+            (None, None),
+        ]
+    );
+}
+
+#[test]
 fn a_fence_closes_on_a_plain_line_as_long_as_it_or_longer() {
     // Spaces after the closing run still close it; a shorter run or one
     // with words after it does not.

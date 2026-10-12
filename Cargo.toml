@@ -14,10 +14,11 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
+repository = "https://github.com/nbharathik/kastenflow"
 publish = false
 
 [workspace.dependencies]
@@ -29,7 +30,10 @@ slides-pptx = { path = "crates/slides-pptx" }
 slides-render = { path = "crates/slides-render" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
-tauri = { version = "2.11.6", features = ["protocol-asset", "tray-icon", "image-png"] }
+# `unstable` is the multi-webview API the browser tab is built on (a native web
+# view beside Kasten's own, in one window). It can change in a patch release,
+# so Tauri is pinned exactly; it adds code, not packages.
+tauri = { version = "=2.11.6", features = ["protocol-asset", "tray-icon", "image-png", "unstable"] }
 tauri-build = { version = "2.6.3", features = [] }
 
 [workspace.lints.rust]

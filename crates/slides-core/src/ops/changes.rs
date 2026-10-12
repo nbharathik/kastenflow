@@ -128,6 +128,18 @@ impl Snapshot {
             .map(|(id, slide)| (id.as_str(), slide.as_ref()))
     }
 
+    /// Whether this snapshot already holds everything `other` would put back:
+    /// each slide `other` names, and the order, theme and details if it has them.
+    pub(crate) fn covers(&self, other: &Snapshot) -> bool {
+        other
+            .slides
+            .iter()
+            .all(|(id, _)| self.slides.iter().any(|(mine, _)| mine == id))
+            && (other.order.is_none() || self.order.is_some())
+            && (other.theme.is_none() || self.theme.is_some())
+            && (other.meta.is_none() || self.meta.is_some())
+    }
+
     /// The scope this snapshot was taken of.
     pub fn scope(&self) -> Scope {
         Scope {

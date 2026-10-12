@@ -1,0 +1,406 @@
+/* The layouts a person keeps: thumbnails, the picker, the manager and the designer. Colours, radii and motion come from the editor's tokens. */
+
+.ks-lt {
+  position: relative;
+  display: block;
+  flex: none;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--ks-canvas);
+  box-shadow: inset 0 0 0 1px var(--ks-line-strong);
+  line-height: 0;
+}
+.ks-lt > .ks-thumb {
+  border-radius: inherit;
+}
+/* The picker: a grid of layouts. */
+.ks-lp {
+  display: grid;
+  gap: 6px;
+  padding: 2px;
+  max-height: min(56vh, 460px);
+  overflow-y: auto;
+}
+.ks-lp-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--ks-radius-md);
+  text-align: left;
+  transition: background var(--ks-fast) var(--ks-ease), border-color var(--ks-fast) var(--ks-ease);
+}
+.ks-lp-item:hover {
+  background: var(--ks-hover);
+}
+.ks-lp-item.is-on {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+}
+.ks-lp-item:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-lp-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ks-ink);
+}
+.ks-lp-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ks-lp-own {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--ks-soft);
+  color: var(--ks-accent);
+  font-size: 10px;
+  line-height: 16px;
+}
+.ks-lp-line .ks-icon {
+  flex: none;
+  color: var(--ks-accent);
+}
+
+/* The New slide menu. */
+.ks-lp-pop {
+  padding: 10px 12px 12px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+}
+.ks-lp-heading {
+  margin: 2px 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ks-muted);
+}
+.ks-lp-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ks-line);
+}
+.ks-lp-starts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ks-lp-starts-label {
+  margin-right: 4px;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-lp-start {
+  padding: 3px 9px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ks-ink);
+}
+.ks-lp-start:hover {
+  background: var(--ks-hover);
+}
+.ks-lp-start.is-on {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+  color: var(--ks-accent);
+}
+.ks-lp-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-lp-links {
+  display: flex;
+  gap: 4px;
+}
+.ks-lp-link {
+  padding: 4px 8px;
+  border-radius: var(--ks-radius-md);
+  font-size: 12px;
+  color: var(--ks-accent);
+}
+.ks-lp-link:hover {
+  background: var(--ks-hover);
+}
+
+/* Saving a slide as a layout. */
+.ks-ls-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-ls-field input {
+  font-size: 14px;
+}
+.ks-ls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(40vh, 300px);
+  margin: 0 0 12px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.ks-ls-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--ks-radius-md);
+  font-size: 13px;
+}
+.ks-ls-row:hover {
+  background: var(--ks-hover);
+}
+.ks-ls-row .ks-icon {
+  color: var(--ks-muted);
+}
+.ks-ls-what {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ks-ink);
+}
+.ks-ls-fixed {
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-ls-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-ls-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The manager. */
+.ks-lm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(62vh, 520px);
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+.ks-lm-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius-md);
+}
+.ks-lm-row.is-open {
+  border-color: var(--ks-line-strong);
+  background: var(--ks-soft);
+}
+.ks-lm-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ks-lm-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ks-ink);
+}
+.ks-lm-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ks-muted);
+}
+.ks-lm-badge {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--ks-soft);
+  color: var(--ks-accent);
+  line-height: 16px;
+}
+.ks-lm-actions {
+  display: flex;
+  gap: 2px;
+}
+.ks-lm-rename {
+  min-width: 0;
+  font-size: 13px;
+}
+.ks-lm-confirm {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--ks-ink);
+}
+.ks-lm-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* The designer: the editor's own canvas and panels over the whole window, on the one slide a layout is. */
+.ks-ld {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--ks-canvas);
+  color: var(--ks-ink);
+  animation: ks-ld-in var(--ks-slow) var(--ks-ease);
+}
+@keyframes ks-ld-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-ld {
+    animation: none;
+  }
+}
+.ks-ld-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ks-line);
+  background: var(--ks-panel, var(--ks-canvas));
+}
+.ks-ld-bar .ks-btn,
+.ks-ld-bar .ks-toggle {
+  flex: none;
+  white-space: nowrap;
+}
+.ks-ld-title {
+  display: flex;
+  flex-direction: column;
+  margin-right: 8px;
+  min-width: 0;
+}
+.ks-ld-title strong {
+  font-size: 14px;
+}
+.ks-ld-title span {
+  font-size: 11px;
+  color: var(--ks-muted);
+}
+.ks-ld-spacer {
+  flex: 1;
+}
+.ks-ld-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.ks-ld-body .ks-center {
+  flex: 1;
+  min-width: 0;
+}
+/* The format options of a slide, without what belongs to the deck: a layout has its own background, and no layout, transition, numbers or theme. */
+.ks-ld-panel [data-section="layout"],
+.ks-ld-panel [data-section="transition"],
+.ks-ld-panel [data-section="numbers"],
+.ks-ld-panel [data-section="theme"] {
+  display: none;
+}
+.ks-ld-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+}
+.ks-ld-menu button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: var(--ks-radius-md);
+  text-align: left;
+  font-size: 13px;
+  color: var(--ks-ink);
+}
+.ks-ld-menu button:hover {
+  background: var(--ks-hover);
+}
+.ks-ld-menu small {
+  font-size: 11px;
+  color: var(--ks-muted);
+}
+
+/* Templates. */
+.ks-tm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  max-height: min(56vh, 460px);
+  overflow-y: auto;
+  padding: 2px;
+}
+.ks-tm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius-md);
+  text-align: left;
+}
+.ks-tm-card:hover {
+  background: var(--ks-hover);
+}
+.ks-tm-card.is-on {
+  border-color: var(--ks-accent);
+  box-shadow: 0 0 0 1px var(--ks-accent);
+}
+.ks-tm-name {
+  font-size: 13px;
+  color: var(--ks-ink);
+}
+.ks-tm-meta {
+  font-size: 11px;
+  color: var(--ks-muted);
+}
+.ks-tm-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ks-muted);
+}

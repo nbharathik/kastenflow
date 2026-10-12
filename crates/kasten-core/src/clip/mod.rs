@@ -7,10 +7,12 @@
 //! emphasis, links and images (absolute), lists, quotes, code, tables and
 //! rules come across; scripts, styles and buttons do not.
 
+mod capture;
 mod escape;
 mod html;
 mod writer;
 
+pub use capture::{MAX_INPUT, Preview, TAG, Target, WebCapture, site_of};
 use html::{Element, parse};
 use writer::Writer;
 
@@ -95,6 +97,13 @@ fn page_title(root: &Element, url: &str) -> String {
             let bare = url.split_once("://").map_or(url, |(_, rest)| rest);
             bare.trim_end_matches('/').to_owned()
         })
+}
+
+/// A page's title alone: its `og:title`, else its `<title>`, else its first
+/// heading, else its address without the scheme. It reads whatever HTML it is
+/// given, so a page cut off after its head still has one.
+pub fn title_of(url: &str, page: &str) -> String {
+    page_title(&parse(page), url)
 }
 
 /// Reads a page for keeping.

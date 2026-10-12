@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 
-import { Icon } from "../../ui/Icon";
 import { Segmented } from "../../ui/Segmented";
-import { INBOX, KINDS, NO_FILTERS, PAGES, SORTS, SORT_LABELS, UPDATED, firstDir, hasFilters, type Filters, type Sort, type TagCount } from "./filters";
+import { DateFilterField } from "./DateFilterField";
+import { Dropdown } from "./Dropdown";
+import { INBOX, KINDS, NO_FILTERS, PAGES, SORTS, SORT_LABELS, firstDir, hasFilters, type Filters, type Sort, type TagCount } from "./filters";
+import { GROUPS, type GroupBy } from "./groups";
 import { Glyph } from "./parts";
 
 export interface FilterBarProps {
@@ -15,8 +17,7 @@ export interface FilterBarProps {
   counted: boolean;
 }
 
-const control =
-  "h-8 rounded-lg border text-13 outline-none transition-colors  focus-visible:ring-2 focus-visible:ring-accent/50";
+const control = "h-8 rounded-lg border text-13 outline-none transition-colors  focus-visible:ring-2 focus-visible:ring-accent/50";
 const idle = "border-line bg-raised text-ink hover:bg-hover";
 const set = "border-accent/55 bg-accent/12 font-medium text-accent";
 
@@ -37,39 +38,34 @@ export function FilterBar({ filters, onFilters, projects, tags, counted }: Filte
         onChange={(kind) => onFilters({ kind })}
       />
 
-      <Select label="Project" value={filters.place ?? ""} active={filters.place !== null} onChange={(v) => onFilters({ place: v || null })}>
-        <option value="">Any project</option>
-        <option value={INBOX}>Inbox</option>
-        <option value={PAGES}>Pages (no project)</option>
-        {projects.length > 0 && (
-          <optgroup label="Projects">
-            {projects.map((p) => (
-              <option key={p.folder} value={p.folder}>
-                {p.title}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        {!placeKnown && <option value={filters.place!}>{filters.place}</option>}
-      </Select>
+      <Dropdown
+        label="Project"
+        value={filters.place ?? ""}
+        active={filters.place !== null}
+        onChange={(v) => onFilters({ place: v || null })}
+        options={[
+          { value: "", label: "Any project" },
+          { value: INBOX, label: "Inbox" },
+          { value: PAGES, label: "Pages (no project)" },
+          ...projects.map((p) => ({ value: p.folder, label: p.title, group: "Projects" })),
+          ...(placeKnown ? [] : [{ value: filters.place!, label: filters.place!, group: "Projects" }]),
+        ]}
+      />
 
-      <Select label="Tag" value={filters.tag ?? ""} active={filters.tag !== null} onChange={(v) => onFilters({ tag: v || null })}>
-        <option value="">Any tag</option>
-        {tags.map((t) => (
-          <option key={t.tag} value={t.tag}>
-            #{t.label} ({t.count})
-          </option>
-        ))}
-        {!tagKnown && <option value={filters.tag!}>#{filters.tag}</option>}
-      </Select>
+      <Dropdown
+        label="Tag"
+        value={filters.tag ?? ""}
+        active={filters.tag !== null}
+        onChange={(v) => onFilters({ tag: v || null })}
+        options={[
+          { value: "", label: "Any tag" },
+          ...tags.map((t) => ({ value: t.tag, label: `#${t.label}`, detail: String(t.count) })),
+          ...(tagKnown ? [] : [{ value: filters.tag!, label: `#${filters.tag}` }]),
+        ]}
+      />
 
-      <Select label="Updated" value={filters.updated} active={filters.updated !== "any"} onChange={(v) => onFilters({ updated: v as Filters["updated"] })}>
-        {UPDATED.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.id === "any" ? "Updated any time" : `Updated ${u.label.toLowerCase()}`}
-          </option>
-        ))}
-      </Select>
+      <DateFilterField label="Updated" value={filters.updated} onChange={(updated) => onFilters({ updated })} />
+      <DateFilterField label="Created" value={filters.created} onChange={(created) => onFilters({ created })} />
 
       <Toggle on={filters.noBoard} waiting={!counted} onClick={() => onFilters({ noBoard: !filters.noBoard })} hint="Notes that sit on no whiteboard">
         On no board
@@ -87,7 +83,6 @@ export function FilterBar({ filters, onFilters, projects, tags, counted }: Filte
           Clear
         </button>
       )}
-
     </div>
   );
 }
@@ -97,14 +92,13 @@ export function SortControl({ sort, onSort }: { sort: Sort; onSort(sort: Sort): 
   const preset = SORTS.some((s) => s.key === sort.key);
   return (
     <div className="flex items-center gap-1">
-      <Select label="Sort" value={sort.key} active={false} onChange={(v) => onSort({ key: v as Sort["key"], dir: SORTS.find((s) => s.key === v)?.dir ?? firstDir(v as Sort["key"]) })}>
-        {SORTS.map((s) => (
-          <option key={s.key} value={s.key}>
-            Sort: {s.label}
-          </option>
-        ))}
-        {!preset && <option value={sort.key}>Sort: {SORT_LABELS[sort.key]}</option>}
-      </Select>
+      <Dropdown
+        label="Sort"
+        value={sort.key}
+        display={`Sort: ${SORT_LABELS[sort.key]}`}
+        onChange={(v) => onSort({ key: v as Sort["key"], dir: SORTS.find((s) => s.key === v)?.dir ?? firstDir(v as Sort["key"]) })}
+        options={[...SORTS.map((s) => ({ value: s.key, label: s.label })), ...(preset ? [] : [{ value: sort.key, label: SORT_LABELS[sort.key] }])]}
+      />
       <button
         type="button"
         aria-label={sort.dir === "asc" ? "Ascending; switch to descending" : "Descending; switch to ascending"}
@@ -118,19 +112,17 @@ export function SortControl({ sort, onSort }: { sort: Sort; onSort(sort: Sort): 
   );
 }
 
-function Select({ label, value, active, onChange, children }: { label: string; value: string; active: boolean; onChange(value: string): void; children: ReactNode }) {
+/** How cards are grouped under headings: none, type, project, tag, month or week. */
+export function GroupControl({ group, onGroup }: { group: GroupBy; onGroup(group: GroupBy): void }) {
   return (
-    <span className="relative inline-flex">
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={`${control} ${active ? set : idle} max-w-[13rem] cursor-pointer appearance-none truncate pl-2.5 pr-7`}
-      >
-        {children}
-      </select>
-      <Icon name="chevron" className={`pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 rotate-90 ${active ? "text-accent" : "text-muted"}`} />
-    </span>
+    <Dropdown
+      label="Group by"
+      value={group}
+      display={group === "none" ? "Group: none" : `Group: ${GROUPS.find((g) => g.id === group)?.label.toLowerCase()}`}
+      active={group !== "none"}
+      onChange={(v) => onGroup(v as GroupBy)}
+      options={GROUPS.map((g) => ({ value: g.id, label: g.label }))}
+    />
   );
 }
 

@@ -81,10 +81,25 @@ function TitleCell({ note, row, col, active, ctx, id }: CellProps) {
   );
 }
 
-/** Created, updated or edited: shown, not edited. */
+/** What a built-in field says: a time, a day, or for a project's saved tables the note's project, type or tags. */
+function fieldText(key: string, raw: unknown): string {
+  switch (key) {
+    case "modified":
+      return typeof raw === "number" && raw > 0 ? relativeTime(raw) : "";
+    case "tags":
+      return Array.isArray(raw) ? raw.map((t) => `#${String(t)}`).join(" ") : "";
+    case "project":
+      return typeof raw === "string" ? raw : "";
+    case "type":
+      return typeof raw === "string" ? raw.charAt(0).toUpperCase() + raw.slice(1) : "";
+    default:
+      return readableDate(raw);
+  }
+}
+
+/** Created, updated or edited (and project, type and tags in a project's tables): shown, not edited. */
 function FieldCell({ note, column, row, col, active, ctx, id }: CellProps) {
-  const raw = valueOf(note, column.key);
-  const text = column.key === "modified" ? (typeof raw === "number" && raw > 0 ? relativeTime(raw) : "") : readableDate(raw);
+  const text = fieldText(column.key, valueOf(note, column.key));
   return (
     <div role="gridcell" id={id} aria-selected={active} aria-readonly="true" className={cellClass("is-field", active)} onClick={() => ctx.activate(row, col)}>
       <span className="kasten-table-text">{text}</span>

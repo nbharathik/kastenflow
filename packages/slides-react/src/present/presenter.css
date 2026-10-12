@@ -122,6 +122,18 @@
   background: #fff;
 }
 
+/* A slide is shown whole at the deck's own proportions, whatever they are: as wide as its column, and no taller than the window leaves
+   room for (the header, the buttons and the gaps are about 200px), so a square or tall deck is not cut off or scrolled. The next slide
+   is held to a third of the window's height. */
+.ks-pv-now .ks-show-scroll-frame {
+  align-self: center;
+  width: min(100%, calc((100vh - 200px) * var(--ks-ratio, 1.7778)));
+}
+.ks-pv-next .ks-show-scroll-frame {
+  align-self: center;
+  width: min(100%, calc(32vh * var(--ks-ratio, 1.7778)));
+}
+
 .ks-pv-heading {
   margin: 0;
   color: var(--ks-pv-dim);

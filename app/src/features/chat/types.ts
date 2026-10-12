@@ -2,14 +2,20 @@
 // commands take and give, and the events an answer streams as. Names are
 // camelCase, as serde sends them.
 
+/** The kinds of provider an API key goes with. */
 export type ProviderKind = "anthropic" | "openai";
 
-/** An AI endpoint chats can use: the Anthropic API or any OpenAI-compatible
- * server. Its key stays in the system keychain; the window only learns
- * whether one is stored. */
+/** Every kind of provider: those, and "chatgpt", which signs in with the
+ * person's ChatGPT account instead of taking a key or an address. */
+export type ChatKind = ProviderKind | "chatgpt";
+
+/** An AI endpoint chats can use: the Anthropic API, any OpenAI-compatible
+ * server or the ChatGPT plan. Its key stays in the system keychain; the
+ * window only learns whether one is stored (for ChatGPT, whether Kasten is
+ * signed in). */
 export interface ChatProvider {
   name: string;
-  kind: ProviderKind;
+  kind: ChatKind;
   baseUrl: string;
   /** The model a new chat starts with. */
   model: string;
@@ -18,6 +24,11 @@ export interface ChatProvider {
    * this computer, or an address confirmed here. */
   confirmed: boolean;
 }
+
+/** A provider that takes a key and an address: not ChatGPT. */
+export type KeyedProvider = ChatProvider & { kind: ProviderKind };
+
+export const isKeyed = (provider: ChatProvider): provider is KeyedProvider => provider.kind !== "chatgpt";
 
 /** A provider as Settings sends it. */
 export type ProviderDraft = Omit<ChatProvider, "hasKey" | "confirmed">;

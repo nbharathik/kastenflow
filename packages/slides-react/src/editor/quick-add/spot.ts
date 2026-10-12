@@ -6,6 +6,9 @@ import { type Rect, clamp, intersects, snapMove } from "@kasten-slides/canvas";
 
 type Size = { w: number; h: number };
 
+/** How near, in screen pixels, a box put at the pointer snaps to a line: as near as a drag's. */
+export const SNAP = 6;
+
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /**

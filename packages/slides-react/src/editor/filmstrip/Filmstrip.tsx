@@ -2,16 +2,18 @@ import { type CSSProperties, type JSX, type KeyboardEvent, useCallback, useEffec
 
 import { dispatchKey } from "../commands/index.ts";
 import { lintOf } from "../lint/service.ts";
+import { addSlide } from "../new-slide.ts";
 import type { EditorSession } from "../session/session.ts";
-import { Icon } from "../ui/Icon.tsx";
 import type { EditorUi } from "../ui-state.ts";
 import { useEditorValue } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
 import { DragBadge } from "./DragBadge.tsx";
 import { collapseSelection, jumpShown, selectEvery, stepShown } from "./keys.ts";
-import { BACKUP_W, FRAME, SECTION_H, THUMB_W, entryOf, gapAt, gapTop, layoutFilmstrip, sectionOf, thumbHeight, visibleIds } from "./model.ts";
-import { type Spot, planMove, useReorder } from "./reorder.ts";
-import { openSlideMenu, pickSlide } from "./picking.ts";
+import { BACKUP_W, FRAME, SECTION_H, THUMB_W, entryOf, gapAt, gapShifts, layoutFilmstrip, sectionOf, thumbHeight, visibleIds } from "./model.ts";
+import { NewSlideButton } from "./NewSlideButton.tsx";
+import { type Drop, type Spot, useReorder } from "./reorder.ts";
+import { openSlideMenu, pickSection, pickSlide, slidesOfSection } from "./picking.ts";
+import { useGapShifts, useLanding, useRowMotion } from "./row-motion.ts";
 import { type RowHandlers, SectionHeader, SlideRow } from "./SlideRow.tsx";
 import { useImageUrl, useThumbDeck } from "./SlideThumb.tsx";
 import { nearWindow, useScrollWindow } from "./useScrollWindow.ts";
@@ -46,6 +48,18 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   const layout = useMemo(() => layoutFilmstrip(deck, folded), [deck.slides, deck.sections, deck.size, folded]);
   const latest = useRef(layout);
   latest.current = layout;
+  // Where slides that were in the hand were put down, so that the rows do not glide to places they already made room at.
+  const landing = useRef<Drop | null>(null);
+  // Slides that move go to their new places, and a new slide slides in, unless the motion setting is off.
+  useRowMotion(list, scroller, layout, landing);
+  // A slide that is gone from the deck leaves its row behind for a moment, folding away; the ids are known before the rows go.
+  const known = useRef<readonly string[]>([]);
+  const leaving = useRef<ReadonlySet<string>>(new Set());
+  const nowIds = new Set(deck.slides.map((slide) => slide.id));
+  leaving.current = new Set(known.current.filter((id) => !nowIds.has(id)));
+  useLayoutEffect(() => {
+    known.current = [...nowIds];
+  });
   // Select all, from the Edit menu or a right click, takes every slide that can be seen (a folded section hides its own).
   useEffect(() => ui.areas.register("slides", () => selectEvery(session, visibleIds(latest.current))), [ui, session]);
 
@@ -58,6 +72,14 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   }, []);
 
   const renameSection = useCallback((at: string, title: string) => session.slides.renameSection(at, title), [session]);
+  // The name of a section picks its slides, and the list has the keys from then on (Delete and the copy keys are about the slides).
+  const pickInSection = useCallback(
+    (key: string) => {
+      pickSection(session, key);
+      list.current?.focus({ preventScroll: true });
+    },
+    [session],
+  );
 
   // ---- reordering
 
@@ -69,8 +91,16 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
     },
     [session],
   );
-  const reorder = useReorder({ session, locate, scroller });
+  const frameOf = useCallback((id: string) => list.current?.querySelector<HTMLElement>(`.ks-fs-row[data-slide="${id}"] .ks-fs-frame`) ?? null, []);
+  const onDrop = useCallback((drop: Drop) => {
+    landing.current = drop;
+  }, []);
+  const reorder = useReorder({ session, locate, scroller, frameOf, onDrop });
   const { drag } = reorder;
+  // With slides in the hand over the list, the rows close up where they were taken from and open a gap where they would land.
+  const shifts = useMemo(() => (drag?.spot ? gapShifts(layout, new Set(drag.ids), drag.spot.gap) : null), [layout, drag]);
+  useGapShifts(list, shifts);
+  useLanding(list, landing, drag !== null);
 
   // ---- following the shown slide
 
@@ -108,6 +138,7 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
         list.current?.focus({ preventScroll: true });
         openSlideMenu(session, ui, id, { x: event.clientX, y: event.clientY });
       },
+      leaving,
     }),
     [session, ui, reorder.begin, reorder.swallowClick],
   );
@@ -130,6 +161,11 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
       if (section && folded.has(section.startsAt) === (event.key === "ArrowRight")) toggleSection(section.startsAt);
       if (section) stop();
     } else if (plain && !event.shiftKey && event.key === "Enter") {
+      // As in every slide editor: Enter in the list of slides adds one after the slide shown, and shows it.
+      stop();
+      addSlide(session, ui, { after: shown });
+    } else if (plain && !event.shiftKey && event.key === "Tab") {
+      // Tab goes on to the slide itself, as the eye does.
       stop();
       const root = list.current?.closest(".ks-editor") ?? document;
       root.querySelector<HTMLElement>(".ks-stage")?.focus();
@@ -162,28 +198,36 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   } as CSSProperties;
   const chosen = new Set(selection);
   const moving = drag ? new Set(drag.ids) : null;
-  const dropAt = drag?.spot
-    ? planMove(
-        deck.slides.map((slide) => slide.id),
-        drag.ids,
-        drag.spot.gap,
-      ).changed
-      ? gapTop(layout, drag.spot.gap)
-      : null
-    : null;
+  // A header says it is picked when the slides picked are exactly its own, two or more (one slide is only the slide shown).
+  const pickedSections = new Set<string>();
+  if (chosen.size > 1) {
+    for (const entry of layout.entries) {
+      if (entry.kind !== "header") continue;
+      const own = slidesOfSection(deck, entry.key);
+      if (own.length === chosen.size && own.every((id) => chosen.has(id))) pickedSections.add(entry.key);
+    }
+  }
 
   return (
     <div
       ref={scroller}
       className="ks-filmstrip"
+      onPointerDown={(event) => {
+        // Bare space of the list (beside or below the slides) is a press on the list: what was selected on the slide is let go, and the
+        // list has the keys. The slides stay as they were picked.
+        if (event.button === 0 && (event.target === event.currentTarget || event.target === list.current)) {
+          session.select([]);
+          list.current?.focus({ preventScroll: true });
+        }
+      }}
       onDoubleClick={(event) => {
         // Empty space between and below the slides adds one.
-        if (event.target === event.currentTarget || event.target === list.current) session.slides.add();
+        if (event.target === event.currentTarget || event.target === list.current) addSlide(session, ui);
       }}
     >
       <div
         ref={list}
-        className={`ks-fs-list${drag ? " is-dragging" : ""}`}
+        className={`ks-fs-list${drag ? " is-dragging" : ""}${drag?.spot ? " is-shifted" : ""}`}
         role="listbox"
         aria-label="Slides"
         aria-multiselectable="true"
@@ -194,7 +238,19 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
       >
         {layout.entries.map((entry) =>
           entry.kind === "header" ? (
-            <SectionHeader key={`section-${entry.key}`} name={entry.key} title={entry.section.title} count={entry.count} collapsed={entry.collapsed} toggle={toggleSection} ui={ui} rename={renameSection} menu={handlers.menu} />
+            <SectionHeader
+              key={`section-${entry.key}`}
+              name={entry.key}
+              title={entry.section.title}
+              count={entry.count}
+              collapsed={entry.collapsed}
+              toggle={toggleSection}
+              ui={ui}
+              rename={renameSection}
+              menu={handlers.menu}
+              pick={pickInSection}
+              picked={pickedSections.has(entry.key)}
+            />
           ) : (
             <SlideRow
               key={entry.id}
@@ -214,13 +270,9 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
             />
           ),
         )}
-        {dropAt !== null ? <div className="ks-fs-drop" style={{ top: dropAt - 1 }} aria-hidden="true" /> : null}
+        <DragBadge drag={drag} badge={reorder.badge} />
       </div>
-      <button type="button" className="ks-btn ks-fs-add" aria-label="New slide" onMouseDown={(event) => event.preventDefault()} onClick={() => void session.slides.add()}>
-        <Icon name="plus" size={16} />
-        <span>New slide</span>
-      </button>
-      <DragBadge drag={drag} badge={reorder.badge} />
+      <NewSlideButton session={session} ui={ui} />
     </div>
   );
 }

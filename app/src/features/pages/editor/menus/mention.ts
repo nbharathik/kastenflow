@@ -1,25 +1,26 @@
 // Link autocomplete, as in Notion: `[[` lists pages to link (or creates one),
-// and `@` offers today, tomorrow, yesterday or a page. The pick replaces what
-// was typed with a `[[link]]`.
+// and `@` offers dates and times, people, pages, whiteboards, decks and tags
+// (mention-sections.ts). The pick replaces what was typed with a `[[link]]`.
 
 import type { Ctx } from "@milkdown/kit/ctx";
 import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
-import { dayFrom, isoDay } from "../../../../lib/dates";
+import { isoDay } from "../../../../lib/dates";
 import type { TagViewKind } from "../../../../lib/vault/types";
-import { findLink, findPage, foundPage, linksOf, retarget, type LinkProvider } from "../links";
+import { linksOf, retarget } from "../links";
 import { databaseLabel, databaseSections } from "./database-menu";
 import { markSpot, takeSpot } from "./embed-spot";
+import { boardSections, headingSections, sections, type Trigger } from "./mention-sections";
 import type { Rect } from "../ui/dom";
-import { Popover, type MenuItem, type MenuSection } from "../ui/popover";
+import { Popover } from "../ui/popover";
 
-/** `[[` links a page, `@` a day or page; `page` names a new sub-page (/page),
- * `embed` picks a page to show in place (/embed), `board` a whiteboard to
- * embed (/whiteboard) and `database` a tag database (/database, or /table
- * view and the other views). */
-type Trigger = "link" | "mention" | "page" | "embed" | "board" | "database";
+// A trigger is `[[` (link a page), `@` (a date, person, page, whiteboard,
+// deck or tag: `mention`), or one of the slash menu's: `page` names a new
+// sub-page (/page), `embed` picks a page to show in place (/embed), `board` a
+// whiteboard to embed (/whiteboard) and `database` a tag database (/database,
+// or /table view and the other views).
 
 interface MentionState {
   /** Where the typed `[[` or `@` starts while the menu is open. */
@@ -37,7 +38,6 @@ type MentionMeta = { open: number; trigger: Trigger; block?: boolean; view?: Tag
 export const mentionKey = new PluginKey<MentionState>("KASTEN_MENTION");
 const CLOSED: MentionState = { from: null, trigger: "link" };
 const MAX_QUERY = 60;
-const MAX_PAGES = 8;
 
 export { isoDay };
 
@@ -64,79 +64,6 @@ function nextState(tr: Transaction, prev: MentionState, state: EditorState): Men
   return { from: mapped.pos, trigger: prev.trigger, block: prev.block, view: prev.view };
 }
 
-/** Pages whose titles match, those starting with the query first. */
-export function matchPages(links: LinkProvider, query: string) {
-  const q = query.trim().toLowerCase();
-  const pages = links.pages().filter((p) => p.title.toLowerCase().includes(q));
-  return pages.sort((a, b) => Number(!a.title.toLowerCase().startsWith(q)) - Number(!b.title.toLowerCase().startsWith(q))).slice(0, MAX_PAGES);
-}
-
-/** Whiteboards whose titles match, those starting with the query first. */
-function matchBoards(links: LinkProvider, query: string) {
-  const q = query.trim().toLowerCase();
-  const boards = (links.boards?.() ?? []).filter((b) => b.title.toLowerCase().includes(q));
-  return boards.sort((a, b) => Number(!a.title.toLowerCase().startsWith(q)) - Number(!b.title.toLowerCase().startsWith(q))).slice(0, MAX_PAGES);
-}
-
-/** The /whiteboard menu: boards to embed, and a new one. `board` gets a path, or null to make one. */
-function boardSections(query: string, links: LinkProvider, board: (path: string | null, title: string) => void): MenuSection[] {
-  const title = query.trim();
-  const items: MenuItem[] = matchBoards(links, query).map((b) => ({ key: `board:${b.path}`, label: b.title, hint: b.hint, icon: "icon:board", onPick: () => board(b.path, b.title) }));
-  const create: MenuItem[] = links.createBoard ? [{ key: "create", label: title ? `New whiteboard “${title}”` : "New whiteboard", icon: "icon:plus", onPick: () => board(null, title) }] : [];
-  return [{ title: "Embed a whiteboard", items }, { items: create }];
-}
-
-/** For `[[Title#part`: the headings of that page matching `part`, or null
- * when the query names no heading. `again` redraws once they are read. */
-function headingSections(query: string, links: LinkProvider, pick: (value: string) => void, again: () => void): MenuSection[] | null {
-  const hash = query.indexOf("#");
-  if (hash < 0 || !links.headings) return null;
-  const page = foundPage(findLink(links, query.slice(0, hash).trim()));
-  if (!page) return [{ title: "Headings", items: [] }];
-  const part = query.slice(hash + 1).trim().toLowerCase();
-  const headings = links.headings(page, again) ?? [];
-  const target = links.linkText?.(page) ?? page.title;
-  // A heading in a link cannot hold `|` or `]`.
-  const items: MenuItem[] = headings
-    .filter((h) => h.toLowerCase().includes(part) && !/[|\]]/.test(h))
-    .slice(0, MAX_PAGES)
-    .map((h) => ({ key: `heading:${h}`, label: h, hint: page.title, icon: "icon:heading-2", onPick: () => pick(`${target}#${h}`) }));
-  return [{ title: `Headings in ${page.title}`, items }];
-}
-
-/** `pick` gets a link's text, and a title when the page is to be made. */
-function sections(trigger: Trigger, query: string, links: LinkProvider, pick: (value: string, create?: string) => void): MenuSection[] {
-  const pageItems: MenuItem[] = matchPages(links, query).map((page) => ({
-    key: `page:${page.path ?? page.title}`,
-    label: page.title,
-    // Pages that share a title say where each lives.
-    hint: page.where,
-    icon: page.icon ?? "icon:page",
-    onPick: () => pick(links.linkText?.(page) ?? page.title),
-  }));
-  const title = query.trim();
-  if (trigger === "page") {
-    // A sub-page may share its name with another page, as in Notion.
-    const items: MenuItem[] = title ? [{ key: "create", label: `“${title}”`, hint: "Enter", icon: "icon:page-plus", onPick: () => pick(title, title) }] : [];
-    return [{ title: "New sub-page", items }];
-  }
-  if (trigger === "embed") return [{ title: "Embed a page", items: pageItems }];
-  if (trigger === "link") {
-    const exists = findPage(links.pages(), title);
-    const create: MenuItem[] =
-      title && links.create ? [{ key: "create", label: exists ? `Another page “${title}”` : `New page “${title}”`, icon: "icon:plus", onPick: () => pick(title, title) }] : [];
-    return [{ title: "Link to page", items: pageItems }, { items: create }];
-  }
-  const days = [
-    { label: "Today", day: dayFrom(0) },
-    { label: "Tomorrow", day: dayFrom(1) },
-    { label: "Yesterday", day: dayFrom(-1) },
-  ].filter((d) => d.label.toLowerCase().startsWith(title.toLowerCase()) || d.day.startsWith(title));
-  if (/^\d{4}-\d{2}-\d{2}$/.test(title) && !days.some((d) => d.day === title)) days.unshift({ label: title, day: title });
-  const dayItems: MenuItem[] = days.map((d) => ({ key: `day:${d.day}`, label: d.label, hint: d.day, icon: "icon:calendar", onPick: () => pick(d.day) }));
-  return [{ title: "Date", items: dayItems }, { title: "Link to page", items: pageItems }];
-}
-
 class MentionMenuView {
   private popover: Popover | null = null;
   private query: string | null = null;
@@ -159,7 +86,7 @@ class MentionMenuView {
           : trigger === "embed"
             ? sections(trigger, query, links, (value) => this.embedLater(value, ""))
             : ((trigger === "link" || trigger === "mention") && headingSections(query, links, (value) => this.insert(value), () => this.redraw())) ||
-              sections(trigger, query, links, (value, create) => this.insert(value, create));
+              sections(trigger, query, links, (value, create, after) => this.insert(value, create, after));
     if (!this.popover) {
       this.popover = new Popover(build(), {
         anchor: () => this.caretRect(),
@@ -173,7 +100,9 @@ class MentionMenuView {
                 ? kind
                   ? "Type a name for a new database"
                   : "No tag has a database yet: give one properties in the Tag Database"
-                : "No pages match",
+                : trigger === "mention"
+                  ? "No dates or pages match"
+                  : "No pages match",
         onClose: () => this.onPopoverClosed(),
       });
     } else if (query !== this.query) this.popover.setSections(build());
@@ -205,9 +134,10 @@ class MentionMenuView {
     this.hide();
   }
 
-  /** Puts a link with `value` where `[[` or `@` was typed; with `create`,
-   * makes that page first, and names it once it is made. */
-  private insert(value: string, create?: string): void {
+  /** Puts a link with `value` where `[[` or `@` was typed, then `after` (a
+   * time, as plain text); with `create`, makes that page first, and names it
+   * once it is made. */
+  private insert(value: string, create?: string, after = ""): void {
     const { state } = this.view;
     const from = mentionKey.getState(state)?.from;
     const type = state.schema.nodes.wiki_link;
@@ -228,7 +158,7 @@ class MentionMenuView {
     if (whole) {
       const below = tr.mapping.map($from.after());
       tr.insert(below, state.schema.nodes.paragraph!.create()).setSelection(TextSelection.create(tr.doc, below + 1));
-    } else tr.insertText(" ");
+    } else tr.insertText(`${after} `);
     this.view.dispatch(tr.scrollIntoView());
     this.view.focus();
   }

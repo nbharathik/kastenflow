@@ -110,7 +110,7 @@ pub async fn github_sign_in_start(
     sign_in: State<'_, SignIn>,
 ) -> Result<SignInCode, String> {
     let id = client_id()
-        .ok_or("This copy of Kasten can't sign in with GitHub; paste a token instead")?;
+        .ok_or("This copy of KastenFlow can't sign in with GitHub; paste a token instead")?;
     let http = chat.http()?;
     let code = github::request_code(&http, id).await?;
     let stop = Arc::new(AtomicBool::new(false));

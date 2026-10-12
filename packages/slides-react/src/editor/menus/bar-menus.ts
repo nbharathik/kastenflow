@@ -1,14 +1,17 @@
 // The nine menus of the menu bar, File to Help. Each is built when it is
 // opened, from the command list and the sub-menus in the items-* modules.
 
+import { chromeOf } from "../chrome/chrome.ts";
 import { type CommandContext, textFormat } from "../commands/index.ts";
 import type { MenuItem } from "../ui/Menu.tsx";
 import { SEPARATOR, commandItem, groups, submenu } from "./build.ts";
 import { historyLabel } from "./history-label.ts";
 import { alignHorizontalItems, alignVerticalItems, distributeItems, orderItems, rotateItems } from "./items-arrange.ts";
-import { compositeItems, imageItems, lineItems, shapeGroupItems } from "./items-insert.tsx";
-import { moveSlideItems, stepItems } from "./items-slide.ts";
-import { alignItems, indentItems, listItems, markItems, spacingItems } from "./items-text.ts";
+import { insertGroupItems } from "./items-insert.tsx";
+import { layoutItems } from "./items-layout.ts";
+import { moveSlideItems, newSlidesItems, stepItems } from "./items-slide.ts";
+import { textFormatRows } from "../text-ui/items.ts";
+import { alignItems, indentItems, markItems } from "./items-text.ts";
 import { viewModeItems, zoomItems } from "./items-view.ts";
 
 export interface BarMenu {
@@ -25,15 +28,18 @@ function fileItems(ctx: CommandContext): MenuItem[] {
   return groups(
     [commandItem("slide.new", ctx), commandItem("slide.duplicate", ctx)],
     [commandItem("file.import-pptx", ctx)],
+    [commandItem("file.page-setup", ctx)],
+    // The deck's look as a template of your own, and a template put on this deck (both need a host that keeps templates).
+    [commandItem("deck.save-template", ctx), commandItem("deck.apply-template", ctx)],
     [submenu("download", "Download", EXPORTS.map((format) => commandItem(`file.export-${format}`, ctx, { disabledIf: !exportAs })), "download")],
     [commandItem("file.print", ctx, { disabledIf: !print })],
   );
 }
 
-/** Copy, cut and paste act on the words when a text box is open, and on the elements otherwise. */
+/** Copy, cut and paste act on the words when a text box is open, and otherwise on the slides of the filmstrip or the grid, or the elements of the slide. */
 function clipboardItems(ctx: CommandContext): MenuItem[] {
   const text = ctx.ui.state.text;
-  if (!text) return [commandItem("edit.cut", ctx), commandItem("edit.copy", ctx), commandItem("edit.paste", ctx)];
+  if (!text) return ["edit.cut", "edit.copy", "edit.paste", "edit.paste-in-place"].map((id) => commandItem(id, ctx));
   const word = (kind: "cut" | "copy") => () => void document.execCommand(kind);
   return [
     commandItem("edit.cut", ctx, { run: word("cut") }),
@@ -60,39 +66,29 @@ function editItems(ctx: CommandContext): MenuItem[] {
 function viewItems(ctx: CommandContext): MenuItem[] {
   const { present } = ctx.ui.actions;
   return groups(
-    [submenu("zoom", "Zoom", zoomItems(ctx), "zoom-in"), submenu("views", "Views", viewModeItems(ctx), "presentation")],
-    ["view.notes", "view.filmstrip", "view.snap", "lint.badges"].map((id) => commandItem(id, ctx)),
-    ["view.format-panel", "view.steps-panel", "view.ai-panel"].map((id) => commandItem(id, ctx)),
+    [submenu("zoom", "Zoom", zoomItems(ctx), "zoom-in"), submenu("views", "Views", viewModeItems(ctx), "presentation"), submenu("new-slides", "New slides", newSlidesItems(ctx), "plus")],
+    [
+      ...["view.notes", "view.filmstrip", "view.snap", "lint.badges"].map((id) => commandItem(id, ctx)),
+      commandItem("view.density", ctx, { checked: chromeOf(ctx.ui).state.density === "compact" }),
+    ],
+    ["view.format-panel", "view.themes-panel", "view.motion-panel", "view.steps-panel", "view.ai-panel"].map((id) => commandItem(id, ctx)),
     [commandItem("view.full-screen", ctx)],
     [commandItem("view.present", ctx, { disabledIf: !present }), commandItem("view.present-start", ctx, { disabledIf: !present })],
     [commandItem("view.presenter", ctx, { disabledIf: !present }), commandItem("view.present-scroll", ctx, { disabledIf: !present })],
   );
 }
 
+/** Two levels: the groups of things to insert, each opening onto its items; then the gallery that finds any of them, and a new slide. */
 function insertItems(ctx: CommandContext): MenuItem[] {
-  return groups(
-    [
-      commandItem("insert.text-box", ctx, { checked: ctx.session.state.tool === "text" }),
-      submenu("image", "Image", imageItems(ctx), "image"),
-      submenu("shape", "Shape", shapeGroupItems(ctx), "shapes"),
-      submenu("line", "Line", lineItems(ctx), "arrow-up-right"),
-      commandItem("insert.table", ctx),
-    ],
-    compositeItems(ctx),
-    [commandItem("slide.new", ctx)],
-    [commandItem("insert.palette", ctx)],
-  );
+  return groups(insertGroupItems(ctx), [commandItem("insert.palette", ctx), commandItem("slide.new", ctx)]);
 }
 
 function formatItems(ctx: CommandContext): MenuItem[] {
   const disabledIf = !textFormat.canFormat(ctx);
   return groups(
-    [
-      submenu("text", "Text", markItems(ctx), "type"),
-      submenu("align", "Align & indent", [...alignItems(ctx), SEPARATOR, ...indentItems(ctx)], "text-align-start"),
-      ...listItems(ctx),
-      submenu("spacing", "Line spacing", spacingItems(ctx), "list-chevrons-up-down"),
-    ],
+    [submenu("text", "Text", markItems(ctx), "type"), submenu("align", "Align & indent", [...alignItems(ctx), SEPARATOR, ...indentItems(ctx)], "text-align-start")],
+    // Bullets and numbering, line and paragraph spacing, text fitting, raised and lowered words, case and what is corrected as one types.
+    textFormatRows(ctx),
     [commandItem("text.clear", ctx, { disabledIf }), commandItem("text.link", ctx, { disabledIf })],
   );
 }
@@ -102,7 +98,17 @@ function slideItems(ctx: CommandContext): MenuItem[] {
     [commandItem("slide.new", ctx), commandItem("slide.duplicate", ctx), commandItem("slide.delete", ctx)],
     [commandItem("slide.skip", ctx), commandItem("slide.backup", ctx), submenu("move", "Move slide", moveSlideItems(ctx), "arrow-up")],
     [submenu("steps", "Steps", stepItems(ctx), "list")],
-    ["slide.layout", "slide.background", "slide.transition", "slide.theme"].map((id) => commandItem(id, ctx)),
+    // The layouts: one picked from the list, or from the dialog; saving this slide as one, editing the one in use, putting the slide's
+    // slots back and managing the deck's own.
+    [
+      submenu("apply-layout", "Apply layout", layoutItems(ctx), "layout-template"),
+      commandItem("slide.layout", ctx),
+      commandItem("slide.save-as-layout", ctx),
+      commandItem("layout.edit", ctx),
+      commandItem("slide.reset-layout", ctx),
+      commandItem("layout.manage", ctx),
+    ],
+    ["slide.background", "slide.transition", "view.themes-panel", "slide.theme"].map((id) => commandItem(id, ctx)),
   );
 }
 
@@ -129,7 +135,7 @@ export function barMenus(ctx: CommandContext): BarMenu[] {
     { id: "format", label: "Format", items: () => formatItems(ctx) },
     { id: "slide", label: "Slide", items: () => slideItems(ctx) },
     { id: "arrange", label: "Arrange", items: () => arrangeItems(ctx) },
-    { id: "tools", label: "Tools", items: () => [commandItem("edit.find", ctx), commandItem("lint.open", ctx), commandItem("agent.accept-all", ctx)] },
-    { id: "help", label: "Help", items: () => [commandItem("help.shortcuts", ctx)] },
+    { id: "tools", label: "Tools", items: () => groups([commandItem("edit.find", ctx), commandItem("lint.open", ctx), commandItem("agent.accept-all", ctx)], ctx.session.host.readPage ? [commandItem("page.update-all", ctx)] : []) },
+    { id: "help", label: "Help", items: () => [commandItem("view.menu-search", ctx), commandItem("help.shortcuts", ctx)] },
   ];
 }

@@ -7,7 +7,9 @@ use serde_json::{Map, Value};
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(crate = "rmcp::schemars")]
 pub struct SearchArgs {
-    /// Words to find. The last word also matches as a prefix.
+    /// Words to find. The last word also matches as a prefix. Filters may
+    /// stand among them: `on:2026-10-06`, `created:2026-10`,
+    /// `updated:2026-09-01..2026-09-30` and `under:<note id or path>`.
     pub query: String,
     /// Only notes with this tag.
     pub tag: Option<String>,
@@ -289,6 +291,43 @@ pub struct ConnectArgs {
     pub to: String,
     /// A short label for the arrow, such as "leads to".
     pub label: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct DiagramArgs {
+    /// The diagram's title or vault path (`.drawio`).
+    pub diagram: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct CreateDiagramArgs {
+    pub title: String,
+    /// The diagram's source: draw.io's uncompressed `mxfile` XML. Left out, the diagram starts blank.
+    pub xml: Option<String>,
+    /// A project's folder name under projects/; without it the diagram goes to the library.
+    pub project: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct UpdateDiagramArgs {
+    /// The diagram's title or vault path (`.drawio`).
+    pub diagram: String,
+    /// The whole new source: `get_diagram`'s XML, changed. Keep the `id` of every cell you do not mean to change.
+    pub xml: String,
+    /// Why, for the person reviewing it.
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct TrashDiagramArgs {
+    /// The diagram's title or vault path (`.drawio`).
+    pub diagram: String,
+    /// Why, for the person reviewing it.
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

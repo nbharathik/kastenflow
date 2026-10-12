@@ -9,6 +9,7 @@ import type { FolderNode } from "../features/workspace/tree";
 import { useWorkspace } from "../features/workspace/store";
 import { Icon } from "../ui/Icon";
 import { RowList, useExpanded } from "./PageTree";
+import { useTreeFilter } from "./tree-filter";
 
 export function FolderTree({ root }: { root: FolderNode }) {
   return (
@@ -20,9 +21,17 @@ export function FolderTree({ root }: { root: FolderNode }) {
   );
 }
 
+/** Whether a note in `node`, or in a folder inside it, is left by the filter. */
+function hasMatch(node: FolderNode, show: ReadonlySet<string>): boolean {
+  return node.notes.some((n) => show.has(n.path)) || node.folders.some((f) => hasMatch(f, show));
+}
+
 const FolderRow = memo(function FolderRow({ node, depth }: { node: FolderNode; depth: number }) {
   const holdsCurrent = useWorkspace((s) => s.place.view === "page" && Boolean(s.place.path?.startsWith(`${node.path}/`)));
-  const [open, toggle] = useExpanded(`folder:${node.path}`, holdsCurrent);
+  const filter = useTreeFilter();
+  const matching = filter !== null && hasMatch(node, filter.show);
+  const [open, toggle] = useExpanded(`folder:${node.path}`, holdsCurrent || matching);
+  if (filter && !matching) return null;
   return (
     <li>
       <button
@@ -47,7 +56,7 @@ const FolderRow = memo(function FolderRow({ node, depth }: { node: FolderNode; d
           {node.folders.map((folder) => (
             <FolderRow key={folder.path} node={folder} depth={depth + 1} />
           ))}
-          <RowList notes={node.notes} depth={depth + 1} />
+          <RowList notes={node.notes} depth={depth + 1} listKey={`folder:${node.path}`} />
         </ul>
       )}
     </li>

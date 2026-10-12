@@ -27,7 +27,7 @@ export const ARCHIVED = { ...SEED, [GAMMA]: "---\ntitle: Gamma\ntype: project\np
 /** A fresh window: no preferences, nothing open. */
 export function freshWindow(): void {
   localStorage.clear();
-  usePrefs.setState({ favourites: [], projectOrder: [], pinnedProjects: [] });
+  usePrefs.setState({ favourites: [], projectOrder: [], pinnedProjects: [], pinnedPages: [], sidebarShowCards: false, navPinned: null, moreViews: false });
   useBoards.setState({ list: [], loaded: false });
   useWorkspace.setState({ client: null, ready: false, notes: [], ...derive(initialLayout()), stack: [], stackOpen: false, recent: [], toasts: [] });
   useShell.setState({ sidebarOpen: true, focusMode: false, paletteOpen: false, panels: [] });

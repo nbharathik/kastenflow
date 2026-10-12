@@ -5,6 +5,7 @@ import { Icon } from "../../ui/Icon";
 import { useWorkspace } from "../workspace/store";
 import { onDeckFiles } from "./events";
 import { type KastenHost, kastenHost } from "./kasten-host";
+import { PagePickerHost } from "./PagePicker";
 import "./slides.css";
 
 type Loaded = { status: "loading" } | { status: "failed"; message: string } | { status: "ready"; text: string; host: KastenHost };
@@ -62,6 +63,8 @@ export function DeckView({ path }: { path: string }) {
           if (import.meta.env.DEV || new URLSearchParams(location.search).has("samples")) Object.assign(window, { __ks: session && ui ? { session, ui, host: loaded.host } : undefined });
         }}
       />
+      {/* Insert → Page…: the editor asks the host which page, and this is where the person answers. */}
+      <PagePickerHost />
     </div>
   );
 }

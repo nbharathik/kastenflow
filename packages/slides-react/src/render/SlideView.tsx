@@ -1,5 +1,5 @@
 import { type Deck, type Element, type Slide, citationOrder, expandComposite, referencesVersion, subscribeReferences } from "@kasten-slides/wasm";
-import { type CSSProperties, type JSX, useMemo, useSyncExternalStore } from "react";
+import { type CSSProperties, type JSX, memo, useMemo, useSyncExternalStore } from "react";
 
 import { colorOf, fontStack, layoutOf } from "../theme/index.ts";
 import type { ImageUrl, RenderCx, SlideMode } from "./context.ts";
@@ -35,7 +35,7 @@ function stepLabelOf(deck: Deck, slide: Slide, step: number | undefined): string
 }
 
 /** The composites that are drawn as the primitives they expand to. A formula is not one of them: KaTeX draws it (see `MathView`). */
-const EXPANDED = new Set(["code", "chat", "token-probs", "card-grid", "citation", "step-label", "embed", "video"]);
+const EXPANDED = new Set(["code", "chat", "token-probs", "card-grid", "citation", "step-label", "embed", "video", "chart", "timer", "qr"]);
 
 /** The elements with each composite (code, a chat ...) replaced by the group of the primitives it is drawn with, in groups too. */
 function drawn(elements: readonly Element[], slide: Slide, theme: Deck["theme"], order: readonly string[] | undefined): Element[] {
@@ -71,10 +71,13 @@ const showsSlideNumber = (element: Element): boolean =>
  * positioned in slide units, and takes its colours and fonts from the deck's
  * theme.
  */
-export function SlideView({ deck, slide, number, count, step, mode = "present", imageUrl, hideTextOf = null, className, style }: SlideViewProps): JSX.Element {
+export const SlideView = memo(function SlideView({ deck, slide, number, count, step, mode = "present", imageUrl, hideTextOf = null, className, style }: SlideViewProps): JSX.Element {
   const { theme, size } = deck;
   const stepLabel = stepLabelOf(deck, slide, step);
-  const paper = colorOf(theme, slide.background?.color ?? "bg1");
+  const layout = layoutOf(theme, slide.layout);
+  // What is behind the slide: its own background, or else its layout's.
+  const background = slide.background ?? layout?.background;
+  const paper = colorOf(theme, background?.color ?? "bg1");
   const cx = useMemo<RenderCx>(
     () => ({
       theme,
@@ -95,12 +98,11 @@ export function SlideView({ deck, slide, number, count, step, mode = "present", 
   const order = holdsCitation(slide.elements) ? citationOrder(deck) : undefined;
   const elements = useMemo(() => drawnElements(slide, theme, order), [slide, theme, order, references]);
 
-  const background = slide.background;
   const backgroundImage = background?.image ? (imageUrl ? imageUrl(background.image) : background.image) : undefined;
-  // Slide numbers are the deck's choice for the audience; an editor keeps showing the theme's, as the place they will go.
-  const master = layoutOf(theme, slide.layout)?.hideMaster
-    ? []
-    : (theme.master ?? []).filter((element) => mode === "edit" || deck.present.slideNumbers || !showsSlideNumber(element));
+  // The slide number the theme draws is the deck's choice (Slide > Slide numbers), in the editor as much as for the audience.
+  const master = layout?.hideMaster ? [] : (theme.master ?? []).filter((element) => deck.present.slideNumbers || !showsSlideNumber(element));
+  // What a layout a person made draws behind every slide of it, over the master and under the slide's own elements.
+  const decoration = useMemo(() => (layout?.elements ?? []).filter((element) => deck.present.slideNumbers || !showsSlideNumber(element)), [layout, deck.present.slideNumbers]);
 
   return (
     <div
@@ -122,9 +124,12 @@ export function SlideView({ deck, slide, number, count, step, mode = "present", 
       {master.map((element) => (
         <ElementView key={element.id} element={element} cx={masterCx} hideTextOf={null} />
       ))}
+      {decoration.map((element) => (
+        <ElementView key={`layout:${element.id}`} element={element} cx={masterCx} hideTextOf={null} />
+      ))}
       {elements.map((element) => (
         <ElementView key={element.id} element={element} cx={cx} hideTextOf={hideTextOf} />
       ))}
     </div>
   );
-}
+});

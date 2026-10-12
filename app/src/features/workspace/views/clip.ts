@@ -4,12 +4,6 @@
 import type { NoteFile } from "../../../lib/vault/types";
 import { useWorkspace } from "../store";
 
-/** A pasted web address: with its scheme, or starting with `www.`. */
-export function isAddress(text: string): boolean {
-  const t = text.trim();
-  return !/\s/.test(t) && (/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(t) || /^www\.[^/\s]+\.[a-z]{2,}/i.test(t));
-}
-
 /** Keeps the page at `url` in the Inbox, or its link when the page will not come. */
 export async function clipOrKeep(url: string): Promise<NoteFile | null> {
   const { client, create, noteChanged, toast } = useWorkspace.getState();

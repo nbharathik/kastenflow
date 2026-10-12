@@ -177,6 +177,9 @@ const NAMES = {
   notebook: "notebook",
   party: "party-popper",
   print: "printer",
+  // Views that arrive later in the sidebar's list
+  diagram: "network",
+  graph: "share-2",
 };
 
 const svgChild = /<(path|circle|rect|line|polyline|polygon|ellipse)\s+([^>]*?)\s*\/>/g;

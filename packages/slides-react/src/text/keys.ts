@@ -6,9 +6,9 @@ import { redo, undo } from "prosemirror-history";
 import { keydownHandler } from "prosemirror-keymap";
 import { Plugin } from "prosemirror-state";
 
-import { backspaceListStart, enter, indent, setAlign, softBreak, toggleList } from "./block-commands.ts";
+import { backspaceStart, enter, indent, moveParagraphs, setAlign, softBreak, toggleList } from "./block-commands.ts";
 import { linkAtSelection } from "./format-state.ts";
-import { type Command, toggleFlag } from "./mark-commands.ts";
+import { type Command, clearFormatting, toggleFlag, toggleScript } from "./mark-commands.ts";
 import { type EditorContext, wholeText } from "./selection-info.ts";
 
 /** What the editor's keys ask of whoever hosts it. */
@@ -17,6 +17,8 @@ export interface KeyHooks {
   escape(): void;
   /** Mod-k: the host asks for an address and calls back with it. `current` is the link the selection is in. */
   linkRequest(current: string | null): void;
+  /** Whether an address typed before Enter becomes a link. */
+  autoLinks?(): boolean;
 }
 
 /**
@@ -39,17 +41,21 @@ export function keyBindings(ctx: EditorContext, hooks: KeyHooks): Record<string,
   shifted("l", setAlign("left"));
   shifted("r", setAlign("right"));
   shifted("j", setAlign("justify"));
-  bind(["Mod-Shift-7", "Mod-Shift-&"], toggleList("number"));
-  bind(["Mod-Shift-8", "Mod-Shift-*"], toggleList("bullet"));
+  bind(["Mod-.", "Mod->"], toggleScript("super", ctx));
+  bind(["Mod-,", "Mod-<"], toggleScript("sub", ctx));
+  bind(["Mod-Shift-7", "Mod-Shift-&"], toggleList("number", ctx));
+  bind(["Mod-Shift-8", "Mod-Shift-*"], toggleList("bullet", ctx));
   letter("k", (state) => {
     hooks.linkRequest(linkAtSelection(state));
     return true;
   });
-  bind(["Tab"], indent(1));
-  bind(["Shift-Tab"], indent(-1));
-  bind(["Enter"], enter);
+  bind(["Tab", "Alt-Shift-ArrowRight"], indent(1));
+  bind(["Shift-Tab", "Alt-Shift-ArrowLeft"], indent(-1));
+  bind(["Alt-Shift-ArrowUp"], moveParagraphs(-1));
+  bind(["Alt-Shift-ArrowDown"], moveParagraphs(1));
+  bind(["Enter"], enter(ctx, hooks.autoLinks));
   bind(["Shift-Enter"], softBreak);
-  bind(["Backspace"], chainCommands(deleteSelection, backspaceListStart, joinBackward, selectNodeBackward));
+  bind(["Backspace"], chainCommands(deleteSelection, backspaceStart(ctx), joinBackward, selectNodeBackward));
   // Local history: while the box is being edited, undo is the box's own, even when it has nothing left to undo,
   // so the host's undo never acts on the deck under the words being typed.
   bind(["Mod-z"], (state, dispatch) => undo(state, dispatch) || true);
@@ -62,6 +68,7 @@ export function keyBindings(ctx: EditorContext, hooks: KeyHooks): Record<string,
     hooks.escape();
     return true;
   });
+  bind(["Mod-\\"], clearFormatting);
   return { ...baseKeymap, ...custom };
 }
 

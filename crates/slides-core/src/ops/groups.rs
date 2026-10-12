@@ -9,7 +9,7 @@ use ts_rs::TS;
 
 use super::composites::follow_content;
 use super::elements::validate;
-use super::geometry::{pin, refit, reroute, translate, turned, union};
+use super::geometry::{outer_group, pin, refit, reroute, settle_groups, translate, turned, union};
 use super::util::{assign_ids, ids_on, parent_list, path_of};
 use super::{Cx, Op, Scope, op_types};
 use crate::error::{Error, Result};
@@ -314,6 +314,11 @@ impl Op for AlignElements {
             .find(|s| s.id == self.slide)
             .ok_or_else(|| Error::no_slide(&self.slide))?;
         let layout = slide.layout.clone();
+        let holders: HashSet<String> = self
+            .ids
+            .iter()
+            .filter_map(|id| outer_group(slide, id))
+            .collect();
         let mut boxes = Vec::new();
         for id in &self.ids {
             let e = super::util::element_mut(slide, id)?;
@@ -351,6 +356,7 @@ impl Op for AlignElements {
             };
             translate(super::util::element_mut(slide, &id)?, dx, dy);
         }
+        settle_groups(slide, &holders);
         reroute(theme, slide);
         Ok(())
     }
@@ -392,6 +398,11 @@ impl Op for DistributeElements {
             .find(|s| s.id == self.slide)
             .ok_or_else(|| Error::no_slide(&self.slide))?;
         let layout = slide.layout.clone();
+        let holders: HashSet<String> = self
+            .ids
+            .iter()
+            .filter_map(|id| outer_group(slide, id))
+            .collect();
         let horizontal = matches!(self.axis, Axis::Horizontal);
         let mut boxes = Vec::new();
         for id in &self.ids {
@@ -425,6 +436,7 @@ impl Op for DistributeElements {
             translate(super::util::element_mut(slide, &id)?, dx, dy);
             at += length(&r) + gap;
         }
+        settle_groups(slide, &holders);
         reroute(theme, slide);
         Ok(())
     }

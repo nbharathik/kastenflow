@@ -30,6 +30,10 @@ Element.prototype.scrollBy = scrolled as unknown as Element["scrollBy"];
 window.scrollTo = scrolled as unknown as typeof window.scrollTo;
 window.scrollBy = scrolled as unknown as typeof window.scrollBy;
 document.elementFromPoint ??= () => null;
+// jsdom draws no canvas: asking for a context logs "not implemented" and gives
+// none. Say so quietly (the graph draws nothing without one, as a window that
+// refuses a context would); a test that wants to see drawing stubs its own.
+if (typeof HTMLCanvasElement !== "undefined") HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
 window.matchMedia ??= ((query: string) => ({
   matches: false,
   media: query,

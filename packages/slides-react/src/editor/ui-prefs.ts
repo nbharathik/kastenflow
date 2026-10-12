@@ -4,6 +4,30 @@
 /** Whether the filmstrip shows the badges that flag problems on its slides ("1" or "0"). */
 export const LINT_BADGES_KEY = "ks-lint-badges";
 
+/** Whether a new slide copies the layout of the slide shown ("1") or starts blank ("0"; blank is what it does until the person says otherwise). */
+export const NEW_SLIDES_KEY = "ks-new-slides-like-current";
+
+/** What a new slide starts from: "blank", "same" (the layout of the slide shown) or "mine" (the deck's own default layout). Older builds kept only the yes or no above. */
+export const NEW_SLIDES_MODE_KEY = "ks-new-slides";
+
+/** The word kept under `key` when it is one of `allowed`; `fallback` when there is none, or it cannot be read. */
+export function readChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const stored = localStorage.getItem(key);
+    return allowed.find((choice) => choice === stored) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeChoice(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Nothing is remembered; the choice still holds for this window.
+  }
+}
+
 /** A yes or no kept under `key`; `fallback` when there is none, or it cannot be read. */
 export function readFlag(key: string, fallback: boolean): boolean {
   try {

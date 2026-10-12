@@ -30,6 +30,9 @@ impl Kasten {
         if let Some(deck) = self.deck_preview(op)? {
             return Ok(deck);
         }
+        if let Some(diagram) = self.diagram_op_preview(op)? {
+            return Ok(diagram);
+        }
         if let AgentOp::Template {
             name, text, base, ..
         } = op
@@ -157,9 +160,11 @@ impl Kasten {
             }
             AgentOp::Trash { .. } => (body.clone(), None, format!("Move “{title}” to the trash")),
             // Shown before the note is read, above.
-            AgentOp::Template { .. } | AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => {
-                (None, None, String::new())
-            }
+            AgentOp::Template { .. }
+            | AgentOp::EditDeck { .. }
+            | AgentOp::CreateDeck { .. }
+            | AgentOp::CreateDiagram { .. }
+            | AgentOp::UpdateDiagram { .. } => (None, None, String::new()),
             AgentOp::CreateBoard { title, .. } => {
                 (None, None, format!("Create the board “{title}”"))
             }
@@ -233,7 +238,9 @@ impl Kasten {
             diff,
         } = self.preview(op)?;
         let note = match op {
-            AgentOp::Trash { reason, .. } | AgentOp::Edit { reason, .. } => reason.clone(),
+            AgentOp::Trash { reason, .. }
+            | AgentOp::Edit { reason, .. }
+            | AgentOp::UpdateDiagram { reason, .. } => reason.clone(),
             _ => None,
         };
         let proposal = Proposal {

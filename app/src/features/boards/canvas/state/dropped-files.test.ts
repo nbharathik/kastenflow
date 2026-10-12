@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MemoryVault } from "../../../workspace/preview/memory-vault";
+import { flowKind } from "../model/flow";
 import { BoardController, type BoardDeps } from "./controller";
 import { addFiles, pictureShape } from "./dropped-files";
 
@@ -44,6 +45,21 @@ describe("files dropped on a board", () => {
     expect(ids).toEqual([]);
     expect(toast).toHaveBeenCalledWith(expect.stringMatching(/not files that run/));
     expect((await vault.board(BOARD)).nodes).toEqual([]);
+  });
+
+  it("keeps a diagram's picture as a picture, and brings a diagram file in as a diagram of the board's project", async () => {
+    const { vault, board, toast } = await setup();
+    const xml = '<mxfile><diagram id="p1" name="Page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><g/></svg>';
+    const ids = await addFiles(board, [new File([svg], "Login flow.drawio.svg", { type: "image/svg+xml" }), new File([xml], "Sketch.drawio", { type: "" })], { x: 0, y: 0 }, async () => ({ width: 200, height: 100 }));
+    expect(toast.mock.calls).toEqual([]);
+    expect(ids).toHaveLength(2);
+    const saved = await vault.board(BOARD);
+    const files = saved.nodes.map((n) => n.file);
+    // The picture is a picture in assets/ (the vault names it as it names any picture); the diagram is a diagram in the project, drawn as one.
+    expect(files).toEqual(["assets/login-flow-drawio.svg", "projects/demo/diagrams/Sketch.drawio"]);
+    expect(saved.nodes.map((n) => flowKind(n))).toEqual(["image", "diagram"]);
+    expect((await vault.diagrams()).map((d) => d.path)).toEqual(["projects/demo/diagrams/Sketch.drawio"]);
   });
 
   it("sizes pictures by their longer side", () => {

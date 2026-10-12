@@ -43,7 +43,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "list_layouts",
             true,
-            "The layouts the deck's theme offers, each with its slots (role, kind, box, text style, prompt). add_slide fills slots by role.",
+            "The layouts the deck's theme offers, each with its slots (role, kind, box, text style, prompt). add_slide fills slots by role. A layout the deck's owner made is marked `custom`; it may draw decoration behind its slides (`decoration`) or have a background of its own, and prefer it to a built-in one when it fits.",
             object(deck(), &[]),
         ),
         tool(
@@ -75,7 +75,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
                 json!({
                     "outline": { "type": "string", "description": "The deck as Markdown." },
                     "title": { "type": "string", "description": "The deck's title, if not the `#` line's." },
-                    "theme": { "type": "string", "description": "Light (default), Dark, Serif or Lecture." },
+                    "theme": { "type": "string", "description": "Light (default), Dark, Serif, Lecture, Minimal, Bold, Modern, Academic, Pitch, Dark Studio or Warm Paper." },
                     "subtitle": { "type": "string", "description": "For the cover slide." }
                 }),
                 &["outline"],

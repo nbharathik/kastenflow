@@ -36,9 +36,15 @@
   font-size: 13px;
 }
 
+.demo-board {
+  display: flex;
+  flex-direction: column;
+}
+
 .db-canvas {
   position: relative;
-  height: min(620px, 68vh, 56vw);
+  flex: 1;
+  min-height: 380px;
   overflow: hidden;
   background-color: var(--bg);
   background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
@@ -46,7 +52,7 @@
 }
 
 .db-canvas.is-tall {
-  height: auto;
+  flex: none;
   aspect-ratio: 400 / 620;
 }
 

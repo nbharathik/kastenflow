@@ -4,13 +4,15 @@ import { defineConfig } from "vitest/config";
 
 import { wasmGuard } from "../scripts/vite-wasm-guard.mjs";
 import { devCsp } from "./dev-csp.ts";
+import { drawioDev } from "./dev-drawio.ts";
 
 // Settings follow the Tauri 2 + Vite guide: a fixed dev port the Rust side
 // knows about (tauri.conf.json devUrl), and no watching of the Rust sources.
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [wasmGuard(), react(), tailwindcss()],
+  // drawioDev serves the real diagram editor to the preview, when it was unpacked into public/drawio, and keeps it out of builds.
+  plugins: [wasmGuard(), react(), tailwindcss(), drawioDev()],
   clearScreen: false,
   server: {
     port: 1420,

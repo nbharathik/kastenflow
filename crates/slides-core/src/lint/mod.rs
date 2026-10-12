@@ -24,6 +24,8 @@ mod texts;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub(crate) use fonts::BUNDLED;
 pub use model::{Issue, Measure, Measures, Options, Refs, Report, Severity, SkippedRule};
 pub use probes::{Probe, ProbePart, probes, probes_with};
 pub use rules::{RULES, RuleInfo};

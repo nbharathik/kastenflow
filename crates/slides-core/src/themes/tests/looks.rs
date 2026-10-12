@@ -10,7 +10,10 @@ const TOKENS: [&str; 10] = [
     "accent6",
 ];
 
-const PALETTES: [(&str, [&str; 10]); 4] = [
+/// The themes whose type is the classic set below; the designed ones choose their own sizes.
+const CLASSIC: [&str; 4] = ["Light", "Dark", "Serif", "Lecture"];
+
+const PALETTES: [(&str, [&str; 10]); 11] = [
     (
         "Light",
         [
@@ -37,6 +40,55 @@ const PALETTES: [(&str, [&str; 10]); 4] = [
         [
             "#1f2933", "#52606d", "#ffffff", "#e6e8eb", "#0b5cad", "#c0392b", "#d68910", "#1e8449",
             "#7d3c98", "#148f77",
+        ],
+    ),
+    (
+        "Minimal",
+        [
+            "#111111", "#595959", "#ffffff", "#f3f3f1", "#e4572e", "#2b6f77", "#e0a800", "#5f8f2f",
+            "#6c5b7b", "#4a7fa0",
+        ],
+    ),
+    (
+        "Bold",
+        [
+            "#0b0b0f", "#4b4b57", "#ffffff", "#fff1d6", "#e11d48", "#0f172a", "#d97706", "#047857",
+            "#6d28d9", "#0369a1",
+        ],
+    ),
+    (
+        "Modern",
+        [
+            "#0f172a", "#475569", "#ffffff", "#eef2f7", "#4f46e5", "#0284c7", "#d97706", "#059669",
+            "#db2777", "#7c3aed",
+        ],
+    ),
+    (
+        "Academic",
+        [
+            "#1f2430", "#57525c", "#fbf8f1", "#efe9da", "#7a1f2b", "#1d4e6b", "#8f6a1f", "#3b6e4f",
+            "#5b4a8a", "#8a5a44",
+        ],
+    ),
+    (
+        "Pitch",
+        [
+            "#f8fafc", "#aab6cc", "#0b1b3a", "#142a52", "#ffb703", "#3ddc97", "#ff6b6b", "#4cc9f0",
+            "#b794f6", "#f4a261",
+        ],
+    ),
+    (
+        "Dark Studio",
+        [
+            "#f4f4f5", "#a1a1aa", "#09090b", "#18181b", "#22d3ee", "#a78bfa", "#fbbf24", "#34d399",
+            "#fb7185", "#60a5fa",
+        ],
+    ),
+    (
+        "Warm Paper",
+        [
+            "#3a2e26", "#6b5a4c", "#f6efe0", "#eadfc8", "#b8431f", "#5c7a4a", "#b8791a", "#2f6f73",
+            "#7a3b5e", "#4f5d75",
         ],
     ),
 ];
@@ -105,13 +157,57 @@ fn the_text_styles_are_the_nine_that_layouts_and_decks_rely_on() {
                 style.bold,
                 style.italic,
             );
-            assert_eq!(
-                found,
-                (size, color, font, bold, italic),
-                "{} / {name}",
-                theme.name
-            );
+            if CLASSIC.contains(&theme.name.as_str()) {
+                assert_eq!(
+                    found,
+                    (size, color, font, bold, italic),
+                    "{} / {name}",
+                    theme.name
+                );
+            } else {
+                // A designed theme sets its own sizes and weights; the colours and the font roles are shared.
+                assert_eq!((found.1, found.2), (color, font), "{} / {name}", theme.name);
+            }
         }
+    }
+}
+
+#[test]
+fn a_designed_themes_type_keeps_its_order_of_sizes_and_is_big_enough_to_read() {
+    for theme in all()
+        .into_iter()
+        .filter(|t| !CLASSIC.contains(&t.name.as_str()))
+    {
+        let size = |name: &str| theme.text_style(name).map_or(0.0, |s| s.size);
+        let at = |what: &str| format!("{} / {what}", theme.name);
+        assert!((32.0..=44.0).contains(&size("title")), "{}", at("title"));
+        assert!(
+            (44.0..=52.0).contains(&size("display")),
+            "{}",
+            at("display")
+        );
+        assert!(
+            size("display") > size("title"),
+            "{}",
+            at("display over title")
+        );
+        assert!((20.0..=26.0).contains(&size("body")), "{}", at("body"));
+        assert!(
+            size("subtitle") < size("body") + 1.0 && size("subtitle") >= 20.0,
+            "{}",
+            at("subtitle")
+        );
+        assert!(
+            size("caption") == 14.0 && size("code") == 16.0,
+            "{}",
+            at("caption and code")
+        );
+        assert!(
+            (96.0..=128.0).contains(&size("big-number")),
+            "{}",
+            at("big-number")
+        );
+        assert!((28.0..=36.0).contains(&size("quote")), "{}", at("quote"));
     }
 }
 
@@ -179,7 +275,7 @@ fn every_theme_dims_to_a_quarter_and_highlights_with_a_two_unit_accent_outline()
 }
 
 #[test]
-fn light_dark_and_lecture_are_set_in_inter_and_serif_in_the_fonts_powerpoint_ships() {
+fn each_theme_is_set_in_the_fonts_it_promises() {
     for theme in all() {
         let fonts = &theme.fonts;
         let families = (
@@ -187,12 +283,37 @@ fn light_dark_and_lecture_are_set_in_inter_and_serif_in_the_fonts_powerpoint_shi
             fonts.body.family.as_str(),
             fonts.code.family.as_str(),
         );
-        let expected = if theme.name == "Serif" {
-            ("Cambria", "Calibri", "Courier New")
-        } else {
-            ("Inter", "Inter", "Roboto Mono")
+        let expected = match theme.name.as_str() {
+            "Serif" => ("Cambria", "Calibri", "Courier New"),
+            "Minimal" => ("Lato", "Lato", "Roboto Mono"),
+            "Bold" => ("Roboto", "Roboto", "Roboto Mono"),
+            "Modern" => ("Inter", "Lato", "Roboto Mono"),
+            "Academic" => ("Times New Roman", "Arial", "Courier New"),
+            "Pitch" => ("Roboto", "Lato", "Roboto Mono"),
+            "Warm Paper" => ("Cambria", "Lato", "Roboto Mono"),
+            _ => ("Inter", "Inter", "Roboto Mono"),
         };
         assert_eq!(families, expected, "{}", theme.name);
+    }
+}
+
+#[test]
+fn every_family_a_theme_names_is_one_the_editor_bundles_or_that_one_it_does_stands_in_for() {
+    for theme in all() {
+        let fonts = &theme.fonts;
+        for family in [
+            &fonts.heading.family,
+            &fonts.body.family,
+            &fonts.code.family,
+        ] {
+            assert!(
+                crate::lint::BUNDLED
+                    .iter()
+                    .any(|bundled| bundled.eq_ignore_ascii_case(family)),
+                "{} names `{family}`, which nothing draws the same everywhere",
+                theme.name
+            );
+        }
     }
 }
 

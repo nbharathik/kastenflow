@@ -16,6 +16,7 @@ use kasten_core::{BackupFile, Instant, Kasten, Latest};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::app_settings::AppSettings;
+use crate::closing::MAIN;
 use crate::commands::notes::OpenVault;
 
 pub use schedule::{file_if_due, final_backup};
@@ -61,9 +62,9 @@ fn changed(app: &AppHandle, latest: &Latest) {
     let mut paths = latest.changed.clone();
     paths.extend(latest.copies.iter().cloned());
     if !paths.is_empty() {
-        let _ = app.emit("vault-changed", &paths);
+        let _ = app.emit_to(MAIN, "vault-changed", &paths);
     }
-    let _ = app.emit("vault-committed", kasten_core::Tick::default());
+    let _ = app.emit_to(MAIN, "vault-committed", kasten_core::Tick::default());
 }
 
 /// Sets the folder backup files go to for the open vault, on this
@@ -113,7 +114,7 @@ pub async fn backup_file_now(
             .map_err(|e| e.to_string())
     })
     .await;
-    let _ = app.emit("vault-committed", kasten_core::Tick::default());
+    let _ = app.emit_to(MAIN, "vault-committed", kasten_core::Tick::default());
     written
 }
 
@@ -168,7 +169,8 @@ pub fn finish_on_open(app: &AppHandle, kasten: &Arc<Kasten>) {
         Ok(Some(latest)) => changed(app, &latest),
         Ok(None) => {}
         Err(err) => {
-            let _ = app.emit(
+            let _ = app.emit_to(
+                MAIN,
                 "vault-error",
                 format!("Getting the latest did not finish: {err}"),
             );

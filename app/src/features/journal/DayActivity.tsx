@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { TagSchema, TaskRow } from "../../lib/vault/types";
 import { Disclosure } from "../../ui/Disclosure";
 import { activityByDay, dateItems, dateRanges } from "../calendar/dates";
+import { partsByDay } from "../calendar/external/external";
+import { useExternalEvents } from "../calendar/external/store";
 import { rangesBetween } from "../calendar/ranges";
 import { useSchemas } from "../calendar/use-data";
 import { useWorkspace } from "../workspace/store";
@@ -19,6 +21,9 @@ export function DayActivity({ day }: { day: string }) {
   const client = useWorkspace((s) => s.client);
   const schemas = useSchemas(client) ?? NO_SCHEMAS;
   const [tasks, setTasks] = useState<readonly TaskRow[]>(NO_TASKS);
+  // Events of the subscribed calendars on this day (none in the browser preview).
+  const happening = useExternalEvents(day, day, true);
+  const events = useMemo(() => partsByDay(happening, day, day).get(day) ?? [], [happening, day]);
 
   useEffect(() => {
     if (!client) return;
@@ -38,6 +43,7 @@ export function DayActivity({ day }: { day: string }) {
   }, [notes, schemas, tasks, day]);
 
   const parts = [
+    [events.length, events.length === 1 ? "event" : "events"],
     [found.ongoing.length, "ongoing"],
     [found.due.length + found.tasks.length, "due"],
     [found.made.length, "made"],
@@ -47,7 +53,7 @@ export function DayActivity({ day }: { day: string }) {
   if (summary.length === 0) return null;
   return (
     <Disclosure id="journal.on-this-day" title="On this day" meta={summary.join(" · ")}>
-      <OnThisDay day={day} {...found} />
+      <OnThisDay day={day} {...found} events={events} />
     </Disclosure>
   );
 }

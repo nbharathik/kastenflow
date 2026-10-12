@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{Align, Element, Extra, ListKind, VAlign, is_false};
+use super::{Align, Background, Element, Extra, ListKind, VAlign, is_false};
 
 model! {
     /// The twelve colours a theme names. They map one for one to PPTX theme colours.
@@ -122,6 +122,14 @@ model! {
         /// Leave out the master elements on slides of this layout.
         #[serde(default, skip_serializing_if = "is_false")]
         pub hide_master: bool,
+        /// Shapes, pictures and words drawn on every slide of this layout, under the slide's own
+        /// elements and over the master's: the decoration of a layout a person designed. Not
+        /// selectable on a slide; changing them changes every slide that uses the layout.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub elements: Vec<Element>,
+        /// What fills a slide of this layout behind its elements, when the slide has none of its own.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub background: Option<Background>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -152,6 +160,10 @@ model! {
         /// Opacity of a dimmed element, 0 to 1.
         pub dimmed_opacity: f64,
         pub highlight: Highlight,
+        /// The layout a new slide starts from when the person asked for "my default layout"; the
+        /// blank layout when absent or when the deck has no layout of that name.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub new_slide_layout: Option<String>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]

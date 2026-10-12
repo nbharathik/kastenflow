@@ -13,6 +13,7 @@ import { closesWith } from "../ui/close-with-editor";
 import { Popover } from "../ui/popover";
 import { colorSections, openBlockMenu } from "./block-menu";
 import { currentBlock } from "./block-nav";
+import { blocksOfSelection } from "./block-range";
 
 const COLOR_ICON =
   '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 16 12 5l4.5 11M9.2 12h5.6"/><path d="M5.5 20h13" stroke-width="2.4"/></svg>';
@@ -61,13 +62,15 @@ function markActive(ctx: Ctx, name: string): boolean {
   return !!type && !empty && state.doc.rangeHasMark(from, to, type);
 }
 
+/** Turn into for the selection: every block it runs over, not just the first. */
 function openTurnInto(ctx: Ctx): void {
   const view = ctx.get(editorViewCtx);
   const block = currentBlock(view.state);
+  const spanned = blocksOfSelection(view.state);
   const button = view.dom.parentElement?.querySelector<HTMLElement>('[data-toolbar-item="kasten-turn"]');
   if (!block) return;
   menu?.close();
-  menu = openBlockMenu(view, block.pos, () => (button ?? view.dom).getBoundingClientRect());
+  menu = openBlockMenu(view, spanned?.from ?? block.pos, () => (button ?? view.dom).getBoundingClientRect(), spanned && spanned.count > 1 ? spanned : undefined);
 }
 
 /** Reshapes Crepe's toolbar into Notion's. */

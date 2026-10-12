@@ -57,7 +57,8 @@ fn an_agent_builds_a_deck_waits_for_review_and_the_session_can_be_undone() {
 
     // The server says how to work in a vault and in its decks.
     assert!(
-        c.instructions.contains("Kasten is the user's notes vault"),
+        c.instructions
+            .contains("KastenFlow is the user's notes vault"),
         "{}",
         c.instructions
     );

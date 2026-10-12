@@ -1,3 +1,41 @@
+/* Where the panel lives: as wide as the person made it, with its left edge a handle to drag. */
+.ks-panel-host {
+  position: relative;
+  flex: none;
+  display: flex;
+  min-width: 0;
+}
+.ks-panel-host > .ks-side-panel {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.ks-panel-edge {
+  position: absolute;
+  z-index: 5;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+.ks-panel-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 3px;
+  background: transparent;
+  transition: background var(--ks-fast) var(--ks-ease);
+}
+.ks-panel-edge:hover::after,
+.ks-panel-edge:focus-visible::after,
+.ks-panel-edge.is-active::after {
+  background: var(--ks-accent);
+}
 /* The panel on the right: a strip of tabs over a body that scrolls. It adds to
    the layout rules of the shell, which fix its width and border. */
 .ks-side-panel.ks-sp {
@@ -14,19 +52,33 @@
   padding: 0 6px 0 6px;
   border-bottom: 1px solid var(--ks-line);
 }
+/* Each tab is its icon; the one that is open says its name too. The name of the others stays for a screen reader. */
 .ks-sp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 40px;
   padding: 0 8px;
   border-radius: 0;
   color: var(--ks-muted);
   font-weight: 500;
   white-space: nowrap;
+  transition: color var(--ks-fast) var(--ks-ease);
 }
 .ks-sp-tab:hover {
   color: var(--ks-ink);
 }
 .ks-sp-tab[aria-selected="true"] {
   color: var(--ks-ink);
+}
+.ks-sp-tab:not([aria-selected="true"]) .ks-sp-tab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .ks-sp-tab[aria-selected="true"]::after {
   content: "";

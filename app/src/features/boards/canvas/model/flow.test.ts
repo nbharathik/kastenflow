@@ -37,6 +37,13 @@ describe("the board as React Flow draws it", () => {
     expect(flowKind({ id: "x", kind: "weird", x: 0, y: 0, width: 1, height: 1 })).toBe("card");
   });
 
+  it("draws a diagram's file as a diagram, and its picture on its own as an ordinary image", () => {
+    const at = { x: 0, y: 0, width: 1, height: 1 };
+    expect(flowKind({ id: "d", kind: "file", file: "library/Flow.drawio", ...at })).toBe("diagram");
+    expect(flowKind({ id: "p", kind: "file", file: "assets/Flow.drawio.svg", ...at })).toBe("image");
+    expect(flowKind({ id: "o", kind: "file", file: "library/Flow.drawio.bak", ...at })).toBe("file");
+  });
+
   it("gives every node its size and side handles, so nothing is measured", () => {
     const [card] = toFlowNodes(doc, [], new Set()).filter((n) => n.id === "a");
     expect(card).toMatchObject({ width: 320, height: TITLE_HEIGHT, measured: { width: 320, height: TITLE_HEIGHT } });

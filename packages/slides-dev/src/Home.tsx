@@ -57,7 +57,7 @@ export function Home({ api, info }: { api: FolderApi; info: FolderInfo }): JSX.E
   return (
     <main className="home">
       <header>
-        <h1>Kasten Slides</h1>
+        <h1>KastenFlow Slides</h1>
         <p>
           The decks in <strong>{info.name}</strong>
         </p>

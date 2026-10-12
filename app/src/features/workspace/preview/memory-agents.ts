@@ -11,7 +11,8 @@ import type { AgentMark, DeckFile, NewNote, NoteFile, Proposal, Renamed, Session
 import type { Brainstormed, Idea } from "../../chat/types";
 import { blame } from "./agent-blame";
 import { chatFile, sessionEdits, sessionsIn, type Agent } from "./agent-sessions";
-import { MemoryDecks, deckHead } from "./memory-decks";
+import { deckHead } from "./memory-decks";
+import { MemoryDiagrams } from "./memory-diagrams";
 import { addFiles, below, boardTitle, group, writeCanvas, type Canvas } from "./memory-extras";
 import type { Version } from "./stored";
 import { newId } from "./vault-text";
@@ -28,7 +29,7 @@ const PAD = 40;
 /** The project a board belongs to: `projects/<p>/boards/…`. */
 const projectOf = (board: string) => /^projects\/([^/]+)\/boards\/./.exec(board)?.[1] ?? null;
 
-export class MemoryAgents extends MemoryDecks {
+export class MemoryAgents extends MemoryDiagrams {
   /** The verb for the next version, when it is not an edit or create. */
   protected verb: string | null = null;
   /** The note being renamed, whose next version says so. */

@@ -88,7 +88,7 @@ impl fmt::Display for Error {
             Error::Malformed { message } => write!(f, "Not a readable deck: {message}"),
             Error::TooNew { found, supported } => write!(
                 f,
-                "This deck is format version {found}; this build reads up to {supported}. Update Kasten Slides to open it."
+                "This deck is format version {found}; this build reads up to {supported}. Update KastenFlow Slides to open it."
             ),
             Error::Invalid { message } => {
                 write!(f, "The deck breaks a rule of the format: {message}")

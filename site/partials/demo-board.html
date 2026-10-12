@@ -1,24 +1,21 @@
-<section class="section section-alt" id="board" aria-labelledby="board-title">
-        <div class="wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-board" /></svg>Whiteboards</p>
-            <h2 id="board-title">Lay your thinking out in space</h2>
-            <p class="lead">Drag the cards around. Arrows follow, a section carries what sits in it, and a card is the note itself, so it reads the same on every board.</p>
-          </header>
+<section class="app-panel" id="view-board" role="tabpanel" aria-labelledby="tab-board">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-board" /></svg>Plan on whiteboards</h2>
+              <p>Drag notes onto a whiteboard as cards, connect them with arrows and gather them into sections. Sketch beside them with the pen and shapes. Edits to a note appear on every board that uses it.</p>
+            </header>
 
-          <div class="demo demo-board" data-demo="board" data-reveal>
-            <div class="db-bar" role="toolbar" aria-label="Whiteboard">
-              <button type="button" class="db-btn" data-board-add><svg class="i" aria-hidden="true"><use href="#i-sticky" /></svg>Add a sticky</button>
-              <button type="button" class="db-btn" data-board-tidy><svg class="i" aria-hidden="true"><use href="#i-layout" /></svg>Tidy up</button>
-              <button type="button" class="db-btn" data-board-reset><svg class="i" aria-hidden="true"><use href="#i-refresh" /></svg>Reset</button>
-              <span class="db-hint">Drag a card, or focus one and press the arrow keys</span>
-            </div>
-            <div class="db-canvas" data-board-canvas>
-              <div class="db-world" data-board-world>
-                <svg class="db-edges" data-board-edges aria-hidden="true"></svg>
+            <div class="demo demo-board" data-demo="board">
+              <div class="db-bar" role="toolbar" aria-label="Whiteboard">
+                <button type="button" class="db-btn" data-board-add><svg class="i" aria-hidden="true"><use href="#i-sticky" /></svg>Add a sticky</button>
+                <button type="button" class="db-btn" data-board-tidy><svg class="i" aria-hidden="true"><use href="#i-layout" /></svg>Tidy up</button>
+                <button type="button" class="db-btn" data-board-reset><svg class="i" aria-hidden="true"><use href="#i-refresh" /></svg>Reset</button>
+                <span class="db-hint">Drag a card, or focus one and press the arrow keys</span>
               </div>
+              <div class="db-canvas" data-board-canvas>
+                <div class="db-world" data-board-world>
+                  <svg class="db-edges" data-board-edges aria-hidden="true"></svg>
+                </div>
+              </div>
+              <p class="sr-only" aria-live="polite" data-board-announce></p>
             </div>
-            <p class="sr-only" aria-live="polite" data-board-announce></p>
-          </div>
-        </div>
-      </section>
+          </section>

@@ -36,6 +36,9 @@ pub(super) fn title_of(vault: &crate::vault::Vault, path: &str) -> String {
     if path.ends_with(".deck") {
         return crate::deck::title_at(vault, path);
     }
+    if path.ends_with(crate::diagrams::EXT) {
+        return crate::diagrams::title_of(path);
+    }
     vault
         .read(path)
         .map(|n| n.meta.title)
@@ -182,8 +185,14 @@ impl Kasten {
             let trashed = trash::trash_all(vault, &going, now)?;
             let mut paths = going.clone();
             paths.extend(trashed.iter().cloned());
+            // A diagram's picture goes with it, and is not a sub-page.
+            let sub_pages = if path.ends_with(crate::diagrams::EXT) {
+                0
+            } else {
+                going.len() - 1
+            };
             Ok(Change {
-                message: format!("trash: {title}{}", along(going.len() - 1)),
+                message: format!("trash: {title}{}", along(sub_pages)),
                 paths,
                 value: trashed[0].clone(),
             })
@@ -192,6 +201,10 @@ impl Kasten {
 
     /// The note at `path` and every sub-page below it, parents first.
     pub(crate) fn with_sub_pages(&self, path: &str) -> Result<Vec<String>> {
+        // A diagram goes to the trash with its picture.
+        if path.ends_with(crate::diagrams::EXT) {
+            return Ok(crate::diagrams::files_of(&self.vault, path));
+        }
         if !path.ends_with(".md") {
             return Ok(vec![path.to_owned()]);
         }

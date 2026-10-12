@@ -1,13 +1,10 @@
-<section class="section section-alt" id="ai" aria-labelledby="ai-title">
-        <div class="wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg>AI, within limits</p>
-            <h2 id="ai-title">An assistant that asks first and undoes cleanly</h2>
-            <p class="lead">Bring your own model. Ask it about a selection while you write, or chat with the pages you have open. Whatever it writes is marked on the page, listed in History and undone in one step.</p>
-          </header>
+<section class="app-panel" id="view-ai" role="tabpanel" aria-labelledby="tab-ai">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg>Ask in chat</h2>
+              <p>Try the sample chat: ask for a change, then keep or undo it in one step. A bigger change waits for your review.</p>
+            </header>
 
-          <div class="ai-grid">
-            <div class="demo demo-ai" data-demo="ai" data-reveal>
+            <div class="demo demo-ai" data-demo="ai">
               <div class="da-top">
                 <span class="da-title"><svg class="i" aria-hidden="true"><use href="#i-chat" /></svg>Chat</span>
                 <span class="da-context"><svg class="i" aria-hidden="true"><use href="#i-page" /></svg>Seaside trip</span>
@@ -19,25 +16,4 @@
                 <div class="da-input" aria-hidden="true"><span>Ask about your open pages…</span><svg class="i"><use href="#i-send" /></svg></div>
               </div>
             </div>
-
-            <div class="ai-side">
-              <ul class="checks" data-reveal style="--d: 1">
-                <li><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg><div><b>AI while you write.</b> Select text and ask, continue a draft or summarize a page. The answer waits in a preview; nothing enters the page until you take it.</div></li>
-                <li><svg class="i" aria-hidden="true"><use href="#i-shield" /></svg><div><b>Nothing it does is final.</b> Agents can't delete notes, rewrite history or touch a locked note.</div></li>
-                <li><svg class="i" aria-hidden="true"><use href="#i-eye" /></svg><div><b>Big changes wait for you.</b> Large removals, new templates and bursts of edits go to your review queue.</div></li>
-                <li><svg class="i" aria-hidden="true"><use href="#i-undo" /></svg><div><b>One step back.</b> Every agent session can be undone as new commits, back to exactly what you had.</div></li>
-                <li><svg class="i" aria-hidden="true"><use href="#i-key" /></svg><div><b>Keys stay in your keychain.</b> Never in the vault, and sent only to the address they were saved for.</div></li>
-              </ul>
-              <div class="code-card" data-reveal style="--d: 2">
-                <div class="code-head">
-                  <span>Connect Claude Code, Claude Desktop, Cursor or any MCP client</span>
-                  <button type="button" class="copy-btn" data-copy="claude mcp add --scope user kasten -- kasten-app --mcp --vault ~/Notes"><svg class="i" aria-hidden="true"><use href="#i-copy" /></svg><span>Copy</span></button>
-                </div>
-                <pre><code><span class="c-dim">$</span> claude mcp add --scope user kasten -- kasten-app --mcp --vault ~/Notes</code></pre>
-                <p class="code-note">The app is the server. Settings → AI agents copies this line with its path on your computer.</p>
-              </div>
-              <p class="ai-models" data-reveal style="--d: 3">Works with Anthropic's API, any OpenAI-compatible server, or a model running on your own computer. Or with no AI at all.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>

@@ -24,7 +24,7 @@
   --crepe-font-code: var(--notion-font-code);
   --crepe-shadow-1: var(--notion-shadow);
   --crepe-shadow-2: var(--notion-shadow);
-  --crepe-base-font-size: var(--page-font-size, 16px);
+  --crepe-base-font-size: var(--page-font-size, 1rem);
 }
 
 .kasten-page-editor .milkdown .ProseMirror {
@@ -138,22 +138,17 @@
     }
   }
 
-  & hr {
-    height: 1px;
-    padding: 0;
-    margin: 12px 2px;
-    border: none;
-    background: var(--notion-line);
-
-    &.ProseMirror-selectednode {
-      background: var(--notion-accent);
-      &::before {
-        display: none;
-      }
-    }
+  /* Dividers draw their own line (blocks/divider.css), which is also what
+     shows them selected. */
+  & .ProseMirror-selectednode:not(hr, img, .kasten-divider) {
+    background: var(--notion-block-selection);
+    border-radius: var(--radius);
   }
 
-  & .ProseMirror-selectednode:not(hr, img) {
+  /* Blocks picked together (menus/block-range.ts) are tinted as one selected
+     block is. ProseMirror takes its own class off a block it deselects, so
+     the range has a class of its own. */
+  & .kasten-range-picked:not(.kasten-divider) {
     background: var(--notion-block-selection);
     border-radius: var(--radius);
   }

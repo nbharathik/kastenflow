@@ -1,7 +1,8 @@
 //! The block parser: what a line of Markdown becomes as a paragraph.
 
 use super::{b, bullet, code, i, line, look, number, para, plain, r, styled, table};
-use crate::markdown::parse;
+use crate::markdown::{parse, to_markdown};
+use crate::model::Paragraph;
 
 #[test]
 fn a_line_is_a_paragraph_and_blank_lines_are_dropped() {
@@ -38,7 +39,7 @@ fn bullets_and_numbers_at_three_levels() {
                 vec![
                     number(0, vec![r("one")]),
                     number(0, vec![r("two")]),
-                    number(0, vec![r("ten")]),
+                    counting(10, number(0, vec![r("ten")])),
                 ],
             ),
             (
@@ -84,17 +85,89 @@ fn bullets_and_numbers_at_three_levels() {
             ),
             (
                 "5. five\n9. nine",
-                vec![number(0, vec![r("five")]), number(0, vec![r("nine")])],
+                vec![
+                    counting(5, number(0, vec![r("five")])),
+                    counting(9, number(0, vec![r("nine")])),
+                ],
             ),
             ("-\tx", vec![bullet(0, vec![r("x")])]),
             (
                 "- **bold** and `code`",
                 vec![bullet(0, vec![b("bold"), r(" and "), code("code")])],
             ),
-            ("2020. Year", vec![number(0, vec![r("Year")])]),
+            (
+                "2020. Year",
+                vec![counting(2020, number(0, vec![r("Year")]))],
+            ),
         ],
         parse,
     );
+}
+
+/// The paragraph, told to count from `n`.
+fn counting(n: u32, mut p: Paragraph) -> Paragraph {
+    p.start = Some(n);
+    p
+}
+
+#[test]
+fn a_numbered_item_keeps_the_number_it_is_written_with_only_where_counting_on_would_not_give_it() {
+    table(
+        vec![
+            (
+                "3. a\n4. b\n5. c",
+                vec![
+                    counting(3, number(0, vec![r("a")])),
+                    number(0, vec![r("b")]),
+                    number(0, vec![r("c")]),
+                ],
+            ),
+            // A list that begins again is told to.
+            (
+                "1. a\n2. b\n1. c\n2. d",
+                vec![
+                    number(0, vec![r("a")]),
+                    number(0, vec![r("b")]),
+                    counting(1, number(0, vec![r("c")])),
+                    number(0, vec![r("d")]),
+                ],
+            ),
+            // A list that goes on after something else is told where to.
+            (
+                "1. a\n2. b\n\nbreak\n\n3. c",
+                vec![
+                    number(0, vec![r("a")]),
+                    number(0, vec![r("b")]),
+                    Paragraph::plain("break"),
+                    counting(3, number(0, vec![r("c")])),
+                ],
+            ),
+            // Each level counts by itself.
+            (
+                "1. a\n  2. b\n  3. c\n2. d",
+                vec![
+                    number(0, vec![r("a")]),
+                    counting(2, number(1, vec![r("b")])),
+                    number(1, vec![r("c")]),
+                    number(0, vec![r("d")]),
+                ],
+            ),
+            // Nothing is a number below 1.
+            ("0. zero", vec![number(0, vec![r("zero")])]),
+        ],
+        parse,
+    );
+}
+
+#[test]
+fn the_numbers_of_a_list_are_written_as_they_count() {
+    let list = vec![
+        counting(4, number(0, vec![r("a")])),
+        number(0, vec![r("b")]),
+        counting(1, number(0, vec![r("c")])),
+    ];
+    assert_eq!(to_markdown(&list), "4. a\n5. b\n1. c");
+    assert_eq!(parse(&to_markdown(&list)), list);
 }
 
 #[test]

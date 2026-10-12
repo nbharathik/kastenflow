@@ -1,0 +1,73 @@
+/* Dialogs: a scrim that fades in, and a window that rises into it. */
+.ks-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: var(--ks-scrim);
+  animation: ks-fade var(--ks-base) var(--ks-ease) backwards;
+}
+/* A dialog about what the slide looks like stands at the side, and lets go of the dimming while it shows (a transition previewing). */
+.ks-scrim.is-side {
+  place-items: center end;
+  padding-right: 24px;
+}
+.ks-scrim.is-clear {
+  background: transparent;
+}
+.ks-dialog {
+  outline: none;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: var(--ks-raised);
+  border-radius: var(--ks-radius-lg);
+  box-shadow: var(--ks-shadow-pop);
+  padding: 20px;
+  animation: ks-rise var(--ks-base) var(--ks-ease) backwards;
+}
+.ks-dialog-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.ks-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ks-dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+@keyframes ks-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ks-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+:root[data-motion="off"] .ks-scrim,
+:root[data-motion="off"] .ks-dialog {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="on"]) .ks-scrim,
+  :root:not([data-motion="on"]) .ks-dialog {
+    animation: none;
+  }
+}

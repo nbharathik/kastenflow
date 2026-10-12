@@ -2,7 +2,7 @@
 // what a person reads, and the handout of the exported web page (`?view=scroll`).
 
 import type { Deck, Slide } from "@kasten-slides/wasm";
-import { type JSX, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type JSX, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SlideView } from "../render/index.ts";
 import type { ImageUrl } from "../render/index.ts";
@@ -26,7 +26,7 @@ export function Scaled({ deck, children }: { deck: Deck; children: ReactNode }):
     return () => watch.disconnect();
   }, [deck.size.w]);
   return (
-    <div ref={frame} className="ks-show-scroll-frame" style={{ aspectRatio: `${deck.size.w} / ${deck.size.h}` }}>
+    <div ref={frame} className="ks-show-scroll-frame" style={{ aspectRatio: `${deck.size.w} / ${deck.size.h}`, "--ks-ratio": deck.size.w / Math.max(deck.size.h, 1) } as CSSProperties}>
       <div className="ks-show-scroll-slide" style={{ width: deck.size.w, height: deck.size.h, transform: `scale(${scale})` }}>
         {children}
       </div>

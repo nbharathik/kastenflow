@@ -27,9 +27,9 @@ export async function dailyCheck(run: () => Promise<UpdateInfo | null> = checkUp
   const ready = prefs.download && useUpdates.getState().canInstall && (await fetch());
   updatePrefs({ announced: info.latest });
   if (ready) {
-    useWorkspace.getState().toast(`Kasten ${info.latest} is ready to install`, { label: "Restart to update", run: () => void installAndRestart() });
+    useWorkspace.getState().toast(`KastenFlow ${info.latest} is ready to install`, { label: "Restart to update", run: () => void installAndRestart() });
   } else {
-    useWorkspace.getState().toast(`Kasten ${info.latest} is out`, { label: "What’s new", run: () => useUpdates.getState().show() });
+    useWorkspace.getState().toast(`KastenFlow ${info.latest} is out`, { label: "What’s new", run: () => useUpdates.getState().show() });
   }
 }
 
@@ -39,7 +39,7 @@ export function askOnce(run: () => Promise<UpdateInfo | null> = checkUpdate): vo
   const prefs = loadUpdates();
   if (prefs.auto || prefs.asked) return;
   updatePrefs({ asked: true });
-  useWorkspace.getState().toast("Hear when a new Kasten is out? It checks GitHub once a day.", {
+  useWorkspace.getState().toast("Hear when a new KastenFlow is out? It checks GitHub once a day.", {
     label: "Turn on",
     run: () => {
       updatePrefs({ auto: true });
@@ -56,7 +56,7 @@ export function greetUpdate(info: AppInfo, open = openUrl): void {
   updatePrefs({ ran: now });
   if (!prefs.ran || !newerThan(now, prefs.ran) || !info.releases) return;
   const page = `${info.releases}/tag/v${now}`;
-  useWorkspace.getState().toast(`Kasten is now ${now}`, { label: "What’s new", run: () => void open(page).catch(() => {}) });
+  useWorkspace.getState().toast(`KastenFlow is now ${now}`, { label: "What’s new", run: () => void open(page).catch(() => {}) });
 }
 
 /** The desktop app's updates, from a moment after it opens. */

@@ -6,6 +6,7 @@
 import { memo, type CSSProperties, type DragEvent } from "react";
 
 import { dayFrom } from "../../lib/dates";
+import type { Swatch } from "../panel/properties/schemas";
 import { iconOf, titleOf } from "../workspace/names";
 import { toneStyle, useCalendarActions } from "./actions";
 import { noAutoScroll, onRangeKey, rangeTitle } from "./Chip";
@@ -58,7 +59,7 @@ interface BarProps {
   starts: boolean;
   ends: boolean;
   week: readonly string[];
-  tone: string | null;
+  tone: Swatch | null;
   dragging: boolean;
   resizing: boolean;
 }

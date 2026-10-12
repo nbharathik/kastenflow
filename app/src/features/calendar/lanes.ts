@@ -94,3 +94,47 @@ export function fitBars(week: WeekBars, lines: number, singles: readonly number[
     shown = lines - 1;
   return { shown, days: cols.map((col) => on(col, shown)) };
 }
+
+/** Something on a day's hours, from its first minute to its end (minutes
+ * from midnight; an end of 1440 is midnight at the day's end). */
+export interface Span {
+  start: number;
+  end: number;
+}
+
+/** Where a span sits among the ones it overlaps: its column, and how many
+ * columns that run of overlapping spans needs. */
+export interface Stacked {
+  lane: number;
+  lanes: number;
+}
+
+/** Spans that overlap share the day's width, as in a paper diary: each gets
+ * the first column free for all its minutes, and every span of a run of
+ * overlapping ones is as wide as that run's columns need. Earlier first, longer
+ * first. Results come in the order of `spans`. */
+export function stackSpans(spans: readonly Span[]): Stacked[] {
+  const order = spans.map((_, i) => i).sort((a, b) => spans[a]!.start - spans[b]!.start || spans[b]!.end - spans[a]!.end || a - b);
+  const out: Stacked[] = new Array(spans.length);
+  let run: number[] = [];
+  /** Where each column of the run is busy until. */
+  let busy: number[] = [];
+  let runEnd = -1;
+  const close = () => {
+    for (const i of run) out[i]!.lanes = busy.length;
+    run = [];
+    busy = [];
+  };
+  for (const i of order) {
+    const span = spans[i]!;
+    if (span.start >= runEnd) close();
+    let lane = busy.findIndex((until) => until <= span.start);
+    if (lane < 0) lane = busy.length;
+    busy[lane] = span.end;
+    runEnd = run.length === 0 ? span.end : Math.max(runEnd, span.end);
+    out[i] = { lane, lanes: 1 };
+    run.push(i);
+  }
+  close();
+  return out;
+}

@@ -26,7 +26,7 @@ async function home(files: Record<string, string>) {
 
 beforeEach(() => {
   localStorage.clear();
-  usePrefs.setState({ homeSections: null });
+  usePrefs.setState({ homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list" });
   useShell.setState({ namingProject: false });
   useWorkspace.setState({ ...derive(initialLayout()), notes: [], recent: [], navigated: false });
 });
@@ -39,31 +39,50 @@ describe("Home", () => {
     expect(screen.queryByRole("region", { name: "Start from a template" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Projects" })?.closest("main")).toBeFalsy();
     await act(async () => fireEvent.click(within(start).getByRole("button", { name: "Take the tour" })));
-    await expect.poll(() => useWorkspace.getState().place.path).toBe("library/welcome-to-kasten.md");
-    expect((await vault.read("library/welcome-to-kasten.md")).text).toContain("title: Welcome to Kasten");
+    await expect.poll(() => useWorkspace.getState().place.path, { timeout: 15_000 }).toBe("library/welcome-to-kasten.md");
+    expect((await vault.read("library/welcome-to-kasten.md")).text).toContain("title: Welcome to KastenFlow");
   });
 
   it("leaves the blank-vault welcome out once there is writing", async () => {
     await home({ ...TEMPLATES, "library/idea.md": "---\ntitle: An idea\n---\nText.\n" });
-    await screen.findByRole("region", { name: "Jump back in" });
+    await screen.findByRole("region", { name: "Recent" });
     expect(screen.queryByRole("region", { name: "Getting started" })).toBeNull();
   });
 
-  it("keeps the sections chosen with Customize, in their order", async () => {
-    await home({ ...TEMPLATES, "library/idea.md": "---\ntitle: An idea\n---\nText.\n" });
-    expect(screen.queryByRole("region", { name: "Favourites" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Customize home" }));
-    const menu = screen.getByRole("dialog", { name: "Customize home" });
-    fireEvent.click(within(menu).getByRole("checkbox", { name: /Journal/ }));
-    expect(await screen.findByRole("region", { name: "Journal" })).toBeTruthy();
-    fireEvent.click(within(menu).getByRole("checkbox", { name: /Quick actions/ }));
-    expect(usePrefs.getState().homeSections).toEqual(["capture", "recent", "todo", "inbox", "projects", "pages", "journal", "boards"]);
-    expect(JSON.parse(localStorage.getItem("kasten.prefs")!).homeSections).toContain("journal");
-    fireEvent.click(within(menu).getByRole("button", { name: "Reset to the usual" }));
-    expect(usePrefs.getState().homeSections).toBeNull();
+  it("is short by default: the list, today, the to-dos and the Inbox, and nothing else", async () => {
+    await home({ ...TEMPLATES, "library/idea.md": "---\ntitle: An idea\n---\nText.\n", "inbox/note.md": "---\ntitle: A note\ntype: card\n---\nText.\n" });
+    const pane = screen.getByRole("region", { name: "Pane" });
+    for (const name of ["Recent", "Today", "To-dos", "Inbox"]) expect(await within(pane).findByRole("region", { name })).toBeTruthy();
+    for (const name of ["Projects", "Pages", "Whiteboards", "Decks", "Journal", "This week"]) expect(within(pane).queryByRole("region", { name })).toBeNull();
+    // One line at the top: the greeting, the capture field, one New button. No row of buttons.
+    expect(within(pane).getByRole("heading", { level: 1 }).textContent).toMatch(/^Good (morning|afternoon|evening)$/);
+    expect(within(pane).getByRole("textbox", { name: "Quick note" })).toBeTruthy();
+    expect(within(pane).getByRole("button", { name: "New" })).toBeTruthy();
+    for (const old of ["Quick note", "Today's journal", "From a template", "New deck", "Search"]) expect(within(pane).queryByRole("button", { name: old })).toBeNull();
   });
 
-  it("lists every project's pages, and the rest, each a click away", async () => {
+  it("keeps the sections chosen with Customize, in their order, and puts the simple layout back", async () => {
+    await home({ ...TEMPLATES, "library/idea.md": "---\ntitle: An idea\n---\nText.\n" });
+    expect(screen.queryByRole("region", { name: "Journal" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Customize home" }));
+    const menu = screen.getByRole("dialog", { name: "Customize home" });
+    const reset = within(menu).getByRole("button", { name: "Reset to the simple layout" }) as HTMLButtonElement;
+    expect(reset.disabled).toBe(true);
+    fireEvent.click(within(menu).getByRole("checkbox", { name: /Journal/ }));
+    // The card's code loads when it is first asked for (the whiteboard and deck thumbnails come with it).
+    expect(await screen.findByRole("region", { name: "Journal" }, { timeout: 20_000 })).toBeTruthy();
+    expect(usePrefs.getState().homeSections).toEqual(["favourites", "recent", "schedule", "todo", "inbox", "journal"]);
+    fireEvent.click(within(menu).getByRole("checkbox", { name: /Favourites/ }));
+    expect(usePrefs.getState().homeSections).toEqual(["recent", "schedule", "todo", "inbox", "journal"]);
+    expect(JSON.parse(localStorage.getItem("kasten.prefs")!).homeSections).toContain("journal");
+    expect(reset.disabled).toBe(false);
+    fireEvent.click(reset);
+    expect(usePrefs.getState().homeSections).toBeNull();
+    await expect.poll(() => screen.queryByRole("region", { name: "Journal" })).toBeNull();
+  });
+
+  it("lists every project's pages, and the rest, each a click away, when Pages is turned on", async () => {
+    usePrefs.setState({ homeSections: ["recent", "pages"] });
     const vault = await home({
       ...TEMPLATES,
       "projects/trip/_project.md": "---\nid: T\ntitle: Trip\ntype: project\n---\n",
@@ -108,11 +127,26 @@ describe("Home", () => {
     expect(await within(todos).findByRole("checkbox", { name: "Pack snacks - fruit + nuts" })).toBeTruthy();
   });
 
-  it("starts a new project in the sidebar's name field", async () => {
+  it("starts a new project in the sidebar's name field from the projects row", async () => {
+    usePrefs.setState({ homeSections: ["projects", "recent"] });
     await home({ ...TEMPLATES, "projects/p/_project.md": "---\ntitle: Existing\ntype: project\n---\n" });
     const pane = screen.getByRole("region", { name: "Pane" });
-    const projects = await within(pane).findByRole("region", { name: "Projects" });
+    const projects = await within(pane).findByRole("group", { name: "Projects" });
+    expect(within(projects).getByRole("button", { name: /Existing/ })).toBeTruthy();
     await act(async () => fireEvent.click(within(projects).getByRole("button", { name: "New project" })));
     expect(await screen.findByRole("textbox", { name: "Project name" })).toBeTruthy();
+  });
+
+  it("shows the favourites as a thin row, and nothing while there are none", async () => {
+    usePrefs.setState({ favourites: [] });
+    await home({ ...TEMPLATES, "library/idea.md": "---\ntitle: An idea\n---\nText.\n" });
+    const pane = screen.getByRole("region", { name: "Pane" });
+    await within(pane).findByRole("region", { name: "Recent" });
+    expect(within(pane).queryByRole("group", { name: "Favourites" })).toBeNull();
+    act(() => usePrefs.setState({ favourites: ["library/idea.md"] }));
+    const row = await within(pane).findByRole("group", { name: "Favourites" });
+    await act(async () => fireEvent.click(within(row).getByRole("button", { name: /An idea/ })));
+    expect(useWorkspace.getState().place.path).toBe("library/idea.md");
+    act(() => usePrefs.setState({ favourites: [] }));
   });
 });

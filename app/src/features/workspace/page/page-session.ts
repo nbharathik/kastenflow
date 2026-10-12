@@ -8,7 +8,7 @@ import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import type { NoteFile, Renamed, VaultClient } from "../../../lib/vault/types";
 import { merge3 } from "../preview/merge";
 
-export type HeaderKey = "icon" | "cover" | "font" | "width" | "text" | "locked";
+export type HeaderKey = "icon" | "cover" | "font" | "width" | "text" | "locked" | "opens" | "layout";
 export type SaveState = "saved" | "edited" | "saving" | "failed";
 
 export interface SessionEvents {

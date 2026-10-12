@@ -3,7 +3,7 @@
 //! written out that the style already gave is not a difference.
 
 use slides_core::resolve::placeholder_of;
-use slides_core::{Align, Deck, Element, ListKind, Slide, Text, VAlign};
+use slides_core::{Align, Deck, Element, ListKind, ListStyle, Script, Slide, Text, VAlign, list};
 
 use super::Diff;
 
@@ -18,6 +18,10 @@ struct Look {
     font: String,
     link: Option<String>,
     code: bool,
+    script: Option<Script>,
+    small_caps: bool,
+    all_caps: bool,
+    spacing: f64,
 }
 
 /// What a paragraph is set as.
@@ -29,6 +33,15 @@ struct Setting {
     line: f64,
     before: f64,
     after: f64,
+    /// The marker an item shows, as the list says it: its look, and the number it counts as.
+    marker: Option<(ListStyle, Option<u32>)>,
+    bullet_color: Option<String>,
+    bullet_size: f64,
+    /// Where its lines start, and where the first starts from there.
+    margin: f64,
+    indent: f64,
+    /// What an empty paragraph is measured by, its mark's size (and so is its marker).
+    mark_size: Option<f64>,
 }
 
 fn round(v: f64) -> f64 {
@@ -87,9 +100,27 @@ fn looks_and_settings(
     base: &str,
     index_of: &dyn Fn(&str) -> Option<usize>,
 ) -> Vec<(Setting, Vec<(char, Look)>)> {
-    text.paragraphs
+    let counts = list::numbers(&text.paragraphs);
+    let points: Vec<f64> = text
+        .paragraphs
         .iter()
         .map(|p| {
+            let style = style_named(
+                deck,
+                p.style
+                    .as_deref()
+                    .filter(|s| deck.theme.text_style(s).is_some())
+                    .unwrap_or(base),
+            );
+            let first = p.runs.iter().find(|r| !r.t.is_empty()).or(p.runs.first());
+            first.and_then(|r| r.size).unwrap_or(style.size) * p.bullet_size.unwrap_or(1.0)
+        })
+        .collect();
+    let places = list::layout(&text.paragraphs, &points);
+    text.paragraphs
+        .iter()
+        .enumerate()
+        .map(|(n, p)| {
             let style = style_named(
                 deck,
                 p.style
@@ -108,6 +139,25 @@ fn looks_and_settings(
                 line: round(p.line_spacing.or(style.line_spacing).unwrap_or(1.0)),
                 before: round(p.space_before.or(style.space_before).unwrap_or(0.0)),
                 after: round(p.space_after.or(style.space_after).unwrap_or(0.0)),
+                marker: list::style_of(p).map(|s| (s, counts[n])),
+                bullet_color: p.bullet_color.as_deref().map(|c| hex(deck, c)).filter(|c| {
+                    // A marker in the colour of the words has no colour of its own.
+                    let first = p.runs.iter().find(|r| !r.t.is_empty()).or(p.runs.first());
+                    *c != hex(
+                        deck,
+                        first
+                            .and_then(|r| r.color.as_deref())
+                            .unwrap_or(&style.color),
+                    )
+                }),
+                bullet_size: round(p.bullet_size.unwrap_or(1.0)),
+                margin: round(places[n].margin),
+                indent: round(places[n].indent),
+                mark_size: p
+                    .runs
+                    .iter()
+                    .all(|r| r.t.is_empty() && r.field.is_none())
+                    .then(|| round(p.runs.first().and_then(|r| r.size).unwrap_or(style.size))),
             };
             let mut chars = Vec::new();
             for r in &p.runs {
@@ -134,6 +184,10 @@ fn looks_and_settings(
                             font: font.clone(),
                             link: link.clone(),
                             code: r.code,
+                            script: r.script.clone(),
+                            small_caps: r.small_caps,
+                            all_caps: r.all_caps,
+                            spacing: round(r.spacing.unwrap_or(0.0)),
                         },
                     )
                 };
@@ -210,6 +264,23 @@ pub fn compare(diff: &mut Diff, at: &str, a: &Side, b: &Side) {
     );
     if va != vb {
         diff.note(at, format!("vertical alignment {va:?} came back as {vb:?}"));
+    }
+    // What the box does with words that do not fit it, and whether it wraps; "do not autofit" and "wraps" are the defaults.
+    let boxed = |t: &Text| {
+        (
+            t.fit.clone().filter(|f| *f != slides_core::TextFit::Off),
+            t.wrap != Some(false),
+        )
+    };
+    if boxed(a.text) != boxed(b.text) {
+        diff.note(
+            at,
+            format!(
+                "fit and wrapping {:?} came back as {:?}",
+                boxed(a.text),
+                boxed(b.text)
+            ),
+        );
     }
     if insets(a.text) != insets(b.text) {
         diff.note(

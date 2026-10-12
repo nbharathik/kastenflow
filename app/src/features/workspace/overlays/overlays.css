@@ -200,6 +200,15 @@
   pointer-events: none;
 }
 
+/* While a browser tab's page is on show: the page is drawn above this, so it keeps to the sidebar's corner. */
+.kasten-toasts.is-left {
+  top: auto;
+  right: auto;
+  bottom: 14px;
+  left: 14px;
+  align-items: flex-start;
+}
+
 .kasten-toast {
   display: flex;
   align-items: center;

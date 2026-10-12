@@ -145,9 +145,12 @@ fn a_part_survives_a_trip_through_json() {
 
 #[test]
 fn recolouring_the_theme_recolours_parts_that_use_tokens() {
-    // Nothing in a part is a fixed hex value unless it is a syntax colour, a code panel, or a picture's overlay.
+    // Nothing in a part is a fixed hex value unless it is a syntax colour, a code panel, a picture's overlay, or the black and white of a QR code.
     for element in samples::all() {
-        if matches!(element, Element::Code(_) | Element::Video(_)) {
+        if matches!(
+            element,
+            Element::Code(_) | Element::Video(_) | Element::Qr(_)
+        ) {
             continue;
         }
         for part in parts(&element) {

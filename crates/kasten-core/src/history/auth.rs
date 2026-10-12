@@ -135,7 +135,7 @@ pub(super) fn credentials(
             Cred::credential_helper(config, url, username)
         }
         SignIn::Refuse => Err(git2::Error::from_str(
-            "the remote asks for a kind of sign-in Kasten does not give; use an SSH key, a token or git's credential helper",
+            "the remote asks for a kind of sign-in KastenFlow does not give; use an SSH key, a token or git's credential helper",
         )),
     }
 }

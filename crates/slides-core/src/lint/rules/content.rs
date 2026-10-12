@@ -176,7 +176,7 @@ pub fn pptx_unsafe(scene: &Scene, sink: &mut Sink) {
             rank: 0.0,
             element: None,
             message: "This slide arrives with the Morph transition, which Google Slides does not read and PowerPoint before 2019 shows as a plain cut.".to_owned(),
-            hint: "Keep Morph for showing from Kasten, or use fade or slide if the deck must work everywhere.",
+            hint: "Keep Morph for showing from KastenFlow, or use fade or slide if the deck must work everywhere.",
         });
     }
     for (n, top) in slide.elements.iter().enumerate() {
@@ -188,29 +188,48 @@ pub fn pptx_unsafe(scene: &Scene, sink: &mut Sink) {
                 Element::Embed(embed)
                     if embed.poster.as_deref().is_none_or(|p| p.trim().is_empty()) =>
                 {
-                    (
-                        "embed",
-                        format!(
-                            "{} has no poster picture, so PowerPoint and Google Slides show a plain panel with its address, not the page.",
-                            sentence(&describe_top())
-                        ),
-                        "Give it a poster (a screenshot of the page in the image store).",
-                    )
+                    if embed.base.source.is_some() && embed.url.trim().is_empty() {
+                        (
+                            "embed",
+                            format!(
+                                "{} is a page of KastenFlow, live only there; PowerPoint and Google Slides get a card with its first words, not the page.",
+                                sentence(&describe_top())
+                            ),
+                            "Give it a snapshot picture of the page if the card is not enough.",
+                        )
+                    } else {
+                        (
+                            "embed",
+                            format!(
+                                "{} has no snapshot picture, so PowerPoint and Google Slides show a plain panel with its address, not the page.",
+                                sentence(&describe_top())
+                            ),
+                            "Give it a snapshot (a picture of the page in the image store).",
+                        )
+                    }
                 }
                 Element::Video(video) => (
                     "video",
                     if video.poster.as_deref().is_none_or(|p| p.trim().is_empty()) {
                         format!(
-                            "{} has no poster picture; PowerPoint and Google Slides get a plain panel and a link, and it plays only when presenting from Kasten.",
+                            "{} has no poster picture; PowerPoint and Google Slides get a plain panel and a link, and it plays only when presenting from KastenFlow.",
                             sentence(&describe_top())
                         )
                     } else {
                         format!(
-                            "{} plays only when presenting from Kasten; PowerPoint and Google Slides get its poster picture and a link.",
+                            "{} plays only when presenting from KastenFlow; PowerPoint and Google Slides get its poster picture and a link.",
                             sentence(&describe_top())
                         )
                     },
                     "Give it a poster picture, and say on the slide where the video is.",
+                ),
+                Element::Timer(_) => (
+                    "timer",
+                    format!(
+                        "{} counts down only when presenting from KastenFlow; PowerPoint and Google Slides show the time it starts at.",
+                        sentence(&describe_top())
+                    ),
+                    "Say on the slide that it counts down, or time the talk another way for a file that must work everywhere.",
                 ),
                 Element::Raw(raw)
                     if raw.xml.as_deref().is_none_or(|x| x.trim().is_empty())

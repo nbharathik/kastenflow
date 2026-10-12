@@ -61,13 +61,43 @@
   cursor: text;
 }
 
+/* A page that is shorter than its pane keeps its footer at the bottom of the
+   pane: the body takes what the header leaves, and the footer takes the
+   space left over by its auto margin. A longer page scrolls, with the
+   footer after its text. (A compact or headless page has no pane of its own.) */
+.kasten-page:not(.is-compact, .is-headless) {
+  & .kasten-page-main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Nothing above the body shrinks to make room for it. */
+  & .kasten-page-main > * {
+    flex-shrink: 0;
+  }
+
+  & .kasten-page-main > .kasten-page-body {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+
+  & .kasten-page-body > * {
+    flex-shrink: 0;
+  }
+
+  & .kasten-page-footer {
+    margin-top: auto;
+  }
+}
+
 /* Below the page: quiet toggles (PageFooter), closed until asked. */
 .kasten-page-footer {
   display: flex;
   flex-direction: column;
   gap: 2px;
   margin-top: 8px;
-  padding: 14px 0 30vh;
+  padding: 14px 0 48px;
   border-top: 1px solid var(--notion-line-soft);
   font-family: var(--notion-font);
 
@@ -159,7 +189,7 @@
   --page-width: 100%;
   --page-gutter: 18px;
   height: auto;
-  font-size: calc(var(--page-font-size, 16px) - 1px);
+  font-size: calc(var(--page-font-size, 1rem) - 1px);
 }
 
 .kasten-page.is-compact .kasten-page-main {

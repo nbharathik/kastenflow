@@ -12,7 +12,7 @@ import { BarLayer } from "./Bar";
 import { EntryChip, entryKey } from "./Chip";
 import { AddMenu, DayNumber, JournalChip, QuickAdd, weekdayOf } from "./DayParts";
 import { fitBars, weekBars } from "./lanes";
-import { dayEntries, fullDay } from "./layout";
+import { dayEntries, entryTime, fullDay } from "./layout";
 import { litClass, onDayClick, type CellProps, type GridProps } from "./MonthGrid";
 
 /** A lane of the band, and the band's padding (bars.css). */
@@ -26,7 +26,9 @@ const NO_ENTRIES = [0, 0, 0, 0, 0, 0, 0];
  * folded away, or (unfolded) that it can fold them again. */
 type BandLine = { more: number } | "less" | null;
 
-export function WeekGrid({ days, today, items, tasks, ranges, journals, mentions, made, colors, lit, adding, dragging, pinned, scopeTag }: GridProps) {
+/** With `hours`, the columns keep only what has no hour (the all-day row of
+ * the hour grid, which draws the rest under them). */
+export function WeekGrid({ days, today, items, tasks, ranges, journals, mentions, made, events, colors, lit, adding, dragging, pinned, scopeTag, hours = false }: GridProps & { hours?: boolean }) {
   const week = useMemo(() => days[0] ?? [], [days]);
   const [open, setOpen] = useState(false);
   const layout = useMemo(() => weekBars(ranges, week, pinned), [ranges, week, pinned]);
@@ -47,7 +49,7 @@ export function WeekGrid({ days, today, items, tasks, ranges, journals, mentions
     return col === firstFolded ? "less" : null;
   };
   return (
-    <div className="kasten-cal-weekgrid" style={{ "--band": `${band}px` } as CSSProperties}>
+    <div className={`kasten-cal-weekgrid${hours ? " is-hours" : ""}`} style={{ "--band": `${band}px` } as CSSProperties}>
       {week.map((day, col) => (
         <WeekColumn
           key={day}
@@ -61,6 +63,8 @@ export function WeekGrid({ days, today, items, tasks, ranges, journals, mentions
           tasks={tasks.get(day)}
           mentions={mentions.get(day)}
           made={made.get(day)}
+          events={events.get(day)}
+          hours={hours}
           journal={journals.get(day)}
           colors={colors}
           over={litClass(lit, week, col)}
@@ -76,11 +80,14 @@ export function WeekGrid({ days, today, items, tasks, ranges, journals, mentions
   );
 }
 
-type ColumnProps = CellProps & { weekend: boolean; band: boolean; line: BandLine; onBand(open: boolean): void };
+type ColumnProps = CellProps & { weekend: boolean; band: boolean; line: BandLine; onBand(open: boolean): void; hours: boolean };
 
-const WeekColumn = memo(function WeekColumn({ day, weekend, band, line, onBand, today, items, tasks, mentions, made, journal, colors, over, adding, dragging, scopeTag }: ColumnProps) {
+const WeekColumn = memo(function WeekColumn({ day, weekend, band, line, onBand, hours, today, items, tasks, mentions, made, events, journal, colors, over, adding, dragging, scopeTag }: ColumnProps) {
   const actions = useCalendarActions();
-  const entries = useMemo(() => dayEntries(items, tasks, mentions, made), [items, tasks, mentions, made]);
+  const entries = useMemo(() => {
+    const all = dayEntries(items, tasks, mentions, made, events);
+    return hours ? all.filter((entry) => entryTime(entry) === null) : all;
+  }, [items, tasks, mentions, made, events, hours]);
   return (
     <div
       role="group"

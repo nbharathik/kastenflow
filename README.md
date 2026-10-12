@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.svg">
-    <img src="docs/brand/lockup.svg" width="230" alt="Kasten">
+    <img src="docs/brand/lockup.svg" width="320" alt="KastenFlow">
   </picture>
 </p>
 
@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://nbharathik.github.io/kasten/">Website</a> ·
-  <a href="https://nbharathik.github.io/kasten/demo/">Browser demo</a> ·
+  <a href="https://nbharathik.github.io/kastenflow/">Website</a> ·
+  <a href="https://nbharathik.github.io/kastenflow/demo/">Browser demo</a> ·
   <a href="docs/guide.md">User guide</a> ·
   <a href="CONTRIBUTING.md">Build from source</a> ·
   <a href="docs/community/SECURITY.md">Security</a>
@@ -24,10 +24,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.webp">
-  <img alt="Kasten's Home: quick actions, recent pages, open to-dos and the inbox" src="docs/screenshots/home.webp">
+  <img alt="KastenFlow's Home: quick actions, recent pages, open to-dos and the inbox" src="docs/screenshots/home.webp">
 </picture>
 
-Kasten is a desktop app for your daily journal and notes. Write pages, plan
+KastenFlow is a desktop app for your daily journal and notes. Write pages, plan
 on whiteboards and keep every day in one place, as plain Markdown files in a
 folder you choose. It includes Git history, optional AI tools and a slide
 editor with PowerPoint export.
@@ -37,9 +37,9 @@ backup before using it for important work. Windows, macOS and Linux are
 build targets; a source checkout alone does not establish that installers
 have been tested on each platform.
 
-Kasten is desktop-first. Backup must be configured, and it is not live sync.
+KastenFlow is desktop-first. Backup must be configured, and it is not live sync.
 
-## Get Kasten
+## Get KastenFlow
 
 Follow [CONTRIBUTING.md](CONTRIBUTING.md) for the pinned toolchain,
 platform prerequisites and desktop build instructions.
@@ -78,10 +78,10 @@ The [user guide](docs/guide.md) tours all of it.
 - **Plain files.** Pages are Markdown, databases YAML, whiteboards JSON
   Canvas, all in one folder. [The format](docs/vault-format.md) is
   documented and versioned.
-- **History and trash.** Kasten records changes in local Git history;
+- **History and trash.** KastenFlow records changes in local Git history;
   typing is batched, and deleting normally moves content to trash. History
   on the same disk is not a substitute for a separate backup.
-- **Guarded AI tools.** Kasten's MCP and chat tools apply review rules and
+- **Guarded AI tools.** KastenFlow's MCP and chat tools apply review rules and
   protect notes locked for agents. Routine permitted changes may run
   without confirmation. These rules do not restrict an external agent
   that has separate filesystem or shell access.
@@ -94,7 +94,7 @@ for the trust model, reporting, and the
 
 - [User guide](docs/guide.md): a tour, templates and kits, AI, quick
   capture, agents, backup and restore, and updates
-- [Vault format](docs/vault-format.md): every file Kasten writes
+- [Vault format](docs/vault-format.md): every file KastenFlow writes
 - [Slides deck format](docs/slides-format.md): what is in a `.deck` file
 - [Contributing](CONTRIBUTING.md): building, testing and the project's rules
 - [Changelog](CHANGELOG.md): what each release brings
@@ -102,3 +102,5 @@ for the trust model, reporting, and the
 ## License
 
 [MIT](LICENSE). The Slides engine and editor (`crates/slides-*` and `packages/*`) are Apache-2.0; each folder carries its own `LICENSE`.
+
+KastenFlow is an independent open-source project, not affiliated with Veeam or Kasten by Veeam.

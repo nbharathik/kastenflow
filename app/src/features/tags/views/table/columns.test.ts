@@ -80,6 +80,26 @@ describe("table columns", () => {
     expect(hiddenColumns(table(), PAPER).map((c) => c.key)).toEqual(["created", "updated", "modified"]);
   });
 
+  it("offers project, type and tags only to a view that spans tags and projects (it has a scope)", () => {
+    // A tag's own table: unchanged, and a column called project is not one.
+    expect(keys(table({ columns: ["project", "type", "tags", "status"] }))).toEqual(["title", "status"]);
+    expect(hiddenColumns(table({ columns: [] }), PAPER).map((c) => c.key)).toEqual(["status", "venue", "deadline", "coauthors", "repo", "created", "updated", "modified"]);
+    // A project's saved table: no schema, and the extra fields are columns.
+    const saved = table({ scope: "project", columns: ["type", "tags", "project", "updated"] });
+    expect(tableColumns(saved, null).map((c) => [c.key, c.kind, c.label])).toEqual([
+      ["title", "title", "Title"],
+      ["type", "builtin", "Type"],
+      ["tags", "builtin", "Tags"],
+      ["project", "builtin", "Project"],
+      ["updated", "builtin", "Updated"],
+    ]);
+    expect(hiddenColumns(saved, null).map((c) => c.key)).toEqual(["created", "modified"]);
+    expect(hiddenColumns(table({ scope: "vault", columns: [] }), null).map((c) => c.key)).toEqual(["created", "updated", "modified", "project", "type", "tags"]);
+    expect(showColumn(table({ scope: "project", columns: ["type"] }), null, "tags").columns).toEqual(["type", "tags"]);
+    // Their widths come from their own entries.
+    expect(widthOf(saved, tableColumns(saved, null)[2]!)).toBe(220);
+  });
+
   it("hides, shows and moves columns by writing the view's columns, keeping its other keys", () => {
     const view = table({ sort: [{ key: "deadline", dir: "asc" }], "x-extra": 1 });
     const hidden = hideColumn(view, PAPER, "venue");

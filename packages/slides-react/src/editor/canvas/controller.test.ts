@@ -180,6 +180,62 @@ describe("drawing", () => {
     expect(session.state.editing).toBe(made.id);
   });
 
+  it("puts a text box with its top left where it was clicked, and opens it for typing", async () => {
+    const { session, controller } = await setup();
+    session.setTool("text");
+    controller.down(at(400, 450), { kind: "surface" });
+    controller.up(at(400, 450));
+    const made = session.slide.elements.at(-1)!;
+    expect(made).toMatchObject({ type: "text", x: 400, y: 450, w: 300, h: 56 });
+    expect(session.state.editing).toBe(made.id);
+    expect(session.state.tool).toBe("select");
+  });
+
+  it("keeps a text box made by a click on the slide, whatever side it is near", async () => {
+    const { session, controller } = await setup();
+    const click = (x: number, y: number) => {
+      session.setTool("text");
+      controller.down(at(x, y), { kind: "surface" });
+      controller.up(at(x, y));
+      return session.slide.elements.at(-1)!;
+    };
+    // The slide is 960 by 540 and the box 300 by 56.
+    expect(click(900, 520)).toMatchObject({ x: 660, y: 484 });
+    expect(click(-20, -5)).toMatchObject({ x: 0, y: 0 });
+    expect(click(959, 10)).toMatchObject({ x: 660, y: 10 });
+  });
+
+  it("snaps a text box made by a click to what is on the slide, unless snapping is off or Alt is held", async () => {
+    const snapped = await setup(true);
+    snapped.session.setTool("text");
+    // The ellipse's left edge is at 500, and nothing else is near the box's other edges down here.
+    snapped.controller.down(at(497, 450), { kind: "surface" });
+    snapped.controller.up(at(497, 450));
+    expect(snapped.session.slide.elements.at(-1)).toMatchObject({ x: 500, y: 450 });
+
+    snapped.session.setTool("text");
+    snapped.controller.down(at(497, 450, { alt: true }), { kind: "surface" });
+    snapped.controller.up(at(497, 450, { alt: true }));
+    expect(snapped.session.slide.elements.at(-1)).toMatchObject({ x: 497, y: 450 });
+
+    const free = await setup(false);
+    free.session.setTool("text");
+    free.controller.down(at(497, 450), { kind: "surface" });
+    free.controller.up(at(497, 450));
+    expect(free.session.slide.elements.at(-1)).toMatchObject({ x: 497, y: 450 });
+  });
+
+  it("still centres a shape made by a click on it, and draws a text box the size of the drag", async () => {
+    const { session, controller } = await setup();
+    session.setTool("shape:rect");
+    controller.down(at(700, 100), { kind: "surface" });
+    controller.up(at(700, 100));
+    expect(session.slide.elements.at(-1)).toMatchObject({ shape: "rect", x: 620, y: 40, w: 160, h: 120 });
+    session.setTool("text");
+    drag(controller, [60, 440], [260, 500]);
+    expect(session.slide.elements.at(-1)).toMatchObject({ type: "text", x: 60, y: 440, w: 200, h: 60 });
+  });
+
   it("draws a free line, and a connector when it starts or ends on a shape", async () => {
     const { session, controller, a, b } = await setup();
     session.setTool("arrow:straight");

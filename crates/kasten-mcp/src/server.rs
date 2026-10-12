@@ -13,10 +13,12 @@ use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{ServerHandler, tool_handler};
 use serde::Serialize;
 
-pub const INSTRUCTIONS: &str = "Kasten is the user's notes vault: Markdown cards, pages, journal days, projects, whiteboards and slide decks. \
+pub const INSTRUCTIONS: &str = "KastenFlow is the user's notes vault: Markdown cards, pages, journal days, projects, whiteboards and slide decks. \
 Capture quick thoughts to the inbox with `capture`. Link related notes by writing [[Their title]], or [[their/path|Their title]] when several notes share the title. \
 Change one section with `replace_section` or add with `append` instead of rewriting a note; `propose_edit` sends a full rewrite to the user for review. \
 Brainstorm on whiteboards. Nothing is ever deleted: `trash_note` moves notes to the trash. \
+Diagrams (flowcharts, architecture, sketches) are draw.io XML: read one with `get_diagram`, make one with `create_diagram`, change it with `update_diagram` \
+(send the whole XML and keep the ids of cells you do not change); `trash_diagram` always waits for the user. \
 Slide decks are built and changed with the deck tools (`create_deck`, or `deck_from_note` to start from a note): \
 run `lint_deck` after every batch of changes and fix what it reports. What you make in a deck is marked for the user until they accept it. \
 Some writes come back as `pending_review` with a proposal id; the user decides those. Locked notes are read-only.";
@@ -82,7 +84,11 @@ impl KastenServer {
 
     /// Every tool, as `tools/list` shows them.
     pub fn router() -> ToolRouter<KastenServer> {
-        Self::read_tools() + Self::write_tools() + Self::board_tools() + Self::deck_tools()
+        Self::read_tools()
+            + Self::write_tools()
+            + Self::board_tools()
+            + Self::diagram_tools()
+            + Self::deck_tools()
     }
 
     /// A server for one HTTP session or request, sharing sessions by client.
@@ -160,7 +166,10 @@ pub fn failed(message: impl std::fmt::Display) -> CallToolResult {
 impl ServerHandler for KastenServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("kasten", kasten_core::VERSION))
+            .with_server_info(
+                Implementation::new("kasten", kasten_core::VERSION)
+                    .with_title(kasten_core::PRODUCT_NAME),
+            )
             .with_instructions(instructions())
     }
 }

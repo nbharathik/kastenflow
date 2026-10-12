@@ -21,9 +21,12 @@ interface TodoListProps {
   home?: string;
   limit?: number;
   empty: ReactNode;
+  /** A short list: no "Show done", and what does not fit is a link that goes
+   * to the whole list instead of growing this one. */
+  onMore?: () => void;
 }
 
-export function TodoList({ filter, addTo = null, home, limit = 7, empty }: TodoListProps) {
+export function TodoList({ filter, addTo = null, home, limit = 7, empty, onMore }: TodoListProps) {
   const rows = useTaskList();
   const [showDone, setShowDone] = useState(false);
   const [all, setAll] = useState(false);
@@ -31,13 +34,18 @@ export function TodoList({ filter, addTo = null, home, limit = 7, empty }: TodoL
   const mine = useMemo(() => (rows ?? []).filter(filter).sort(byUrgency), [rows, filter]);
   const open = mine.filter((r) => !r.done);
   const done = mine.filter((r) => r.done);
-  const list = showDone ? [...open, ...done] : open;
-  const shown = all ? list : list.slice(0, limit);
+  const short = onMore !== undefined;
+  const list = showDone && !short ? [...open, ...done] : open;
+  const shown = all && !short ? list : list.slice(0, limit);
   return (
     <div className="kasten-todos">
       {addTo && <AddTodo target={addTo} />}
       {rows === null ? (
-        <DashEmpty>Gathering to-dos…</DashEmpty>
+        short ? (
+          <Skeleton rows={Math.min(3, limit)} />
+        ) : (
+          <DashEmpty>Gathering to-dos…</DashEmpty>
+        )
       ) : list.length === 0 ? (
         <DashEmpty>{empty}</DashEmpty>
       ) : (
@@ -48,24 +56,56 @@ export function TodoList({ filter, addTo = null, home, limit = 7, empty }: TodoL
         </ul>
       )}
       <div className="kasten-todo-foot">
-        <MoreToggle total={list.length} shown={limit} open={all} onToggle={() => setAll((a) => !a)} />
-        {done.length > 0 && (
-          <button type="button" className="kasten-dash-more" onClick={() => setShowDone((s) => !s)}>
-            {showDone ? "Hide done" : `Show ${done.length} done`}
-          </button>
+        {short ? (
+          list.length > limit && (
+            <button type="button" className="kasten-dash-more" onClick={onMore}>
+              {list.length - limit} more
+            </button>
+          )
+        ) : (
+          <>
+            <MoreToggle total={list.length} shown={limit} open={all} onToggle={() => setAll((a) => !a)} />
+            {done.length > 0 && (
+              <button type="button" className="kasten-dash-more" onClick={() => setShowDone((s) => !s)}>
+                {showDone ? "Hide done" : `Show ${done.length} done`}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function TodoRow({ row, today, showPage }: { row: TaskRow; today: string; showPage: boolean }) {
+/** Lines that hold a list's place while it is read, so the card keeps its height. */
+function Skeleton({ rows }: { rows: number }) {
+  return (
+    <div className="kasten-todo-skeleton" aria-hidden="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <span key={i} className="kasten-todo-bone" />
+      ))}
+    </div>
+  );
+}
+
+interface TodoRowProps {
+  row: TaskRow;
+  today: string;
+  showPage: boolean;
+  /** In a list of today's things: the time leads the line and the day is left out. */
+  timed?: boolean;
+}
+
+export function TodoRow({ row, today, showPage, timed = false }: TodoRowProps) {
   const late = !row.done && row.due !== null && row.due < today;
   return (
     <li className={`kasten-todo${row.done ? " is-done" : ""}`}>
       <input type="checkbox" checked={row.done} aria-label={row.text} onChange={() => void tickTask(row)} />
-      <span className="kasten-todo-text">{row.text}</span>
-      {row.due && <span className={`kasten-todo-due${late ? " is-late" : row.due === today ? " is-today" : ""}`}>{row.due === today ? "Today" : late ? `Late · ${row.due}` : row.due}</span>}
+      {timed && row.at && <span className="kasten-todo-time">{row.at}</span>}
+      <span className="kasten-todo-text" title={showPage ? `${row.text} · ${isDay(row.title) ? shortDay(row.title) : row.title}` : row.text}>
+        {row.text}
+      </span>
+      {!timed && row.due && <span className={`kasten-todo-due${late ? " is-late" : row.due === today ? " is-today" : ""}`}>{row.due === today ? "Today" : late ? `Late · ${row.due}` : row.due}</span>}
       {showPage && (
         <button type="button" className="kasten-todo-page" title={`Open ${row.title}`} onClick={(e) => useWorkspace.getState().openPath(row.path, howFromView(e))}>
           <IconOrEmoji icon={isDay(row.title) ? lineIcon("journal") : row.icon || lineIcon("page")} /> {isDay(row.title) ? shortDay(row.title) : row.title}

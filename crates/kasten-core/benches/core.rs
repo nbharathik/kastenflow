@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use kasten_core::agent::{AgentOp, Session};
+use kasten_core::graph::Scope;
 use kasten_core::history::Actor;
 use kasten_core::index::Index;
 use kasten_core::vectors::Embedded;
@@ -122,6 +123,96 @@ fn budgets(c: &mut Criterion) {
                 .unwrap()
         })
     });
+    // Search filters on sub-pages and days, within the same search budget
+    // (50 ms): `under:` walks a page's tree through the index.
+    let top = family_tree(&k);
+    c.bench_function("search under a page of 1,221 sub-pages", |b| {
+        b.iter(|| k.search(&format!("under:{top}"), 20).unwrap())
+    });
+    c.bench_function("search words under a page", |b| {
+        b.iter(|| k.search(&format!("layout under:{top}"), 20).unwrap())
+    });
+    c.bench_function("search by created and updated days", |b| {
+        b.iter(|| {
+            k.search("model created:2026-03 updated:2026-09-20..2026-09-25", 20)
+                .unwrap()
+        })
+    });
+    // The link graph of all 10,000 notes and 50 boards, links followed as the
+    // editor follows them: under 100 ms, the whole query before the app
+    // draws it.
+    c.bench_function("link graph, whole vault, 10k notes", |b| {
+        b.iter(|| k.graph(&Scope::Vault).unwrap())
+    });
+    c.bench_function("link graph, one project", |b| {
+        b.iter(|| {
+            k.graph(&Scope::Project {
+                path: "projects/p3/_project.md".to_owned(),
+            })
+            .unwrap()
+        })
+    });
+    c.bench_function("link graph, around a page", |b| {
+        b.iter(|| {
+            k.graph(&Scope::Around {
+                path: "projects/p3/pages/n3.md".to_owned(),
+                depth: 2,
+            })
+            .unwrap()
+        })
+    });
+    // Where the graph's time goes: the index's notes and links, the walk for
+    // boards and decks, and the building itself.
+    let index = Index::open(&dir.join(".kasten/cache/index.sqlite")).unwrap();
+    c.bench_function("link graph part: notes and link rows", |b| {
+        b.iter(|| index.graph_inputs().unwrap())
+    });
+    c.bench_function("link graph part: walk for boards and decks", |b| {
+        b.iter(|| {
+            k.vault()
+                .files_among(&[".canvas", ".deck", ".drawio"])
+                .unwrap()
+        })
+    });
+    let (notes, rows) = index.graph_inputs().unwrap();
+    c.bench_function("link graph part: build", |b| {
+        b.iter(|| kasten_core::graph::build(&notes, &rows, &[], &Scope::Vault))
+    });
+}
+
+/// Gives the generated vault a page with sub-pages three levels down (20,
+/// each with 10, each with 5: 1,221 pages in all), unless an earlier run did,
+/// and returns its id.
+fn family_tree(k: &Kasten) -> String {
+    let notes = k.list().unwrap();
+    let top = notes.iter().find(|n| n.path == "library/n1.md").unwrap();
+    let id = top.id.clone().unwrap();
+    if notes
+        .iter()
+        .any(|n| n.parent.as_deref() == Some(id.as_str()))
+    {
+        return id;
+    }
+    let pages: Vec<(String, String)> = notes
+        .iter()
+        .filter(|n| n.kind == "page" && n.path.starts_with("projects/"))
+        .filter_map(|n| Some((n.path.clone(), n.id.clone()?)))
+        .take(1220)
+        .collect();
+    let parent_of = |i: usize| match i {
+        0..20 => id.clone(),
+        20..220 => pages[(i - 20) / 10].1.clone(),
+        _ => pages[20 + (i - 220) / 5].1.clone(),
+    };
+    for (i, (path, _)) in pages.iter().enumerate() {
+        let file = k.root().join(path);
+        let text = std::fs::read_to_string(&file).unwrap();
+        let parts = frontmatter::split(&text);
+        let prefix = frontmatter::set_key(parts.prefix, "parent", Some(&parent_of(i)), "\n");
+        std::fs::write(&file, frontmatter::join(&prefix, parts.body, "\n")).unwrap();
+    }
+    k.reindex().unwrap();
+    id
 }
 
 fn rebuild(c: &mut Criterion) {

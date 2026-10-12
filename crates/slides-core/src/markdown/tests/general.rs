@@ -195,6 +195,31 @@ fn expect(ps: &[Paragraph]) -> Vec<Paragraph> {
         .collect()
 }
 
+/// An empty numbered item at `level`, with no runs at all.
+fn empty_item(level: u8) -> Paragraph {
+    Paragraph {
+        runs: Vec::new(),
+        list: Some(ListKind::Number),
+        level: Some(level),
+        ..Paragraph::plain("")
+    }
+}
+
+#[test]
+fn an_empty_paragraph_that_is_left_out_does_not_make_the_next_item_begin_again() {
+    // The empty paragraph between them breaks the list in the model, but no line is
+    // written for it, so the second item must be written as the next number: a second
+    // `1.` would read back as one that begins again.
+    let nothing = Paragraph {
+        runs: Vec::new(),
+        ..Paragraph::plain("")
+    };
+    let ps = vec![empty_item(4), nothing, empty_item(4)];
+    let read = parse(&to_markdown(&ps));
+    assert_eq!(read, expect(&ps), "read {}", read.show());
+    assert!(read.iter().all(|p| p.start.is_none()));
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(cases()))]
 

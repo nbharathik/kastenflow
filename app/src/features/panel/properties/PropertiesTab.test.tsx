@@ -48,6 +48,22 @@ describe("Properties tab", () => {
     expect((within(section("Other properties")).getByLabelText("mood") as HTMLInputElement).value).toBe("calm");
   });
 
+  it("leaves a page's own view settings (home sections, overview tables) out of the property list", async () => {
+    const views =
+      "---\nid: 01K5Y2VIEWS000000000000001\ntitle: Views\nprops:\n  mood: calm\n  home: [summary, pages]\n" +
+      '  overview:\n    - \'{"name":"Table","type":"table","scope":"project","filter":[],"sort":[],"columns":["type"]}\'\n---\nBody\n';
+    vault = new MemoryVault({ ...SEED, "library/views.md": views });
+    await openWithPanel(vault, "library/views.md", "details");
+    const others = await screen.findByRole("region", { name: "Other properties" });
+    expect(within(others).getByLabelText("mood")).toBeTruthy();
+    expect(within(others).queryByLabelText("home")).toBeNull();
+    expect(within(others).queryByLabelText("overview")).toBeNull();
+    // They stay in the file.
+    const kept = (await vault.read("library/views.md")).text;
+    expect(kept).toContain("home: [summary, pages]");
+    expect(kept).toContain("overview:");
+  });
+
   it("opens a tag's database from its group", async () => {
     await openWithPanel(vault, PATH, "details");
     const paper = await screen.findByRole("region", { name: "#paper properties" });

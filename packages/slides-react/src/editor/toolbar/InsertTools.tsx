@@ -3,7 +3,8 @@ import type { JSX } from "react";
 import { imageItems, lineItems } from "../menus/items-insert.tsx";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
-import { useEditor } from "../useEditor.ts";
+import { useEditorValue } from "../useEditor.ts";
+import { Group } from "./Group.tsx";
 import { ShapeMenu } from "./ShapeMenu.tsx";
 import { CommandButton, MenuButton } from "./ToolButton.tsx";
 
@@ -18,11 +19,13 @@ function LineGlyph(): JSX.Element {
 
 /** Select, text box, image, shape and line: what goes on the slide, and the pointer to go with it. */
 export function InsertTools({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
-  const { tool } = useEditor(session);
+  const tool = useEditorValue(session, (state) => state.tool);
   const ctx = { session, ui };
   const lineTool = tool.startsWith("line:") || tool.startsWith("arrow:");
   return (
-    <>
+    <Group id="insert">
+      {/* The gallery: type to find anything that can be put on the slide. */}
+      <CommandButton id="insert.palette" ctx={ctx} icon="plus" />
       <CommandButton id="insert.select" ctx={ctx} on={tool === "select"} />
       <CommandButton id="insert.text-box" ctx={ctx} on={tool === "text"} />
       <MenuButton ui={ui} label="Image" icon="image" items={() => imageItems(ctx)} />
@@ -30,6 +33,6 @@ export function InsertTools({ session, ui }: { session: EditorSession; ui: Edito
       <MenuButton ui={ui} label="Line" on={lineTool} items={() => lineItems(ctx)}>
         <LineGlyph />
       </MenuButton>
-    </>
+    </Group>
   );
 }

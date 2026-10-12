@@ -95,10 +95,12 @@ impl Kasten {
         if paths.is_empty() {
             return Ok(None);
         }
-        let titles: Vec<String> = paths
+        let mut titles: Vec<String> = paths
             .iter()
             .filter_map(|p| crate::board::file_title(&self.vault, p))
             .collect();
+        // A diagram and its picture have one title.
+        titles.dedup();
         let message = format!(
             "edit: {}",
             if titles.is_empty() {

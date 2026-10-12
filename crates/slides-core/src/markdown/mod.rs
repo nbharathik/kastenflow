@@ -5,9 +5,11 @@
 //! nothing.
 //!
 //! - `- x`, `* x` and `+ x` are bullets, `1. x` and `1) x` numbered items
-//!   (the number is not kept). Two spaces, or a tab, of indent make one
-//!   level, up to five. A marker needs a space after it, so `-x` and `*x*`
-//!   are text.
+//!   (an item that is written with a number it would not have had by counting
+//!   on, such as the `3.` that begins a list or the `1.` that begins it again,
+//!   keeps it as the number it starts at; the look of the marker is not kept).
+//!   Two spaces, or a tab, of indent make one level, up to five. A marker needs
+//!   a space after it, so `-x` and `*x*` are text.
 //! - `# x` is a paragraph in the `title` style, `## x` in `subtitle`, `> x`
 //!   in `quote`; `### x` and deeper is body text made bold.
 //! - Three or more backticks or tildes open a fence, closed by the same
@@ -42,6 +44,11 @@ mod tests;
 pub use blocks::parse;
 pub(crate) use blocks::{fence_closes, fence_open};
 pub use render::to_markdown;
+
+/// The runs of `line` read as inline Markdown: bold, italic, code, math and links, each as a run.
+pub(crate) fn inline_runs(line: &str) -> Vec<crate::model::Run> {
+    inline::inline(line)
+}
 
 /// The text of `line` read as inline Markdown, with the markers gone.
 pub(crate) fn plain_inline(line: &str) -> String {

@@ -392,7 +392,7 @@ op_types! {
 }
 
 /// The longest a transition may take, in seconds.
-const LONGEST_TRANSITION: f64 = 10.0;
+pub(super) const LONGEST_TRANSITION: f64 = 10.0;
 
 impl Op for SetTransition {
     type Output = ();

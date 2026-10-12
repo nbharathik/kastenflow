@@ -15,7 +15,7 @@ const NS_APP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/exte
 const NS_VT: &str = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes";
 
 /// Who made the file.
-pub const CREATOR: &str = "Kasten Slides";
+pub const CREATOR: &str = "KastenFlow Slides";
 
 /// `docProps/core.xml`: the title, and who made it. It carries no date, so the
 /// same deck always makes the same file.
@@ -133,7 +133,7 @@ mod tests {
         let out = text(core(&deck));
         assert!(
             out.contains(
-                "<dc:title>Tools &amp; models</dc:title><dc:creator>Kasten Slides</dc:creator>"
+                "<dc:title>Tools &amp; models</dc:title><dc:creator>KastenFlow Slides</dc:creator>"
             ),
             "{out}"
         );
@@ -151,7 +151,7 @@ mod tests {
                 hidden: 2,
             },
         ));
-        assert!(out.contains("<Application>Kasten Slides</Application><PresentationFormat>On-screen Show (16:9)</PresentationFormat><Slides>12</Slides><Notes>3</Notes><HiddenSlides>2</HiddenSlides>"), "{out}");
+        assert!(out.contains("<Application>KastenFlow Slides</Application><PresentationFormat>On-screen Show (16:9)</PresentationFormat><Slides>12</Slides><Notes>3</Notes><HiddenSlides>2</HiddenSlides>"), "{out}");
         let mut narrow = deck;
         narrow.size = slides_core::Size {
             w: 720.0,

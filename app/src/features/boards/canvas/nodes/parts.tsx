@@ -32,15 +32,16 @@ const ANCHORS = (
 );
 
 /** Drag from a side to connect; connections keep the sides dragged between.
- * Only the node under the pointer, selected ones and the one a connection
- * starts from have handles to grab: each follows React Flow's store, and
- * 2,000 of them would cost every frame of a drag. */
-export const SideHandles = memo(function SideHandles({ id, selected }: { id: string; selected: boolean }) {
+ * Only the node under the pointer and the one a connection starts from have
+ * handles to grab (a chosen node shows its resize handles instead): each
+ * follows React Flow's store, and 2,000 of them would cost every frame of
+ * a drag. */
+export const SideHandles = memo(function SideHandles({ id }: { id: string }) {
   const near = useBoardState((s) => s.hovered === id || s.linking === id);
   return (
     <>
       {ANCHORS}
-      {(near || selected) &&
+      {near &&
         SIDES.map(([position, side]) => <Handle key={side} type="source" position={position} id={side} className="kasten-side-handle" aria-label={`Connect from the ${side}`} />)}
     </>
   );

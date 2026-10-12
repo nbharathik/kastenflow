@@ -1,42 +1,44 @@
 <section class="section" id="faq" aria-labelledby="faq-title">
-        <div class="wrap faq-wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-help" /></svg>Questions</p>
-            <h2 id="faq-title">Good to know</h2>
-          </header>
-          <div class="faq" data-reveal>
-            <details>
-              <summary>Is Kasten free?</summary>
-              <p>Yes. Kasten is free and open source, under the MIT license.</p>
-            </details>
-            <details>
-              <summary>Where are my notes kept?</summary>
-              <p>In a folder you choose, as Markdown, YAML and JSON Canvas files. Kasten keeps nothing about your notes anywhere else. Only API keys live outside it, in your system's keychain.</p>
-            </details>
-            <details>
-              <summary>Does it work offline?</summary>
-              <p>Yes. Writing, linking, whiteboards, search and history all work without a connection. Only AI, backups to GitHub or another git host, Get latest and the update check need the network. A backup file to a folder works offline too.</p>
-            </details>
-            <details>
-              <summary>Can I use it alongside Obsidian?</summary>
-              <p>Yes. Kasten opens an Obsidian vault as it is, with its folders kept as folders, or imports it into Kasten's own layout as one change you can undo. Links, embeds and tags work in both.</p>
-            </details>
-            <details>
-              <summary>Which AI can I use?</summary>
-              <p>Anthropic's API, any OpenAI-compatible server, or a model running on your own computer. AI agents such as Claude Code connect over MCP. All of it is optional.</p>
-            </details>
-            <details>
-              <summary>How do I back up my notes?</summary>
-              <p>In Settings → History and backup. Sign in with GitHub and Kasten makes a private repository and pushes to it a few minutes after changes, never with force. Or paste a token for any other git host, or choose a folder that Dropbox, Google Drive or OneDrive keeps in sync: Kasten writes a checked backup file there each day and keeps the newest seven. Backup files aren't encrypted, so keep them somewhere private.</p>
-            </details>
-            <details>
-              <summary>Does it sync between computers?</summary>
-              <p>Kasten is desktop-first: backup keeps your notes safe and moves them to a new computer, but it isn't live sync. On a second computer, restore from your backup, then use Get latest when you switch. It never overwrites: if both computers changed a page, the other version is kept beside yours as a copy.</p>
-            </details>
-            <details>
-              <summary>What happens to what I write in the demo?</summary>
-              <p>The demo runs entirely in your browser, on sample notes. What you write stays in this browser only.</p>
-            </details>
+        <div class="wrap">
+          <div class="faq-grid">
+            <header class="section-head" data-reveal>
+              <p class="label">Questions</p>
+              <h2 id="faq-title">Questions and <span class="hl">answers</span></h2>
+            </header>
+            <div class="faq" data-reveal>
+              <details>
+                <summary>Is KastenFlow free?</summary>
+                <p>Yes. KastenFlow is free and open source, under the MIT license.</p>
+              </details>
+              <details>
+                <summary>Where are my notes kept?</summary>
+                <p>In a folder you choose, as Markdown, YAML and JSON Canvas files. KastenFlow keeps nothing about your notes anywhere else. Only API keys live outside it, in your system's keychain.</p>
+              </details>
+              <details>
+                <summary>Does it work offline?</summary>
+                <p>Yes. Writing, linking, whiteboards, search and history all work without a connection. Only AI, backups to GitHub or another git host, Get latest and the update check need the network. A backup file to a folder works offline too.</p>
+              </details>
+              <details>
+                <summary>Can I use it alongside Obsidian?</summary>
+                <p>Yes. KastenFlow opens an Obsidian vault as it is, with its folders kept as folders, or imports it into KastenFlow's own layout as one change you can undo. Links, embeds and tags work in both.</p>
+              </details>
+              <details>
+                <summary>Which AI can I use?</summary>
+                <p>Anthropic's API, any OpenAI-compatible server, or a model running on your own computer. AI agents such as Claude Code connect over MCP. All of it is optional.</p>
+              </details>
+              <details>
+                <summary>How do I back up my notes?</summary>
+                <p>In Settings → History and backup. Sign in with GitHub and KastenFlow makes a private repository and pushes to it a few minutes after changes, never with force. Or paste a token for any other git host, or choose a folder that Dropbox, Google Drive or OneDrive keeps in sync: KastenFlow writes a checked backup file there each day and keeps the newest seven. Backup files aren't encrypted, so keep them somewhere private.</p>
+              </details>
+              <details>
+                <summary>Does it sync between computers?</summary>
+                <p>KastenFlow is desktop-first: backup keeps your notes safe and moves them to a new computer, but it isn't live sync. On a second computer, restore from your backup, then use Get latest when you switch. It never overwrites: if both computers changed a page, the other version is kept beside yours as a copy.</p>
+              </details>
+              <details>
+                <summary>What happens to what I write in the demo?</summary>
+                <p>The demo runs entirely in your browser, on sample notes. What you write stays in this browser only.</p>
+              </details>
+            </div>
           </div>
         </div>
       </section>

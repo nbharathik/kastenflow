@@ -37,6 +37,13 @@ export function secureDemoPage(html) {
   return html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${DEMO_CSP}" />`);
 }
 
+/** Puts each `<!-- include <file> -->` in place. A section may include its own
+ * parts, as the banner includes its views; `read(file)` gives a file's text. */
+export function includePartials(text, read, depth = 0) {
+  if (depth > 3) throw new Error("site partials include each other too deeply");
+  return text.replace(/<!-- include (\S+) -->/g, (_, file) => includePartials(read(file).trimEnd(), read, depth + 1));
+}
+
 function main() {
   const args = process.argv.slice(2);
   const demo = !args.includes("--no-demo");
@@ -65,13 +72,12 @@ function main() {
   }
 
   // The page: site/index.html with its sections put in place.
-  const include = (text) =>
-    text.replace(/<!-- include (\S+) -->/g, (_, file) => {
-      const path = join("site", file);
-      if (!existsSync(path)) throw new Error(`site/index.html includes ${file}, which does not exist`);
-      return readFileSync(path, "utf8").trimEnd();
-    });
-  let page = include(readFileSync("site/index.html", "utf8"));
+  const read = (file) => {
+    const path = join("site", file);
+    if (!existsSync(path)) throw new Error(`the site includes ${file}, which does not exist`);
+    return readFileSync(path, "utf8");
+  };
+  let page = includePartials(readFileSync("site/index.html", "utf8"), read);
   const scripts = readdirSync("site/js").map((file) => readFileSync(join("site/js", file), "utf8")).join("\n");
   page = page.replace("<!-- icons -->", iconSymbols(page, scripts));
   page = page.replaceAll("__REPO__", repo).replaceAll("__SITE__", home);

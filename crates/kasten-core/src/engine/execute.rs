@@ -138,6 +138,9 @@ impl Kasten {
             AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => {
                 self.deck_execute(actor, op, now)?
             }
+            AgentOp::CreateDiagram { .. } | AgentOp::UpdateDiagram { .. } => {
+                self.diagram_execute(actor, op, now)?
+            }
         })
     }
 

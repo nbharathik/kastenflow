@@ -1,14 +1,17 @@
-import { memo, useState, type DragEvent, type KeyboardEvent, type LiHTMLAttributes, type ReactNode } from "react";
+import { memo, useMemo, useState, type DragEvent, type KeyboardEvent, type LiHTMLAttributes, type ReactNode } from "react";
 
 import { startNewBoard, useBoards } from "../features/boards/store";
-import { useDecks } from "../features/slides/store";
+import { openOverview } from "../features/projects/overview/open";
+import { startNewDeck, useDecks } from "../features/slides/store";
 import { dragNotes } from "../features/workspace/drag";
 import { HOLDS_PAGES } from "../features/workspace/page/new-page-home";
 import { iconOf, titleOf } from "../features/workspace/names";
+import { howFromPage } from "../features/workspace/open-how";
 import { usePrefs } from "../features/workspace/prefs";
-import { howFrom, useWorkspace, type WorkspaceState } from "../features/workspace/store";
+import { sidebarRows } from "../features/workspace/sidebar-rows";
+import { useWorkspace, type WorkspaceState } from "../features/workspace/store";
 import { nestNote } from "../features/workspace/placing";
-import { holders, movable, rowsUnder, treeOf } from "../features/workspace/tree";
+import { holders, movable, treeOf } from "../features/workspace/tree";
 import { useShell } from "../lib/store";
 import type { NoteMeta } from "../lib/vault/types";
 import { ProjectBoards } from "./BoardRows";
@@ -17,13 +20,14 @@ import { DROP_INTO, useNestDrop } from "./drop-into";
 import { Icon } from "../ui/Icon";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
 import { Menu, openRowMenu, type MenuItem } from "./Menu";
+import { openItems, openMenuHandlers } from "./open-menu";
+import { PinMark } from "./PinMark";
+import { ShowMoreRow, useRowLimit } from "./row-limit";
+import { keeps, useTreeFilter } from "./tree-filter";
 import { treeKey } from "./tree-keys";
 import { rowOrder, useSidebarSelection } from "./selection";
 
 const EXPANDED_KEY = "kasten.expanded";
-/** Rows a list shows before "Show more"; big vaults keep the sidebar quick. */
-const STEP = 30;
-const MORE = 100;
 
 function loadExpanded(): Set<string> {
   try {
@@ -68,32 +72,23 @@ export interface RowExtras {
   onKeyDown?: (event: KeyboardEvent) => void;
 }
 
-/** Rows of notes, the first few with "Show more" for the rest. The open
- * page and its parents always show, even past the cut. */
-export function RowList({ notes, depth = 0 }: { notes: NoteMeta[]; depth?: number }) {
-  const [limit, setLimit] = useState(STEP);
-  const held = useWorkspace((s) => (notes.length > limit ? rowsPast(notes, limit, s) : ""));
-  // Cutting off only a handful would save nothing.
-  const cut = notes.length > limit + 5;
-  const shown = cut ? notes.slice(0, limit) : notes;
-  const extra = cut && held ? notes.slice(limit).filter((n) => held.split("\n").includes(n.path)) : [];
+/** Rows of notes, the first few with "Show more" for the rest, how far
+ * kept for the session under `listKey`. The open page and its parents
+ * always show, even past the cut. With a filter typed, every match shows. */
+export function RowList({ notes, depth = 0, listKey }: { notes: NoteMeta[]; depth?: number; listKey: string }) {
+  const filter = useTreeFilter();
+  const [limit, more] = useRowLimit(listKey);
+  const visible = useMemo(() => (filter ? notes.filter((n) => filter.show.has(n.path)) : notes), [notes, filter]);
+  const cut = !filter && visible.length > limit;
+  const held = useWorkspace((s) => (cut ? rowsPast(visible, limit, s) : ""));
+  const shown = cut ? visible.slice(0, limit) : visible;
+  const extra = cut && held ? visible.slice(limit).filter((n) => held.split("\n").includes(n.path)) : [];
   return (
     <>
       {[...shown, ...extra].map((note) => (
         <TreeRow key={note.path} note={note} depth={depth} />
       ))}
-      {cut && (
-        <li>
-          <button
-            type="button"
-            className="flex h-[26px] w-full items-center rounded-lg text-left text-13 text-muted hover:bg-hover hover:text-ink"
-            style={{ paddingLeft: `${30 + depth * 14}px` }}
-            onClick={() => setLimit((n) => n + MORE)}
-          >
-            Show {Math.min(MORE, notes.length - limit).toLocaleString()} more of {notes.length.toLocaleString()}
-          </button>
-        </li>
-      )}
+      {cut && <ShowMoreRow shown={limit} total={visible.length} depth={depth} onMore={more} />}
     </>
   );
 }
@@ -116,11 +111,16 @@ function rowsPast(notes: NoteMeta[], limit: number, s: WorkspaceState): string {
  * "+" for a sub-page and "•••" for more. Children nest below. Rows redraw
  * only when their own note, children or state change. */
 export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note: NoteMeta; depth?: number; extras?: RowExtras }) {
+  const filter = useTreeFilter();
   const active = useWorkspace((s) => currentPage(s) === note.path);
   const holdsCurrent = useWorkspace((s) => holders(s.notes, currentPage(s)).has(note.path));
-  const children = useWorkspace((s) => rowsUnder(s.notes, note));
+  const showCards = usePrefs((s) => s.sidebarShowCards);
+  const pins = usePrefs((s) => s.pinnedPages);
+  // Quick notes stay out of the tree unless asked for; a filter finds them.
+  const children = useWorkspace((s) => sidebarRows(s.notes, note, showCards || filter !== null, pins));
   const favourite = usePrefs((s) => s.favourites.includes(note.path));
-  const [open, toggle] = useExpanded(note.path, holdsCurrent);
+  const pinned = pins.includes(note.path);
+  const [open, toggle] = useExpanded(note.path, holdsCurrent || Boolean(filter?.open.has(note.path)));
   const [renaming, setRenaming] = useState(false);
   const hasBoards = useBoards((s) => note.kind === "project" && s.list.some((b) => b.project === note.project));
   const hasDecks = useDecks((s) => note.kind === "project" && s.list.some((d) => d.project === note.project));
@@ -131,6 +131,8 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
   // While pages are picked (selection.ts), a click picks or unpicks.
   const picking = useSidebarSelection((s) => s.picked.length > 0);
   const picked = useSidebarSelection((s) => s.picked.includes(note.path));
+
+  if (!keeps(filter, note.path)) return null;
 
   const startRename = () => {
     // The open page renames from its own title field, which owns its edits:
@@ -200,12 +202,12 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
             type="button"
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
             onClick={(e) => {
-              if (!picking) return openPath(note.path, howFrom(e));
+              if (!picking) return openPath(note.path, howFromPage(e));
               const pick = useSidebarSelection.getState();
               if (e.shiftKey) pick.range(note.path, rowOrder());
               else pick.toggle(note.path);
             }}
-            onAuxClick={(e) => e.button === 1 && openPath(note.path, "tab")}
+            onAuxClick={openMenuHandlers(note.path).onAuxClick}
             onDoubleClick={() => !picking && note.kind !== "journal" && startRename()}
             aria-current={active ? "page" : undefined}
             aria-pressed={picking ? picked : undefined}
@@ -219,7 +221,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
             <span className="truncate">{titleOf(note)}</span>
           </button>
         )}
-        {extras?.badge}
+        {extras?.badge ?? (pinned ? <PinMark /> : null)}
         <span className="hidden items-center group-focus-within:flex group-hover:flex">
           <Menu
             label={`More for ${titleOf(note)}`}
@@ -230,12 +232,15 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
               { label: picked ? "Unpick" : picking ? "Pick" : "Select", icon: <Icon name="circle-check" className="size-4" />, hint: picking ? "Click" : undefined, onSelect: () => useSidebarSelection.getState().toggle(note.path) },
               "divider",
               { label: favourite ? "Remove from Favourites" : "Add to Favourites", icon: <Icon name="star" className="size-4" />, onSelect: () => usePrefs.getState().toggleFavourite(note.path) },
-              { label: "Open in new tab", icon: <Icon name="external" className="size-4" />, hint: "Ctrl+click", onSelect: () => openPath(note.path, "tab") },
-              { label: "Open in side stack", icon: <Icon name="stack" className="size-4" />, hint: "Shift+click", onSelect: () => openPath(note.path, "stack") },
+              ...(note.kind === "page" ? [{ label: pinned ? "Unpin from the top" : "Pin to the top", icon: <Icon name="pin" className="size-4" />, onSelect: () => usePrefs.getState().togglePinnedPage(note.path) }] : []),
+              "divider",
+              ...openItems(note.path),
               "divider",
               ...(note.kind === "journal" ? [] : [{ label: "Rename", icon: <Icon name="edit" className="size-4" />, onSelect: startRename }]),
               ...(holdsPages ? [{ label: note.kind === "project" ? "Add a page" : "Add a sub-page", icon: <Icon name="page-plus" className="size-4" />, onSelect: addChild }] : []),
               ...(note.kind === "project" ? [{ label: "New whiteboard here", icon: <Icon name="board" className="size-4" />, onSelect: () => startNewBoard(note.project) }] : []),
+              ...(note.kind === "project" ? [{ label: "New deck here", icon: <Icon name="present" className="size-4" />, onSelect: () => startNewDeck(note.project) }] : []),
+              ...(note.kind === "project" ? [{ label: "Project overview", icon: <Icon name="expand" className="size-4" />, onSelect: () => openOverview(note) }] : []),
               ...(movable(note)
                 ? [
                     { label: "Duplicate", icon: <Icon name="copy" className="size-4" />, onSelect: () => void useWorkspace.getState().duplicate(note.path) },
@@ -267,7 +272,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
       </div>
       {open && (
         <ul>
-          <RowList notes={children} depth={depth + 1} />
+          <RowList notes={children} depth={depth + 1} listKey={note.path} />
           {note.kind === "project" && note.project && <ProjectBoards project={note.project} depth={depth + 1} />}
           {note.kind === "project" && note.project && <ProjectDecks project={note.project} depth={depth + 1} />}
           {children.length === 0 && !(note.kind === "project" && (hasBoards || hasDecks)) && (

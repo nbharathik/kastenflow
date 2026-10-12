@@ -171,14 +171,15 @@ describe("lists", () => {
   it("hangs a marker to the left of the text of each item", () => {
     const root = draw(text({ runs: [{ t: "a" }], list: "bullet" }, { runs: [{ t: "b" }], list: "bullet", level: 1 }, { runs: [{ t: "c" }], list: "bullet", level: 2 }, { runs: [{ t: "d" }], list: "bullet", level: 3 }));
     const ps = paragraphs(root);
-    expect(ps.map((element) => element.querySelector(".ks-marker")?.textContent)).toEqual(["•", "–", "▪", "•"]);
-    expect(ps.map((element) => style(element, "padding-left"))).toEqual(["24px", "48px", "72px", "96px"]);
-    expect(ps.every((element) => style(element, "text-indent") === "-24px")).toBe(true);
+    expect(ps.map((element) => element.querySelector(".ks-marker")?.textContent)).toEqual(["●", "○", "■", "●"]);
+    // Each level hangs its marker in the room the markers of that level need (30 at 22 pt) and sits under the words of the one above.
+    expect(ps.map((element) => style(element, "padding-left"))).toEqual(["30px", "60px", "90px", "120px"]);
+    expect(ps.every((element) => style(element, "text-indent") === "-30px")).toBe(true);
     const marker = ps[0]!.firstElementChild as HTMLElement;
     expect(marker.className).toBe("ks-marker");
     expect(marker.tagName).toBe("SPAN");
     expect(marker.getAttribute("aria-hidden")).toBe("true");
-    expect(ps[0]!.textContent).toBe("•a");
+    expect(ps[0]!.textContent).toBe("●a");
   });
 
   it("numbers items by their run, with letters and Roman numerals for deeper levels", () => {
@@ -192,13 +193,30 @@ describe("lists", () => {
     expect(style(first!, "--ks-marker-size")).toBe("42.667px");
     expect(style(first!, "--ks-marker-color")).toBe("#ea4335");
     expect(style(first!, "--ks-marker-weight")).toBe("700");
-    expect(style(first!, "--ks-indent")).toBe("24px");
+    // A bullet at 32 pt needs 41 units and its air, which is 42 in steps of 6.
+    expect(style(first!, "--ks-indent")).toBe("42px");
   });
 
   it("shows an empty list item's marker, and a line for it", () => {
     const [first] = paragraphs(draw(text({ runs: [{ t: "" }], list: "bullet" })));
-    expect(first!.querySelector(".ks-marker")?.textContent).toBe("•");
+    expect(first!.querySelector(".ks-marker")?.textContent).toBe("●");
     expect(first!.querySelector("br")).not.toBeNull();
+  });
+
+  it("draws an empty item's marker and line as the words of the item above are drawn, when its mark says the same", () => {
+    const [words, empty] = paragraphs(draw(text({ runs: [{ t: "How are you", size: 12, color: "accent2" }], list: "bullet" }, { runs: [{ t: "", size: 12, color: "accent2" }], list: "bullet" })));
+    for (const property of ["font-size", "--ks-marker-size", "--ks-marker-color"]) expect(style(empty!, property), property).toBe(style(words!, property));
+    expect(style(empty!, "font-size")).toBe("16px");
+    // With no mark it is the text style's size, as before.
+    const [plain] = paragraphs(draw(text({ runs: [{ t: "" }], list: "bullet" })));
+    expect(style(plain!, "font-size")).toBe("29.333px");
+  });
+
+  it("scales the marker by its own share of the size of its items words, empty or not", () => {
+    const sized = (t: string): Paragraph => ({ runs: [{ t, size: 12 }], list: "bullet", bulletSize: 2 });
+    const [words, empty] = paragraphs(draw(text(sized("a"), sized(""))));
+    expect(style(words!, "--ks-marker-size")).toBe("32px");
+    expect(style(empty!, "--ks-marker-size")).toBe("32px");
   });
 });
 

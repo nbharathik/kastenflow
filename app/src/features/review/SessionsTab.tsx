@@ -35,7 +35,7 @@ export function SessionsTab({ sessions, commits, onChanged, focus = null }: Sess
   if (sessions.length === 0) {
     return (
       <Empty icon="agent" title="No agent sessions yet">
-        When Claude Code or another agent works on your notes through Kasten's MCP server, each connection shows up here with everything it changed.
+        When Claude Code or another agent works on your notes through KastenFlow's MCP server, each connection shows up here with everything it changed.
       </Empty>
     );
   }

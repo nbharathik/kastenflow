@@ -27,6 +27,7 @@ fn thread() -> Vec<Message> {
             json!({"type": "text", "text": "Looking."}),
             json!({"type": "tool_use", "id": "toolu_01", "name": "list_tags", "input": {}}),
         ]),
+        items: None,
     };
     let local = Reply {
         text: String::new(),
@@ -37,6 +38,7 @@ fn thread() -> Vec<Message> {
         )],
         stop: Stop::Tools,
         blocks: None,
+        items: None,
     };
     let result = |id: &str, content: &str, is_error| ToolOutput {
         id: id.to_owned(),

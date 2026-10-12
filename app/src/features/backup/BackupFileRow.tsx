@@ -55,12 +55,14 @@ export function BackupFileRow({ Row }: { Row: RowComponent }) {
   };
 
   const written = file?.lastWritten ? `Last written ${relativeTime(file.lastWritten)}` : "None written yet";
-  const detail = folder
-    ? `${written}, into ${folder}. The newest 7 from ${status.computer ?? "this computer"} are kept. ${file?.state === "failing" && file.lastError ? file.lastError : ""}`
+  const failing = file?.state === "failing" && file.lastError ? file.lastError : "";
+  // What it did last stays in view; where it writes and what it keeps are behind the ?.
+  const help = folder
+    ? `Writes into ${folder}. The newest 7 from ${status.computer ?? "this computer"} are kept. Backup files are not encrypted; the folder's own service keeps them.`
     : "For Dropbox, Google Drive, OneDrive or a disk: a file of the whole vault in their folder, written daily. Not encrypted.";
   return (
     <>
-      <Row label="Backup files" detail={detail.trim()}>
+      <Row label="Backup files" detail={folder ? (failing ? `${written}. ${failing}` : written) : undefined} help={help}>
         <div className="flex items-center gap-1.5">
           {folder && (
             <button type="button" className={BUTTON} disabled={busy} onClick={() => void write()}>

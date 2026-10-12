@@ -3,6 +3,7 @@
 import type { NodeTypes } from "@xyflow/react";
 
 import { CardNode } from "./CardNode";
+import { DiagramNode } from "./DiagramNode";
 import { DrawingNode } from "./DrawingNode";
 import { FileNode, ImageNode, NestedBoardNode } from "./FileNodes";
 import { LinkNode } from "./LinkNode";
@@ -16,6 +17,7 @@ export const NODE_TYPES: NodeTypes = {
   section: SectionNode,
   link: LinkNode,
   image: ImageNode,
+  diagram: DiagramNode,
   board: NestedBoardNode,
   file: FileNode,
   shape: ShapeNode,

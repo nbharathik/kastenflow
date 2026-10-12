@@ -5,12 +5,13 @@ use slides_core::{Background, Slide};
 
 use crate::backing::Behind;
 use crate::cx::Cx;
-use crate::elements::{Env, cover, write_all, write_blip_fill};
+use crate::elements::{Env, cover, remember, write_all, write_blip_fill};
 use crate::layouts::{open_root, write_tree_header};
 use crate::xml::Xml;
 
-/// The slide's own background, or nothing to let the master's show.
-fn write_background(x: &mut Xml, cx: &mut Cx, background: &Background) {
+/// A background, or nothing to let the one behind it show: the slide's own over its layout's, the
+/// layout's over the master's.
+pub(crate) fn write_background(x: &mut Xml, cx: &mut Cx, background: &Background) {
     let picture = background
         .image
         .as_deref()
@@ -56,6 +57,13 @@ fn write_background(x: &mut Xml, cx: &mut Cx, background: &Background) {
 /// The slide part. `hidden` skips it when the show is played.
 pub fn write(cx: &mut Cx, slide: &Slide, hidden: bool) -> Vec<u8> {
     cx.ids.assign(&slide.elements);
+    if cx.step.is_some() {
+        // What the layout draws behind the slide is behind its words too.
+        let deck = cx.deck;
+        if let Some(layout) = deck.theme.layout(&cx.layout) {
+            remember(cx, &layout.elements);
+        }
+    }
     let mut x = Xml::document();
     open_root(&mut x, "p:sld");
     if hidden {

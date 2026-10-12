@@ -4,6 +4,7 @@
 
 import type { SlidesHost } from "../editor/host.ts";
 import type { EditorSession } from "../editor/session/session.ts";
+import { readMatte } from "./matte.ts";
 import { type Presentation, openPresentation } from "./open.tsx";
 import { openBroadcastPresenter } from "./open-presenter.ts";
 import type { PresentSync } from "./sync.ts";
@@ -49,8 +50,12 @@ export async function presentDeck(session: EditorSession, host: SlidesHost, from
     start,
     imageUrl,
     sync: link,
+    // What the person chose in Present options: the colour round a slide on a screen of another shape.
+    matte: readMatte(),
     ...(options.view ? { view: options.view } : {}),
     onPresenter: () => void openLink(),
+    // The host's own pages: the ones a deck embeds are read through it, and a link to one opens its panel.
+    pages: host,
     ...(fullscreen ? { fullscreen } : {}),
     onClosed: () => {
       finished?.();

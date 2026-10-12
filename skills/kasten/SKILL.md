@@ -1,11 +1,11 @@
 ---
 name: kasten
-description: Work in the user's Kasten notes vault through the kasten MCP server - capture ideas to the inbox, add to journal days, edit sections of pages, link related notes, set tag properties, build whiteboards and make slide decks. Use when the user asks to note, capture, organise, plan, brainstorm or look something up in their notes, projects, journal or boards, or to turn notes into a talk.
+description: Work in the user's KastenFlow notes vault through the kasten MCP server - capture ideas to the inbox, add to journal days, edit sections of pages, link related notes, set tag properties, build whiteboards, draw diagrams and make slide decks. Use when the user asks to note, capture, organise, plan, brainstorm or look something up in their notes, projects, journal or boards, to draw a flowchart or an architecture diagram, or to turn notes into a talk.
 ---
 
-# Working in a Kasten vault
+# Working in a KastenFlow vault
 
-Kasten keeps the user's notes as Markdown files in one folder: cards (short
+KastenFlow keeps the user's notes as Markdown files in one folder: cards (short
 notes), pages (long ones), a journal (one page per day), projects, tags with
 properties, and whiteboards. You reach it only through the `kasten` MCP
 tools. Every change you make is a git commit in your session, so the user can
@@ -94,6 +94,38 @@ different in a vault.
   together, the tool says the deck changed since; read it again and redo the
   change.
 
+## Diagrams
+
+Flowcharts, architecture drawings and sketches are draw.io diagrams: a
+`.drawio` file (uncompressed `mxfile` XML) with a `.drawio.svg` picture beside
+it. The tools are `list_diagrams`, `get_diagram`, `create_diagram`,
+`update_diagram` and `trash_diagram`.
+
+- **Name a diagram the way `list_diagrams` shows it**: by path
+  (`projects/photo-organiser/diagrams/login-flow.drawio`) or by its title. A new
+  one goes to the library, or to a project when you pass `project`. A diagram is
+  never replaced: a name that is taken is numbered.
+- **Write the XML yourself.** `create_diagram` takes `xml`; without it the
+  diagram starts blank. The shape is `<mxfile><diagram name="Page-1">
+  <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>` then the
+  cells, then the closing tags. A box is an `mxCell` with `vertex="1"`,
+  `parent="1"`, a `value` (its label), a `style` such as
+  `rounded=1;whiteSpace=wrap;html=1;` and an `mxGeometry` (`x`, `y`, `width`,
+  `height`, `as="geometry"`). An arrow is an `mxCell` with `edge="1"`,
+  `parent="1"`, `source` and `target` (the ids of its two boxes) and an
+  `mxGeometry relative="1" as="geometry"`. Give every cell a short unique `id`,
+  and put boxes on a grid, about 160 apart, so nothing overlaps.
+- **Change a diagram by reading it first.** `get_diagram` gives the XML;
+  `update_diagram` takes the whole new XML. Keep the `id` of every cell you do
+  not mean to change: a change that takes more than 40% of the cells out (an
+  id written again counts as taken out) waits for review. If the user changed
+  the diagram meanwhile, theirs stays and yours is kept in a copy beside it
+  (`status: "conflict"`, with its path).
+- **You never draw the picture.** It is drawn from your XML the next time the
+  app has its diagram editor, so a diagram you just made may show no picture
+  yet. Show it in a page with `![[name.drawio]]` on a line of its own.
+- `trash_diagram` always waits for the user.
+
 ## Guardrails you will meet
 
 - A result with `"status": "pending_review"` means the change waits for the
@@ -109,7 +141,7 @@ different in a vault.
   on all of a slide's elements), and a batch with `replace_deck` counts every
   slide it puts something else in place of. Added up over your calls, not
   one call at a time: splitting a large removal into small ones is still a
-  large removal. `trash_deck` always waits.
+  large removal. `trash_deck` always waits, and so does `trash_diagram`.
 - Locked notes, hidden folders, writes over 200 KB (for a deck, what you
   sent, not the deck's size) and any other write to `templates/` are refused.
   Say so and suggest what the user could do; don't work around it.
@@ -121,11 +153,11 @@ different in a vault.
   inside it, to the trash with your `reason`, and the user can restore it.
   Each sub-page counts toward the trash limit.
 - Every write result carries your `session` id. If the user wants your work
-  gone, they can run `kasten undo-session <id>` or use History in the app.
+  gone, they can run `kastenflow undo-session <id>` or use History in the app.
 
 ## Setup (for the user)
 
-The installed Kasten app is the MCP server (`kasten-app --mcp`). Settings →
+The installed KastenFlow app is the MCP server (`kasten-app --mcp`). Settings →
 AI agents in the app copies these lines with its full path.
 
 ```sh

@@ -1,0 +1,66 @@
+/* The transitions panel: the kinds as rows with a word about each, the time, and Play. */
+.ks-tr-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ks-tr-kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid transparent;
+  transition:
+    background var(--ks-fast) var(--ks-ease),
+    border-color var(--ks-fast) var(--ks-ease);
+}
+.ks-tr-kind:hover {
+  background: var(--ks-hover);
+}
+.ks-tr-kind.is-on {
+  background: var(--ks-selected);
+  border-color: var(--ks-line-strong);
+}
+.ks-tr-kind:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -2px;
+}
+.ks-tr-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-canvas);
+  box-shadow: inset 0 0 0 1px var(--ks-line);
+  color: var(--ks-muted);
+}
+.ks-tr-kind.is-on .ks-tr-icon {
+  color: var(--ks-ink);
+}
+.ks-tr-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ks-tr-name {
+  font-weight: 500;
+}
+.ks-tr-says {
+  color: var(--ks-muted);
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+.ks-tr-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ks-tr-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

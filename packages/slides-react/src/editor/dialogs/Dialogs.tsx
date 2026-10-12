@@ -1,5 +1,9 @@
-import { type JSX, useCallback } from "react";
+import { type JSX, Suspense, lazy, useCallback } from "react";
 
+import { ApplyTemplateDialog } from "../layouts/ApplyTemplateDialog.tsx";
+import { LayoutManager } from "../layouts/LayoutManager.tsx";
+import { SaveLayoutDialog } from "../layouts/SaveLayoutDialog.tsx";
+import { SaveTemplateDialog } from "../layouts/SaveTemplateDialog.tsx";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { useUiState } from "../useUi.ts";
@@ -13,13 +17,17 @@ import { ExportDialog } from "./ExportDialog.tsx";
 import { ImportDialog } from "./ImportDialog.tsx";
 import { InsertDialog } from "./InsertDialog.tsx";
 import { AboutDialog } from "./Notices.tsx";
+import { PageDialog } from "./PageDialog.tsx";
+import { PageSetupDialog } from "./PageSetupDialog.tsx";
 import { PngDialog } from "./PngDialog.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { TableDialog } from "./TableDialog.tsx";
 import { ThemeDialog } from "./ThemeDialog.tsx";
-import { TransitionDialog } from "./TransitionDialog.tsx";
 import { VideoDialog } from "./VideoDialog.tsx";
 import { LintDialog } from "../lint/LintDialog.tsx";
+
+/** The layout designer is a whole editor of its own and is opened rarely: it is loaded when first asked for (it also holds these dialogs again). */
+const LayoutDesigner = lazy(() => import("../layouts/LayoutDesigner.tsx").then((module) => ({ default: module.LayoutDesigner })));
 
 /** The dialog that is open, if any: find and replace, layouts, theme, background, shortcuts. */
 export function Dialogs({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element | null {
@@ -41,8 +49,10 @@ export function Dialogs({ session, ui }: { session: EditorSession; ui: EditorUi 
       return <TableDialog {...props} />;
     case "link":
       return <LinkDialog {...props} />;
-    case "transition":
-      return <TransitionDialog {...props} />;
+    case "page":
+      return <PageSetupDialog {...props} />;
+    case "insert-page":
+      return <PageDialog {...props} />;
     case "insert":
       return <InsertDialog {...props} />;
     case "citation":
@@ -61,6 +71,20 @@ export function Dialogs({ session, ui }: { session: EditorSession; ui: EditorUi 
       return <LintDialog {...props} />;
     case "about":
       return <AboutDialog {...props} />;
+    case "layout-save":
+      return <SaveLayoutDialog {...props} />;
+    case "layouts-manage":
+      return <LayoutManager {...props} />;
+    case "layout-design":
+      return (
+        <Suspense fallback={null}>
+          <LayoutDesigner {...props} />
+        </Suspense>
+      );
+    case "template-save":
+      return <SaveTemplateDialog {...props} />;
+    case "template-apply":
+      return <ApplyTemplateDialog {...props} />;
     default:
       return null;
   }

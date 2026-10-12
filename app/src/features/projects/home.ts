@@ -5,13 +5,14 @@
 
 import { chosen, sameList, type SectionDef } from "../dashboard/sections";
 
-export type ProjectSection = "summary" | "capture" | "todo" | "kanban" | "recent" | "pages" | "cards" | "boards";
+export type ProjectSection = "summary" | "capture" | "todo" | "kanban" | "recent" | "pages" | "cards" | "boards" | "decks";
 
 export const PROJECT_SECTIONS: readonly SectionDef<ProjectSection>[] = [
   { id: "summary", label: "Summary", icon: "gauge", hint: "What the project is, and how far along", wide: true },
   { id: "capture", label: "Quick note", icon: "zap", hint: "Catch a thought as a card in this project", wide: true },
   { id: "pages", label: "Pages", icon: "page", hint: "Every page in the project" },
   { id: "boards", label: "Whiteboards", icon: "board", hint: "The project's whiteboards" },
+  { id: "decks", label: "Decks", icon: "present", hint: "The project's slide decks, with their first slide" },
   { id: "todo", label: "To-dos", icon: "tasks", hint: "Open to-dos in the project's pages" },
   { id: "recent", label: "Recently edited", icon: "clock", hint: "The project's latest pages and cards" },
   { id: "kanban", label: "Task board", icon: "kanban", hint: "The project's #task notes by status", wide: true },

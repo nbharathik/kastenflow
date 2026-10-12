@@ -1,24 +1,103 @@
-/* The toolbar: one row, 40 px high, scrolling sideways when the window is narrow.
-   The rules that adjust the shared ones (shell.css and editor.css are read after
-   this file) name .ks-editor or .ks-toolbar first, so they win. */
+/* The toolbar: one row of groups that follow what is selected. A row too narrow for them sends the last into a "more" menu (it never
+   scrolls), and the format options button stays at the right edge. The rules that adjust the shared ones (shell.css and editor.css are
+   read after this file) name .ks-editor or .ks-toolbar first, so they win. */
 .ks-editor .ks-toolbar {
-  gap: 1px;
-  height: 40px;
-  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--ks-bar);
+  min-height: var(--ks-bar);
   padding: 0 8px;
-  overflow-y: hidden;
+  overflow: hidden;
+  transition: height var(--ks-base) var(--ks-ease);
 }
-.ks-toolbar::-webkit-scrollbar {
-  display: none;
+.ks-tb-groups {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
-.ks-toolbar > * {
+.ks-tb-groups > * {
   flex: none;
 }
-.ks-toolbar > .ks-tb-spacer {
-  flex: 1 0 8px;
+.ks-tb-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  /* Not filling forwards: a finished animation would keep the group a stacking context, and a menu opened from it would sit under the slide. */
+  animation: ks-tb-in var(--ks-fast) var(--ks-ease) backwards;
 }
-.ks-toolbar .ks-divider {
-  margin: 0 5px;
+/* A rule between groups, drawn inside the room the second one takes, so measuring a group measures its rule too. */
+.ks-tb-group + .ks-tb-group {
+  padding-left: 11px;
+}
+.ks-tb-group + .ks-tb-group::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 1px;
+  height: 18px;
+  margin-top: -9px;
+  background: var(--ks-line-strong);
+}
+@keyframes ks-tb-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+:root[data-motion="off"] .ks-tb-group {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="on"]) .ks-tb-group {
+    animation: none;
+  }
+}
+.ks-tb-pinned {
+  flex: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+}
+.ks-tb-pinned::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 1px;
+  height: 18px;
+  margin-top: -9px;
+  background: var(--ks-line-strong);
+}
+.ks-tb-more-btn {
+  margin-left: 6px;
+}
+
+/* What did not fit: the groups, one under the other, as they are in the row. */
+.ks-tb-more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px;
+  max-width: calc(100vw - 16px);
+}
+.ks-tb-more .ks-tb-group + .ks-tb-group {
+  padding-left: 0;
+  padding-top: 3px;
+  margin-top: 1px;
+  border-top: 1px solid var(--ks-line);
+  align-self: stretch;
+}
+.ks-tb-more .ks-tb-group + .ks-tb-group::before {
+  content: none;
 }
 
 /* Buttons: idle icons are quiet, and they come up when the pointer is on them. */
@@ -72,7 +151,7 @@
   font-size: 11.5px;
 }
 
-/* − [size] + */
+/* − [size ▾] + */
 .ks-tb-size {
   display: inline-flex;
   align-items: center;
@@ -85,7 +164,7 @@
   display: none;
 }
 .ks-toolbar .ks-tb-size .ks-input {
-  height: 26px;
+  height: calc(var(--ks-control) - 2px);
   padding: 0 2px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -97,6 +176,11 @@
 .ks-toolbar .ks-tb-size .ks-icon-btn {
   min-width: 24px;
   padding: 0 4px;
+}
+.ks-toolbar .ks-tb-size .ks-icon-btn.ks-tb-size-list {
+  min-width: 16px;
+  padding: 0 2px;
+  margin-left: -2px;
 }
 
 /* A colour button shows its colour as a bar under the icon. */
@@ -122,6 +206,76 @@
 }
 .ks-tb-bar.is-mixed {
   background: repeating-linear-gradient(90deg, var(--ks-muted) 0 3px, transparent 3px 5px);
+}
+
+/* The fonts: a search box over a list, each name in its own face. */
+.ks-fonts {
+  display: flex;
+  flex-direction: column;
+  width: 264px;
+}
+.ks-fonts-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 36px;
+  border-bottom: 1px solid var(--ks-line);
+  color: var(--ks-muted);
+}
+.ks-fonts-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ks-ink);
+  font: inherit;
+  outline: none;
+}
+.ks-fonts-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.ks-fonts-title {
+  padding: 6px 8px 2px;
+  color: var(--ks-faint);
+  font-size: 11px;
+  font-weight: 500;
+}
+.ks-font-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px 0 4px;
+  border-radius: var(--ks-radius);
+  cursor: pointer;
+}
+.ks-font-opt.is-active {
+  background: var(--ks-hover);
+}
+.ks-font-mark {
+  flex: none;
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--ks-ink);
+}
+.ks-font-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.ks-fonts-empty {
+  padding: 14px 10px;
+  color: var(--ks-muted);
+  text-align: center;
 }
 
 /* The shapes: a scrollable grid of outlines, grouped by title. */
@@ -170,21 +324,7 @@
   color: var(--ks-accent);
 }
 
-/* The slide's own buttons, at the far right; below a certain width they keep only their icons. */
-.ks-tb-slide {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-.ks-toolbar.is-compact .ks-tb-slide .ks-btn-text {
-  display: none;
-}
-.ks-toolbar.is-compact .ks-tb-slide .ks-icon-btn.has-text {
-  gap: 2px;
-  padding: 0 6px;
-}
-
-/* The tooltip: drawn by the toolbar, since a scrolling row clips the kit's own. */
+/* The tooltip: drawn by the toolbar, since the row clips the kit's own. */
 .ks-toolbar [data-tip]:hover::after,
 .ks-toolbar [data-tip]:focus-visible::after {
   content: none;
@@ -199,6 +339,7 @@
   font-size: 11.5px;
   white-space: nowrap;
   pointer-events: none;
+  animation: ks-tb-in var(--ks-fast) var(--ks-ease) backwards;
 }
 
 /* With the paint format in hand, the slide takes a brush for a pointer. A cursor is an image and cannot use

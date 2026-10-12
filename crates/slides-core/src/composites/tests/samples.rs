@@ -65,9 +65,30 @@ pub fn all() -> Vec<Element> {
         element(
             json!({ "type": "embed", "id": "embed-2", "url": "https://example.com/demo", "poster": "assets/demo.png" }),
         ),
+        element(
+            json!({ "type": "embed", "id": "embed-3", "url": "", "source": { "page": "library/plan.md", "kind": "embed",
+            "title": "Plan", "icon": "\u{1f4cb}", "markdown": "## Plan\n\nOne **idea** per card.\n\n- first\n  - nested\n- second\n\n> [!tip] Careful\n> Mind the gap.\n" } }),
+        ),
         element(json!({ "type": "video", "id": "video-1", "src": "assets/clip.mp4" })),
         element(
             json!({ "type": "video", "id": "video-2", "src": "https://example.com/v.mp4", "poster": "assets/still.png" }),
+        ),
+        element(
+            json!({ "type": "chart", "id": "chart-1", "kind": "bar", "title": "Sales by team",
+            "categories": ["North", "South", "East", "West"], "labels": true,
+            "series": [{ "name": "2025", "values": [12, 19, 8, 14] }, { "name": "2026", "values": [15, 17, 11, 16] }] }),
+        ),
+        element(json!({ "type": "chart", "id": "chart-2", "kind": "line",
+            "categories": ["Mon", "Tue", "Wed", "Thu", "Fri"], "series": [{ "name": "Visits", "values": [3, 7, 4, 9, 6] }] })),
+        element(
+            json!({ "type": "chart", "id": "chart-3", "kind": "pie", "title": "Budget", "labels": true,
+            "categories": ["Rent", "Food", "Fun"], "series": [{ "name": "Budget", "values": [50, 30, 20] }] }),
+        ),
+        element(
+            json!({ "type": "timer", "id": "timer-1", "seconds": 300, "label": "Discussion", "x": 64, "y": 148, "w": 400, "h": 240 }),
+        ),
+        element(
+            json!({ "type": "qr", "id": "qr-1", "data": "https://kasten.example/talk", "caption": "The slides", "x": 300, "y": 120, "w": 340, "h": 380 }),
         ),
     ]
 }
@@ -82,6 +103,9 @@ pub fn odd(kind: &str, words: &str, more: &str, number: f64, count: usize) -> El
     } else {
         Value::Null
     };
+    // What a number in a list must be: the file has no way to write one that is not a number.
+    let finite = if number.is_finite() { number } else { 0.0 };
+    let chart_kind = ["bar", "line", "pie"][count % 3];
     let value = match kind {
         "code" => json!({ "type": "code", "id": "odd", "language": more, "code": words,
             "lineNumbers": count.is_multiple_of(2), "firstLine": count, "fontSize": sized,
@@ -104,6 +128,15 @@ pub fn odd(kind: &str, words: &str, more: &str, number: f64, count: usize) -> El
         "embed" => {
             json!({ "type": "embed", "id": "odd", "url": words, "title": more, "poster": if count.is_multiple_of(2) { Value::Null } else { json!(more) } })
         }
+        "chart" => {
+            json!({ "type": "chart", "id": "odd", "kind": chart_kind, "title": words, "labels": count.is_multiple_of(2),
+            "categories": (0..count % 50).map(|i| if i % 2 == 0 { words } else { more }).collect::<Vec<_>>(),
+            "series": (0..count % 5).map(|i| json!({ "name": more, "values": (0..count % 60).map(|j| finite / (j as f64 + i as f64 + 1.0)).collect::<Vec<_>>() })).collect::<Vec<_>>() })
+        }
+        "timer" => json!({ "type": "timer", "id": "odd", "seconds": count * 977, "label": words }),
+        "qr" => {
+            json!({ "type": "qr", "id": "odd", "data": words, "caption": if count.is_multiple_of(2) { Value::Null } else { json!(more) } })
+        }
         _ => {
             json!({ "type": "video", "id": "odd", "src": words, "poster": if count.is_multiple_of(2) { Value::Null } else { json!(more) } })
         }
@@ -118,7 +151,7 @@ pub fn odd(kind: &str, words: &str, more: &str, number: f64, count: usize) -> El
 }
 
 /// The names of the kinds, as `Element::kind` gives them.
-pub const KINDS: [&str; 9] = [
+pub const KINDS: [&str; 12] = [
     "code",
     "math",
     "chat",
@@ -128,4 +161,7 @@ pub const KINDS: [&str; 9] = [
     "step-label",
     "embed",
     "video",
+    "chart",
+    "timer",
+    "qr",
 ];

@@ -87,7 +87,7 @@ function retypeListItem(kind: "bullet" | "numbered" | "todo"): Command {
 
 /** A block's text for a toggle's title, its links and maths written out as
  * in Markdown (`[[Plan]]`, `$x^2$`) rather than dropped. */
-function titleOf(block: Node): string {
+export function titleOf(block: Node): string {
   return block.textBetween(0, block.content.size, " ", (leaf) => {
     if (leaf.type.name === "wiki_link") return `${leaf.attrs.embed ? "!" : ""}[[${String(leaf.attrs.value)}]]`;
     if (leaf.type.name !== "math_inline") return " ";

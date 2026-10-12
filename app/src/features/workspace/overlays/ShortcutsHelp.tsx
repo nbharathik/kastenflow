@@ -4,7 +4,7 @@ import { useShell } from "../../../lib/store";
 import { KEY_SECTIONS, commandLabel, editorKeys } from "../../shortcuts/catalog";
 import { formatBinding, isMac } from "../../shortcuts/keymap";
 import { useKeys } from "../../shortcuts/store";
-import { useWorkspace } from "../store";
+import { openSettingsAt } from "../views/settings/jump";
 import { EDITOR_SHORTCUTS } from "./commands";
 import { Icon } from "../../../ui/Icon";
 import { Modal } from "../../../ui/Modal";
@@ -46,8 +46,7 @@ export function ShortcutsHelp() {
           className="kasten-shortcuts-edit"
           onClick={() => {
             close();
-            useKeys.setState({ jump: true });
-            useWorkspace.getState().go({ view: "settings" });
+            openSettingsAt({ group: "shortcuts", row: "shortcuts.editor" });
           }}
         >
           Change keys…

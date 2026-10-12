@@ -12,6 +12,7 @@
 
 mod build;
 mod card_grid;
+mod chart;
 mod chat;
 mod citation;
 mod code;
@@ -21,7 +22,9 @@ mod guide;
 mod math;
 mod measure;
 mod media;
+mod qr;
 mod step_label;
+mod timer;
 mod token_probs;
 mod video;
 
@@ -84,6 +87,9 @@ pub fn expand_with(
         Element::StepLabel(e) => step_label::expand(&cx, e),
         Element::Embed(e) => embed::expand(&cx, e),
         Element::Video(e) => video::expand(&cx, e),
+        Element::Chart(e) => chart::expand(&cx, e),
+        Element::Timer(e) => timer::expand(&cx, e),
+        Element::Qr(e) => qr::expand(&cx, e),
         _ => return None,
     })
 }
@@ -92,11 +98,14 @@ pub fn expand_with(
 /// it has none of its own: an embedded page and a video point somewhere.
 fn identity(element: &Element) -> (Option<String>, Option<String>) {
     match element {
-        Element::Embed(e) => (embed::link_of(e).map(str::to_owned), Some(embed::alt_of(e))),
+        Element::Embed(e) => (embed::link_of(e), Some(embed::alt_of(e))),
         Element::Video(e) => (
             video::link_of(e).map(str::to_owned),
             Some(video::ALT.to_owned()),
         ),
+        Element::Chart(e) => (None, Some(chart::alt_of(e))),
+        Element::Timer(e) => (None, Some(timer::alt_of(e))),
+        Element::Qr(e) => (None, Some(qr::alt_of(e))),
         _ => (None, None),
     }
 }

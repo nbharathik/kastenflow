@@ -102,7 +102,7 @@ export async function run({ browser, base, decks, shots, check }) {
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.mouse.down();
     for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + b.width / 2 + i * 6 * g.scale, b.y + b.height / 2, { steps: 1 });
-    check("a guide is drawn while the edge is close to another", (await page.locator(".ks-guide").count()) >= 1);
+    check("a guide is drawn while the edge is close to another", (await page.locator('.ks-guide-set[style*="visible"] .ks-guide').count()) >= 1);
     await page.screenshot({ path: join(shots, "snap-guide.png") });
     await page.mouse.up();
     const moved = byId(await slideNow(page), "snap-b");

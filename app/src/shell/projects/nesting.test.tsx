@@ -5,6 +5,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { usePrefs } from "../../features/workspace/prefs";
 import { MemoryVault } from "../../features/workspace/preview/memory-vault";
 import { useWorkspace } from "../../features/workspace/store";
 import { dragAt, freshWindow, renderShell, rowOf, SEED, transfer } from "./test-shell";
@@ -85,6 +86,8 @@ describe("pages inside pages in the sidebar", () => {
   });
 
   it("offers a sub-page only on rows that hold pages", async () => {
+    // Quick notes are left out of the sidebar unless asked for: a card is here to show it holds none.
+    usePrefs.setState({ sidebarShowCards: true });
     const projects = await renderShell(new MemoryVault({ ...VAULT, "projects/beta/cards/idea.md": "---\ntitle: Idea\ntype: card\n---\n" }));
     const expand = within(projects).queryByRole("button", { name: "Expand Beta" });
     if (expand) fireEvent.click(expand);

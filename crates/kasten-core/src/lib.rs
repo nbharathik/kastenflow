@@ -15,7 +15,9 @@ pub mod board;
 pub(crate) mod capture;
 pub mod clip;
 pub mod config;
+pub mod dates;
 pub mod deck;
+pub mod diagrams;
 pub mod diff;
 mod engine;
 mod error;
@@ -23,6 +25,7 @@ pub mod extract;
 pub mod frontmatter;
 #[doc(hidden)]
 pub mod generate;
+pub mod graph;
 pub mod history;
 mod id;
 pub mod import;
@@ -39,6 +42,7 @@ mod ops;
 pub mod props;
 mod readable;
 mod rename;
+pub mod replace;
 mod rollback;
 mod save;
 mod search;
@@ -66,6 +70,9 @@ pub use engine::{
     Placed, Problem, QUIET_MS, Report, SessionInfo, Tick, UndoConflict, Undone, VaultRestore,
     computer_name, kits,
 };
+pub use engine::{
+    Expected, MAX_REPLACE_NOTES, MAX_REPLACEMENTS, NoteMatches, ReplaceRequest, Replaced,
+};
 pub use error::{Error, Result};
 pub use id::ulid_at;
 pub use lock::WriteLock;
@@ -74,6 +81,7 @@ pub use moving::{duplicate_note, move_note, nest_note};
 pub use note::{NoteFile, NoteMeta, content_hash, wiki_links};
 pub use ops::{Kind, NewNote, Saved, create_note, save_body, set_meta, trash_note};
 pub use rename::{Renamed, rename_note};
+pub use replace::{FindSpec, MatchSample};
 pub use search::{Backlink, DayMention, Hit};
 pub use slug::slugify;
 pub use survey::{Survey, SurveyedVault, survey};
@@ -87,7 +95,7 @@ pub use vault::{FileStat, Vault};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The name every shell uses for the product in user-facing text.
-pub const PRODUCT_NAME: &str = "Kasten";
+pub const PRODUCT_NAME: &str = "KastenFlow";
 
 #[cfg(test)]
 mod tests {
@@ -102,6 +110,6 @@ mod tests {
 
     #[test]
     fn product_name_is_set() {
-        assert_eq!(PRODUCT_NAME, "Kasten");
+        assert_eq!(PRODUCT_NAME, "KastenFlow");
     }
 }

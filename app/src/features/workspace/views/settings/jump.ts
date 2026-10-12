@@ -1,24 +1,29 @@
-// Opening Settings at one of its groups, as the palette does: the group is
-// kept until the Settings page is drawn, which then scrolls to it.
+// Opening Settings at a group, a row in it, or a search, as the palette, a
+// link from another view and a toast's button do. The target waits here until
+// the Settings window is drawn (or, when it already is, is taken at once).
+// Names it understands: a group's title or id ("History and backup",
+// "history"), a path ("settings/ai", "kasten:settings/appearance/appearance.zoom")
+// or a setting's entry id.
+
+import { create } from "zustand";
 
 import { useWorkspace, type OpenHow } from "../../store";
-import { sectionId } from "./sections";
+import { settingsTarget, type SettingsTarget } from "./index";
 
-let pending: string | null = null;
+export const useSettingsJump = create<{ target: SettingsTarget | null }>(() => ({ target: null }));
 
-export function openSettingsAt(title: string, how: OpenHow = "here"): void {
+/** Opens Settings where `where` says. A name it does not know opens Settings as it is. */
+export function openSettingsAt(where: string | SettingsTarget, how: OpenHow = "here"): void {
+  const target = typeof where === "string" ? settingsTarget(where) : where;
+  useSettingsJump.setState({ target });
   const { place, go } = useWorkspace.getState();
-  if (place.view === "settings" && how === "here") {
-    document.getElementById(sectionId(title))?.scrollIntoView?.({ block: "start" });
-    return;
-  }
-  pending = title;
+  if (place.view === "settings" && how === "here") return;
   go({ view: "settings" }, how);
 }
 
-/** The group Settings should show first, once. */
-export function takeSettingsJump(): string | null {
-  const title = pending;
-  pending = null;
-  return title;
+/** The target Settings should show first, once. */
+export function takeSettingsJump(): SettingsTarget | null {
+  const { target } = useSettingsJump.getState();
+  useSettingsJump.setState({ target: null });
+  return target;
 }

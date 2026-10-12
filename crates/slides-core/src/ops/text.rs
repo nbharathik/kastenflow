@@ -32,6 +32,8 @@ fn keeping_box(mut fresh: Text, old: Option<&Text>) -> Text {
     if let Some(old) = old {
         fresh.valign = old.valign.clone();
         fresh.insets = old.insets.clone();
+        fresh.fit = old.fit.clone();
+        fresh.wrap = old.wrap;
         fresh.extra = old.extra.clone();
     }
     fresh

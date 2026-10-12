@@ -15,17 +15,9 @@ pub static DEFAULT_INSETS: LazyLock<Insets> = LazyLock::new(|| Insets {
     extra: Extra::new(),
 });
 
-/// A list item's text starts this far in from the left inset; its marker hangs in that space.
-pub const LIST_INDENT: f64 = 24.0;
-
-/// Each list level moves this far further in.
-pub const LIST_STEP: f64 = 24.0;
-
 /// The line height as a multiple of the type size when a paragraph and its style name none.
 pub const DEFAULT_LINE_SPACING: f64 = 1.0;
 
-/// Bullet glyphs by list level; deeper levels start again.
-pub const BULLETS: [&str; 3] = ["•", "–", "▪"];
-
-/// The deepest list level PowerPoint and Google Slides offer.
-pub const MAX_LEVEL: usize = 8;
+/// Superscript and subscript are set at this share of the type size, and moved by these shares of it (PowerPoint's own).
+pub const SCRIPT_RAISE: f64 = 0.30;
+pub const SCRIPT_LOWER: f64 = 0.25;

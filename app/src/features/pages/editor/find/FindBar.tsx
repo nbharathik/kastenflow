@@ -1,7 +1,10 @@
 // The find bar over a page: Mod+F finds, Mod+Alt+F also replaces. Enter
 // goes to the next match and Shift+Enter back; Escape closes it and puts
-// the caret on the match. The page's own text stays as it is until a
-// replace, which Mod+Z takes back.
+// the caret on the match. "Aa" (Alt+C) matches case and "ab" (Alt+W) whole
+// words, kept between pages. The page's own text stays as it is until a
+// replace, which Mod+Z takes back. With "+ sub-pages" the bar looks through
+// the page and its sub-pages, lists them (FindResults.tsx) and replaces in
+// all of them at once, as one change the workspace's Undo takes back.
 
 import "./find.css";
 
@@ -11,7 +14,12 @@ import type { Crepe } from "@milkdown/crepe";
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 
 import { IconButton } from "../../../../ui/Button";
-import { clearFind, findState, onFindChange, replaceAll, replaceCurrent, setQuery, step } from "./find";
+import { Segmented } from "../../../../ui/Segmented";
+import { clearFind, findState, onFindChange, replaceAll, replaceCurrent, setOptions, setQuery, step, type FindOptions } from "./find";
+import { FindResults } from "./FindResults";
+import { readFindOptions, writeFindOptions } from "./options";
+import type { SubPageFind } from "./sub-pages";
+import { replaceable, summary, useSubPageReplace, useSubPageResults } from "./use-sub-page-find";
 
 export interface FindOpen {
   replace: boolean;
@@ -48,17 +56,29 @@ export function useFindKeys(root: RefObject<HTMLElement | null>, crepe: RefObjec
   }, [root, crepe, open]);
 }
 
-export function FindBar({ view, find, onClose }: { view: EditorView; find: FindOpen; onClose(): void }) {
+type Scope = "page" | "sub";
+
+export function FindBar({ view, find, onClose, subPages }: { view: EditorView; find: FindOpen; onClose(): void; subPages?: SubPageFind }) {
   const [query, setText] = useState(find.seed);
   const [replacement, setReplacement] = useState("");
   const [replacing, setReplacing] = useState(find.replace);
+  const [options, setOptionsState] = useState(readFindOptions);
+  const [scope, setScope] = useState<Scope>("page");
   const [, changed] = useReducer((n: number) => n + 1, 0);
   const input = useRef<HTMLInputElement>(null);
+  const under = scope === "sub" && subPages !== undefined;
+  const results = useSubPageResults(subPages, under, query, options.matchCase, options.wholeWord);
+  const sub = useSubPageReplace(subPages, query, options.matchCase, options.wholeWord, results);
 
   // The count follows typing in the page.
   useEffect(() => {
     const stop = onFindChange(view, changed);
     return stop;
+  }, [view]);
+  // What was chosen last time applies to this page too, before anything is
+  // looked for; once per page, as later changes go through `choose`.
+  useEffect(() => {
+    setOptions(view, readFindOptions());
   }, [view]);
   // Each Mod+F: the selected text, if any, and the field ready to type in.
   useEffect(() => {
@@ -72,13 +92,19 @@ export function FindBar({ view, find, onClose }: { view: EditorView; find: FindO
   }, [view, find]);
 
   const { matches, index } = findState(view.state);
-  const count = !query ? "" : matches.length === 0 ? "No results" : `${index + 1} of ${matches.length}`;
+  const here = !query ? "" : matches.length === 0 ? "No results" : `${index + 1} of ${matches.length}`;
+  const overall = !under || !query ? "" : results.searching ? "Searching…" : results.error ? "" : summary(results.pages);
   // The marks go with the bar. (A page closing takes its editor, marks and
   // all, so nothing is dispatched to it then.)
   const close = () => {
     clearFind(view);
     onClose();
     view.focus();
+  };
+  const choose = (next: FindOptions) => {
+    setOptionsState(next);
+    writeFindOptions(next);
+    setOptions(view, next);
   };
   const keys = (event: ReactKeyboardEvent, enter: () => void) => {
     if (event.key === "Escape") {
@@ -87,8 +113,15 @@ export function FindBar({ view, find, onClose }: { view: EditorView; find: FindO
     } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
       event.preventDefault();
       enter();
+    } else if (event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyC") {
+      event.preventDefault();
+      choose({ ...options, matchCase: !options.matchCase });
+    } else if (event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyW") {
+      event.preventDefault();
+      choose({ ...options, wholeWord: !options.wholeWord });
     }
   };
+  const going = replaceable(results.pages);
 
   return (
     <div className="kasten-find-bar" role="search" aria-label="Find in page">
@@ -107,12 +140,36 @@ export function FindBar({ view, find, onClose }: { view: EditorView; find: FindO
           onKeyDown={(e) => keys(e, () => step(view, e.shiftKey ? -1 : 1))}
         />
         <span className="kasten-find-count" aria-live="polite">
-          {count}
+          {here}
         </span>
+        <button type="button" className="ui-icon-btn is-sm kasten-find-option" aria-pressed={options.matchCase} aria-label="Match case" title="Match case (Alt+C)" onClick={() => choose({ ...options, matchCase: !options.matchCase })}>
+          <span aria-hidden="true">Aa</span>
+        </button>
+        <button type="button" className="ui-icon-btn is-sm kasten-find-option" aria-pressed={options.wholeWord} aria-label="Whole word" title="Whole word (Alt+W)" onClick={() => choose({ ...options, wholeWord: !options.wholeWord })}>
+          <span aria-hidden="true" className="kasten-find-word">
+            ab
+          </span>
+        </button>
         <IconButton icon="chevron-up" size="sm" label="Previous match" disabled={matches.length === 0} onClick={() => step(view, -1)} />
         <IconButton icon="chevron-down" size="sm" label="Next match" disabled={matches.length === 0} onClick={() => step(view, 1)} />
         <IconButton icon="close" size="sm" label="Close find" onClick={close} />
       </div>
+      {subPages && (
+        <div className="kasten-find-row is-scope">
+          <Segmented
+            label="Look in"
+            value={scope}
+            choices={[
+              { value: "page", label: "This page" },
+              { value: "sub", label: "+ sub-pages" },
+            ]}
+            onChange={setScope}
+          />
+          <span className="kasten-find-overall" aria-live="polite">
+            {overall}
+          </span>
+        </div>
+      )}
       {replacing && (
         <div className="kasten-find-row is-replace">
           <input
@@ -120,17 +177,40 @@ export function FindBar({ view, find, onClose }: { view: EditorView; find: FindO
             aria-label="Replace with"
             placeholder="Replace with"
             value={replacement}
-            onChange={(e) => setReplacement(e.target.value)}
-            onKeyDown={(e) => keys(e, () => replaceCurrent(view, replacement))}
+            onChange={(e) => {
+              setReplacement(e.target.value);
+              sub.clearNote();
+            }}
+            onKeyDown={(e) => keys(e, () => (under ? void sub.replaceAll(replacement) : replaceCurrent(view, replacement)))}
           />
-          <button type="button" className="ui-btn is-sm" disabled={matches.length === 0} onClick={() => replaceCurrent(view, replacement)}>
-            Replace
-          </button>
-          <button type="button" className="ui-btn is-sm" disabled={matches.length === 0} onClick={() => replaceAll(view, replacement)}>
-            Replace all
-          </button>
+          {under ? (
+            <button
+              type="button"
+              className="ui-btn is-sm"
+              disabled={going.length === 0 || results.more || results.searching || sub.busy}
+              title="Replaces in every page listed with a count; titles are left alone"
+              onClick={() => void sub.replaceAll(replacement)}
+            >
+              {sub.busy ? "Replacing…" : going.length > 0 ? `Replace all in ${going.length} ${going.length === 1 ? "page" : "pages"}` : "Replace all"}
+            </button>
+          ) : (
+            <>
+              <button type="button" className="ui-btn is-sm" disabled={matches.length === 0} onClick={() => replaceCurrent(view, replacement)}>
+                Replace
+              </button>
+              <button type="button" className="ui-btn is-sm" disabled={matches.length === 0} onClick={() => replaceAll(view, replacement)}>
+                Replace all
+              </button>
+            </>
+          )}
         </div>
       )}
+      {under && sub.note && (
+        <p className="kasten-find-note" role="status">
+          {sub.note}
+        </p>
+      )}
+      {under && subPages && <FindResults results={results} query={query} scope={subPages} />}
     </div>
   );
 }

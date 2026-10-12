@@ -27,12 +27,26 @@ const chosen = () => {
 };
 
 describe("Theme", () => {
-  it("lists the four themes as cards with their colours, and applies one", async () => {
+  it("lists every built-in theme as a card with its first example slide and its colours, and applies one", async () => {
     const kit = await mountDialogs({ dialog: "theme" });
     const cards = within(screen.getByRole("listbox", { name: "Built-in themes" })).getAllByRole("option");
-    expect(cards.map((c) => c.textContent)).toEqual(["Light", "Dark", "Serif", "Lecture"]);
+    // The name is on the card's own line; the slide drawn small above it has words of its own.
+    expect(cards.map((c) => c.querySelector(".ks-dg-theme-line")?.textContent)).toEqual([
+      "Light",
+      "Dark",
+      "Serif",
+      "Lecture",
+      "Minimal",
+      "Bold",
+      "Modern",
+      "Academic",
+      "Pitch",
+      "Dark Studio",
+      "Warm Paper",
+    ]);
     expect(cards[0]?.getAttribute("aria-selected")).toBe("true");
     expect(cards.every((c) => c.querySelectorAll(".ks-sp-strip > span").length === 6)).toBe(true);
+    expect(cards.every((c) => c.querySelector(".ks-dg-theme-thumb .ks-slide") !== null)).toBe(true);
     fireEvent.click(cards[2] as HTMLElement);
     expect(kit.session.deck.theme.name).toBe("Serif");
     expect(kit.session.deck.theme.fonts.heading.family).toBe("Cambria");

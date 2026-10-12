@@ -107,7 +107,7 @@ export function Trash() {
     let back = 0;
     for (const trashed of chosen) {
       try {
-        await (trashed.endsWith(".canvas") ? vault.restoreBoard(trashed) : trashed.endsWith(".deck") ? vault.restoreDeck(trashed) : vault.restore(trashed));
+        await (trashed.endsWith(".canvas") ? vault.restoreBoard(trashed) : trashed.endsWith(".deck") ? vault.restoreDeck(trashed) : trashed.endsWith(".drawio") || trashed.endsWith(".drawio.svg") ? vault.restoreDiagram(trashed) : vault.restore(trashed));
         back += 1;
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err));
@@ -169,6 +169,7 @@ function TrashRow({ item, picked, onPick, onRestore }: { item: Trashed; picked: 
   const [text, setText] = useState<string | null>(null);
   const board = item.original.endsWith(".canvas");
   const deck = item.original.endsWith(".deck");
+  const diagram = item.original.endsWith(".drawio");
   const read = async () => {
     if (text !== null) return setText(null);
     const client = useWorkspace.getState().client;
@@ -194,6 +195,11 @@ function TrashRow({ item, picked, onPick, onRestore }: { item: Trashed; picked: 
                 <IconOrEmoji icon={lineIcon("present")} />
               </span>
             )}
+            {diagram && (
+              <span aria-label="Diagram" className="mr-1.5">
+                <IconOrEmoji icon={lineIcon("diagram")} />
+              </span>
+            )}
             {item.title}
           </span>
           <span className="block truncate text-12 text-muted">
@@ -201,7 +207,7 @@ function TrashRow({ item, picked, onPick, onRestore }: { item: Trashed; picked: 
             {item.inside > 0 && ` · with ${item.inside} sub-page${item.inside === 1 ? "" : "s"}`}
           </span>
         </span>
-        {!board && !deck && (
+        {!board && !deck && !diagram && (
           <button type="button" aria-expanded={text !== null} className="rounded-md px-2.5 py-1 text-13 text-muted hover:bg-panel hover:text-ink" onClick={() => void read()}>
             {text === null ? "Read" : "Hide"}
           </button>

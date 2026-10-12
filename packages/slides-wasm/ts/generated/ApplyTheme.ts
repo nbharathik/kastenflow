@@ -2,6 +2,6 @@
 
 export type ApplyTheme = { 
 /**
- * `Light`, `Dark`, `Serif` or `Lecture`.
+ * A built-in theme: `Light`, `Dark`, `Serif`, `Lecture`, `Minimal`, `Bold`, `Modern`, `Academic`, `Pitch`, `Dark Studio` or `Warm Paper`.
  */
 name: string, };

@@ -5,7 +5,8 @@ import type { Deck } from "@kasten-slides/wasm";
 import { createRoot } from "react-dom/client";
 
 import type { ImageUrl } from "../render/index.ts";
-import { PresentMode } from "./PresentMode.tsx";
+import type { Matte } from "./matte.ts";
+import { PresentMode, type PresentModeProps } from "./PresentMode.tsx";
 import type { PresentSync } from "./sync.ts";
 
 export interface PresentRequest {
@@ -14,12 +15,16 @@ export interface PresentRequest {
   start: number;
   imageUrl: ImageUrl;
   view?: "slides" | "scroll";
+  /** The colour round the slide on a screen of another shape (black when left out). */
+  matte?: Matte;
   /** The link to a presenter's window that is already open. */
   sync?: PresentSync | null;
   /** What the S key does. */
   onPresenter?: () => void;
   /** What the F key does; the page's own full screen when left out. */
   fullscreen?: () => void;
+  /** What the host gives the slides to do with its own pages (a presentation's links to them, and the pages a deck embeds). */
+  pages?: PresentModeProps["pages"];
   /** Called once the presentation has closed. */
   onClosed?: () => void;
 }

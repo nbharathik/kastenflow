@@ -3,6 +3,7 @@
 
 import { createContext, useContext, type CSSProperties, type DragEvent } from "react";
 
+import { chipStyle, type Swatch } from "../panel/properties/schemas";
 import type { OpenHow } from "../workspace/store";
 import type { DateItem } from "./dates";
 import type { DateRange } from "./ranges";
@@ -65,6 +66,5 @@ export function useCalendarActions(): CalendarActions {
 /** The data type chips carry while dragged. */
 export const DATE_DRAG = "application/x-kasten-date";
 
-/** A chip's colours from the page palette (tokens.css); the accent without a tone. */
-export const toneStyle = (tone: string | null): CSSProperties | undefined =>
-  tone ? ({ "--chip-fg": `var(--notion-${tone})`, "--chip-bg": `var(--notion-${tone}-bg)` } as CSSProperties) : undefined;
+/** A chip's colours, the ones the Tag Database draws its tags in; the accent without a tone. */
+export const toneStyle = (tone: Swatch | null): CSSProperties | undefined => chipStyle(tone);

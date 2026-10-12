@@ -3,14 +3,19 @@
 // format in hand. Commands change it through these methods, so a menu, a key
 // and a button all do the same thing.
 
+import type { TransitionKind } from "@kasten-slides/wasm";
+
 import type { PngOptions } from "../export/png.ts";
 import type { PrintOptions } from "../export/print.tsx";
 import { Areas } from "./select-all/areas.ts";
 import type { TextHandle } from "./text-handle.ts";
-import { LINT_BADGES_KEY, readFlag, writeFlag } from "./ui-prefs.ts";
+import { LINT_BADGES_KEY, NEW_SLIDES_KEY, NEW_SLIDES_MODE_KEY, readChoice, readFlag, writeChoice, writeFlag } from "./ui-prefs.ts";
 
 export type ViewMode = "edit" | "outline" | "grid";
-export type PanelName = "format" | "steps" | "ai" | "comments";
+/** What a new slide starts from: nothing on it, the layout of the slide shown, or the deck's own default layout. */
+export type NewSlides = "blank" | "same" | "mine";
+const NEW_SLIDES_CHOICES = ["blank", "same", "mine"] as const;
+export type PanelName = "format" | "themes" | "transitions" | "steps" | "ai" | "comments";
 /** A menu opened by a right click, where it was pressed. */
 export interface ContextMenuState {
   kind: "element" | "canvas" | "slide";
@@ -18,11 +23,70 @@ export interface ContextMenuState {
   y: number;
 }
 
-export type DialogName = "find" | "layouts" | "theme" | "background" | "shortcuts" | "transition" | "insert" | "embed" | "video" | "table" | "link" | "export" | "png" | "about" | "import" | "lint" | "citation";
+export type DialogName =
+  | "find"
+  | "layouts"
+  | "theme"
+  | "background"
+  | "shortcuts"
+  | "insert"
+  | "embed"
+  | "video"
+  | "table"
+  | "link"
+  | "export"
+  | "png"
+  | "about"
+  | "import"
+  | "lint"
+  | "citation"
+  | "page"
+  // Insert → Page…: a page of the host on the slide, four ways.
+  | "insert-page"
+  | "insert-gallery"
+  // The layouts and templates a person keeps (editor/layouts): saving a slide as a layout, managing the layouts, designing one, saving the deck's look and putting a template on it.
+  | "layout-save"
+  | "layouts-manage"
+  | "layout-design"
+  | "template-save"
+  | "template-apply";
+
+/** A transition to play once on the canvas, as a preview. `id` counts them, so the same transition asked for again plays again. */
+export interface TransitionPreview {
+  id: number;
+  kind: TransitionKind;
+  /** Seconds. */
+  duration: number;
+}
 
 /** Formatting picked up with the paint-format tool, to lay on the next thing clicked. */
 export interface PaintFormat {
-  run: { b?: boolean; i?: boolean; u?: boolean; s?: boolean; color?: string; size?: number; font?: string };
+  run: {
+    b?: boolean;
+    i?: boolean;
+    u?: boolean;
+    s?: boolean;
+    color?: string;
+    size?: number;
+    font?: string;
+    /** Raised or lowered words; null puts them level. */
+    script?: "super" | "sub" | null;
+    smallCaps?: boolean;
+    allCaps?: boolean;
+    /** Extra space between letters in points; null takes it off. */
+    spacing?: number | null;
+  };
+  /** How the paragraphs are set: what the source's paragraphs agree on. A null takes the setting off (the text style's own, or no list). */
+  paragraph?: {
+    align?: "left" | "center" | "right" | "justify";
+    lineSpacing?: number | null;
+    spaceBefore?: number | null;
+    spaceAfter?: number | null;
+    list?: "bullet" | "number" | null;
+    listStyle?: string | null;
+    bulletColor?: string | null;
+    bulletSize?: number | null;
+  };
   style?: Record<string, unknown>;
 }
 
@@ -51,6 +115,12 @@ export interface UiState {
   readonly fullScreen: boolean;
   /** The filmstrip flags slides that have problems (View, Lint badges). Off unless the person turned it on; kept in this browser. */
   readonly lintBadges: boolean;
+  /** What New slide makes: a blank slide, one on the layout of the slide shown, or one on the deck's own default layout. Kept in this browser. */
+  readonly newSlides: NewSlides;
+  /** The layout the designer is open on (dialog `layout-design`); null when none is. */
+  readonly layoutDesign: string | null;
+  /** The transition being previewed on the canvas, from the Transitions panel; null when none is. */
+  readonly transitionPreview: TransitionPreview | null;
 }
 
 const INITIAL: UiState = {
@@ -70,9 +140,20 @@ const INITIAL: UiState = {
   actionsRevision: 0,
   fullScreen: false,
   lintBadges: false,
+  newSlides: "blank",
+  layoutDesign: null,
+  transitionPreview: null,
 };
 
 export const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+
+/** What a zoom asks of the canvas besides the number: which place in the window stays where it is, and whether it glides. */
+export interface ZoomIntent {
+  about?: { x: number; y: number } | undefined;
+  /** Where that place goes in the window, when it is carried as well as zoomed (the fingers of a pinch); `about` when left out. */
+  to?: { x: number; y: number } | undefined;
+  instant?: boolean;
+}
 
 /** What the host application gives the editor to call: present, export, and leaving. */
 export interface EditorActions {
@@ -93,11 +174,23 @@ export interface EditorActions {
 }
 
 export class EditorUi {
-  private current: UiState = { ...INITIAL, lintBadges: readFlag(LINT_BADGES_KEY, false) };
+  private current: UiState = {
+    ...INITIAL,
+    lintBadges: readFlag(LINT_BADGES_KEY, false),
+    newSlides: readChoice(NEW_SLIDES_MODE_KEY, NEW_SLIDES_CHOICES, readFlag(NEW_SLIDES_KEY, false) ? "same" : "blank"),
+  };
   private readonly listeners = new Set<() => void>();
   private hostActions: EditorActions = {};
+  private zoomIntent: ZoomIntent = {};
+  /** The zoom a wheel or a pinch last asked for, and what it was shown as (Fit and 100% are settled on): where the next step goes on from. */
+  private asked: { zoom: number; shown: "fit" | number } | null = null;
   /** Where the focus last was in the editor, and the regions that select all of what they hold: what select all reads. */
   readonly areas = new Areas();
+  /**
+   * True for the editor inside the layout designer, whose slide is a layout being drawn: what belongs to a slide of the deck (its own
+   * layout, the theme, the transition) is not offered there. Set once, when the designer opens; it never changes while the editor lives.
+   */
+  designing = false;
 
   /** What the host lets the editor do: present, export, print, leave. Set by the editor component; regions read it with `useUiState`. */
   get actions(): EditorActions {
@@ -142,8 +235,36 @@ export class EditorUi {
     this.patch({ dialog });
   }
 
-  setZoom(zoom: "fit" | number): void {
+  /**
+   * Zooms to `zoom`. The canvas keeps the point of the slide under `how.about` (a place in the window; the middle of the stage
+   * when none is given) where it is, and glides there unless `how.instant` says the zoom is following a wheel or a pinch,
+   * which is its own motion.
+   */
+  setZoom(zoom: "fit" | number, how: ZoomIntent = {}): void {
+    this.zoomIntent = how;
     this.patch({ zoom: zoom === "fit" ? zoom : Math.min(Math.max(zoom, 0.1), 8) });
+  }
+
+  /** What the last zoom was asked to do besides change the number; read once by the canvas that draws it. */
+  takeZoomIntent(): ZoomIntent {
+    const how = this.zoomIntent;
+    this.zoomIntent = {};
+    return how;
+  }
+
+  /**
+   * Zooms by a factor about a place in the window (a wheel or a pinch), at once. Near "fit" and 100% it settles on them, and
+   * keeps the zoom that was asked for behind them, so a slow wheel or pinch goes on through them rather than sticking.
+   * `to` is where the place goes in the window, when it is carried (the fingers of a pinch travel): it stays under `about` otherwise.
+   */
+  zoomBy(factor: number, about?: { x: number; y: number }, to?: { x: number; y: number }): void {
+    const shown = this.current.zoom === "fit" ? this.current.fitZoom : this.current.zoom;
+    const base = this.asked && this.asked.shown === this.current.zoom ? this.asked.zoom : shown;
+    const next = Math.min(Math.max(base * factor, 0.1), 8);
+    const near = (target: number) => Math.abs(next / target - 1) < 0.02;
+    const landed: "fit" | number = near(this.current.fitZoom) ? "fit" : near(1) ? 1 : next;
+    this.asked = { zoom: next, shown: landed };
+    this.setZoom(landed, { about, to, instant: true });
   }
 
   /** Records what "fit" comes to, so the zoom shown and the steps from it are right. */
@@ -211,5 +332,28 @@ export class EditorUi {
 
   toggleLintBadges(): void {
     this.setLintBadges(!this.current.lintBadges);
+  }
+
+  /** Says what New slide makes, and keeps the choice in this browser. */
+  setNewSlides(mode: NewSlides): void {
+    if (mode === this.current.newSlides) return;
+    writeFlag(NEW_SLIDES_KEY, mode === "same");
+    writeChoice(NEW_SLIDES_MODE_KEY, mode);
+    this.patch({ newSlides: mode });
+  }
+
+  /** Opens the layout designer on the layout `name`, or closes it. */
+  openLayoutDesign(name: string | null): void {
+    this.patch({ layoutDesign: name, dialog: name === null ? null : "layout-design" });
+  }
+
+  /** Plays a transition once on the canvas, from the slide before the one shown (or from nothing on the first): a preview, which changes nothing in the deck. */
+  playTransition(kind: TransitionKind, duration: number): void {
+    this.patch({ transitionPreview: { id: (this.current.transitionPreview?.id ?? 0) + 1, kind, duration } });
+  }
+
+  /** The preview is over; the dialog that asked for it may stop showing the slide undimmed. */
+  endTransitionPreview(): void {
+    if (this.current.transitionPreview !== null) this.patch({ transitionPreview: null });
   }
 }

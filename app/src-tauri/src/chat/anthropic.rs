@@ -314,6 +314,7 @@ impl Stream {
             calls,
             stop,
             blocks: Some(blocks),
+            items: None,
         }
     }
 }

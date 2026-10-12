@@ -41,6 +41,53 @@ function collect(elements: readonly Element[], resolve: (element: Element) => Re
   }
 }
 
+const connectors = new WeakMap<readonly Element[], boolean>();
+
+/** Whether a connector is among these elements, in groups too. Worked out once for a list, since a drag asks for every step. */
+function holdsConnector(elements: readonly Element[]): boolean {
+  let known = connectors.get(elements);
+  if (known === undefined) {
+    known = elements.some((element) => element.type === "connector" || (element.type === "group" && holdsConnector(element.children)));
+    connectors.set(elements, known);
+  }
+  return known;
+}
+
+/** A connector's box as a drag draws it, with the flips that say which way it runs. */
+export interface Followed extends Rect {
+  flipH: boolean;
+  flipV: boolean;
+}
+
+/**
+ * The connectors that are drawn somewhere else while a drag has taken `moved`, and where: only those, as boxes. A slide
+ * with no connector answers at once.
+ */
+export function followersOf(slide: Slide, theme: Parameters<typeof boxOf>[0], moved: ReadonlyMap<string, Rect>): Map<string, Followed> {
+  const out = new Map<string, Followed>();
+  if (moved.size === 0 || !holdsConnector(slide.elements)) return out;
+  const next = withFollowing(slide, theme, moved);
+  if (next === slide) return out;
+  const was = new Map<string, Element>();
+  const index = (list: readonly Element[]): void => {
+    for (const element of list) {
+      was.set(element.id, element);
+      if (element.type === "group") index(element.children);
+    }
+  };
+  index(slide.elements);
+  const collect = (list: readonly Element[]): void => {
+    for (const element of list) {
+      if (element.type === "group") collect(element.children);
+      else if (element.type === "connector" && was.get(element.id) !== element) {
+        out.set(element.id, { x: element.x ?? 0, y: element.y ?? 0, w: element.w ?? 0, h: element.h ?? 0, flipH: element.flipH ?? false, flipV: element.flipV ?? false });
+      }
+    }
+  };
+  collect(next.elements);
+  return out;
+}
+
 /**
  * The slide with every connector put between the elements it joins, as they
  * are drawn: `moved` gives the boxes of the elements a drag has taken from

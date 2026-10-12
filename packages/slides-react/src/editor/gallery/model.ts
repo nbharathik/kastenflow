@@ -58,6 +58,11 @@ export function usesInDeck(deck: Deck): DeckUses {
   });
   const theme = new Set<string>();
   for (const element of deck.theme.master ?? []) collect(element, theme);
+  // What a layout a person made draws behind its slides: its decoration and its background.
+  for (const layout of deck.theme.layouts ?? []) {
+    if (layout.background?.image) theme.add(layout.background.image);
+    for (const element of layout.elements ?? []) collect(element, theme);
+  }
   return { slides, theme };
 }
 

@@ -4,7 +4,7 @@
 import { create } from "zustand";
 
 import type { BoardInfo, NoteMeta } from "../../lib/vault/types";
-import { useWorkspace } from "../workspace/store";
+import { useWorkspace, type OpenHow } from "../workspace/store";
 import { projects } from "../workspace/tree";
 
 interface BoardsState {
@@ -14,6 +14,9 @@ interface BoardsState {
   creating: boolean;
   /** The project the form starts with, when opened from one. */
   draftProject: string | null;
+  /** The project the Whiteboards view shows only, asked for from a project's
+   * home; the view takes it when it opens. */
+  onlyProject: string | null;
   /** Reads the list again; the old one stays if that fails. */
   load(): Promise<void>;
 }
@@ -26,6 +29,7 @@ export const useBoards = create<BoardsState>((set) => ({
   loaded: false,
   creating: false,
   draftProject: null,
+  onlyProject: null,
   async load() {
     const client = useWorkspace.getState().client;
     if (!client) return;
@@ -39,10 +43,17 @@ export const useBoards = create<BoardsState>((set) => ({
   },
 }));
 
-/** Opens the Whiteboards view on its "New whiteboard" form, in `project` if given. */
-export function startNewBoard(project: string | null = null): void {
-  useWorkspace.getState().go({ view: "boards" });
+/** Opens the Whiteboards view on its "New whiteboard" form, in `project` if
+ * given, here or as `how` asks (a new tab, the pane to the right). */
+export function startNewBoard(project: string | null = null, how: OpenHow = "here"): void {
+  useWorkspace.getState().go({ view: "boards" }, how);
   useBoards.setState({ creating: true, draftProject: project });
+}
+
+/** Opens the Whiteboards view with only `project`'s boards, here or as `how` asks. */
+export function showBoardsOf(project: string, how: OpenHow = "here"): void {
+  useBoards.setState({ onlyProject: project });
+  useWorkspace.getState().go({ view: "boards" }, how);
 }
 
 /** A board's title from the list, else its file name. */

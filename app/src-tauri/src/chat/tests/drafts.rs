@@ -6,7 +6,8 @@ use std::time::Duration;
 use super::block_on;
 use super::http::{client, header, provider, serve};
 use crate::chat::drafts::{list_models, models_url, parse_models};
-use crate::chat::http::{Kind, reach_hint};
+use crate::chat::errors::reach_hint;
+use crate::chat::http::Kind;
 
 #[test]
 fn asks_each_kind_of_api_where_it_lists_models() {
@@ -31,6 +32,11 @@ fn asks_each_kind_of_api_where_it_lists_models() {
         "https://openrouter.ai/api/v1/models"
     );
     assert!(models_url(Kind::OpenAi, " ").is_err());
+    // A ChatGPT sign-in lists at OpenAI's address, whatever the settings say.
+    assert_eq!(
+        models_url(Kind::ChatGpt, "https://collector.example/v1").unwrap(),
+        "https://api.openai.com/v1/models"
+    );
 }
 
 #[test]

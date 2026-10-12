@@ -1,51 +1,61 @@
-<section class="section" id="files" aria-labelledby="files-title">
-        <div class="wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-code" /></svg>Plain files</p>
-            <h2 id="files-title">Write like Notion. Keep it as plain text.</h2>
-            <p class="lead">The page on the left is the file on the right. Tick a to-do, change the status, rename the page or type <kbd>[[</kbd> to link another, and watch the file follow. Try it.</p>
-          </header>
+<section class="app-panel is-active" id="view-pages" role="tabpanel" aria-labelledby="tab-pages">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-page" /></svg>Notes as Markdown files</h2>
+              <p>Edit the page and see its Markdown file update. Try checking a to-do, changing the status or adding a page link with <kbd>[[</kbd>.</p>
+            </header>
 
-          <div class="demo demo-files" data-demo="files" data-reveal>
-            <div class="df-tabs" role="tablist" aria-label="Show">
-              <button type="button" role="tab" id="df-tab-page" aria-controls="df-page" aria-selected="true">Page</button>
-              <button type="button" role="tab" id="df-tab-file" aria-controls="df-file" aria-selected="false" tabindex="-1">File</button>
-            </div>
+            <div class="demo demo-files" data-demo="files">
+              <div class="df-tabs" role="tablist" aria-label="Show">
+                <button type="button" role="tab" id="df-tab-page" aria-controls="df-page" aria-selected="true">Page</button>
+                <button type="button" role="tab" id="df-tab-file" aria-controls="df-file" aria-selected="false" tabindex="-1">File</button>
+              </div>
 
-            <div class="df-page" id="df-page" role="tabpanel" aria-labelledby="df-tab-page">
-              <div class="df-doc">
-                <span class="df-icon" aria-hidden="true">✈️</span>
-                <input class="df-title" data-title value="Seaside trip" aria-label="Page title" spellcheck="false" maxlength="60" />
-                <div class="df-props">
-                  <span class="df-tag">#travel</span>
-                  <label class="df-status">status
-                    <select data-status>
-                      <option>Planning</option>
-                      <option>Booked</option>
-                      <option>Done</option>
-                    </select>
-                  </label>
-                </div>
-                <div class="df-callout"><span aria-hidden="true">💡</span><div><b>Trip at a glance</b><br />A town by the sea, Wednesday to Monday.</div></div>
-                <p class="df-h">Before we go</p>
-                <ul class="df-todos" data-todos></ul>
-                <div class="df-lines" data-lines></div>
-                <div class="df-compose">
-                  <input class="df-input" data-input type="text" placeholder="Type a line, or [[ to link a page" aria-label="Add a line to the page" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="df-suggest" aria-autocomplete="list" maxlength="120" />
-                  <ul class="df-suggest" id="df-suggest" role="listbox" aria-label="Pages" data-suggest hidden></ul>
+              <div class="df-try" role="group" aria-label="Try the example">
+                <span class="df-try-label">Try</span>
+                <button type="button" class="df-chip" data-try="tick"><svg class="i" aria-hidden="true"><use href="#i-check" /></svg>Tick a to-do</button>
+                <button type="button" class="df-chip" data-try="status"><svg class="i" aria-hidden="true"><use href="#i-circle-dot" /></svg>Change the status</button>
+                <button type="button" class="df-chip" data-try="link"><svg class="i" aria-hidden="true"><use href="#i-link" /></svg>Link a page</button>
+                <button type="button" class="df-chip" data-try="claude"><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg><span data-try-claude>Ask Claude</span></button>
+                <button type="button" class="df-chip df-chip-quiet" data-try="reset" aria-label="Start over" title="Start over"><svg class="i" aria-hidden="true"><use href="#i-refresh" /></svg></button>
+                <p class="df-try-note" data-try-note></p>
+              </div>
+
+              <div class="df-page" id="df-page" role="tabpanel" aria-labelledby="df-tab-page">
+                <div class="df-doc">
+                  <span class="df-icon" aria-hidden="true">✈️</span>
+                  <input class="df-title" data-title value="Seaside trip" aria-label="Page title" spellcheck="false" maxlength="60" />
+                  <div class="df-props">
+                    <span class="df-tag">#travel</span>
+                    <label class="df-status">status
+                      <select data-status>
+                        <option>Planning</option>
+                        <option>Booked</option>
+                        <option>Done</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="df-callout"><span aria-hidden="true">💡</span><div><b>Trip at a glance</b><br />A town by the sea, Wednesday to Monday.</div></div>
+                  <p class="df-h">Before we go</p>
+                  <div class="df-todos-wrap">
+                    <ul class="df-todos" data-todos></ul>
+                    <span class="coach" data-coach aria-hidden="true">Tick one, the file follows →</span>
+                  </div>
+                  <div class="df-lines" data-lines></div>
+                  <div class="df-compose">
+                    <input class="df-input" data-input type="text" placeholder="Type a line, or [[ to link a page" aria-label="Add a line to the page" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="df-suggest" aria-autocomplete="list" maxlength="120" />
+                    <ul class="df-suggest" id="df-suggest" role="listbox" aria-label="Pages" data-suggest hidden></ul>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="df-file" id="df-file" role="tabpanel" aria-labelledby="df-tab-file">
-              <div class="df-file-head">
-                <svg class="i" aria-hidden="true"><use href="#i-page" /></svg>
-                <span data-path>library/seaside-trip.md</span>
-                <span class="df-saved"><i></i>Saved</span>
+              <div class="df-file" id="df-file" role="tabpanel" aria-labelledby="df-tab-file">
+                <div class="df-file-head">
+                  <svg class="i" aria-hidden="true"><use href="#i-page" /></svg>
+                  <span data-path>library/seaside-trip.md</span>
+                  <span class="df-saved"><i></i>Saved</span>
+                </div>
+                <pre class="df-code" data-code tabindex="0" role="region" aria-label="The page as a Markdown file"></pre>
               </div>
-              <pre class="df-code" data-code></pre>
+              <p class="sr-only" aria-live="polite" data-announce></p>
             </div>
-            <p class="sr-only" aria-live="polite" data-announce></p>
-          </div>
-        </div>
-      </section>
+          </section>

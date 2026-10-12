@@ -1,7 +1,8 @@
 //! The words: whether they fit their boxes, whether they are big enough to
 //! read, and whether there are too many.
 
-use crate::model::Element;
+use crate::model::{Element, TextFit};
+use crate::text_fit::MIN_SCALE;
 
 use super::super::geometry::units;
 use super::super::model::Measures;
@@ -56,7 +57,13 @@ pub fn overflow(scene: &Scene, measures: &Measures, sink: &mut Sink) -> usize {
         };
         let area_w = m.area_width.unwrap_or(rect.w);
         let area_h = m.area_height.unwrap_or(rect.h);
-        let tall = m.text_height > area_h * slack + 1e-6;
+        // A box that shrinks its words to fit is only too small when even the smallest size does not fit them,
+        // and one that grows to fit them is never too small.
+        let tall = match leaf.el.text().and_then(|t| t.fit.as_ref()) {
+            Some(TextFit::Resize) => false,
+            Some(TextFit::Shrink) => m.text_height * MIN_SCALE > area_h * slack + 1e-6,
+            _ => m.text_height > area_h * slack + 1e-6,
+        };
         let wide = m.text_width > area_w * slack + 1e-6;
         if !tall && !wide {
             continue;
@@ -97,6 +104,9 @@ pub fn overflow(scene: &Scene, measures: &Measures, sink: &mut Sink) -> usize {
 
 pub fn min_font(scene: &Scene, sink: &mut Sink) {
     let theme = &scene.deck.theme;
+    // Type is judged against the width of the slide: on one narrower than a 960-unit slide (such
+    // as a square page setup, which scales type with the width) the floors shrink in proportion.
+    let narrow = (scene.width / 960.0).clamp(0.05, 1.0);
     for leaf in scene.leaves.iter().filter(|l| !l.undrawn) {
         let mut body: Option<f64> = None;
         let mut citation: Option<f64> = None;
@@ -114,8 +124,8 @@ pub fn min_font(scene: &Scene, sink: &mut Sink) {
         let who = describe_leaf(leaf);
         let key = leaf.owner.map_or(leaf.el.id(), |o| o.id);
         for (found, floor, kind) in [
-            (body, BODY_POINTS, "body"),
-            (citation, CITATION_POINTS, "citation"),
+            (body, BODY_POINTS * narrow, "body"),
+            (citation, CITATION_POINTS * narrow, "citation"),
         ] {
             let Some(size) = found.filter(|s| *s < floor - 1e-6) else {
                 continue;

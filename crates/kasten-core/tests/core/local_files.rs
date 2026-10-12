@@ -78,7 +78,10 @@ fn a_cache_an_earlier_version_committed_leaves_history_once() {
     );
     assert_eq!(k.untrack_local_files().unwrap(), None, "only once");
     let last = &k.log(None, 1).unwrap()[0];
-    assert!(last.summary.starts_with("untrack:"), "{}", last.summary);
+    assert_eq!(
+        last.summary,
+        "untrack: KastenFlow's cache, which belongs to this computer"
+    );
 }
 
 #[cfg(any(unix, windows))]

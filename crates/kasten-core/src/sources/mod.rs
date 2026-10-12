@@ -352,7 +352,7 @@ impl Sidecar {
         // Another tool may have written the highlight in a way it cannot read.
         highlight_of(&Value::Object(item.clone())).ok_or_else(|| {
             Error::Invalid(format!(
-                "The highlight {id} is saved in a form Kasten cannot read"
+                "The highlight {id} is saved in a form KastenFlow cannot read"
             ))
         })
     }

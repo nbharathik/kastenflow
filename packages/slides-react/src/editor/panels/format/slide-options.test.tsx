@@ -42,7 +42,7 @@ const slideOf = (kit: Awaited<ReturnType<typeof mount>>) => kit.session.slide;
 describe("Slide options", () => {
   it("are what the panel shows when nothing is selected", async () => {
     const kit = await slides();
-    expect(sections()).toEqual(["background", "layout", "transition", "theme"]);
+    expect(sections()).toEqual(["background", "layout", "transition", "numbers", "theme"]);
     edit(() => kit.session.elements.insert([{ type: "text", id: "", x: 10, y: 10, w: 100, h: 30, text: { paragraphs: [{ runs: [{ t: "Hi" }] }] } } as never]));
     expect(sections()).not.toContain("background");
     edit(() => kit.session.select([]));
@@ -209,12 +209,13 @@ describe("Slide options", () => {
   });
 
   describe("Transition", () => {
-    it("says what the slide has, and opens the dialog to change it", async () => {
+    it("says what the slide has, and opens the transitions panel to change it", async () => {
       const kit = await slides();
       const row = screen.getByRole("button", { name: "Change…" }).parentElement as HTMLElement;
       expect(row.textContent).toContain("None");
       fireEvent.click(screen.getByRole("button", { name: "Change…" }));
-      expect(kit.ui.state.dialog).toBe("transition");
+      expect(kit.ui.state.panel).toBe("transitions");
+      expect(kit.ui.state.dialog).toBeNull();
     });
 
     it("names a transition a deck already holds", async () => {
@@ -229,12 +230,39 @@ describe("Slide options", () => {
     });
   });
 
+  describe("Slide numbers", () => {
+    const toggle = () => screen.getByRole("checkbox", { name: "Show slide numbers" }) as HTMLInputElement;
+
+    it("are off for a new deck, switch on and off for the whole deck, and each is a step of undo", async () => {
+      const kit = await slides();
+      expect(toggle().checked).toBe(false);
+      expect(kit.session.deck.present.slideNumbers).toBe(false);
+      fireEvent.click(toggle());
+      expect(kit.session.deck.present.slideNumbers).toBe(true);
+      expect(toggle().checked).toBe(true);
+      expect(kit.session.state.undoLabel).toBe("set_present");
+      fireEvent.click(toggle());
+      expect(kit.session.deck.present.slideNumbers).toBe(false);
+      edit(() => kit.session.undo());
+      expect(kit.session.deck.present.slideNumbers).toBe(true);
+      expect(toggle().checked).toBe(true);
+      expect(kit.errors).toEqual([]);
+    });
+
+    it("do not touch the slides", async () => {
+      const kit = await slides();
+      const before = kit.session.deck.slides;
+      fireEvent.click(toggle());
+      expect(kit.session.deck.slides).toEqual(before);
+    });
+  });
+
   describe("Theme", () => {
-    it("offers the four built-in themes and checks the deck's", async () => {
+    it("offers the built-in themes and checks the deck's", async () => {
       await slides();
       const group = screen.getByRole("listbox", { name: "Theme" });
       const radios = within(group).getAllByRole("option");
-      expect(radios.map((r) => r.textContent)).toEqual(["Light", "Dark", "Serif", "Lecture"]);
+      expect(radios.map((r) => r.textContent)).toEqual(["Light", "Dark", "Serif", "Lecture", "Minimal", "Bold", "Modern", "Academic", "Pitch", "Dark Studio", "Warm Paper"]);
       expect(within(group).getByRole("option", { selected: true }).textContent).toBe("Light");
       // Each has a strip of its colours.
       expect(radios.every((r) => r.querySelectorAll(".ks-sp-strip > span").length === 6)).toBe(true);

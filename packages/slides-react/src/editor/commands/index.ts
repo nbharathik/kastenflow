@@ -4,23 +4,30 @@
 
 import { agentCommands } from "./agent.ts";
 import { arrangeCommands } from "./arrange.ts";
+import { chromeCommands } from "./chrome.ts";
 import { compositesCommands } from "./composites.ts";
+import { diagramCommands } from "./diagram.ts";
 import { editCommands } from "./edit.ts";
+import { embedCommands } from "./embed.ts";
 import { fileCommands } from "./file.ts";
 import { formatCommands } from "./format.ts";
 import { importingCommands } from "./importing.ts";
 import { insertCommands } from "./insert.ts";
 import { comboOf, showCombo } from "./keys.ts";
+import { layoutCommands } from "./layouts.ts";
 import { lintCommands } from "./lint.ts";
+import { pageCommands } from "./pages.ts";
 import { presentCommands } from "./present.ts";
 import { slideCommands } from "./slides.ts";
 import { stepsCommands } from "./steps.ts";
+import { textFormatCommands } from "./text-format.ts";
 import type { Command, CommandContext, Commands, KeyScope } from "./types.ts";
 import { viewCommands } from "./view.ts";
 
 export type { Command, CommandContext, Commands, KeyScope } from "./types.ts";
 export { comboOf, showCombo } from "./keys.ts";
 export * as textFormat from "./format.ts";
+export * as textExtras from "./text-format.ts";
 export { insertImageFiles } from "./insert.ts";
 
 const ALL: Command[] = [
@@ -28,14 +35,21 @@ const ALL: Command[] = [
   ...slideCommands,
   ...arrangeCommands,
   ...formatCommands,
+  ...textFormatCommands,
+  // Before the view's zoom: the same keys zoom the page of a selected embed, and the slide when none is selected.
+  ...embedCommands,
   ...viewCommands,
   ...fileCommands,
   ...insertCommands,
   // Each of these is one file, so the work that fills one does not touch another.
+  ...chromeCommands,
   ...compositesCommands,
+  ...diagramCommands,
+  ...pageCommands,
   ...stepsCommands,
   ...presentCommands,
   ...importingCommands,
+  ...layoutCommands,
   ...lintCommands,
   ...agentCommands,
 ];
@@ -50,7 +64,7 @@ export function commandOf(id: string): Command {
 }
 
 export function isEnabled(command: Command, context: CommandContext): boolean {
-  return command.enabled ? command.enabled(context.session.state, context.ui.state) : true;
+  return command.enabled ? command.enabled(context.session.state, context.ui.state, context.session.host, context) : true;
 }
 
 /** Runs the command called `id` if it can be done now. */
@@ -100,6 +114,11 @@ export function dispatchKey(event: KeyboardEvent, context: CommandContext, area:
   });
   const command = usable.find((candidate) => isEnabled(candidate, context));
   if (!command) return false;
+  // The browser's own keys (copy, cut, paste) are not taken: the event it makes of them is what runs the command.
+  if (command.native) {
+    if (typeof command.native === "function") command.native();
+    return false;
+  }
   event.preventDefault();
   // A key held down adds nothing more than once.
   if (event.repeat && command.byKey) return true;

@@ -17,8 +17,8 @@ beforeAll(async () => {
 
 describe("markInputsOf", () => {
   it("lists the marks of a run in schema order", () => {
-    const run: Run = { t: "x", s: true, field: "slideNumber", u: true, link: "https://x.y", color: "accent1", math: true, i: true, b: true, font: "Georgia", code: true, size: 12 };
-    expect(markInputsOf(run).map((input) => input.name)).toEqual(["size", "code", "font", "bold", "italic", "math", "color", "link", "underline", "strike", "field"]);
+    const run: Run = { t: "x", s: true, field: "slideNumber", u: true, link: "https://x.y", color: "accent1", math: true, i: true, b: true, font: "Georgia", code: true, size: 12, script: "super", smallCaps: true, allCaps: true, spacing: 1 };
+    expect(markInputsOf(run).map((input) => input.name)).toEqual(["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "color", "link", "underline", "strike", "field"]);
     expect(markInputsOf(run).map((input) => input.name)).toEqual(MARK_ORDER.filter((name) => name !== "extra"));
   });
 

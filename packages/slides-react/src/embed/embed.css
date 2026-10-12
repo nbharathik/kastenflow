@@ -1,0 +1,184 @@
+/* A page laid out for a window of its own and scaled into the box of an embed. */
+.ks-embed-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ks-embed-stage {
+  position: absolute;
+  transform-origin: 0 0;
+}
+
+.ks-embed-stage > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* The words of a Kasten page, drawn from the deck's theme. */
+.ks-pv {
+  --pv-ink: #000;
+  --pv-muted: #555;
+  --pv-accent: #06c;
+  --pv-line: rgb(128 128 128 / 0.35);
+  --pv-wash: rgb(128 128 128 / 0.12);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: 22px 28px 28px;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--pv-ink);
+  overflow-wrap: anywhere;
+}
+
+.ks-pv[data-scroll] {
+  height: 100%;
+  overflow: auto;
+}
+
+.ks-pv h1,
+.ks-pv h2,
+.ks-pv h3,
+.ks-pv h4,
+.ks-pv h5,
+.ks-pv h6 {
+  margin: 1.1em 0 0.35em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ks-pv > :first-child {
+  margin-top: 0;
+}
+
+.ks-pv h1 {
+  font-size: 1.9em;
+}
+
+.ks-pv h2 {
+  font-size: 1.5em;
+}
+
+.ks-pv h3 {
+  font-size: 1.25em;
+}
+
+.ks-pv h4,
+.ks-pv h5,
+.ks-pv h6 {
+  font-size: 1.05em;
+}
+
+.ks-pv p {
+  margin: 0.55em 0;
+  white-space: pre-line;
+}
+
+.ks-pv .ks-pv-item {
+  display: flex;
+  gap: 0.5em;
+  margin: 0.2em 0;
+}
+
+.ks-pv .ks-pv-mark {
+  flex: none;
+  min-width: 1.2em;
+  color: var(--pv-muted);
+  text-align: right;
+}
+
+.ks-pv .ks-pv-quote {
+  margin: 0.7em 0;
+  padding: 0.2em 0 0.2em 0.9em;
+  border-left: 3px solid var(--pv-line);
+  color: var(--pv-muted);
+}
+
+.ks-pv .ks-pv-quote[data-callout] {
+  padding: 0.55em 0.9em;
+  border-left-color: var(--pv-accent);
+  border-radius: 4px;
+  background: var(--pv-wash);
+  color: var(--pv-ink);
+}
+
+.ks-pv pre {
+  margin: 0.7em 0;
+  padding: 0.7em 0.9em;
+  overflow: auto;
+  border-radius: 4px;
+  background: var(--pv-wash);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
+.ks-pv code {
+  font-family: var(--pv-mono, monospace);
+}
+
+.ks-pv .ks-pv-code {
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+  background: var(--pv-wash);
+  font-size: 0.9em;
+}
+
+.ks-pv img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.7em 0;
+  border-radius: 4px;
+}
+
+.ks-pv .ks-pv-math {
+  margin: 0.7em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.ks-pv table {
+  width: 100%;
+  margin: 0.7em 0;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.ks-pv th,
+.ks-pv td {
+  padding: 0.35em 0.6em;
+  border: 1px solid var(--pv-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ks-pv th {
+  background: var(--pv-wash);
+}
+
+.ks-pv hr {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid var(--pv-line);
+}
+
+.ks-pv .ks-pv-link {
+  color: var(--pv-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.ks-pv-missing {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 6px 12px;
+  background: var(--pv-wash);
+  color: var(--pv-muted);
+  font-size: 14px;
+  text-align: center;
+}

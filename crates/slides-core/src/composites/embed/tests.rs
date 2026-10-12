@@ -8,8 +8,24 @@ fn embed(url: &str, poster: Option<&str>, title: Option<&str>, w: f64, h: f64) -
         url: url.to_owned(),
         poster: poster.map(str::to_owned),
         title: title.map(str::to_owned),
+        design: None,
+        zoom: None,
+        fit: None,
+        reader: false,
         extra: Extra::new(),
     }
+}
+
+/// An embedded page of the host: no address, and the page it shows in the source.
+fn page(markdown: Option<&str>, poster: Option<&str>, w: f64, h: f64) -> EmbedEl {
+    let mut source =
+        crate::model::PageSource::new("library/q3 plan.md", crate::model::SourceKind::Embed);
+    source.title = Some("Q3 plan".to_owned());
+    source.icon = Some("\u{1f4cb}".to_owned());
+    source.markdown = markdown.map(str::to_owned);
+    let mut el = embed("", poster, None, w, h);
+    el.base.source = Some(source);
+    el
 }
 
 fn parts_of(el: EmbedEl) -> Vec<Element> {
@@ -225,6 +241,132 @@ fn without_a_poster_no_word_is_below_14_points_where_the_panel_has_room() {
             );
         }
     }
+}
+
+#[test]
+fn a_page_of_the_host_is_a_card_with_its_name_over_a_line_and_its_words_under_it() {
+    let parts = parts_of(page(
+        Some("## Plan\n\nOne **idea** per card.\n\n- first\n- second\n"),
+        None,
+        480.0,
+        270.0,
+    ));
+    let Element::Shape(card) = &parts[0] else {
+        panic!("a card")
+    };
+    assert_eq!(card.shape, "roundRect");
+    assert_eq!(
+        card.base
+            .style
+            .as_ref()
+            .and_then(|s| s.fill.as_ref())
+            .map(|f| f.color.as_str()),
+        Some("bg1")
+    );
+    assert!(
+        matches!(&parts[2], Element::Line(_)),
+        "the line under the name"
+    );
+    let all = texts(&parts);
+    assert_eq!(all[0], "\u{1f4cb} Q3 plan", "the icon and the title");
+    assert!(
+        all[1].contains("One idea per card.") && all[1].contains("first"),
+        "{all:?}"
+    );
+    let words = parts.last().and_then(|p| p.text()).expect("words");
+    assert_eq!(words.fit, Some(crate::model::TextFit::Shrink));
+    assert!(!words.paragraphs.is_empty());
+}
+
+#[test]
+fn a_page_card_links_to_the_page_and_says_what_it_is() {
+    let parts = parts_of(page(Some("Words."), None, 480.0, 270.0));
+    assert!(
+        parts
+            .iter()
+            .all(|p| p.base().link.as_deref() == Some("page:library/q3%20plan.md"))
+    );
+    assert_eq!(parts[0].base().alt.as_deref(), Some("Page: Q3 plan"));
+    let mut section = page(Some("Words."), None, 480.0, 270.0);
+    if let Some(source) = section.base.source.as_mut() {
+        source.section = Some("Risks and more".to_owned());
+    }
+    let parts = parts_of(section);
+    assert_eq!(
+        parts[0].base().link.as_deref(),
+        Some("page:library/q3%20plan.md#Risks%20and%20more")
+    );
+}
+
+#[test]
+fn a_page_with_a_poster_is_the_picture_and_a_page_with_no_words_is_a_name_alone() {
+    let parts = parts_of(page(Some("Words."), Some("assets/page.png"), 480.0, 270.0));
+    assert_eq!(parts.len(), 1);
+    assert!(matches!(&parts[0], Element::Image(p) if p.src == "assets/page.png" && p.covers()));
+    let bare = parts_of(page(None, None, 480.0, 270.0));
+    assert_eq!(texts(&bare), ["\u{1f4cb} Q3 plan"]);
+    assert_eq!(bare.len(), 3, "the card, the name and the line");
+}
+
+#[test]
+fn a_page_card_stays_inside_its_box_however_small() {
+    for (w, h) in [(480.0, 270.0), (200.0, 60.0), (30.0, 400.0), (0.0, 0.0)] {
+        for p in parts_of(page(
+            Some("## A\n\nwords words words\n\n- one\n- two\n"),
+            None,
+            w,
+            h,
+        )) {
+            let (x, y, pw, ph) = p.base().rect().expect("a box");
+            assert!(
+                x >= 100.0 - 0.011
+                    && y >= 120.0 - 0.011
+                    && x + pw <= 100.0 + w + 0.011
+                    && y + ph <= 120.0 + h + 0.011,
+                "{w}x{h}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_window_zoom_and_fit_of_a_web_page_are_kept_and_change_nothing_about_how_it_is_drawn() {
+    let plain = parts_of(embed("https://example.com", None, None, 480.0, 270.0));
+    let mut set = embed("https://example.com", None, None, 480.0, 270.0);
+    set.design = Some(crate::model::Viewport {
+        w: 390.0,
+        h: 844.0,
+        extra: Extra::new(),
+    });
+    set.zoom = Some(0.5);
+    set.fit = Some(crate::model::EmbedFit::Fill);
+    set.reader = true;
+    assert_eq!(parts_of(set.clone()), plain);
+    let text = serde_json::to_string(&Element::Embed(set)).expect("json");
+    assert!(
+        text.contains("\"design\":{\"w\":390.0,\"h\":844.0}"),
+        "{text}"
+    );
+    assert!(
+        text.contains("\"zoom\":0.5")
+            && text.contains("\"fit\":\"fill\"")
+            && text.contains("\"reader\":true")
+    );
+    let bare = serde_json::to_string(&Element::Embed(embed(
+        "https://example.com",
+        None,
+        None,
+        1.0,
+        1.0,
+    )))
+    .expect("json");
+    assert!(
+        !bare.contains("design")
+            && !bare.contains("zoom")
+            && !bare.contains("reader")
+            && !bare.contains("fit"),
+        "{bare}"
+    );
 }
 
 #[test]

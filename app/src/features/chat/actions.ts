@@ -7,6 +7,7 @@ import { useShell } from "../../lib/store";
 import type { NoteFile, NoteMeta } from "../../lib/vault/types";
 import { useBoards } from "../boards/store";
 import { useWorkspace, type OpenHow } from "../workspace/store";
+import { openSettingsAt } from "../workspace/views/settings/jump";
 import { noteChip } from "./context";
 import { flushStream, useChat } from "./store";
 import { threadTitle, type Answer } from "./thread";
@@ -57,7 +58,7 @@ let jump = false;
 /** Opens Settings at "AI providers". */
 export function openProviders(how: OpenHow = "here"): void {
   jump = true;
-  useWorkspace.getState().go({ view: "settings" }, how);
+  openSettingsAt({ group: "ai", row: "ai.providers" }, how);
 }
 
 /** Whether Settings should scroll to the providers now; asks once. */

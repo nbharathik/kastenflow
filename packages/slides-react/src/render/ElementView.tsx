@@ -3,6 +3,7 @@
 import { type JSX, type MemoExoticComponent, memo } from "react";
 import type { Element } from "@kasten-slides/wasm";
 
+import { safeLink } from "../text/links.ts";
 import { type Box, boxOf, colorOf } from "../theme/index.ts";
 import type { RenderCx } from "./context.ts";
 import { ConnectorView } from "./elements/ConnectorView.tsx";
@@ -16,6 +17,7 @@ import { TextView } from "./elements/TextView.tsx";
 import { jsonEqual } from "./equal.ts";
 import { clamp } from "./format.ts";
 import { frameStyle, opacityOf } from "./frame.ts";
+import { placedElement, useLiveBox } from "./live.ts";
 import { roundingOf } from "./shapes/index.ts";
 import { sameApartFromStep } from "./step-memo.ts";
 import { isUndrawn, stateOf } from "./visibility.ts";
@@ -111,8 +113,11 @@ function Content({ element, box, cx, hideText }: { element: Exclude<Element, { t
   }
 }
 
-function ElementViewImpl({ element, cx, hideTextOf, groupHidden = false }: ElementViewProps): JSX.Element | null {
+function ElementViewImpl({ element: given, cx, hideTextOf, groupHidden = false }: ElementViewProps): JSX.Element | null {
   const { theme } = cx;
+  // While the editor drags this element somewhere it says where; only this view is drawn again for each step.
+  const placed = useLiveBox(given.id);
+  const element = given.type === "group" ? given : placedElement(given, placed);
   const state = stateOf(element, cx.step, groupHidden);
   if (state === "hidden" && cx.mode !== "edit") return null;
   if (isUndrawn(element, cx.mode, cx.master)) return null;
@@ -150,6 +155,8 @@ function ElementViewImpl({ element, cx, hideTextOf, groupHidden = false }: Eleme
       data-type={element.type}
       data-placeholder={element.placeholder ?? undefined}
       data-master={cx.master || undefined}
+      // What an element links to is followed in a presentation, from here: the address is only read there.
+      data-link={cx.mode === "present" ? (safeLink(element.link) ?? undefined) : undefined}
       style={frameStyle(box, element, opacityOf(element, state, theme))}
       {...description(element)}
     >
@@ -167,14 +174,17 @@ function ElementViewImpl({ element, cx, hideTextOf, groupHidden = false }: Eleme
 
 /**
  * Draws one element. A change to a deck hands over new copies of the slides
- * it touches, so the views of elements compare what they were given by
- * content: an element that did not change is not drawn again.
+ * it touches, in which an element that did not change is the very object it
+ * was, so the views of elements ask first whether they were given the same
+ * object (one comparison) and only when they were not compare what they were
+ * given by content: an element that did not change is not drawn again.
  */
-export const ElementView: MemoExoticComponent<(props: ElementViewProps) => JSX.Element | null> = memo(
-  ElementViewImpl,
-  (a, b) =>
+export const ElementView: MemoExoticComponent<(props: ElementViewProps) => JSX.Element | null> = memo(ElementViewImpl, (a, b) => {
+  if (a.element === b.element && a.cx === b.cx && a.groupHidden === b.groupHidden && a.hideTextOf === b.hideTextOf) return true;
+  return (
     (a.cx === b.cx || sameApartFromStep(a.cx, b.cx, a.element)) &&
     (a.groupHidden ?? false) === (b.groupHidden ?? false) &&
     hidingIn(a.element, a.hideTextOf) === hidingIn(b.element, b.hideTextOf) &&
-    jsonEqual(a.element, b.element),
-);
+    (a.element === b.element || jsonEqual(a.element, b.element))
+  );
+});

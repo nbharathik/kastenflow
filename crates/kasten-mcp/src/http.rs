@@ -80,7 +80,7 @@ fn refusal(
         return Some((StatusCode::FORBIDDEN, "Web pages may not reach the vault\n"));
     }
     if request.uri().path() != "/mcp" {
-        return Some((StatusCode::NOT_FOUND, "Kasten serves MCP at /mcp\n"));
+        return Some((StatusCode::NOT_FOUND, "KastenFlow serves MCP at /mcp\n"));
     }
     None
 }

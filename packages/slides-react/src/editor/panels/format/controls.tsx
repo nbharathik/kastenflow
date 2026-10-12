@@ -97,14 +97,10 @@ export function ColorButton({ theme, label, value, onPick, noneLabel = "None", e
 
 /** A number with a short word beside it, and a fuller name for assistive technology and tests ("Left" for "Text inset left"). */
 export function ShortNumber({ short, ...rest }: { short: string } & ComponentProps<typeof NumberField>) {
+  // The short word is the number's own label, so it is the handle to drag as well.
   return (
     <span className="ks-sp-short">
-      <span className="ks-field-label" aria-hidden="true">
-        {short}
-      </span>
-      <span className="ks-sp-plain">
-        <NumberField {...rest} />
-      </span>
+      <NumberField {...rest} short={short} />
     </span>
   );
 }

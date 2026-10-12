@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { useShell } from "../../../../lib/store";
+import { Button } from "../../../../ui/Button";
 import { useWorkspace } from "../../store";
 import { titleOf } from "../../names";
 import { templates } from "../../tree";
@@ -48,14 +49,14 @@ export function TemplateSettings() {
 
   return (
     <Group title="Templates">
-      <Row label={`${templates(notes).length} templates`} detail="Pages in the templates folder; {{title}}, {{date}}, {{time}}, {{weekday}}, {{week}}, {{month}} and {{year}} are filled in">
-        <button type="button" className="rounded-md px-2.5 py-1 text-13 ring-1 ring-line hover:bg-hover" onClick={() => useShell.getState().openGallery({})}>
+      <Row id="templates.count" label={`${templates(notes).length} templates`}>
+        <Button size="sm" icon="gallery" onClick={() => useShell.getState().openGallery({})}>
           Browse
-        </button>
+        </Button>
       </Row>
       {journal !== null && (
-        <Row label="Journal days start from" detail="The template each new day's page is made from; days already written keep theirs">
-          <select aria-label="Journal days start from" value={journal} onChange={(e) => void chooseJournal(e.target.value)} className="h-8 max-w-56 rounded-md border border-line bg-canvas px-2 text-13">
+        <Row id="templates.journal">
+          <select aria-label="Journal days start from" value={journal} onChange={(e) => void chooseJournal(e.target.value)} className="ui-field kasten-set-select">
             {!choices.some((c) => c.name === "journal") && <option value="journal">Journal</option>}
             {choices.map((c) => (
               <option key={c.name} value={c.name}>
@@ -65,16 +66,16 @@ export function TemplateSettings() {
           </select>
         </Row>
       )}
-      <Row label="Starter kits" detail="A daily planner, a second brain, a Zettelkasten, Getting Things Done, student or research: pages, templates and tag databases in one step that Undo takes back">
-        <button type="button" className="rounded-md px-2.5 py-1 text-13 ring-1 ring-line hover:bg-hover" onClick={() => useShell.getState().openGallery({ kits: true })}>
+      <Row id="templates.kits">
+        <Button size="sm" icon="gallery" onClick={() => useShell.getState().openGallery({ kits: true })}>
           Browse kits
-        </button>
+        </Button>
       </Row>
       {missing.length > 0 && (
-        <Row label={`${missing.length} new starter template${missing.length === 1 ? "" : "s"}`} detail={missing.slice(0, 6).join(", ") + (missing.length > 6 ? "…" : "")}>
-          <button type="button" className="rounded-md bg-accent px-2.5 py-1 text-13 font-medium text-on-accent hover:brightness-110" onClick={() => void addStarters()}>
+        <Row id="templates.missing" label={`${missing.length} new starter template${missing.length === 1 ? "" : "s"}`} detail={missing.slice(0, 6).join(", ") + (missing.length > 6 ? "…" : "")}>
+          <Button size="sm" tone="primary" onClick={() => void addStarters()}>
             Add them
-          </button>
+          </Button>
         </Row>
       )}
     </Group>

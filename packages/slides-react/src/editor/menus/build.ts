@@ -26,6 +26,8 @@ export interface Tweak {
   /** Replaces the command's own check mark; `null` draws none. */
   checked?: boolean | null;
   trailing?: ReactNode;
+  /** A line under the label that says what the row makes. */
+  description?: string;
   /** Does this instead of running the command. */
   run?: () => void;
 }
@@ -43,6 +45,7 @@ export function commandItem(id: string, ctx: CommandContext, tweak: Tweak = {}):
     ...(keys ? { keys } : {}),
     ...(checked === undefined ? {} : { checked }),
     ...(tweak.trailing ? { trailing: tweak.trailing } : {}),
+    ...(tweak.description ? { description: tweak.description } : {}),
     disabled: !isEnabled(command, ctx) || Boolean(tweak.disabledIf),
     run: tweak.run ?? (() => void runCommand(id, ctx)),
   };

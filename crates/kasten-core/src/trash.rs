@@ -18,8 +18,15 @@ use crate::rollback::Rollback;
 use crate::time::Instant;
 use crate::vault::Vault;
 
-/// What the trash holds: notes, boards and decks.
-const KINDS: [&str; 3] = [".md", ".canvas", ".deck"];
+/// What the trash holds: notes, boards, decks and diagrams (the source, and
+/// the picture that goes with it).
+const KINDS: [&str; 5] = [
+    ".md",
+    ".canvas",
+    ".deck",
+    crate::diagrams::EXT,
+    crate::diagrams::SIDECAR_EXT,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,8 +57,12 @@ fn walk(dir: &Path, rel: &str, out: &mut Vec<String>) -> Result<()> {
     Ok(())
 }
 
-/// A trashed file's title: a note's, a board's, a deck's, or the file name.
+/// A trashed file's title: a note's, a board's, a deck's, a diagram's, or the file name.
 fn title_of(original: &str, text: &str, meta: Option<&NoteMeta>) -> String {
+    if original.ends_with(crate::diagrams::EXT) || original.ends_with(crate::diagrams::SIDECAR_EXT)
+    {
+        return crate::diagrams::title_of(original);
+    }
     if original.ends_with(".deck") {
         let name = original.rsplit('/').next().unwrap_or(original);
         return crate::deck::head_of(text)
@@ -170,6 +181,13 @@ pub fn list_trash(vault: &Vault) -> Result<Vec<Trashed>> {
             if !shown(&below, i) {
                 continue;
             }
+            // A diagram's picture goes and comes back with its source: it is
+            // not a thing of its own while the source is in the same folder.
+            if original.strip_suffix(".svg").is_some_and(|source| {
+                source.ends_with(crate::diagrams::EXT) && files.iter().any(|(o, _, _)| o == source)
+            }) {
+                continue;
+            }
             out.push(Trashed {
                 trashed: format!(".trash/{when}/{original}"),
                 original: original.clone(),
@@ -284,6 +302,47 @@ pub fn restore_board(vault: &Vault, trashed: &str) -> Result<String> {
 /// Puts a trashed deck back; returns where it went.
 pub fn restore_deck(vault: &Vault, trashed: &str) -> Result<String> {
     restore_file(vault, trashed, ".deck")
+}
+
+/// Puts a trashed diagram back with its picture, under a name that is free
+/// for both; returns where the source went and every (trashed, restored)
+/// move. A picture trashed on its own comes back alone.
+pub fn restore_diagram(vault: &Vault, trashed: &str) -> Result<(String, Vec<(String, String)>)> {
+    use crate::diagrams::{EXT, SIDECAR_EXT, free_pair, sidecar_of, stem_of_path};
+    if trashed.ends_with(SIDECAR_EXT) {
+        let to = restore_file(vault, trashed, SIDECAR_EXT)?;
+        return Ok((to.clone(), vec![(trashed.to_owned(), to)]));
+    }
+    let (when, original) = parts(vault, trashed, EXT)?;
+    let source = vault.tracked_file(trashed)?;
+    if !source.is_file() {
+        return Err(Error::NotFound(trashed.to_owned()));
+    }
+    let picture_trashed = sidecar_of(trashed);
+    let picture = vault
+        .tracked_file(&picture_trashed)
+        .ok()
+        .filter(|p| p.is_file());
+    let target = free_pair(vault, folder_of(original), stem_of_path(original));
+    let mut done = Rollback::default();
+    let mut moves = Vec::new();
+    let moved = (|| -> Result<()> {
+        done.rename(&source, &vault.file_of(&target, &[EXT])?)?;
+        moves.push((trashed.to_owned(), target.clone()));
+        if let Some(picture) = &picture {
+            let to = sidecar_of(&target);
+            done.rename(picture, &vault.file_of(&to, &[SIDECAR_EXT])?)?;
+            moves.push((picture_trashed.clone(), to));
+        }
+        Ok(())
+    })();
+    if let Err(err) = moved {
+        done.put_back();
+        return Err(err);
+    }
+    let sources: Vec<PathBuf> = std::iter::once(source).chain(picture).collect();
+    tidy(&vault.root().join(".trash").join(when), &sources);
+    Ok((target, moves))
 }
 
 fn restore_file(vault: &Vault, trashed: &str, ext: &str) -> Result<String> {

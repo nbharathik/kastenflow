@@ -134,13 +134,9 @@ fn unknown_fields() -> Engine {
 
 fn four_three() -> Engine {
     let mut e = Engine::create("Four by three", "Lecture", 14).unwrap();
-    let mut deck = e.deck().clone();
-    deck.size = crate::model::Size {
-        w: 720.0,
-        h: 540.0,
-        extra: crate::model::Extra::new(),
-    };
-    e = Engine::new(deck, 14);
+    // Page setup refits the theme's slots, its master and the title slide to the smaller slide.
+    e.apply("set_page_size", json!({ "w": 720, "h": 540 }))
+        .unwrap();
     add(
         &mut e,
         "title-body",
@@ -248,6 +244,28 @@ fn the_fixture_decks_read_and_save_back_unchanged() {
         seen += 1;
     }
     assert!(seen >= 5, "the fixture decks are in fixtures/decks");
+}
+
+#[test]
+fn the_four_by_three_fixture_is_drawn_for_its_own_slide() {
+    let text = fs::read_to_string(dir().join("four-three.deck")).unwrap();
+    let deck = canonical::parse(&text).unwrap();
+    assert_eq!((deck.size.w, deck.size.h), (720.0, 540.0));
+    // Its slots are the theme's, refitted to 720 by 540, so nothing sticks out of the slide.
+    assert_eq!(
+        deck.theme,
+        crate::themes::by_name_sized("Lecture", &deck.size).unwrap()
+    );
+    for layout in &deck.theme.layouts {
+        for slot in &layout.placeholders {
+            assert!(
+                slot.x + slot.w <= 720.0 && slot.y + slot.h <= 540.0,
+                "{} / {} does not fit a 4:3 slide",
+                layout.name,
+                slot.role
+            );
+        }
+    }
 }
 
 #[test]

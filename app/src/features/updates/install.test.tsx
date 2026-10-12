@@ -20,10 +20,10 @@ const newer: UpdateInfo = {
   latest: "0.3.0",
   newer: true,
   url: "https://github.com/example/kasten/releases/tag/v0.3.0",
-  name: "Kasten 0.3.0",
+  name: "KastenFlow 0.3.0",
   published: null,
   notes: "- Faster search",
-  download: { name: "Kasten_0.3.0_x64-setup.exe", url: "https://github.com/example/kasten/releases/download/v0.3.0/Kasten_0.3.0_x64-setup.exe", size: 9_000_000 },
+  download: { name: "KastenFlow_0.3.0_x64-setup.exe", url: "https://github.com/example/kasten/releases/download/v0.3.0/KastenFlow_0.3.0_x64-setup.exe", size: 9_000_000 },
 };
 
 /** A download that reports halfway, then all of it. */
@@ -96,7 +96,7 @@ describe("the daily check where Kasten installs in place", () => {
     await dailyCheck(vi.fn(async () => newer), 5 * DAY, fetch);
     expect(fetch).toHaveBeenCalledTimes(1);
     const toast = useWorkspace.getState().toasts.at(-1)!;
-    expect(toast.text).toBe("Kasten 0.3.0 is ready to install");
+    expect(toast.text).toBe("KastenFlow 0.3.0 is ready to install");
     expect(toast.action!.label).toBe("Restart to update");
   });
 
@@ -113,7 +113,7 @@ describe("the daily check where Kasten installs in place", () => {
       setup();
       const fetch = vi.fn(async () => false);
       await dailyCheck(vi.fn(async () => newer), 5 * DAY, fetch);
-      expect(useWorkspace.getState().toasts.at(-1)!.text).toBe("Kasten 0.3.0 is out");
+      expect(useWorkspace.getState().toasts.at(-1)!.text).toBe("KastenFlow 0.3.0 is out");
     }
     expect(loadUpdates().download).toBe(true);
   });

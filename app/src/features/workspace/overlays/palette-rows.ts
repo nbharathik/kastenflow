@@ -1,10 +1,11 @@
 // More of what the palette finds: PDFs by title, Settings groups by name,
 // and the searches run lately, offered again when the palette opens.
 
+import { inTauri } from "../../../lib/api";
 import type { SourceInfo } from "../../../lib/vault/types";
 import { lineIcon } from "../../../ui/glyph";
 import { useWorkspace, type OpenHow } from "../store";
-import { SECTIONS } from "../views/settings/sections";
+import { ENTRIES, GROUPS, groupById, isOffered } from "../views/settings/index";
 import { openSettingsAt } from "../views/settings/jump";
 import { score } from "./match";
 
@@ -40,15 +41,31 @@ export function pdfRows(sources: readonly SourceInfo[] | null, q: string): Row[]
     }));
 }
 
-/** Settings groups named by `q`, which may start with "settings". */
+/** Settings named by `q`, which may start with "settings": the groups by their
+ * titles, and, when the query does start so, single settings of other groups,
+ * each opening Settings right there. Without the word, single settings stay out:
+ * a setting called "Notes trashed per session" must not beat the Trash command. */
 export function settingsRows(q: string): Row[] {
-  const wanted = q.replace(/^settings?\b\s*/i, "");
+  const explicit = /^settings?\b/i.test(q);
+  const wanted = q.replace(/^settings?\b[\s:]*/i, "");
   if (wanted.length < 2) return [];
-  return SECTIONS.map((title) => ({ title, s: score(title, wanted) }))
+  const groups = GROUPS.map((group) => ({ group, s: score(group.title, wanted) }))
     .filter((x) => x.s >= 40)
     .sort((a, b) => b.s - a.s)
-    .slice(0, 4)
-    .map(({ title }) => ({ key: `settings:${title}`, icon: lineIcon("settings"), label: title, detail: "Settings", run: (how) => openSettingsAt(title, how) }));
+    .slice(0, 4);
+  const rows: Row[] = groups.map(({ group }) => ({ key: `settings:${group.title}`, icon: lineIcon("settings"), label: `Settings: ${group.title}`, run: (how) => openSettingsAt({ group: group.id }, how) }));
+  if (!explicit) return rows;
+  const named = new Set(groups.map((x) => x.group.id));
+  const desktop = inTauri();
+  const single = ENTRIES.filter((e) => isOffered(e, desktop) && !named.has(e.group))
+    .map((entry) => ({ entry, s: score(entry.label, wanted) }))
+    .filter((x) => x.s >= 60)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3);
+  for (const { entry } of single) {
+    rows.push({ key: `setting:${entry.id}`, icon: lineIcon("settings"), label: entry.label, detail: `Settings · ${groupById(entry.group).title}`, run: (how) => openSettingsAt({ group: entry.group, row: entry.id }, how) });
+  }
+  return rows;
 }
 
 /** The searches run lately, newest first. */

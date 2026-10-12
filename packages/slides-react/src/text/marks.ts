@@ -6,31 +6,38 @@
 // The order matters where two marks set the same thing. Outermost first:
 //   size, code, font   a run's own `font` sits inside `code`, so it wins over the code font
 //   bold, italic, math
+//   script, caps, spacing   raised or lowered words are smaller than the size around them
 //   color, link        the link's colour sits inside the run's own, so a link is always the theme's link colour
 //   underline, strike  inside the colour, so a line is drawn in the colour of its text
 //   field, extra       nothing to see
 
-import type { Run, Theme } from "@kasten-slides/wasm";
+import type { Run, Script, Theme } from "@kasten-slides/wasm";
 
 import { colorOf, fontStack, hexOf } from "../theme/index.ts";
 import { type Css, ptToPx, px } from "./css.ts";
+import { SCRIPT_SIZE, scriptTop } from "./metrics.ts";
 import { codeBackground, isSize } from "./text-style.ts";
 
-export const MARK_ORDER = ["size", "code", "font", "bold", "italic", "math", "color", "link", "underline", "strike", "field", "extra"] as const;
+export const MARK_ORDER = ["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "color", "link", "underline", "strike", "field", "extra"] as const;
 
 export type MarkName = (typeof MARK_ORDER)[number];
 
 /** A mark with the value it carries, if it carries one. */
 export type MarkInput =
-  | { name: "size"; value: number }
-  | { name: "font" | "color" | "link" | "field" | "extra"; value: string }
-  | { name: "code" | "bold" | "italic" | "math" | "underline" | "strike" };
+  | { name: "size" | "spacing"; value: number }
+  | { name: "font" | "color" | "link" | "field" | "extra" | "script"; value: string }
+  | { name: "code" | "bold" | "italic" | "math" | "underline" | "strike" | "smallCaps" | "allCaps" };
 
 /** The attribute a valued mark keeps its value in. */
-export const MARK_ATTR = { size: "value", font: "value", color: "value", link: "href", field: "name", extra: "json" } as const;
+export const MARK_ATTR = { size: "value", spacing: "value", script: "value", font: "value", color: "value", link: "href", field: "name", extra: "json" } as const;
 
 /** The fields of a run the format defines; anything else in a run is kept as it is. */
-export const RUN_KEYS: ReadonlySet<string> = new Set(["t", "b", "i", "u", "s", "color", "size", "font", "link", "code", "math", "field"]);
+export const RUN_KEYS: ReadonlySet<string> = new Set(["t", "b", "i", "u", "s", "color", "size", "font", "link", "code", "math", "field", "script", "smallCaps", "allCaps", "spacing"]);
+
+/** The marks whose value is a number. */
+export const NUMBER_MARKS: ReadonlySet<string> = new Set(["size", "spacing"]);
+
+const isScript = (value: unknown): value is Script => value === "super" || value === "sub";
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 
@@ -50,6 +57,10 @@ export function markInputsOf(run: Run): MarkInput[] {
   if (run.b) out.push({ name: "bold" });
   if (run.i) out.push({ name: "italic" });
   if (run.math) out.push({ name: "math" });
+  if (isScript(run.script)) out.push({ name: "script", value: run.script });
+  if (run.smallCaps) out.push({ name: "smallCaps" });
+  if (run.allCaps) out.push({ name: "allCaps" });
+  if (typeof run.spacing === "number" && Number.isFinite(run.spacing) && run.spacing !== 0) out.push({ name: "spacing", value: run.spacing });
   if (text(run.color)) out.push({ name: "color", value: run.color });
   if (text(run.link)) out.push({ name: "link", value: run.link });
   if (run.u) out.push({ name: "underline" });
@@ -88,6 +99,15 @@ export function wrapOf(theme: Theme, input: MarkInput): Wrap {
       return span({ fontStyle: "italic" });
     case "math":
       return span({ fontStyle: "italic" }, "ks-text-math");
+    case "script":
+      // Raised or lowered by a share of the type around it, which the span's own smaller size makes a share of its own.
+      return span({ fontSize: `${SCRIPT_SIZE * 100}%`, position: "relative", verticalAlign: "baseline", lineHeight: 0, top: scriptTop(input.value === "sub" ? "sub" : "super") });
+    case "smallCaps":
+      return span({ fontVariantCaps: "small-caps" });
+    case "allCaps":
+      return span({ textTransform: "uppercase" });
+    case "spacing":
+      return span({ letterSpacing: px(ptToPx(input.value)) });
     case "color": {
       const hex = hexOf(theme, input.value);
       return span(hex ? { color: hex } : {});

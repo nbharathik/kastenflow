@@ -52,12 +52,17 @@ fn lists_every_tool_with_an_object_schema() {
         "add_to_board",
         "connect",
         "group_on_board",
+        "list_diagrams",
+        "get_diagram",
+        "create_diagram",
+        "update_diagram",
+        "trash_diagram",
     ] {
         assert!(names.contains(&name), "missing {name} in {names:?}");
     }
-    // The 29 tools for notes, tags and boards, slides-core's tools for decks, and the one that makes a deck from a note.
+    // The 34 tools for notes, tags, boards and diagrams, slides-core's tools for decks, and the one that makes a deck from a note.
     let decks = slides_core::agent::tools();
-    assert_eq!(specs.len(), 29 + decks.len() + 1, "{names:?}");
+    assert_eq!(specs.len(), 34 + decks.len() + 1, "{names:?}");
     assert!(
         names.contains(&"deck_from_note"),
         "missing deck_from_note in {names:?}"
@@ -181,7 +186,7 @@ fn errors_read_as_they_do_over_mcp() {
         &k,
         &s,
         "append",
-        json!({"note": "Welcome to Kasten", "markdown": 5}),
+        json!({"note": "Welcome to KastenFlow", "markdown": 5}),
     )
     .unwrap_err();
     assert!(

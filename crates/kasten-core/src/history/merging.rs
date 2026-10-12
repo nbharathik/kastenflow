@@ -102,6 +102,10 @@ fn merge_text(path: &str, base: Option<&[u8]>, ours: &[u8], theirs: &[u8]) -> Op
         serde_json::from_str::<serde_json::Value>(&merged).is_ok()
     } else if path.ends_with(".yaml") || path.ends_with(".yml") {
         serde_saphyr::from_str::<crate::loose::Loose>(&merged).is_ok()
+    } else if path.ends_with(crate::diagrams::EXT) {
+        crate::diagrams::check_xml(&merged).is_ok()
+    } else if path.ends_with(crate::diagrams::SIDECAR_EXT) {
+        crate::diagrams::check_svg(&merged).is_ok()
     } else {
         true
     };

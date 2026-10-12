@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { homeProp, projectHome, PROJECT_DEFAULT, PROJECT_SECTIONS } from "../projects/home";
-import { alone, chosen, shifted, toggled, type SectionDef } from "./sections";
+import { alone, chosen, moved, shifted, toggled, type SectionDef } from "./sections";
 
 const DEFS: SectionDef<"a" | "b" | "c" | "d">[] = [
   { id: "a", label: "A", icon: "home", hint: "" },
@@ -23,6 +23,16 @@ describe("dashboard sections", () => {
     expect(shifted(["a", "b", "c"], "a", -1)).toEqual(["a", "b", "c"]);
     expect(shifted(["a", "b", "c"], "a", 5)).toEqual(["b", "c", "a"]);
     expect(shifted(["a", "b"], "d", 1)).toEqual(["a", "b"]);
+  });
+
+  it("puts a dragged section where the one it was dropped on is", () => {
+    expect(moved(["a", "b", "c", "d"], "d", "b")).toEqual(["a", "d", "b", "c"]);
+    expect(moved(["a", "b", "c", "d"], "a", "c")).toEqual(["b", "c", "a", "d"]);
+    expect(moved(["a", "b", "c"], "b", "b")).toEqual(["a", "b", "c"]);
+    expect(moved(["a", "b", "c"], "b", "zzz" as "a")).toEqual(["a", "b", "c"]);
+    const list = ["a", "b"] as const;
+    expect(moved(list, "a", "b")).toEqual(["b", "a"]);
+    expect(list).toEqual(["a", "b"]);
   });
 
   it("finds a half-width section left alone on its row", () => {

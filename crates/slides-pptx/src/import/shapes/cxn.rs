@@ -68,14 +68,18 @@ pub fn convert(cx: &mut Cx, cxn: &Node, next: Option<&Node>, out: &mut Vec<Eleme
     }
     let label = label_for(&nv.name, next).and_then(|sp| {
         let body = sp.child("p:txBody")?;
-        Some(super::text::text_of(
+        let mut words = super::text::text_of(
             cx,
             sp,
             body,
             None,
             slides_core::VAlign::Middle,
             Some("caption"),
-        ))
+        );
+        // A label never wraps, and is as big as its words: that is how it is written, not a choice.
+        words.wrap = None;
+        words.fit = None;
+        Some(words)
     });
     let used = label.is_some();
     cx.pending.push(Pending {

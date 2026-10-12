@@ -5,12 +5,13 @@ import { loadNotePage } from "../features/workspace/page/LazyNotePage";
 import { MemoryVault } from "../features/workspace/preview/memory-vault";
 import { draftSpec, isDraft } from "../features/workspace/drafts";
 import { flushOpenPage } from "../features/workspace/page/use-note-session";
+import { usePrefs } from "../features/workspace/prefs";
 import { derive } from "../features/workspace/store-layout";
 import { useWorkspace } from "../features/workspace/store";
 import { initialLayout } from "../features/workspace/tabs";
 import { useShell } from "../lib/store";
 import { AppShell } from "./AppShell";
-import { FOOTER_NAV, PRIMARY_NAV } from "./nav";
+import { availableNav, defaultPinned, findNav, SETTINGS_NAV } from "./nav";
 
 const SEED = {
   "library/welcome.md": "---\nid: 01K5Y2WE1C0MEPAGE000000001\ntitle: Welcome\nicon: 👋\n---\nHello [[Roadmap]].\n",
@@ -34,6 +35,8 @@ async function renderShell() {
 
 beforeEach(() => {
   localStorage.clear();
+  // The sidebar's views as they are before anyone arranges them.
+  usePrefs.setState({ navPinned: null, moreViews: false, foldedSections: [] });
   vault = new MemoryVault(SEED);
   useWorkspace.setState({ client: null, ready: false, notes: [], ...derive(initialLayout()), stack: [], stackOpen: false, recent: [], toasts: [] });
   useShell.setState({ sidebarOpen: true, focusMode: false, paletteOpen: false, shortcutsOpen: false, panels: [], sourceOpen: false });
@@ -60,19 +63,28 @@ describe("AppShell", () => {
 
   it("offers to create or open a vault when none is chosen yet", async () => {
     render(<AppShell connect={async () => ({ client: null, choose: true })} />);
-    expect(await screen.findByRole("heading", { name: "Welcome to Kasten" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Welcome to KastenFlow" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Create a new vault" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Open a folder" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Sidebar" })).toBeNull();
   });
 
-  it("lists the sidebar modules in their order", async () => {
+  it("lists the pinned views in their order, and the rest under More views", async () => {
     const sidebar = await renderShell();
-    const labels = [...sidebar.querySelectorAll("button")].map((b) => b.textContent ?? "");
-    const at = PRIMARY_NAV.map((n) => labels.findIndex((l) => l.startsWith(n.label)));
+    const labels = () => [...sidebar.querySelectorAll("button")].map((b) => b.textContent ?? "");
+    const pinned = defaultPinned().map((id) => findNav(id as never)!);
+    const at = pinned.map((n) => labels().findIndex((l) => l.startsWith(n.label)));
     expect(at.every((p) => p >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    for (const item of FOOTER_NAV) expect(within(sidebar).getByRole("button", { name: item.label })).toBeTruthy();
+    // The others wait behind "More views", which opens the list in place.
+    expect(within(sidebar).queryByRole("button", { name: /^Card Library/ })).toBeNull();
+    const more = within(sidebar).getByRole("button", { name: "More views" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(more);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    const list = within(sidebar).getByRole("group", { name: "All views" });
+    for (const item of availableNav()) expect(within(list).getByRole("button", { name: new RegExp(`^${item.label}`) }), item.label).toBeTruthy();
+    expect(within(sidebar).getByRole("button", { name: SETTINGS_NAV.label })).toBeTruthy();
   });
 
   it("shows projects, pages and sub-pages from the vault", async () => {
@@ -92,9 +104,11 @@ describe("AppShell", () => {
   it("draws every default icon as a line icon, never as its name", async () => {
     const sidebar = await renderShell();
     await within(sidebar).findByRole("button", { name: "Welcome" });
+    fireEvent.click(within(sidebar).getByRole("button", { name: "More views" }));
     const views = ["Inbox", "Card Library", "Tasks", "Tag Database", "Whiteboards", "Home"];
     for (const name of views) {
-      fireEvent.click(within(sidebar).getByRole("button", { name: new RegExp(`^${name}`) }));
+      // A view that is open but not pinned also shows above the list.
+      fireEvent.click(within(sidebar).getAllByRole("button", { name: new RegExp(`^${name}`) })[0]!);
       await act(async () => {});
       expect(document.body.textContent, name).not.toMatch(/icon:[a-z]/);
     }

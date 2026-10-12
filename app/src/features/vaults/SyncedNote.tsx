@@ -31,7 +31,7 @@ export function useSynced(path: string): string | null {
 
 /** Why a vault shouldn't go in `app`'s folder. */
 export const syncedWords = (app: string) =>
-  `inside ${app}, which copies files while Kasten writes them. That can leave conflicted copies or a half-copied history.`;
+  `inside ${app}, which copies files while KastenFlow writes them. That can leave conflicted copies or a half-copied history.`;
 
 export function SyncedNote({ app }: { app: string | null }) {
   if (!app) return null;

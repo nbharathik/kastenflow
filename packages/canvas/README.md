@@ -1,8 +1,8 @@
 # @kasten-slides/canvas
 
-The canvas engine behind Kasten Slides: selection, move, resize and rotate,
+The canvas engine behind KastenFlow Slides: selection, move, resize and rotate,
 snapping guides, grouping, undo and zoom. It has no dependencies and knows
-nothing about slides or Kasten; the slide editor and the whiteboard both
+nothing about slides or KastenFlow; the slide editor and the whiteboard both
 build on it.
 
 It is plain TypeScript with no DOM and no framework. An editor turns pointer

@@ -34,9 +34,24 @@ const ROLES: [&str; 11] = [
 ];
 
 #[test]
-fn all_returns_the_four_themes_in_order() {
+fn all_returns_the_eleven_themes_in_order() {
     let names: Vec<String> = all().into_iter().map(|theme| theme.name).collect();
-    assert_eq!(names, ["Light", "Dark", "Serif", "Lecture"]);
+    assert_eq!(
+        names,
+        [
+            "Light",
+            "Dark",
+            "Serif",
+            "Lecture",
+            "Minimal",
+            "Bold",
+            "Modern",
+            "Academic",
+            "Pitch",
+            "Dark Studio",
+            "Warm Paper"
+        ]
+    );
 }
 
 #[test]
@@ -47,6 +62,10 @@ fn a_theme_is_found_by_its_name_in_any_case() {
         ("DARK", "Dark"),
         ("sErIf", "Serif"),
         ("lecture", "Lecture"),
+        ("minimal", "Minimal"),
+        ("BOLD", "Bold"),
+        ("dark studio", "Dark Studio"),
+        ("WARM PAPER", "Warm Paper"),
     ] {
         assert_eq!(
             by_name(asked).map(|theme| theme.name).as_deref(),
@@ -136,6 +155,8 @@ fn every_placeholder_has_a_known_role_a_style_an_alignment_and_a_prompt() {
     });
 }
 
+// A body's list setting is the style its words take when they are put in it; a slot that is
+// still empty holds a plain paragraph (`ops::tests::empty_slots`), so it shows no bullet.
 #[test]
 fn only_image_placeholders_are_pictures_and_only_bodies_are_lists() {
     each_placeholder(|theme, layout, placeholder| {

@@ -28,6 +28,8 @@ import { useFirstPage } from "../features/vaults/first-page";
 import { Tooltips } from "../ui/Tooltips";
 import { ViewBoundary } from "../ui/ViewBoundary";
 import { PagePeek } from "./peek/PagePeek";
+import { OpenMenuHost } from "./open-menu";
+import { useDiagramHost } from "../features/diagrams/host-store";
 import { useUpdates } from "../features/updates/store";
 import { useUpdatesAtStart } from "../features/updates/start";
 import { Sidebar } from "./Sidebar";
@@ -39,6 +41,8 @@ import { Panes } from "./Panes";
 // release is shown.
 const ChatDock = lazy(() => import("../features/chat/ChatDock").then((m) => ({ default: m.ChatDock })));
 const WhatsNew = lazy(() => import("../features/updates/WhatsNew"));
+// The diagram host (the editor in a modal, pictures drawn again off screen) loads only once a diagram asks for it.
+const DiagramHost = lazy(() => import("../features/diagrams/DiagramHost"));
 
 /** Loads and warms the page editor while the window is idle, so the first
  * page opens at once instead of waiting for the editor's code. */
@@ -71,6 +75,7 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   const problem = useWorkspace((s) => s.problem);
   const choosing = useWorkspace((s) => s.choosing);
   const whatsNew = useUpdates((s) => s.open);
+  const diagramsWork = useDiagramHost((s) => s.modal !== null || s.picker !== null || s.queue.length > 0 || s.pngs.length > 0);
   useGlobalShortcuts();
   useWindowTitle();
   useWeeklyCheck();
@@ -145,6 +150,12 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
       {moving && <MovePicker path={moving} />}
       {gallery && <TemplateGallery />}
       <PagePeek />
+      <OpenMenuHost />
+      {diagramsWork && (
+        <Suspense fallback={null}>
+          <DiagramHost />
+        </Suspense>
+      )}
       {whatsNew && (
         <Suspense fallback={null}>
           <WhatsNew />

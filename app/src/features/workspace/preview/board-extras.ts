@@ -3,6 +3,7 @@
 // `collapsed`, card display sizes in `cardSize`, putting back removed
 // nodes and edges for undo, and cards following notes that move.
 
+import type { BoardSource } from "../../../lib/vault/types";
 import { restoreExtras } from "./board-drawing";
 import { readCanvas, writeCanvas, type Canvas } from "./memory-extras";
 
@@ -57,6 +58,34 @@ export function setCollapsed(canvas: Canvas, id: string, collapsed: boolean) {
   const ids = all.collapsed as unknown[];
   if (collapsed && !ids.includes(id)) ids.push(id);
   if (!collapsed) all.collapsed = ids.filter((v) => v !== id);
+}
+
+/** The most branches a source may remember (the core's `MAX_BRANCHES`). */
+const MAX_BRANCHES = 1_000;
+
+/** What the board remembers about the page it was made from, if anything. */
+export function sourceOf(canvas: Canvas): BoardSource | undefined {
+  const found = (canvas["x-kasten"] as Extras | undefined)?.source;
+  return isObject(found) && typeof found.page === "string" ? (found as unknown as BoardSource) : undefined;
+}
+
+/** Sets or, with null, forgets the board's source, checked as the core's
+ * `set_source` does: an object naming its page, branches an object of objects. */
+export function setSource(canvas: Canvas, source: BoardSource | null) {
+  if (source === null) {
+    const all = canvas["x-kasten"];
+    if (isObject(all)) delete all.source;
+    return;
+  }
+  if (!isObject(source)) throw new Error("A board's source is an object naming its page");
+  if (typeof source.page !== "string" || !source.page.trim()) throw new Error("A board's source names its page");
+  const branches = (source as Item).branches;
+  if (branches !== undefined) {
+    if (!isObject(branches)) throw new Error("A source's branches are an object, by node id");
+    if (Object.keys(branches).length > MAX_BRANCHES) throw new Error(`A board's source remembers at most ${MAX_BRANCHES} branches, not ${Object.keys(branches).length}`);
+    if (!Object.values(branches).every(isObject)) throw new Error("Each of a source's branches is an object");
+  }
+  extras(canvas).source = structuredClone(source);
 }
 
 /** Drops what `x-kasten` says about nodes that are gone. */

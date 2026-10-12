@@ -27,11 +27,11 @@ function probe(seen: AiPanelProps[]) {
 }
 
 describe("the assistant tab", () => {
-  it("says it is available in Kasten when the host has no panel of its own", async () => {
+  it("says it is available in KastenFlow when the host has no panel of its own", async () => {
     await mount({ panel: "ai" });
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByRole("heading", { name: "Assistant" })).toBeTruthy();
-    expect(panel.textContent).toContain("Available in Kasten");
+    expect(panel.textContent).toContain("Available in KastenFlow");
     expect(panel.querySelector("input, textarea")).toBeNull();
   });
 

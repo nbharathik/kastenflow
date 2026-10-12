@@ -15,7 +15,7 @@ import { createBoardStore, showDoc, startDrag, type BoardStore, type Drag } from
 
 /** What a board needs from the rest of the app. */
 export interface BoardDeps {
-  client: Pick<VaultClient, "board" | "boardApply" | "createBoard" | "saveAsset">;
+  client: Pick<VaultClient, "board" | "boardApply" | "createBoard" | "saveAsset" | "importDiagram">;
   notes(): readonly NoteMeta[];
   toast(text: string): void;
   open(path: string, how: OpenHow): void;

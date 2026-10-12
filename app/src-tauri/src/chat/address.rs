@@ -11,7 +11,7 @@ use kasten_core::config::Provider;
 use reqwest::Url;
 
 use super::http::Kind;
-use super::{anthropic, openai};
+use super::{anthropic, openai, responses};
 use crate::secrets::KeyStore;
 
 /// The address each kind's own API answers at. Keys saved by name alone,
@@ -19,16 +19,19 @@ use crate::secrets::KeyStore;
 fn official(kind: Kind) -> &'static str {
     match kind {
         Kind::Anthropic => "https://api.anthropic.com",
-        Kind::OpenAi => "https://api.openai.com",
+        Kind::OpenAi | Kind::ChatGpt => "https://api.openai.com",
     }
 }
 
-/// Where a provider's chat requests go, parsed.
+/// Where a provider's chat requests go, parsed. A ChatGPT sign-in has one
+/// address, OpenAI's Responses API, whatever the vault's settings say: its
+/// tokens can never be sent anywhere a shared vault chooses.
 fn endpoint(provider: &Provider) -> Result<(Kind, Url), String> {
     let kind = Kind::of(&provider.kind)?;
     let url = match kind {
         Kind::Anthropic => anthropic::url(&provider.base_url),
         Kind::OpenAi => openai::url(&provider.base_url)?,
+        Kind::ChatGpt => responses::URL.to_owned(),
     };
     let parsed = Url::parse(&url).map_err(|e| {
         format!(
@@ -160,7 +163,8 @@ fn account(name: &str, url: &Url) -> String {
 /// The key for `provider`, if one was saved for where its requests go.
 pub fn key_for(keys: &dyn KeyStore, provider: &Provider) -> Result<Option<String>, String> {
     let (kind, url) = endpoint(provider)?;
-    if !carries_key(&url) {
+    // A ChatGPT provider takes no key: the account signs its requests.
+    if kind == Kind::ChatGpt || !carries_key(&url) {
         return Ok(None);
     }
     if let Some(key) = keys.get(&account(&provider.name, &url))? {
@@ -175,7 +179,10 @@ pub fn key_for(keys: &dyn KeyStore, provider: &Provider) -> Result<Option<String
 /// Keeps `key` for `provider` at the address its requests go to, in place
 /// of any kept by its name alone.
 pub fn save_key(keys: &dyn KeyStore, provider: &Provider, key: &str) -> Result<(), String> {
-    let (_, url) = endpoint(provider)?;
+    let (kind, url) = endpoint(provider)?;
+    if kind == Kind::ChatGpt {
+        return Err("A ChatGPT sign-in takes no API key".to_owned());
+    }
     if !carries_key(&url) {
         return Err(format!(
             "A key is only sent over https, or to a server on this computer; “{}” uses plain http",

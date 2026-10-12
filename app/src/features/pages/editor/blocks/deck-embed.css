@@ -1,0 +1,20 @@
+/* A slide deck inside a page (deck-embed.ts): a framed slide under a slim
+   head. The slide, its arrows and Present are drawn by the window. */
+
+.kasten-page-editor .kasten-embed.kasten-deck-embed {
+  border-left-width: 1px;
+  cursor: default;
+
+  & .kasten-embed-head {
+    box-sizing: border-box;
+    height: 28px;
+    padding-block: 0;
+    cursor: pointer;
+  }
+}
+
+.kasten-page-editor .kasten-deck-embed-body {
+  position: relative;
+  background: var(--color-panel);
+  font-size: var(--text-14);
+}

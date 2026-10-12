@@ -369,6 +369,69 @@ fn lists_the_boards_a_note_is_on() {
 }
 
 #[test]
+fn the_list_names_the_page_a_board_is_a_map_of() {
+    let (_t, k) = open();
+    let map = k
+        .create_board(&Actor::Human, "Plan map", Some("photo-organiser"), NOW)
+        .unwrap();
+    let source = serde_json::json!({"page": "01J8ZQ6K3V", "branches": {}});
+    let applied = k
+        .board_apply(
+            &Actor::Human,
+            &map,
+            &[BoardChange::Source {
+                source: Some(source.clone()),
+            }],
+            NOW,
+        )
+        .unwrap();
+    assert_eq!(applied.board.source, Some(source.clone()));
+    assert_eq!(k.board(&map).unwrap().source, Some(source));
+    let sources: Vec<_> = k
+        .boards()
+        .unwrap()
+        .into_iter()
+        .map(|b| (b.path, b.source))
+        .collect();
+    assert!(sources.contains(&(map.clone(), Some("01J8ZQ6K3V".to_owned()))));
+    assert!(
+        sources.contains(&(BRAINSTORM.to_owned(), None)),
+        "{sources:?}"
+    );
+
+    // Other edits leave it alone, and a bad one is refused whole.
+    k.board_apply(
+        &Actor::Human,
+        &map,
+        &[BoardChange::Sticky {
+            text: "Mine".into(),
+            x: 0,
+            y: 0,
+        }],
+        NOW,
+    )
+    .unwrap();
+    assert_eq!(
+        k.boards()
+            .unwrap()
+            .iter()
+            .find(|b| b.path == map)
+            .and_then(|b| b.source.clone()),
+        Some("01J8ZQ6K3V".to_owned())
+    );
+    let refused = k.board_apply(
+        &Actor::Human,
+        &map,
+        &[BoardChange::Source {
+            source: Some(serde_json::json!({"page": ""})),
+        }],
+        NOW,
+    );
+    assert!(refused.is_err());
+    assert_eq!(k.board(&map).unwrap().nodes.len(), 1);
+}
+
+#[test]
 fn a_trashed_board_comes_back_as_a_commit() {
     let (_t, k) = open();
     let trashed = k.trash(&Actor::Human, BRAINSTORM, NOW).unwrap();

@@ -82,6 +82,10 @@ describe("keys", () => {
     const editor = mount(light, text(p({ t: "one" }), { runs: [{ t: "two" }], list: "number" }), { autoFocus: "start" });
     selectRange(editor.view, 6, 6);
     press(editor.view, "Backspace", { keyCode: 8 });
+    // The bullet goes and the words stay where they were: 42 units in, where a number at this size has them.
+    expect(editor.handle.getText().paragraphs).toEqual([p({ t: "one" }), { runs: [{ t: "two" }], marginLeft: 42 }]);
+    // Then the indent goes, and only then are the paragraphs joined.
+    press(editor.view, "Backspace", { keyCode: 8 });
     expect(editor.handle.getText().paragraphs).toEqual([p({ t: "one" }), p({ t: "two" })]);
     press(editor.view, "Backspace", { keyCode: 8 });
     expect(editor.handle.getText().paragraphs).toEqual([p({ t: "onetwo" })]);

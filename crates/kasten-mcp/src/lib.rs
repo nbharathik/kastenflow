@@ -6,6 +6,7 @@
 pub mod decks;
 mod http;
 mod mcp_board;
+mod mcp_diagram;
 mod mcp_read;
 mod mcp_write;
 mod params;
@@ -30,10 +31,10 @@ use crate::server::KastenServer;
 
 const USAGE: &str = "Usage: kasten-mcp --vault <path> [--http [--port 7433]]
 
-Serves a Kasten vault to AI agents over MCP. Without --http it speaks
+Serves a KastenFlow vault to AI agents over MCP. Without --http it speaks
 stdio, for Claude Code and Claude Desktop. The vault is --vault, else
-KASTEN_VAULT. It must keep history (turn it on in Kasten's settings or
-with `kasten start-history`), so every agent change can be undone.";
+KASTEN_VAULT. It must keep history (turn it on in KastenFlow's settings or
+with `kastenflow start-history`), so every agent change can be undone.";
 
 struct Options {
     vault: PathBuf,
@@ -105,7 +106,7 @@ pub fn run(args: &[String]) -> ExitCode {
     if !kasten.has_history() {
         say(&format!(
             "kasten-mcp: {} keeps no history, so agent changes could not be undone. \
-             Turn on history in Kasten's settings or run `kasten start-history --vault {}`.\n",
+             Turn on history in KastenFlow's settings or run `kastenflow start-history --vault {}`.\n",
             options.vault.display(),
             options.vault.display()
         ));

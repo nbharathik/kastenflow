@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import type { AiPanelProps, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
+import type { TemplatesHost } from "./layouts/templates-host.ts";
 
 /**
  * A host that keeps everything in memory: the deck's last saved text, the images
@@ -18,6 +19,8 @@ export class MemoryHost implements SlidesHost {
   aiPanel?: ComponentType<AiPanelProps>;
   /** Where images are used, for a test to set: what `imageUsage` answers. */
   usage: Record<string, ImageUse> = {};
+  /** The templates, for a test to give: none unless it does. */
+  templates?: TemplatesHost;
   private readonly watchers = new Set<() => void>();
   private last = 0;
 

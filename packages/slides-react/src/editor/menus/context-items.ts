@@ -1,7 +1,11 @@
 // What a right click offers: on an element, on the empty slide, and on a slide in the filmstrip.
 
+import { copyHere } from "../clipboard/commands.ts";
 import { ungroupable } from "../commands/composites.ts";
 import { type CommandContext, commandOf } from "../commands/index.ts";
+import { selectedDiagram } from "../diagrams.ts";
+import { updatable } from "../../pages/insert.ts";
+import { pageOfElement } from "../../pages/open.ts";
 import type { ContextMenuState } from "../ui-state.ts";
 import type { MenuItem } from "../ui/Menu.tsx";
 import { SEPARATOR, commandItem, groups, plainItem, submenu } from "./build.ts";
@@ -24,21 +28,43 @@ function elementItems(ctx: CommandContext): MenuItem[] {
   const only = picked.length === 1 ? picked[0] : undefined;
   const hasGroup = picked.some((element) => element.type === "group");
   const locked = commandOf("arrange.lock").checked?.(session.state, ui.state) === true;
+  const group = only?.type === "group" ? only : undefined;
   return groups(
     acceptItems(ctx),
-    ["edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete"].map((id) => commandItem(id, ctx)),
+    // A menu on an element is about the elements, wherever the focus was before it opened.
+    [
+      commandItem("edit.cut", ctx, { run: () => void copyHere(ctx, true, "elements") }),
+      commandItem("edit.copy", ctx, { run: () => void copyHere(ctx, false, "elements") }),
+      commandItem("edit.paste", ctx),
+      commandItem("edit.paste-in-place", ctx),
+      commandItem("edit.duplicate", ctx, { run: () => session.elements.duplicate() }),
+      commandItem("edit.delete", ctx, { run: () => session.elements.remove() }),
+    ],
     [
       submenu("order", "Order", orderItems(ctx), "bring-to-front"),
-      ...(picked.length > 1
-        ? [submenu("align", "Align", [...alignHorizontalItems(ctx), SEPARATOR, ...alignVerticalItems(ctx), SEPARATOR, ...distributeItems(ctx, false)], "align-center-vertical")]
-        : []),
+      // Several things align to each other; one aligns to the slide.
+      submenu(
+        "align",
+        picked.length > 1 ? "Align" : "Align to slide",
+        [...alignHorizontalItems(ctx), SEPARATOR, ...alignVerticalItems(ctx), ...(picked.length > 1 ? [SEPARATOR, ...distributeItems(ctx, false)] : [])],
+        "align-center-vertical",
+      ),
       submenu("rotate", "Rotate & flip", rotateItems(ctx), "rotate-cw"),
       ...(picked.length > 1 || !hasGroup ? [commandItem("arrange.group", ctx)] : []),
       ...(hasGroup ? [commandItem("arrange.ungroup", ctx)] : []),
+      // A group is gone into to work on what it holds, as a double click does; Exit group comes back out.
+      ...(group ? [plainItem("enter-group", "Edit group", () => session.enterGroup(group.id, group.children[0]?.id), { icon: "group" })] : []),
+      ...(session.state.inside.length > 0 ? [plainItem("exit-group", "Exit group", () => session.leaveGroup(), { icon: "ungroup" })] : []),
       ...(picked.some(ungroupable) ? [commandItem("arrange.ungroup-composite", ctx)] : []),
       commandItem("arrange.lock", ctx, { label: locked ? "Unlock" : "Lock", icon: locked ? "lock-open" : "lock", checked: null }),
     ],
     [
+      // A picture that came from a diagram is edited in the host's diagram editor.
+      ...(session.host.editDiagram && selectedDiagram(session.state) ? [commandItem("edit.diagram", ctx)] : []),
+      // Something made from a page of the host: open the page, make it again from the page as it is now, or cut the tie.
+      ...(picked.some((element) => pageOfElement(element) !== null) ? [commandItem("page.open", ctx)] : []),
+      ...(picked.some(updatable) ? [commandItem("page.update", ctx)] : []),
+      ...(picked.some((element) => element.source != null) ? [commandItem("page.break-link", ctx)] : []),
       commandItem("view.format-panel", ctx, { label: "Format options", checked: null, run: () => ui.openPanel("format") }),
       ...(only && (only.type === "text" || only.type === "shape") ? [plainItem("edit-text", "Edit text", () => session.startEditing(only.id), { icon: "text-cursor-input" })] : []),
       commandItem("text.link", ctx, { label: "Link…" }),
@@ -49,7 +75,8 @@ function elementItems(ctx: CommandContext): MenuItem[] {
 const canvasItems = (ctx: CommandContext): MenuItem[] =>
   groups(
     acceptItems(ctx),
-    [commandItem("edit.paste", ctx), commandItem("edit.select-all", ctx)],
+    [commandItem("edit.paste", ctx), commandItem("edit.paste-in-place", ctx), commandItem("edit.select-all", ctx)],
+    ctx.session.state.inside.length > 0 ? [plainItem("exit-group", "Exit group", () => ctx.session.leaveGroup(), { icon: "ungroup" })] : [],
     [commandItem("slide.layout", ctx), commandItem("slide.background", ctx)],
     [commandItem("view.notes", ctx), commandItem("view.snap", ctx)],
   );
@@ -57,6 +84,12 @@ const canvasItems = (ctx: CommandContext): MenuItem[] =>
 const slideItems = (ctx: CommandContext): MenuItem[] =>
   groups(
     ctx.session.marks.pending > 0 ? [commandItem("agent.accept-all", ctx)] : [],
+    // A menu on a slide is about the slides: cut, copy and paste put them after the ones picked, in this deck or another.
+    [
+      commandItem("edit.cut", ctx, { run: () => void copyHere(ctx, true, "slides") }),
+      commandItem("edit.copy", ctx, { run: () => void copyHere(ctx, false, "slides") }),
+      commandItem("edit.paste", ctx),
+    ],
     [commandItem("slide.new", ctx), commandItem("slide.duplicate", ctx), commandItem("slide.delete", ctx)],
     [commandItem("edit.select-all", ctx, { label: "Select all slides" })],
     [commandItem("slide.skip", ctx), commandItem("slide.backup", ctx)],

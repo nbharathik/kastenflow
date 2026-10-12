@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import type { Element } from "@kasten-slides/wasm";
+import type { DeckEngine, Element } from "@kasten-slides/wasm";
 import { describe, expect, it, vi } from "vitest";
 
 import { SlideView } from "./SlideView.tsx";
@@ -10,6 +10,9 @@ import { box, scene, words } from "./testing/decks.ts";
 vi.mock("../text/TextBlock.tsx", () => import("./testing/mock-text-block.tsx"));
 
 const ids = (root: ParentNode) => [...root.querySelectorAll("[data-el]")].map((node) => node.getAttribute("data-el"));
+
+/** A new deck shows no slide numbers: a scene that draws the master's number asks for it. */
+const numbered = { edit: (engine: DeckEngine) => void engine.apply("set_present", { slideNumbers: true }) };
 
 describe("SlideView", () => {
   it("is a box of the deck's size, in the theme's background", async () => {
@@ -66,6 +69,7 @@ describe("SlideView", () => {
   it("draws the theme's master under the slide's elements, bottom to top", async () => {
     const { deck, slide } = await scene("title-only", [{ type: "shape", id: "low", shape: "rect", ...box(0, 0, 10, 10) }, { type: "shape", id: "high", shape: "rect", ...box(5, 5, 10, 10) }], {
       theme: "Lecture",
+      ...numbered,
     });
     const page = draw(<SlideView deck={deck} slide={slide} />);
     // The theme's empty logo draws nothing; the bar and the number are there.
@@ -76,17 +80,17 @@ describe("SlideView", () => {
   });
 
   it("leaves the master out on a layout that hides it", async () => {
-    const { deck, slide } = await scene("title", [{ type: "shape", id: "only", shape: "rect", ...box(0, 0, 10, 10) }], { theme: "Lecture" });
+    const { deck, slide } = await scene("title", [{ type: "shape", id: "only", shape: "rect", ...box(0, 0, 10, 10) }], { theme: "Lecture", ...numbered });
     expect(ids(draw(<SlideView deck={deck} slide={slide} />))).toEqual(["only"]);
   });
 
   it("draws the master of a theme that has only the slide number", async () => {
-    const { deck, slide } = await scene("blank");
+    const { deck, slide } = await scene("blank", [], numbered);
     expect(ids(draw(<SlideView deck={deck} slide={slide} />))).toEqual(["master-number"]);
   });
 
   it("gives the slide-number field its number, the count and the step label", async () => {
-    const { deck, slide: plain } = await scene("blank");
+    const { deck, slide: plain } = await scene("blank", [], numbered);
     const slide = { ...plain, steps: 7 };
     const at = (props: object) => blocks(draw(<SlideView deck={deck} slide={slide} {...props} />), true)[0];
     expect(at({ number: 3, count: 12, step: 2 })?.fields).toEqual({ slideNumber: 3, slideCount: 12, stepLabel: "Step 2 / 7" });
@@ -95,23 +99,38 @@ describe("SlideView", () => {
   });
 
   it("has no step label on a slide without steps", async () => {
-    const { deck, slide } = await scene("blank");
+    const { deck, slide } = await scene("blank", [], numbered);
     expect(blocks(draw(<SlideView deck={deck} slide={slide} step={1} />), true)[0]?.fields).toEqual({});
   });
 
   it("words the step label as the deck says", async () => {
-    const { deck, slide } = await scene("blank");
+    const { deck, slide } = await scene("blank", [], numbered);
     const custom = { ...deck, present: { ...deck.present, stepLabel: "{n} of {total} ({n})" } };
     expect(blocks(draw(<SlideView deck={custom} slide={{ ...slide, steps: 4 }} step={3} />), true)[0]?.fields?.stepLabel).toBe("3 of 4 (3)");
   });
 
-  it("hides the slide numbers the deck turns off, except in an editor", async () => {
+  it("hides the slide numbers the deck turns off, in an editor too", async () => {
     const { deck, slide } = await scene("blank");
     const off = { ...deck, present: { ...deck.present, slideNumbers: false } };
-    expect(ids(draw(<SlideView deck={off} slide={slide} mode="present" />))).toEqual([]);
-    expect(ids(draw(<SlideView deck={off} slide={slide} mode="thumbnail" />))).toEqual([]);
-    expect(ids(draw(<SlideView deck={off} slide={slide} mode="export" />))).toEqual([]);
-    expect(ids(draw(<SlideView deck={off} slide={slide} mode="edit" />))).toEqual(["master-number"]);
+    for (const mode of ["present", "thumbnail", "export", "edit"] as const) {
+      expect(ids(draw(<SlideView deck={off} slide={slide} mode={mode} />)), mode).toEqual([]);
+    }
+  });
+
+  it("draws the slide number the deck turns on, in every mode", async () => {
+    const { deck, slide } = await scene("blank");
+    const on = { ...deck, present: { ...deck.present, slideNumbers: true } };
+    for (const mode of ["present", "thumbnail", "export", "edit"] as const) {
+      expect(ids(draw(<SlideView deck={on} slide={slide} mode={mode} />)), mode).toEqual(["master-number"]);
+    }
+  });
+
+  it("shows no number on a title slide either when the deck turns them off", async () => {
+    const { deck, slide } = await scene("title");
+    const off = { ...deck, present: { ...deck.present, slideNumbers: false } };
+    expect(ids(draw(<SlideView deck={off} slide={{ ...slide, elements: [] }} mode="edit" />))).toEqual([]);
+    const on = { ...deck, present: { ...deck.present, slideNumbers: true } };
+    expect(ids(draw(<SlideView deck={on} slide={{ ...slide, elements: [] }} mode="edit" />))).toEqual(["master-number"]);
   });
 
   it("keeps the slide numbers of the slide's own elements whatever the deck says", async () => {

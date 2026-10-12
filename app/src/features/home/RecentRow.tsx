@@ -1,0 +1,62 @@
+// One row of Home's recent list: a small icon for the kind of thing, its
+// title, the project it is in and when it last changed. Every row is the same
+// height, whatever the title, so the list never jumps.
+
+import type { KeyboardEvent } from "react";
+
+import { IconOrEmoji } from "../../ui/IconOrEmoji";
+import { openMenuHandlers } from "../../shell/open-menu";
+import { howFrom, useWorkspace } from "../workspace/store";
+import type { HomeItem, ItemType } from "./recent-items";
+import { ago, agoLong } from "./when";
+
+const KIND: Record<ItemType, string> = { page: "Page", card: "Card", board: "Whiteboard", deck: "Deck", diagram: "Diagram", capture: "Capture" };
+
+export function RecentRow({ item, project, tab, onFocus }: { item: HomeItem; project: string | null; tab: boolean; onFocus(): void }) {
+  const kind = KIND[item.type];
+  const open = (event: KeyboardEvent<HTMLButtonElement>) => {
+    // Ctrl+Enter opens it in the pane to the right; Enter alone is the button's own click.
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    useWorkspace.getState().openPath(item.path, "right");
+  };
+  return (
+    <li className="kasten-home-item">
+      <button
+        type="button"
+        className="kasten-home-row"
+        data-type={item.type}
+        data-row=""
+        tabIndex={tab ? 0 : -1}
+        title={`${kind}${project ? ` · ${project}` : ""} · ${agoLong(item.modified)}`}
+        onClick={(event) => useWorkspace.getState().openPath(item.path, howFrom(event))}
+        onKeyDown={open}
+        onFocus={onFocus}
+        {...openMenuHandlers(item.path)}
+      >
+        <span className="kasten-home-row-icon">
+          <IconOrEmoji icon={item.icon} />
+        </span>
+        <span className="kasten-home-row-title">{item.title}</span>
+        <span className="sr-only">{kind}</span>
+        <span className="kasten-home-row-meta">
+          <span className="kasten-home-row-project">{project}</span>
+          <span className="kasten-home-row-time">{ago(item.modified)}</span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** A row that holds its place while the vault is read. */
+export function SkeletonRow() {
+  return (
+    <li className="kasten-home-item" aria-hidden="true">
+      <span className="kasten-home-row is-skeleton">
+        <span className="kasten-home-bone is-icon" />
+        <span className="kasten-home-bone is-title" />
+        <span className="kasten-home-bone is-time" />
+      </span>
+    </li>
+  );
+}

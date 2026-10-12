@@ -57,7 +57,7 @@ pub fn body(url: &str, model: &str, max_tokens: u32, call: &Call<'_>) -> Value {
 /// Arguments as they go back to the server. Some servers parse the ones in
 /// the history, so arguments that were not JSON go back as `{}`; the tool's
 /// error told the model what was wrong with them.
-fn arguments(call: &ToolCall) -> String {
+pub(super) fn arguments(call: &ToolCall) -> String {
     match call.input() {
         Ok(_) if !call.arguments.trim().is_empty() => call.arguments.clone(),
         _ => "{}".to_owned(),
@@ -241,6 +241,7 @@ impl Stream {
             calls,
             stop,
             blocks: None,
+            items: None,
         }
     }
 }

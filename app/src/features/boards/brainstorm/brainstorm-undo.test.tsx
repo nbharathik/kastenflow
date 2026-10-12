@@ -63,13 +63,14 @@ describe("an agent brainstorm", () => {
     const canvas = await screen.findByLabelText(/^Whiteboard:/, undefined, { timeout: 5000 });
     await waitFor(() => expect(canvas.querySelectorAll(".react-flow__node")).toHaveLength(2));
 
-    // Brainstorm from the bar.
-    fireEvent.click(screen.getByRole("button", { name: "Brainstorm with AI" }));
+    // Brainstorm from the board's "More" menu.
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Brainstorm with AI/ }));
     const form = await screen.findByRole("dialog", { name: "Brainstorm on this board" });
     fireEvent.change(await within(form).findByLabelText("Ideas about"), { target: { value: "Day trips" } });
     fireEvent.click(within(form).getByRole("radio", { name: "4" }));
     await act(async () => fireEvent.click(within(form).getByRole("button", { name: "Brainstorm" })));
-    await waitFor(() => expect(canvas.querySelectorAll(".react-flow__node")).toHaveLength(7));
+    await waitFor(() => expect(canvas.querySelectorAll(".react-flow__node")).toHaveLength(7), { timeout: 5000 });
 
     // Review: the toast opens History on the session, with every change.
     const toast = await screen.findByRole("button", { name: "Review" });

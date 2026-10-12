@@ -1,4 +1,4 @@
-# The Kasten Slides deck format
+# The KastenFlow Slides deck format
 
 A deck is one file with the extension `.deck`. It is JSON, written the same
 way every time, so a deck is always the same bytes and a change shows in git
@@ -22,10 +22,16 @@ so a deck saved by a newer build survives an older one.
 
 ## Units
 
-A 16:9 slide is **960 x 540 units**; a 4:3 slide is 720 x 540. One unit is 1/96
-inch, exactly 9525 EMU in PowerPoint, so exporting never rounds. The origin is
-the top left and angles are degrees clockwise. Type sizes are in points, as in
-Google Slides (1 pt is 4/3 units).
+A 16:9 slide is **960 x 540 units**. One unit is 1/96 inch, exactly 9525 EMU in
+PowerPoint, so exporting never rounds. The size of a deck's slides is `size`
+(`w` and `h`); a slide may be any size from 96 to 5376 units (one to 56 inches)
+each way. The page setup names four: 16:9 (960 x 540), 16:10 (960 x 600), 4:3
+(960 x 720) and 1:1 (720 x 720). The origin is the top left and angles are degrees
+clockwise. Type sizes are in points, as in Google Slides (1 pt is 4/3 units).
+
+`set_page_size` changes the size of a deck's slides and refits what is in them
+(see *Page size*). A new deck can be made at any size, and with a theme's example
+slides.
 
 Numbers are written without a fraction when they are whole, and positions are
 rounded to two decimals.
@@ -49,6 +55,60 @@ rounded to two decimals.
 Keys are written in alphabetical order. Ids are a kind prefix and eight random
 base36 characters: `d-` for a deck, `s-` for a slide, `e-` for an element.
 
+### Presenting
+
+`present` holds the settings of the whole deck. `slideNumbers` says whether the
+slide number that the theme's master draws shows on every slide, in an editor,
+when presenting and in an exported file. A new deck is made with it `false`; a
+deck that says `true` keeps its numbers. `stepLabel` is the wording of the
+step counter, with `{n}` and `{total}` filled in. `transition` is how a slide
+that names no transition of its own arrives (`{ "kind": "fade", "duration": 0.4 }`,
+and `fade`, `slide` or `morph`); a deck without one cuts from slide to slide. The
+`set_present` operation changes these settings, and only the ones it is given; a
+`transition` of kind `none` takes the deck's away.
+
+### Page size
+
+`set_page_size { preset }` or `{ w, h }` changes `size` and refits the whole deck
+as one step of undo: every slide's elements, the theme's layouts and its master.
+
+- Boxes stretch with the slide: what stood at a fraction of the width stands at
+  the same fraction, and the same goes for the height.
+- Type, line widths, corner radii, shadows and the room inside a box follow the
+  width, so a slide that keeps its width (16:9 to 4:3 at 960 units) keeps its type
+  sizes. Sizes are rounded to the half point when the width changes.
+- A picture, anything turned and a circle keep their shape: they are fitted inside
+  the stretched box and centred in it, not stretched with it.
+- Positions are rounded to two decimals. A size that is no smaller than the deck's
+  either way (16:9 to 4:3 at 960 units, say) and back gives the deck it was, byte for
+  byte, when its numbers have at most two decimals and it holds no picture, turned
+  element or circle; a size that is smaller one way or the other and back can differ
+  by a hundredth of a unit, and pictures, turned elements and circles come back
+  smaller than they were whenever the box did not grow by the same ratio on both
+  sides. Undo is always exact.
+- The built-in themes are drawn for 960 x 540 and refitted in the same way when a
+  deck of another size takes one (`apply_theme`) or is made in one.
+
+### Templates
+
+A built-in theme is also a template: its colours and fonts, the stripes, rules
+and marks of its master, twelve layouts positioned for it, and seven example
+slides (a title, a section, a list, two columns, a picture beside words, a quote
+and a closing slide). A new deck can start with them; they are ordinary slides.
+The themes are Light, Dark, Serif, Lecture, Minimal, Bold, Modern, Academic,
+Pitch, Dark Studio and Warm Paper, all set in fonts the editor bundles or in the
+fonts PowerPoint ships with.
+
+A template of your own is a deck whose look is the point: *Save as template* keeps a
+deck's theme (colours, fonts, text styles, the layouts you made, what every slide shows
+behind it), its page size and, if you ask, its slides as examples. In KastenFlow it is an
+ordinary `.deck` file in the vault's `templates/slides/` folder, which the deck list
+leaves out and agents may read but not write. A new deck can start from it (with its
+look, its shape and, if you want them, its slides), and *Apply a template* puts its
+look on a deck that exists: the theme is replaced, the page size too when you ask, and
+every slide keeps its words and elements. Layouts the deck has that the template lacks
+are kept after the template's own, so no slide changes layout.
+
 ### Theme
 
 A deck carries its own copy of its theme, so it opens the same anywhere.
@@ -59,9 +119,48 @@ A deck carries its own copy of its theme, so it opens the same anywhere.
 - **textStyles**: named looks (`title`, `subtitle`, `body`, `caption`, `code`,
   `citation` and a few more): size in points, colour token, font role.
 - **layouts**: named layouts with placeholders (slots). A placeholder has a
-  role (`title`, `body`, `image`, ...), a box, a text style and a prompt.
+  role (`title`, `body`, `image`, ...), a box, a text style and a prompt. A layout
+  also has a `label` (what people call it; the `name` is what slides refer to), and
+  may carry its own decoration and background, see *Layouts of your own* below.
 - **master**: elements drawn on every slide, such as a header bar, a logo and a
   slide number. A layout can hide them.
+- **newSlideLayout**: the name of the layout a new slide starts from when the person
+  chose "my default layout"; the blank layout when it is absent or names a layout the
+  theme does not have.
+
+### Layouts of your own
+
+The twelve layouts of the built-in themes are not the only ones. A layout may carry:
+
+- `elements`: shapes, pictures and words drawn on every slide of the layout, over the
+  master's and under the slide's own elements. They are ordinary elements (a code block
+  or a formula is saved as the group of shapes it is drawn with) and are not selectable
+  on a slide: changing them changes every slide that uses the layout. Element ids are
+  unique inside one layout.
+- `background`: what fills a slide of the layout that has no background of its own
+  (a slide's own background wins).
+- `hideMaster`, as before.
+
+A slot a person made takes the role it is given (`title`, `subtitle`, `body`, `text`,
+`image`, `caption`; a second of a kind is `body2`, `image2` ...). Its look is a named text
+style; when the person set the words in it differently from the theme (a bigger centred
+title, say) the layout has a text style of its own for it, named for the layout and the
+slot (`poster.title`), which a copy of the layout copies and deleting the layout takes away.
+
+A slide follows its layout by what it leaves out: a placeholder element with no `x`, `y`,
+`w` or `h` of its own stands where the layout puts the slot, so changing the layout moves
+it, while one that was moved by hand has a box of its own and stays. `reset_slides` takes
+the boxes away again and adds the slots the slide lacks.
+
+The editor saves a slide as a layout (`save_layout`), designs a layout on a slide made
+of it (`set_layout_design`), and renames, copies, orders, deletes (`delete_layout`, the
+slides that use it move to another layout) and imports layouts (`import_layouts`). Applying a
+built-in theme (`apply_theme`) keeps the layouts a person made after the theme's own twelve.
+
+In a PowerPoint file a layout of your own is a layout of the file: its decoration and
+background are written on the layout, its slots are its placeholders, and slides of it
+point at it. Reading a PowerPoint file still puts what a layout draws on each slide that
+uses it.
 
 Anywhere a colour is wanted, write a token (`accent2`) so it follows the theme,
 or a hex value (`#1a73e8`) for a colour of its own.
@@ -126,7 +225,8 @@ give the same id to an element on purpose: that is how a Morph pairs them.
 | `placeholder` | The layout slot this element fills. |
 | `style` | `fill`, `stroke`, `radius`, `shadow`, `opacity`, `startArrow`, `endArrow`. |
 | `stepStates` | The state (`hidden`, `dimmed`, `normal`, `highlighted`) from each step onward. |
-| `name`, `alt`, `locked`, `link`, `morphId` | Layer name, alt text, lock, address, Morph link. |
+| `name`, `alt`, `locked`, `link`, `morphId` | Layer name, alt text, lock, address, Morph link. A `link` is a web address, `slide:<id>`, or `page:<path>` for a page of the host. |
+| `source` | The page of the host the element was made from or points at (see *Pages of the host*). |
 
 The types:
 
@@ -140,7 +240,11 @@ The types:
   `assets/figure.png`; optional `crop` and `mask`. A picture is stretched to its
   box; `"fit": "cover"` makes it fill the box without being stretched instead,
   cut at the sides or at the top and bottom to the box's shape (a `crop` of its
-  own comes first).
+  own comes first). A picture drawn from a diagram may carry `x-diagram`, the
+  host's name for that diagram (in KastenFlow a vault path such as
+  `library/Login-flow.drawio`), so the host can offer to edit it. It is a field
+  the model does not list and so is kept like any other; a PowerPoint file
+  carries only the picture, which is a PNG.
 - **`group`**: `children`, in slide coordinates; it moves and scales them.
 - **`table`**: `columns` (widths), `rows` of `cells`, and `headerRow`. Cells go left
   to right, skipping places a cell above covers; `colSpan` and `rowSpan` are 1 or
@@ -166,8 +270,9 @@ The types:
   when the file opens are left out, the object is drawn as its `preview` instead,
   and the export's warnings name what was left out.
 - **composites**: `code`, `math`, `chat`, `token-probs`, `card-grid`,
-  `citation`, `step-label`, `embed` and `video`. Each has a few fields of its
-  own and is drawn as the elements above; see *Composite elements* below.
+  `citation`, `step-label`, `embed`, `video`, `chart`, `timer` and `qr`. Each has
+  a few fields of its own and is drawn as the elements above; see *Composite
+  elements* below.
 
 ### Text
 
@@ -181,9 +286,35 @@ survives a trip through PowerPoint.
 ```
 
 A run has `t` and, when they apply, `b`, `i`, `u`, `s` (bold, italic,
-underline, strike), `color`, `size`, `font`, `link`, `code` and `math`. A
-paragraph has `align`, `list` (`bullet` or `number`), `level`, `style`, and
-spacing. No list means a plain paragraph.
+underline, strike), `color`, `size`, `font`, `link`, `code` and `math`, and
+`script` (`super` or `sub`), `smallCaps`, `allCaps` and `spacing` (extra space
+between letters, in points). A paragraph has `align`, `list` (`bullet` or
+`number`), `level` (0 to 8), `style`, and spacing (`lineSpacing`,
+`spaceBefore`, `spaceAfter`). No list means a plain paragraph.
+
+A list item can also say how its marker looks and where it sits:
+
+- `listStyle`: `disc`, `circle`, `square`, `arrow`, `check` or `dash` for a
+  bullet; `decimal`, `decimalParen`, `lowerAlpha`, `upperAlpha`, `lowerRoman` or
+  `upperRoman` for a number. Without it the level decides (disc, circle and
+  square for bullets; 1. a. i. for numbers).
+- `start`: a numbered item counts from this number, which restarts the list or
+  continues one that something else interrupted. Items that follow count on.
+- `bulletColor` (a theme colour or `#rrggbb`) and `bulletSize` (a multiple of
+  the words' size, 0.25 to 4): the marker's own colour and size. A marker
+  follows its paragraph's words, the first run's size and colour, until told
+  otherwise.
+- `marginLeft` and `indent`: where the lines after the first start and where the
+  first starts from there (negative hangs the marker out), in slide units. The
+  level and the room the marker needs decide when they are left out.
+
+A paragraph with no words holds one empty run, `{ "t": "" }`, and that run's
+`size`, `color` and the other settings are the paragraph's mark: they say how
+tall its line is and how large its marker is, and words typed there take them.
+
+A text has `valign`, `insets`, `fit` (`none`, `shrink` or `resize`: what the box
+does when its words do not fit) and `wrap` (`false` keeps each paragraph on one
+line).
 
 Operations accept Markdown and turn it into runs; the file always holds runs.
 
@@ -277,8 +408,11 @@ composite looks the same in each.
 | `card-grid` | `cards` (`title`, `body`), `columns` | Rounded cards in a grid. |
 | `citation` | `keys` (BibTeX keys), `format` (`short`, `numbered`, `full`, `list`) | One small text box. |
 | `step-label` | `format` | One text box that says "Step n / N". |
-| `embed` | `url`, `poster`, `title` | The poster, or a dashed panel that names the page. |
+| `embed` | `url`, `poster`, `title`, `design`, `zoom`, `fit`, `reader` | The poster, or a dashed panel that names the page; for a page of the host, a card with the page's words. |
 | `video` | `src`, `poster`, `autoplay`, `looped` | The poster, or a dark panel, with a play button. |
+| `chart` | `kind` (`bar`, `line`, `pie`), `title`, `categories`, `series` (`name`, `values`, `color`), `labels`, `legend` | Axes, gridlines and the bars, lines or wedges, with a legend. |
+| `timer` | `seconds`, `label`, `autostart` | The time left as `m:ss` on a rounded panel. |
+| `qr` | `data`, `caption` | The code as black runs on a white tile, with the caption under it; a note when `data` is empty or too long (213 bytes). |
 
 A composite has a box (`x`, `y`, `w`, `h`, or its placeholder's) and the common
 fields. `rotation` turns the parts about the middle of the box and `stepStates`
@@ -349,7 +483,7 @@ writes the LaTeX as italic text, centred in the box, and adds a warning.
 - **`card-grid`**: the columns come from the number of cards unless `columns`
   names them; all cells are the same size and all cards are set at one size.
 - **`citation`**: a key names a work in a bibliography, which the host gives as
-  BibTeX (Kasten reads the `.bib` files of the vault; `slides dev` and the `slides`
+  BibTeX (KastenFlow reads the `.bib` files of the vault; `slides dev` and the `slides`
   command read the `.bib` files beside the decks, `refs.bib` for one). `short`, the
   default, is who, when and where: `Vaswani et al., 2017 (NeurIPS)`, works joined by
   `;`; `numbered` is `[1][2]`, the number the deck gives each work (a work is numbered
@@ -368,6 +502,20 @@ writes the LaTeX as italic text, centred in the box, and adds a warning.
 - **`embed`**: present mode shows the live page; everywhere else it is the
   `poster`, or a dashed panel with the `title` (or the site's name) and the
   address. Every part links to `url`. Only `http` and `https` addresses are links.
+  How the page sits in its box is told by `design`, `zoom` and `fit`; see *A page at
+  the size of a window*. An embed with no `url` and a `source` is a page of the host.
+- **`chart`**: `bar` and `line` draw one group of bars or one line for each series
+  against `categories`, on axes that start at zero and end on a round number;
+  `pie` draws the first series as wedges, with a legend that names each and its
+  share. Colours are the theme's accents in order unless a series names one. At
+  most 40 categories and 12 series are drawn, names are cut at 120 characters and
+  the title at 200, and a number that is not finite is a zero.
+- **`timer`**: `seconds` (up to 24 hours less a second) is drawn as `m:ss` or
+  `h:mm:ss`, with `label` over it. `autostart` is kept for a presentation that counts
+  down; the editor does not offer a timer yet, so it is made by a file or an assistant.
+- **`qr`**: byte mode at error correction level M, versions 1 to 10. The code is
+  drawn as rectangles in black on a white tile (a scanner needs that contrast
+  whatever the theme), so it exports to PowerPoint as shapes.
 - **`video`**: present mode plays `src`; everywhere else it is the `poster`, or a
   dark panel with the file's name, and a play button. A `src` that is a web
   address is also the link of every part.
@@ -376,6 +524,62 @@ The `poster` of an `embed` or a `video` is a picture with `"fit": "cover"`, so a
 still that is not the shape of the box fills it without being stretched, on the
 slide and in PowerPoint alike. The words on a panel without a poster are set at
 14 points or more wherever the box has room for them.
+
+### A page at the size of a window
+
+A web page is designed for a window, not for a box of 640 by 360. Laid out at the
+box's own size it would be squeezed into its phone layout, so an `embed` says what
+window the page is laid out for and the whole is scaled to the box:
+
+- `design`: `{ "w": 1280, "h": 800 }` by default (Desktop). The editor offers
+  Desktop 1280 by 800, Wide 1440 by 900, Slide 1280 by 720, Tablet 820 by 1180,
+  Phone 390 by 844, Narrow page 640 by 360, or a size of your own from 200 to 4000.
+- `fit`: how the page meets the box when there is no zoom. `width` (the default)
+  lays the page out at the design's width and as tall as the box needs, so its
+  width fills the box; `page` shows the whole window, with bars where the box has
+  another shape; `fill` covers the box and cuts off what does not fit.
+- `zoom`: from 0.25 to 3, a fixed zoom as a browser's: the page is laid out as a
+  window of the box divided by the zoom. Left out, the page follows the box (Fit).
+  Ctrl and plus, minus or zero change it for the selected embed, and the wheel with
+  Ctrl does too; in a presentation the same keys zoom the page while it has been
+  clicked to use, for that showing only.
+- `reader`: the readable text of the page, where the host can make it.
+
+A page of the host is laid out at 640 by 360 unless it says otherwise. Whatever
+the box, the page keeps its layout, fonts and proportions; resizing the box only
+changes the scale. Only the slide being shown has live pages: the others draw the
+`poster`, the snapshot of the page.
+
+### Pages of the host
+
+A host that has pages of its own (KastenFlow has notes) lets a deck use them. The deck
+never reads the host's files: the host reads a page and hands over its Markdown,
+and what the deck keeps is in the element's `source`:
+
+| Field | Meaning |
+| --- | --- |
+| `page` | The page, as the host names it (in KastenFlow a vault path such as `projects/talk/plan.md`). |
+| `id`, `title`, `icon` | The host's stable name for the page, and what it was called, when it was read. |
+| `section` | The heading whose section it is; the whole page when absent. |
+| `kind` | `embed` (a live page), `contents` (its words as slide elements), `section`, or `link`. |
+| `sync` | Flag the element when the page changes, so it can be updated. |
+| `hash` | A fingerprint (16 hex digits, FNV-1a) of the Markdown it was made from; it ignores line endings and blank lines at the end. |
+| `markdown` | For an embedded page only: the page's words as read, which is what is drawn where the page cannot be read. |
+
+A link to a page is `page:` and the page's path with spaces and the marks of
+Markdown written as `%20` and the like, then `#` and the heading for a section.
+Wiki links (`[[Page|words]]`) in a page's Markdown become such links.
+
+Three operations work from the Markdown the host read, so they work wherever the
+deck is: `add_page_contents` puts a page (or one section of it) on a slide as a text
+box that shrinks to fit, with its pictures, tables, code and formulas beside or
+under it; `update_page_contents` makes an element that was made that way again from
+the page as it is now, keeping its id, name, steps, link and place; `add_page_slides`
+cuts a page at its headings into slides. The reading handles headings, paragraphs,
+bullets, numbers and to-dos with indents, quotes and callouts, fenced code, tables,
+pictures, block formulas, rules and toggles; what it does not know it keeps as words.
+"Break link" is a `patch_elements` that removes `source`. PowerPoint cannot open a
+page of the host, so an export leaves `page:` links out and says so.
 
 ### Steps follow content
 
@@ -434,4 +638,6 @@ operation can be undone exactly.
 
 ## Format changes
 
-- **1**: the first version.
+- **1**: the first version. A layout's `elements` and `background` and the theme's
+  `newSlideLayout` were added to it without a new version: an older build keeps what it
+  does not know and writes it back, and draws a slide without the layout's decoration.

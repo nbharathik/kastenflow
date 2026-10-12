@@ -1,7 +1,7 @@
 import type { Section, Slide } from "@kasten-slides/wasm";
 import { describe, expect, it } from "vitest";
 
-import { FRAME, LIST_PAD, ROW_PAD, SECTION_H, entryOf, gapAt, gapTop, layoutFilmstrip, sectionOf, thumbHeight, visibleIds } from "./model.ts";
+import { FRAME, LIST_PAD, ROW_PAD, SECTION_H, entryOf, gapAt, gapShifts, gapTop, layoutFilmstrip, sectionOf, thumbHeight, visibleIds } from "./model.ts";
 
 const slide = (id: string, extra: Partial<Slide> = {}): Slide => ({ id, layout: "blank", elements: [], ...extra });
 const size = { w: 960, h: 540 };
@@ -107,5 +107,63 @@ describe("gapAt and gapTop", () => {
     const header = folded.entries[2]!;
     expect(gapAt(folded, header.top + header.height - 1, 4)).toBe(4);
     expect(gapTop(folded, 4)).toBe(header.top + header.height);
+  });
+});
+
+describe("gapShifts", () => {
+  const five = layoutFilmstrip(deck(["a", "b", "c", "d", "e"]), new Set());
+
+  it("closes the rows up behind slides in the hand, and opens a gap where they would land", () => {
+    // b pulled to the gap before e: c and d close up one row, and e stays where the gap leaves it.
+    const down = gapShifts(five, new Set(["b"]), 4);
+    expect([...down.rows]).toEqual([
+      ["c", -ROW],
+      ["d", -ROW],
+    ]);
+    // d pulled up to the gap before b: b and c make room, one row down.
+    const up = gapShifts(five, new Set(["d"]), 1);
+    expect([...up.rows]).toEqual([
+      ["b", ROW],
+      ["c", ROW],
+    ]);
+  });
+
+  it("moves nothing when the slides would land where they were", () => {
+    for (const gap of [1, 2]) expect(gapShifts(five, new Set(["b"]), gap).rows.size).toBe(0);
+    expect(gapShifts(five, new Set(["b", "c"]), 1).rows.size).toBe(0);
+    expect(gapShifts(five, new Set(["b", "c"]), 3).rows.size).toBe(0);
+  });
+
+  it("makes room for as many rows as there are slides in the hand", () => {
+    // b and c pulled to the end: d and e close up two rows.
+    expect([...gapShifts(five, new Set(["b", "c"]), 5).rows]).toEqual([
+      ["d", -2 * ROW],
+      ["e", -2 * ROW],
+    ]);
+    // d and e pulled to the start: a, b and c go down two rows.
+    expect([...gapShifts(five, new Set(["d", "e"]), 0).rows]).toEqual([
+      ["a", 2 * ROW],
+      ["b", 2 * ROW],
+      ["c", 2 * ROW],
+    ]);
+  });
+
+  it("moves a section's header with its slides", () => {
+    const sectioned = layoutFilmstrip(deck(["a", "b", "c", "d"], [{ title: "Two", startsAt: "c" }]), new Set());
+    // a pulled to the end: b, the header of "Two", c and d all close up one row.
+    const shifts = gapShifts(sectioned, new Set(["a"]), 4);
+    expect([...shifts.rows]).toEqual([
+      ["b", -ROW],
+      ["c", -ROW],
+      ["d", -ROW],
+    ]);
+    expect([...shifts.headers]).toEqual([["c", -ROW]]);
+  });
+
+  it("leaves out the slides of a folded section, which are not in the list to be moved", () => {
+    const folded = layoutFilmstrip(deck(["a", "b", "c"], [{ title: "Two", startsAt: "b" }]), new Set(["b"]));
+    // c is in the hand but out of sight, so it leaves no hole and needs no gap: nothing in the list moves.
+    const shifts = gapShifts(folded, new Set(["c"]), 0);
+    expect(shifts.rows.size + shifts.headers.size).toBe(0);
   });
 });

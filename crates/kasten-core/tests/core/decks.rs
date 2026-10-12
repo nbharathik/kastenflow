@@ -95,7 +95,7 @@ fn the_envelope_is_checked_and_the_head_read() {
     ] {
         let message = invalid(deck::head_of(text));
         assert!(
-            message.starts_with("Not a Kasten deck"),
+            message.starts_with("Not a KastenFlow deck"),
             "{text}: {message}"
         );
         assert!(message.contains(why), "{text}: {message}");
@@ -119,7 +119,9 @@ fn a_new_deck_goes_where_boards_go_and_never_replaces_one() {
     assert!(invalid(deck::create_deck(&t.vault, "X", Some("nope"), &text)).contains("nope"));
     assert!(invalid(deck::create_deck(&t.vault, "  ", None, &text)).contains("title"));
     assert!(invalid(deck::create_deck(&t.vault, "A|B", None, &text)).contains("title"));
-    assert!(invalid(deck::create_deck(&t.vault, "X", None, "{}")).starts_with("Not a Kasten deck"));
+    assert!(
+        invalid(deck::create_deck(&t.vault, "X", None, "{}")).starts_with("Not a KastenFlow deck")
+    );
     assert!(!t.vault.root().join("library/x.deck").exists());
 }
 
@@ -236,7 +238,7 @@ fn a_save_that_is_not_a_deck_leaves_the_file_alone() {
     let hash = content_hash(&text);
     for bad in ["", "{}", "not json", &text.replace("kasten-deck", "other")] {
         let err = deck::write_deck(&t.vault, &path, bad, &hash, NOW);
-        assert!(invalid(err).starts_with("Not a Kasten deck"));
+        assert!(invalid(err).starts_with("Not a KastenFlow deck"));
     }
     assert_eq!(
         fs::read_to_string(t.vault.root().join(&path)).unwrap(),
@@ -320,7 +322,7 @@ fn decks_are_listed_by_title_with_their_project_and_size() {
             .problem
             .as_deref()
             .unwrap()
-            .starts_with("Not a Kasten deck")
+            .starts_with("Not a KastenFlow deck")
     );
     assert_eq!(k.resolve_deck("tool use").unwrap(), a);
     assert_eq!(k.resolve_deck(&b).unwrap(), b);
@@ -431,7 +433,7 @@ fn verify_finds_unreadable_decks_and_missing_images() {
     assert_eq!(decks.len(), 2, "{decks:?}");
     assert!(decks.iter().any(|(kind, path, detail)| *kind == "deck"
         && *path == "library/broken.deck"
-        && detail.starts_with("Not a Kasten deck")));
+        && detail.starts_with("Not a KastenFlow deck")));
     assert!(
         decks
             .iter()

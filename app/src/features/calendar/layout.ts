@@ -5,10 +5,12 @@
 
 import { daysBetween, isoDay } from "../../lib/dates";
 import type { DayMention, NoteMeta, TagSchema, TaskRow } from "../../lib/vault/types";
-import { tagTone } from "../library/parts";
+import { tagSwatch } from "../library/parts";
+import type { Swatch } from "../panel/properties/schemas";
 import { titleOf } from "../workspace/names";
 import type { Dragged } from "./actions";
 import { addDays, monthGrid, monthTitle, weekOf, type DateItem } from "./dates";
+import type { EventPart } from "./external/types";
 import { byStart, MAX_DAYS, rangeId, type DateRange } from "./ranges";
 
 /** A month grid, a week of columns, or the month as a list of its days. */
@@ -16,13 +18,15 @@ export type Mode = "month" | "week" | "agenda";
 
 /** One thing on a day: a note by one of its date properties, a range over
  * the day (in a day's popover), a dated to-do, a note that mentions the day
- * (`[[2026-10-01]]`), or a note made on the day. */
+ * (`[[2026-10-01]]`), a note made on the day, or an event of a subscribed
+ * calendar (read-only). */
 export type Entry =
   | { kind: "note"; item: DateItem }
   | { kind: "range"; range: DateRange }
   | { kind: "task"; task: TaskRow }
   | { kind: "mention"; mention: DayMention }
-  | { kind: "made"; note: NoteMeta };
+  | { kind: "made"; note: NoteMeta }
+  | { kind: "event"; part: EventPart };
 
 const parts = (day: string) => day.split("-").map(Number) as [number, number, number];
 const dateOf = (day: string) => {
@@ -116,28 +120,45 @@ export function isDone(note: NoteMeta): boolean {
 
 const byTitle = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
 
-/** A day's notes, open ones first and then by title, followed by its
- * to-dos, the notes that mention it and the notes made on it; a note
- * already listed for the day is not listed again. */
-export function dayEntries(items: readonly DateItem[] = [], tasks: readonly TaskRow[] = [], mentions: readonly DayMention[] = [], made: readonly NoteMeta[] = []): Entry[] {
+/** The time of day (`HH:MM`) a to-do, a mention of the day or an event of a
+ * subscribed calendar carries, if any. */
+export const entryTime = (entry: Entry): string | null =>
+  (entry.kind === "task" ? entry.task.at : entry.kind === "mention" ? entry.mention.at : entry.kind === "event" ? entry.part.at : null) ?? null;
+
+/** A day's all-day events from subscribed calendars, then its notes, open
+ * ones first and then by title, followed by its timed events, to-dos and
+ * mentions in time order, then the to-dos, the notes that mention it and the
+ * notes made on it with no time; a note already listed for the day is not
+ * listed again. */
+export function dayEntries(items: readonly DateItem[] = [], tasks: readonly TaskRow[] = [], mentions: readonly DayMention[] = [], made: readonly NoteMeta[] = [], events: readonly EventPart[] = []): Entry[] {
   const notes = items
     .map((item) => ({ item, done: isDone(item.note), title: titleOf(item.note) }))
     .sort((a, b) => Number(a.done) - Number(b.done) || byTitle.compare(a.title, b.title));
   const listed = new Set([...items.map((i) => i.path), ...tasks.map((t) => t.path)]);
   const fresh = (path: string) => !listed.has(path) && Boolean(listed.add(path));
+  const todos = tasks.map((task): Entry => ({ kind: "task", task }));
+  const links = mentions.filter((m) => fresh(m.path)).map((mention): Entry => ({ kind: "mention", mention }));
+  // Times are zero-padded, so they order as text; equal times keep their order.
+  const happenings = events.map((part): Entry => ({ kind: "event", part }));
+  const timed = [...todos, ...links, ...happenings].filter((e) => entryTime(e) !== null).sort((a, b) => (entryTime(a)! < entryTime(b)! ? -1 : entryTime(a)! > entryTime(b)! ? 1 : 0));
   return [
+    ...happenings.filter((e) => entryTime(e) === null),
     ...notes.map(({ item }): Entry => ({ kind: "note", item })),
-    ...tasks.map((task): Entry => ({ kind: "task", task })),
-    ...mentions.filter((m) => fresh(m.path)).map((mention): Entry => ({ kind: "mention", mention })),
+    ...timed,
+    ...todos.filter((e) => entryTime(e) === null),
+    ...links.filter((e) => entryTime(e) === null),
     ...made.filter((n) => fresh(n.path)).map((note): Entry => ({ kind: "made", note })),
   ];
 }
 
 /** A to-do's text without the day it names (`@2026-10-02`, `📅 2026-10-02`,
- * `[[2026-10-02]]`): its cell already says the day. */
-export function taskText(task: Pick<TaskRow, "text" | "due">): string {
+ * `[[2026-10-02]]`) and the time after it (`09:00`, which its chip shows
+ * apart): its cell already says the day. */
+export function taskText(task: Pick<TaskRow, "text" | "due" | "at">): string {
   if (!task.due) return task.text;
-  const marker = new RegExp(`\\s*(?:@|📅\\s?)?(?:\\[\\[)?${task.due}(?:\\|[^\\]]*)?(?:\\]\\])?(?![\\d-])`, "gu");
+  // As written the hour may lack its zero (`9:05`).
+  const time = task.at ? `(?:\\s+0?${Number(task.at.slice(0, 2))}:${task.at.slice(3)}(?![\\d:]))?` : "";
+  const marker = new RegExp(`\\s*(?:@|📅\\s?)?(?:\\[\\[)?${task.due}(?:\\|[^\\]]*)?(?:\\]\\])?(?![\\d-])${time}`, "gu");
   const text = task.text.replace(marker, "").replace(/\s{2,}/g, " ").trim();
   return text || task.text;
 }
@@ -203,24 +224,24 @@ export function landing(dragged: Dragged, day: string): { start: string; end: st
   return { start: addDays(range.start, by), end: addDays(range.end, by) };
 }
 
-/** A chip's or range's colour from the page palette: its tag's, else the
- * note's first coloured tag's; null for none (the accent). */
-export function chipTone(item: Pick<DateItem, "tag" | "note">, colors: ReadonlyMap<string, string>): string | null {
+/** A chip's or range's colours, as the Tag Database draws that tag: its tag's,
+ * else the note's first coloured tag's; null for none (the accent). */
+export function chipTone(item: Pick<DateItem, "tag" | "note">, colors: ReadonlyMap<string, string>): Swatch | null {
   const own = item.tag ? colors.get(item.tag.toLowerCase()) : undefined;
-  if (own) return tagTone(own);
+  if (own) return tagSwatch(own);
   for (const tag of item.note.tags) {
     const color = colors.get(tag.toLowerCase());
-    if (color) return tagTone(color);
+    if (color) return tagSwatch(color);
   }
   return null;
 }
 
 type Keys = Pick<KeyboardEvent, "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey">;
 
-export type CalendarKey = "prev" | "next" | "today" | Mode;
+export type CalendarKey = "prev" | "next" | "today" | "hours" | Mode;
 
 /** The calendar's own keys, pressed outside a text field: ←/→ a period, T
- * today, M month, W week, A agenda. */
+ * today, M month, W week, A agenda, H the week's hour grid. */
 export function calendarKey(event: Keys): CalendarKey | null {
   if (event.altKey || event.ctrlKey || event.metaKey) return null;
   switch (event.key.length === 1 ? event.key.toLowerCase() : event.key) {
@@ -236,6 +257,8 @@ export function calendarKey(event: Keys): CalendarKey | null {
       return "week";
     case "a":
       return "agenda";
+    case "h":
+      return "hours";
     default:
       return null;
   }

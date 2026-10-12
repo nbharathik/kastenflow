@@ -42,7 +42,7 @@ fn outline(value: &str) -> Result<&str> {
         Ok(value)
     } else {
         Err(Error::Invalid(format!(
-            "Kasten draws {}, not “{value}”",
+            "KastenFlow draws {}, not “{value}”",
             SHAPES.join(", ")
         )))
     }

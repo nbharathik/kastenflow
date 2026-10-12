@@ -10,7 +10,7 @@
 import { useState, type ReactNode } from "react";
 
 import { useChat } from "../../../chat/store";
-import type { ChatProvider, ProviderCheck, ProviderKind } from "../../../chat/types";
+import type { KeyedProvider, ProviderCheck, ProviderKind } from "../../../chat/types";
 import { Segmented } from "./parts";
 import { CheckResult } from "./providers/CheckResult";
 import { ModelField } from "./providers/ModelField";
@@ -49,7 +49,7 @@ function Field({ label, hint, children }: { label: string; hint?: ReactNode; chi
 
 interface Props {
   /** The provider to change; null for a new one. */
-  provider: ChatProvider | null;
+  provider: KeyedProvider | null;
   /** Names other providers have. */
   taken: string[];
   onDone(): void;

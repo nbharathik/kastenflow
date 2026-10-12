@@ -277,7 +277,7 @@ impl History {
             index.write()?;
         }
         self.commit_index(
-            "untrack: Kasten's cache, which belongs to this computer",
+            "untrack: KastenFlow's cache, which belongs to this computer",
             &Actor::Human,
             "untrack",
             &[],

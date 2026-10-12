@@ -14,13 +14,15 @@ interface PosterFieldProps {
   /** The path of the still in the host's store; null for none. */
   value: string | null | Mixed;
   onPick(path: string | null): void;
+  /** What the row is called: Poster by default; an embedded page calls it its Snapshot. */
+  label?: string;
 }
 
 /** The last part of a path, which is what a person knows a picture by. */
 const nameOf = (path: string): string => path.split("/").pop() ?? path;
 
 /** The still an embedded page or a video shows where it cannot play: what it is, a way to choose another from the host's pictures or the computer, and a way to take it away. */
-export function PosterField({ session, value, onPick }: PosterFieldProps) {
+export function PosterField({ session, value, onPick, label = "Poster" }: PosterFieldProps) {
   const menu = usePopover();
   const [held, setHeld] = useState<HostImage[] | null>(null);
   const { host } = session;
@@ -53,7 +55,7 @@ export function PosterField({ session, value, onPick }: PosterFieldProps) {
   };
 
   return (
-    <Row label="Poster" wide>
+    <Row label={label} wide>
       <div className="ks-cs-poster">
         <div className="ks-cs-poster-now">
           <span className="ks-cs-thumb" aria-hidden="true">

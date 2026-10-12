@@ -2,16 +2,18 @@
 // a slide, the pictures the host holds, and every command that can be done now.
 
 import { type CommandContext, COMMANDS, isEnabled, keysOf, runCommand } from "../commands/index.ts";
-import { COMPOSITES } from "../composite-kinds.ts";
 import { fitted, image, line, shape, textBox } from "../factory.ts";
 import type { HostImage } from "../host.ts";
 import { freeBox, insertPlaced } from "../insert-composite.ts";
+import { INSERT_ENTRIES, groupLabel, insertItems } from "../insert/model.ts";
+import { newSlideLayouts } from "../new-slide.ts";
+import { markFresh } from "../quick-add/fresh.ts";
 import { LINES, SHAPE_GROUPS, CLICK_SIZE } from "../shapes.ts";
 import type { IconName } from "../ui/icons.ts";
 import type { Searchable } from "./palette-rank.ts";
 
-/** The sections of the palette, in the order they are listed. */
-export const SECTIONS = ["Insert", "Shapes", "Slides", "Images", "Commands"] as const;
+/** The sections of the gallery, in the order they are listed: the groups of the Insert menu, then slides, the pictures the host holds, and commands. */
+export const SECTIONS = ["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Images", "Commands"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export interface PaletteItem extends Searchable {
@@ -20,6 +22,8 @@ export interface PaletteItem extends Searchable {
   icon?: IconName;
   /** A preset shape, drawn small beside the name. */
   shape?: string;
+  /** What it makes, in a line under its name. */
+  description?: string;
   /** What kind of thing it is, said at the right when no keys are. */
   hint?: string;
   /** The keys that do the same, as they read on this system. */
@@ -49,35 +53,33 @@ const areaOf = (id: string): string => {
   return AREA_NAMES[family] ?? family.charAt(0).toUpperCase() + family.slice(1);
 };
 
-/** What is put on the slide as a thing of its own, apart from the composites: text, a picture, a table. */
-function basics(): PaletteItem[] {
-  return [
-    {
-      id: "palette.text-box",
-      group: "Insert",
-      label: "Text box",
-      icon: "type",
-      keywords: ["words", "paragraph", "write"],
-      run: ({ session }) => {
-        const id = insertPlaced(session, textBox(NONE, ""), CLICK_SIZE.text);
-        if (id) session.startEditing(id);
-      },
-    },
-    { id: "palette.image", group: "Insert", label: "Image from computer…", icon: "image", keywords: ["picture", "photo", "upload"], run: (context) => runCommand("insert.image", context) },
-    { id: "palette.gallery", group: "Insert", label: "Image from the gallery…", icon: "image-plus", keywords: ["picture", "photo"], run: (context) => runCommand("insert.gallery", context) },
-    { id: "palette.table", group: "Insert", label: "Table…", icon: "table", keywords: ["grid", "rows", "columns", "cells"], run: (context) => runCommand("insert.table", context) },
-  ];
+/**
+ * What is put on the slide, from the one list the Insert menu is made from: each item with the line that says what it makes, and
+ * its keys. A text box is added at once (the menu arms the tool, to place it with a click); a page or a diagram only where the host has them.
+ */
+function inserts(context: CommandContext): PaletteItem[] {
+  return insertItems(context)
+    .filter((item) => item.enabled)
+    .map(
+      (item): PaletteItem => ({
+        id: `palette.${item.command.replace(/^insert\./, "")}`,
+        group: groupLabel(item.group) as Section,
+        label: item.label,
+        ...(item.icon ? { icon: item.icon } : {}),
+        description: item.description,
+        keywords: item.keywords,
+        ...(item.keys ? { keys: item.keys } : {}),
+        run: (ctx) => {
+          if (item.command !== "insert.text-box") return runCommand(item.command, ctx);
+          const id = insertPlaced(ctx.session, textBox(NONE, ""), CLICK_SIZE.text);
+          if (!id) return;
+          // Like the text tool and the T key: closed with nothing typed, the empty box goes again.
+          markFresh(ctx.session, id);
+          ctx.session.startEditing(id);
+        },
+      }),
+    );
 }
-
-const composites = (): PaletteItem[] =>
-  COMPOSITES.map((spec) => ({
-    id: `palette.${spec.kind}`,
-    group: "Insert",
-    label: spec.label,
-    icon: spec.icon,
-    keywords: spec.keywords,
-    run: (context) => runCommand(`insert.${spec.kind}`, context),
-  }));
 
 /** Every preset shape and every kind of line, put on the slide where there is room. */
 function shapes(): PaletteItem[] {
@@ -85,7 +87,7 @@ function shapes(): PaletteItem[] {
     group.shapes.map(
       (entry): PaletteItem => ({
         id: `palette.shape.${entry.preset}`,
-        group: "Shapes",
+        group: "Shapes & lines",
         label: entry.label,
         shape: entry.preset,
         hint: group.title === "Shapes" ? "Shape" : group.title.replace(/s$/, ""),
@@ -97,7 +99,7 @@ function shapes(): PaletteItem[] {
   const lines = LINES.map(
     (entry): PaletteItem => ({
       id: `palette.${entry.tool}`,
-      group: "Shapes",
+      group: "Shapes & lines",
       label: entry.label,
       icon: "arrow-up-right",
       hint: "Line",
@@ -116,7 +118,7 @@ function shapes(): PaletteItem[] {
 
 /** A new slide on each layout of the theme. */
 const slides = ({ session }: CommandContext): PaletteItem[] =>
-  session.deck.theme.layouts.map((layout) => ({
+  newSlideLayouts(session).map((layout) => ({
     id: `palette.slide.${layout.name}`,
     group: "Slides",
     label: `New slide: ${layout.label}`,
@@ -141,8 +143,9 @@ const pictures = (images: readonly HostImage[]): PaletteItem[] =>
 
 /** Every command that can be done now, apart from the ones that insert, which the palette does in its own way. */
 function commands(context: CommandContext): PaletteItem[] {
+  const listed = new Set(INSERT_ENTRIES.map((entry) => entry.command));
   return [...COMMANDS.values()]
-    .filter((command) => !command.id.startsWith("insert.") && isEnabled(command, context))
+    .filter((command) => !command.id.startsWith("insert.") && !listed.has(command.id) && isEnabled(command, context))
     .map((command) => {
       const keys = keysOf(command.id);
       return {
@@ -159,5 +162,7 @@ function commands(context: CommandContext): PaletteItem[] {
 
 /** The whole list of the palette for this editor, in the order of its sections. */
 export function paletteItems(context: CommandContext, held: readonly HostImage[] = []): PaletteItem[] {
-  return [...basics(), ...composites(), ...shapes(), ...slides(context), ...pictures(held), ...commands(context)];
+  const found = [...inserts(context), ...shapes(), ...slides(context), ...pictures(held), ...commands(context)];
+  // In the order of the sections, so the groups of the menu read the same here.
+  return SECTIONS.flatMap((section) => found.filter((item) => item.group === section));
 }

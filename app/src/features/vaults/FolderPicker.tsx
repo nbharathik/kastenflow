@@ -13,7 +13,7 @@ import type { IconName } from "../../ui/icons";
 import { Modal } from "../../ui/Modal";
 
 const KINDS: Record<FolderKind, { icon: IconName; badge: string | null }> = {
-  kasten: { icon: "cards", badge: "Kasten vault" },
+  kasten: { icon: "cards", badge: "KastenFlow vault" },
   obsidian: { icon: "folder", badge: "Obsidian vault" },
   notes: { icon: "folder", badge: "Notes" },
   folder: { icon: "folder", badge: null },

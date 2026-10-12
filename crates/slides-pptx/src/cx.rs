@@ -165,13 +165,13 @@ impl<'a, 'm> Cx<'a, 'm> {
     }
 
     /// The colour behind everything on the slide, as `#rrggbb`: the slide's own background
-    /// colour, or the theme's. None when that is not a colour the deck can resolve.
+    /// colour, its layout's, or the theme's. None when that is not a colour the deck can resolve.
     pub fn ground(&self) -> Option<String> {
         let own = self
             .slide
             .as_deref()
             .and_then(|id| self.deck.slide(id))
-            .and_then(|slide| slide.background.as_ref())
+            .and_then(|slide| slides_core::resolve::background_of(&self.deck.theme, slide))
             .and_then(|background| background.color.as_deref());
         self.deck.theme.resolve_color(own.unwrap_or("bg1"))
     }
@@ -216,6 +216,14 @@ impl<'a, 'm> Cx<'a, 'm> {
                 return None;
             };
             return Some(Link::Slide(self.rels.add(rels::SLIDE, &target)));
+        }
+        // A page of the place the deck is edited in: only that place can open it.
+        if address
+            .get(..5)
+            .is_some_and(|s| s.eq_ignore_ascii_case("page:"))
+        {
+            self.warn("a link to a page of KastenFlow was left out: PowerPoint cannot open it");
+            return None;
         }
         let scheme = address.split_once(':').map(|(s, _)| s.to_ascii_lowercase());
         let safe = match scheme.as_deref() {
@@ -394,6 +402,17 @@ mod tests {
             assert_eq!(cx.link("slide:s-404"), None);
             assert_eq!(cx.shared.warnings.len(), 1);
             assert!(cx.shared.warnings[0].message.contains("s-404"));
+        });
+    }
+
+    #[test]
+    fn a_link_to_a_page_of_kasten_is_left_out_and_the_warning_says_why() {
+        with_cx(|cx| {
+            assert_eq!(cx.link("page:library/plan.md#Risks"), None);
+            assert_eq!(cx.link("PAGE:a.md"), None);
+            assert_eq!(cx.shared.warnings.len(), 2);
+            assert!(cx.shared.warnings[0].message.contains("page of KastenFlow"));
+            assert!(!rels_of(cx).contains("Target="));
         });
     }
 }

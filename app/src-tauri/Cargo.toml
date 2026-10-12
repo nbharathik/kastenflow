@@ -1,10 +1,11 @@
 [package]
 name = "kasten-app"
-description = "Kasten desktop app: Tauri commands wrapping kasten-core"
+description = "KastenFlow desktop app: Tauri commands wrapping kasten-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [lib]
@@ -23,12 +24,27 @@ keyring = "4.2.0"
 # linked for git), Security.framework on macOS, SChannel on Windows.
 reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "system-proxy"] }
 # The system's proxies, as reqwest finds them, for looking up web pages'
-# names. Already in the tree through reqwest's system-proxy.
-hyper-util = { version = "0.1.20", default-features = false, features = ["client-proxy", "client-proxy-system"] }
+# names. Already in the tree through reqwest's system-proxy. The `tokio`
+# feature is the browser extension's door (below) running on tokio.
+hyper-util = { version = "0.1.20", default-features = false, features = ["client-proxy", "client-proxy-system", "tokio"] }
+# The browser extension's door on 127.0.0.1: a small HTTP/1 server, built from
+# the same crates kasten-mcp serves MCP over HTTP with (all already in the tree).
+bytes = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1"] }
 serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true
-tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "time"] }
+tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "time", "net", "io-util", "sync"] }
+# Sign in with ChatGPT: random numbers for the sign-in's state and PKCE
+# verifier, their SHA-256 challenge, and base64url. All already in the tree.
+getrandom = "0.4.3"
+sha2 = "0.10.9"
+base64 = "0.22.1"
+# Calendar subscriptions: time zones and their daylight-saving rules. The
+# database is bundled, so no computer needs one installed. The feeds' own
+# parser and recurrence code are in this crate.
+jiff = { version = "0.2.37", features = ["tzdb-bundle-always"] }
 # Desktop plugins, each pinned to the last release that works with the
 # Tauri this app ships, and used from Rust only, behind Kasten's own
 # commands. A second launch brings the open window forward.
@@ -42,6 +58,10 @@ tauri-plugin-updater = { version = "=2.12.0", default-features = false, features
 tauri-plugin-global-shortcut = "=2.3.2"
 # "Backup failing" and "update ready" while Kasten is in the background.
 tauri-plugin-notification = "=2.4.0"
+# The optional diagram editor: its release is a ZIP (a WAR), unpacked with the
+# same crate and features as the slide engine's PowerPoint files. Its download
+# is checked with sha2 above.
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 
 [lints]

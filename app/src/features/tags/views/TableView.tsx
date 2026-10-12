@@ -30,7 +30,7 @@ export function TableView(props: ViewProps) {
   return <Table key={props.view.name} {...props} />;
 }
 
-function Table({ tag, schema, view, notes, onChange }: ViewProps) {
+function Table({ tag, schema, view, notes, onChange, add, label }: ViewProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
   const idBase = useId();
@@ -74,7 +74,7 @@ function Table({ tag, schema, view, notes, onChange }: ViewProps) {
       <div
         ref={scroller}
         role="grid"
-        aria-label={`Notes tagged #${tag}`}
+        aria-label={label ?? `Notes tagged #${tag}`}
         aria-rowcount={notes.length + 1}
         aria-colcount={columns.length}
         aria-describedby={`${idBase}-keys`}
@@ -87,12 +87,12 @@ function Table({ tag, schema, view, notes, onChange }: ViewProps) {
       >
         <Header columns={columns} widths={widths} view={view} schema={schema} change={change} resize={resize} />
         {notes.length === 0 ? (
-          <Empty filtered={(view.filter?.length ?? 0) > 0} />
+          <Empty filtered={(view.filter?.length ?? 0) > 0} custom={label !== undefined} />
         ) : (
           <Body notes={notes} span={span} columns={columns} at={at} editing={editing} fresh={fresh} ctx={grid.ctx} idBase={idBase} />
         )}
       </div>
-      <NewRow footRef={foot} tag={tag} view={view} schema={schema} count={notes.length} onAdded={markFresh} />
+      <NewRow footRef={foot} tag={tag} view={view} schema={schema} count={notes.length} onAdded={markFresh} add={add} label={label} />
     </div>
   );
 }
@@ -138,14 +138,15 @@ function Body({ notes, span, columns, at, editing, fresh, ctx, idBase }: BodyPro
   );
 }
 
-function Empty({ filtered }: { filtered: boolean }) {
+/** `custom`: a table that is not one tag's (a project's saved table), so no tag is to blame. */
+function Empty({ filtered, custom }: { filtered: boolean; custom: boolean }) {
   return (
     <div role="row" className="kasten-table-empty-row">
       <div role="gridcell" className="kasten-table-empty">
         <span aria-hidden="true" className="kasten-table-empty-icon">
           <Icon name="table" className="size-5" />
         </span>
-        {filtered ? "No notes match this view’s filters." : "No notes carry this tag yet. Add the first with New below."}
+        {filtered ? "No notes match this view’s filters." : custom ? "Nothing in this table yet. Add the first page with New below." : "No notes carry this tag yet. Add the first with New below."}
       </div>
     </div>
   );

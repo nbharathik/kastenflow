@@ -1,11 +1,15 @@
-import { clipboardPictures } from "../gallery/files.ts";
+import { canCopyHere, copyHere, pasteHere } from "../clipboard/commands.ts";
+import { placeFor } from "../clipboard/place.ts";
+import { askInPlace } from "../clipboard/store.ts";
 import { selectAllHere } from "../select-all/select-all.ts";
-import { insertImageFiles } from "./insert.ts";
 import type { Command } from "./types.ts";
 
-const hasSelection = (s: { selection: readonly string[] }) => s.selection.length > 0;
-
-/** Undo, redo and the clipboard. */
+/**
+ * Undo, redo and the clipboard. The keys of cut, copy and paste are the browser's own (`native`): the copy, cut and paste events it
+ * makes do the work wherever the focus is in the editor (`clipboard/events.ts`); running one of these is what a menu or a button does,
+ * and it asks the browser for the clipboard. What they act on is where the person was: the slides of the filmstrip or the grid, the
+ * blocks of the slide otherwise.
+ */
 export const editCommands: Command[] = [
   {
     id: "edit.undo",
@@ -31,11 +35,9 @@ export const editCommands: Command[] = [
     icon: "scissors",
     keys: ["Mod+X"],
     scope: "canvas",
-    enabled: hasSelection,
-    run: async ({ session }) => {
-      const text = session.clipboard.cut();
-      if (text) await navigator.clipboard?.writeText(text).catch(() => {});
-    },
+    native: true,
+    enabled: (s, _ui, _host, context) => canCopyHere(context, s.selection),
+    run: (context) => copyHere(context, true),
   },
   {
     id: "edit.copy",
@@ -43,11 +45,9 @@ export const editCommands: Command[] = [
     icon: "copy",
     keys: ["Mod+C"],
     scope: "canvas",
-    enabled: hasSelection,
-    run: async ({ session }) => {
-      const text = session.clipboard.copy();
-      if (text) await navigator.clipboard?.writeText(text).catch(() => {});
-    },
+    native: true,
+    enabled: (s, _ui, _host, context) => canCopyHere(context, s.selection),
+    run: (context) => copyHere(context),
   },
   {
     id: "edit.paste",
@@ -55,13 +55,18 @@ export const editCommands: Command[] = [
     icon: "clipboard-paste",
     keys: ["Mod+V"],
     scope: "canvas",
-    run: async (context) => {
-      // A picture on the clipboard (a screenshot) is kept and placed; anything else pastes as it did.
-      const pictures = await clipboardPictures();
-      if (pictures.length > 0) return insertImageFiles(context, pictures, { source: "pasted" });
-      const text = await navigator.clipboard?.readText().catch(() => undefined);
-      context.session.clipboard.paste(text);
-    },
+    native: true,
+    run: (context) => pasteHere(context),
+  },
+  {
+    id: "edit.paste-in-place",
+    label: "Paste in place",
+    icon: "clipboard-paste",
+    keys: ["Mod+Shift+V"],
+    scope: "canvas",
+    // The browser pastes for this key too: say that it is the one that keeps the place.
+    native: () => askInPlace(),
+    run: (context) => pasteHere(context, true),
   },
   {
     id: "edit.duplicate",
@@ -69,8 +74,8 @@ export const editCommands: Command[] = [
     icon: "copy-plus",
     keys: ["Mod+D"],
     scope: "canvas",
-    enabled: hasSelection,
-    run: ({ session }) => session.elements.duplicate(),
+    enabled: (s, _ui, _host, context) => canCopyHere(context, s.selection),
+    run: (context) => (placeFor(context) === "slides" ? void context.session.slides.duplicate() : context.session.elements.duplicate()),
   },
   {
     id: "edit.delete",
@@ -78,8 +83,8 @@ export const editCommands: Command[] = [
     icon: "trash",
     keys: ["Delete", "Backspace"],
     scope: "canvas",
-    enabled: hasSelection,
-    run: ({ session }) => session.elements.remove(),
+    enabled: (s, _ui, _host, context) => canCopyHere(context, s.selection),
+    run: (context) => (placeFor(context) === "slides" ? context.session.slides.remove() : context.session.elements.remove()),
   },
   {
     id: "edit.select-all",

@@ -160,7 +160,7 @@ describe("the keyboard", () => {
     expect(fireEvent.keyDown(list(), { key: "q" })).toBe(true);
   });
 
-  it("hands the focus to the slide on Enter", async () => {
+  it("hands the focus to the slide on Tab", async () => {
     const made = await openDeck({ slides: 2 });
     render(
       <div className="ks-editor">
@@ -169,8 +169,21 @@ describe("the keyboard", () => {
       </div>,
     );
     list().focus();
-    fireEvent.keyDown(list(), { key: "Enter" });
+    fireEvent.keyDown(list(), { key: "Tab" });
     expect(document.activeElement?.className).toBe("ks-stage");
+  });
+
+  it("adds a slide after the one shown on Enter, and shows it, with the focus staying in the list", async () => {
+    const { session } = await setup({ slides: 3 });
+    const ids = idsOf(session);
+    fireEvent.click(rows()[0]!);
+    list().focus();
+    fireEvent.keyDown(list(), { key: "Enter" });
+    expect(session.deck.slides).toHaveLength(4);
+    expect(idsOf(session)[0]).toBe(ids[0]);
+    expect(idsOf(session)[2]).toBe(ids[1]);
+    expect(session.state.slideId).toBe(idsOf(session)[1]);
+    expect(document.activeElement).toBe(list());
   });
 
   it("opens the slide menu from the keyboard", async () => {

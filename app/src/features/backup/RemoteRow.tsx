@@ -57,7 +57,7 @@ export function RemoteRow({ Row }: { Row: RowComponent }) {
     run(async () => {
       const kept = await gitTokenSave(url, given.secret, given.username);
       setToken(null);
-      toast(kept.remembered ? `Token saved for ${httpsOrigin(url)}` : "Token works. This computer has no keychain Kasten can use, so it lasts until Kasten quits");
+      toast(kept.remembered ? `Token saved for ${httpsOrigin(url)}` : "Token works. This computer has no keychain KastenFlow can use, so it lasts until KastenFlow quits");
     });
 
   return (

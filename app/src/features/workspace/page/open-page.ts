@@ -38,10 +38,19 @@ export function pageFor(path: string): PageSession | undefined {
   return [...open].find((e) => e.session.path === path)?.session;
 }
 
+/** Other things open in the window that keep edits waiting (a diagram in its editor), written at the same moments. */
+const flushers = new Set<() => Promise<void>>();
+
+/** Registers a flusher run whenever the open pages are written (a tab left, a note moved, the window closing); returns how to forget it. */
+export function registerFlusher(flush: () => Promise<void>): () => void {
+  flushers.add(flush);
+  return () => void flushers.delete(flush);
+}
+
 /** Writes every open page's waiting edits now, its latest typing too. */
 export async function flushOpenPage(): Promise<void> {
   for (const entry of [...open]) entry.pass?.();
-  await Promise.all([...open].map((e) => e.session.flush()));
+  await Promise.all([...[...open].map((e) => e.session.flush()), ...[...flushers].map((f) => f())]);
 }
 
 /** Registers how to hand a page's latest typing to its session. */

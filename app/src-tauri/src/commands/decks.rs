@@ -50,6 +50,24 @@ pub fn save_deck(
     state.run(|k| k.save_deck(&HUMAN, &path, &text, &base_hash, Instant::now()))
 }
 
+/// The slide templates of the vault (`templates/slides/`), by title. They are decks to read and save
+/// like any, and are not among `list_decks`.
+#[tauri::command(async)]
+pub fn list_deck_templates(state: State<'_, OpenVault>) -> Result<Vec<DeckInfo>, String> {
+    state.run(|k| k.deck_templates())
+}
+
+/// Saves a deck's look as a template in `templates/slides/`, holding `text` (made by the editor's
+/// engine); returns its path.
+#[tauri::command(async)]
+pub fn create_deck_template(
+    state: State<'_, OpenVault>,
+    title: String,
+    text: String,
+) -> Result<String, String> {
+    state.run(|k| k.create_deck_template(&HUMAN, &title, &text, Instant::now()))
+}
+
 /// Puts a trashed deck back; returns where it went.
 #[tauri::command(async)]
 pub fn restore_deck(state: State<'_, OpenVault>, trashed: String) -> Result<String, String> {

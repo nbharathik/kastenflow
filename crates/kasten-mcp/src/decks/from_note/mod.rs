@@ -50,7 +50,7 @@ pub(super) fn spec() -> ToolSpec {
                 "note": { "type": "string", "description": "The note to make the deck from: its title, its path (such as projects/talk/pages/plan.md) or its id." },
                 "include_linked": { "type": "boolean", "description": "Also make sections of the notes it links to (the first six, a few slides each). Off by default." },
                 "title": { "type": "string", "description": "The deck's title, if not the note's." },
-                "theme": { "type": "string", "description": "Light (default), Dark, Serif or Lecture." },
+                "theme": { "type": "string", "description": "Light (default), Dark, Serif, Lecture, Minimal, Bold, Modern, Academic, Pitch, Dark Studio or Warm Paper." },
                 "project": { "type": "string", "description": "The project to make the deck in, as list_notes names a note's project (its folder under projects/). Without one the deck goes to the library." }
             },
             "required": ["note"],

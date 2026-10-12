@@ -4,7 +4,7 @@
 // `widths`. Pure functions, unit tested.
 
 import type { PropDef, TagSchema, TagView } from "../../../../lib/vault/types";
-import { BUILT_IN } from "../../model";
+import { BUILT_IN, ROW_FIELDS, ROW_LABELS, spans } from "../../model";
 import { own } from "./format";
 
 export type ColumnKind = "title" | "prop" | "builtin";
@@ -25,12 +25,13 @@ export const TITLE: Column = { key: "title", label: "Title", kind: "title", type
 /** Fields every note has that a table can show, read-only. */
 const FIELDS = ["created", "updated", "modified"] as const;
 
+
 function propColumn(def: PropDef): Column {
   return { key: def.key, label: def.key, kind: "prop", type: def.type, def };
 }
 
 function fieldColumn(key: string): Column {
-  return { key, label: BUILT_IN[key] ?? key, kind: "builtin", type: key, def: null };
+  return { key, label: BUILT_IN[key] ?? ROW_LABELS[key] ?? key, kind: "builtin", type: key, def: null };
 }
 
 /** The schema's properties a table can show: one called "title" would
@@ -38,11 +39,12 @@ function fieldColumn(key: string): Column {
 const propsOf = (schema: TagSchema | null) => (schema?.properties ?? []).filter((p) => p.key !== TITLE.key);
 
 /** The column for `key`, or null when neither the schema nor the note has it. */
-function columnFor(key: string, schema: TagSchema | null): Column | null {
+function columnFor(key: string, schema: TagSchema | null, view: TagView): Column | null {
   if (key === TITLE.key) return null;
   const def = schema?.properties.find((p) => p.key === key);
   if (def) return propColumn(def);
-  return (FIELDS as readonly string[]).includes(key) ? fieldColumn(key) : null;
+  if ((FIELDS as readonly string[]).includes(key)) return fieldColumn(key);
+  return spans(view) && (ROW_FIELDS as readonly string[]).includes(key) ? fieldColumn(key) : null;
 }
 
 /** The columns after the title, as the view shows them. */
@@ -51,7 +53,7 @@ function shown(view: TagView, schema: TagSchema | null): Column[] {
   const out: Column[] = [];
   for (const key of view.columns) {
     if (typeof key !== "string" || key === TITLE.key || out.some((c) => c.key === key)) continue;
-    const column = columnFor(key, schema);
+    const column = columnFor(key, schema, view);
     if (column) out.push(column);
   }
   return out;
@@ -69,7 +71,8 @@ export function hiddenColumns(view: TagView, schema: TagSchema | null): Column[]
     .filter((p) => !showing.has(p.key))
     .map(propColumn);
   const own = new Set((schema?.properties ?? []).map((p) => p.key));
-  const fields = FIELDS.filter((key) => !showing.has(key) && !own.has(key)).map(fieldColumn);
+  const offered: readonly string[] = spans(view) ? [...FIELDS, ...ROW_FIELDS] : FIELDS;
+  const fields = offered.filter((key) => !showing.has(key) && !own.has(key)).map(fieldColumn);
   return [...props, ...fields];
 }
 
@@ -86,7 +89,7 @@ export function hideColumn(view: TagView, schema: TagSchema | null, key: string)
 
 export function showColumn(view: TagView, schema: TagSchema | null, key: string): TagView {
   const keys = shown(view, schema).map((c) => c.key);
-  if (keys.includes(key) || !columnFor(key, schema)) return view;
+  if (keys.includes(key) || !columnFor(key, schema, view)) return view;
   return withColumns(view, [...keys, key]);
 }
 
@@ -127,6 +130,9 @@ const DEFAULT_WIDTHS: Record<string, number> = {
   created: 170,
   updated: 170,
   modified: 140,
+  project: 150,
+  type: 110,
+  tags: 220,
 };
 
 const MIN_WIDTH = 64;

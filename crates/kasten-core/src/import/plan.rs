@@ -180,11 +180,11 @@ impl Warnings {
                 let notes = plural(n, "note", "notes");
                 match warn {
                     Warn::NoteType => format!(
-                        "{notes} had a `type` of {} own; it is kept as `note-type`, since `type` says what kind of note it is in Kasten: {list}.",
+                        "{notes} had a `type` of {} own; it is kept as `note-type`, since `type` says what kind of note it is in KastenFlow: {list}.",
                         if many { "their" } else { "its" }
                     ),
                     Warn::OriginalId => format!(
-                        "{notes} had an `id` that is not a Kasten id; it is kept as `original-id`: {list}."
+                        "{notes} had an `id` that is not a KastenFlow id; it is kept as `original-id`: {list}."
                     ),
                     Warn::BadFrontmatter => format!(
                         "{notes} had frontmatter that is not valid YAML; it is kept at the top of the page as a code block: {list}."

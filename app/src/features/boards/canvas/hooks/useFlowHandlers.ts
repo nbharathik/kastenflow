@@ -14,6 +14,7 @@ import type { BoardController } from "../state/controller";
 import { connect, setCardSize } from "../state/gestures";
 import { openFile } from "../state/making";
 import { edgesChanged, nodesChanged, select, type MenuTarget } from "../state/store";
+import { setTool } from "../state/tools";
 
 /** Clicks inside these belong to what is there (buttons, fields, the note editor). */
 const OWN_CLICKS = ".nodrag, button, a, input, textarea, [contenteditable='true']";
@@ -22,13 +23,18 @@ const ownClick = (event: { target: EventTarget | null }) => Boolean((event.targe
 const SIDES = new Set(["top", "right", "bottom", "left"]);
 const sideOf = (id: string | null | undefined) => (id && SIDES.has(id) ? (id as BoardSide) : undefined);
 
+/** One connection made with the connector tool, and it hands back the pointer. */
+function leaveConnector(board: BoardController): void {
+  if (board.store.getState().tool === "connect") setTool(board, "select");
+}
+
 /** Opens a card's note (or a board) the way the click asks. */
 export function openFromClick(board: BoardController, node: FlowNode, event: ReactMouseEvent): void {
   const file = node.data.node.file;
   if (!file || node.data.node.missing) return;
   const how = howFrom(event);
   if (node.type === "card") openFile(board, file, how === "here" ? "stack" : how);
-  else if (node.type === "board" && (how === "tab" || how === "split")) openFile(board, file, how);
+  else if ((node.type === "board" || node.type === "diagram") && (how === "tab" || how === "split")) openFile(board, file, how);
 }
 
 export function useFlowHandlers(board: BoardController): Partial<ReactFlowProps<FlowNode, FlowEdge>> {
@@ -51,7 +57,10 @@ export function useFlowHandlers(board: BoardController): Partial<ReactFlowProps<
       onNodeMouseEnter: (_, node) => board.store.setState({ hovered: node.id }),
       onNodeMouseLeave: (_, node) => board.store.getState().hovered === node.id && board.store.setState({ hovered: null }),
       onConnectStart: (_, { nodeId }) => board.store.setState({ linking: nodeId }),
-      onConnect: (c: Connection) => connect(board, c.source, c.target, sideOf(c.sourceHandle), sideOf(c.targetHandle)),
+      onConnect: (c: Connection) => {
+        connect(board, c.source, c.target, sideOf(c.sourceHandle), sideOf(c.targetHandle));
+        leaveConnector(board);
+      },
       // Letting go over a node's body, not a handle, still connects to it.
       onConnectEnd: ((event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
         board.store.setState({ linking: null });
@@ -59,9 +68,14 @@ export function useFlowHandlers(board: BoardController): Partial<ReactFlowProps<
         const point = "changedTouches" in event ? event.changedTouches[0] : event;
         const under = point && document.elementFromPoint(point.clientX, point.clientY)?.closest<HTMLElement>(".react-flow__node");
         const to = under?.dataset.id;
-        if (to && to !== state.fromNode.id) connect(board, state.fromNode.id, to, sideOf(state.fromHandle?.id));
+        if (to && to !== state.fromNode.id) {
+          connect(board, state.fromNode.id, to, sideOf(state.fromHandle?.id));
+          leaveConnector(board);
+        }
       }) as OnConnectEnd,
       onNodeClick: (event, node) => {
+        // Joining things, a click opens nothing.
+        if (board.store.getState().tool === "connect") return;
         if (event.shiftKey || event.detail > 1 || ownClick(event)) return;
         openFromClick(board, node, event);
       },
@@ -72,6 +86,8 @@ export function useFlowHandlers(board: BoardController): Partial<ReactFlowProps<
           if (data.size !== "expanded") setCardSize(board, [node.id], "expanded");
           board.store.setState({ focusCard: { id: node.id, at: "end" } });
         } else if (node.type === "board" && data.file && !data.missing) board.deps.enter(data.file);
+        // A diagram is edited over the board, where it is.
+        else if (node.type === "diagram" && data.file && !data.missing) openFile(board, data.file, "here");
         else if (node.type === "sticky" || node.type === "shape" || node.type === "section" || node.type === "link") board.store.setState({ editing: node.id });
       },
       onEdgeDoubleClick: (_, edge) => board.store.setState({ editing: edge.id }),

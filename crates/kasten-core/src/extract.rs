@@ -3,6 +3,8 @@
 //! scanner that knows code fences and code spans, so examples in code never
 //! count as links or tasks.
 
+pub use crate::dates::due_date;
+use crate::dates::{due_at, is_real_day, time_after};
 pub use crate::readable::readable;
 use crate::readable::{inline_text, window};
 
@@ -16,6 +18,8 @@ pub struct Link {
     pub line: usize,
     /// The line, as readable text, for backlink snippets.
     pub context: String,
+    /// For a link to a real day, the time (`HH:MM`) that directly follows it.
+    pub at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,6 +37,8 @@ pub struct Task {
     pub line: usize,
     /// The first day the task mentions: `[[2026-10-01]]`, `@2026-10-01` or `📅 2026-10-01`.
     pub due: Option<String>,
+    /// The time (`HH:MM`) that directly follows that day link or `@date`.
+    pub at: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -78,15 +84,19 @@ pub fn extract_titled(body: &str, title: Option<&str>) -> Extract {
             std::borrow::Cow::Borrowed(line)
         };
         if has_link {
-            let targets = wiki_targets(&code_free);
-            if !targets.is_empty() {
+            let refs = wiki_refs(&code_free);
+            if !refs.is_empty() {
                 let context: String = readable(window(line, 800)).chars().take(200).collect();
-                for (target, embed) in targets {
+                for found in refs {
+                    let at = is_real_day(&found.target)
+                        .then(|| time_after(&code_free[found.end..]))
+                        .flatten();
                     out.links.push(Link {
-                        target,
-                        embed,
+                        target: found.target,
+                        embed: found.embed,
                         line: i,
                         context: context.clone(),
+                        at,
                     });
                 }
             }
@@ -194,8 +204,25 @@ pub(crate) fn without_code_spans(line: &str) -> String {
     out
 }
 
+/// A link found in a line, with where it ends.
+pub(crate) struct WikiRef {
+    pub target: String,
+    pub embed: bool,
+    /// Byte offset in the line just after the closing `]]`.
+    pub end: usize,
+}
+
 /// Link targets in a line: `[[Title]]`, `[[Title#Heading|alias]]`, `![[Title]]`.
 pub fn wiki_targets(line: &str) -> Vec<(String, bool)> {
+    wiki_refs(line)
+        .into_iter()
+        .map(|found| (found.target, found.embed))
+        .collect()
+}
+
+/// `wiki_targets`, with the byte offset after each link, so the text that
+/// follows a link can be read.
+pub(crate) fn wiki_refs(line: &str) -> Vec<WikiRef> {
     let mut out = Vec::new();
     let mut rest = line;
     let mut offset = 0;
@@ -206,14 +233,18 @@ pub fn wiki_targets(line: &str) -> Vec<(String, bool)> {
         let after = &rest[start + 2..];
         let Some(end) = after.find("]]") else { break };
         let inner = &after[..end];
+        let used = start + 2 + end + 2;
         if !escaped && !inner.is_empty() && !inner.contains('[') {
             let target = inner.split('|').next().unwrap_or(inner);
             let title = target.split('#').next().unwrap_or(target).trim();
             if !title.is_empty() {
-                out.push((title.to_owned(), embed));
+                out.push(WikiRef {
+                    target: title.to_owned(),
+                    embed,
+                    end: offset + used,
+                });
             }
         }
-        let used = start + 2 + end + 2;
         offset += used;
         rest = &rest[used..];
     }
@@ -260,42 +291,17 @@ fn task(line: &str, i: usize) -> Option<Task> {
         _ => return None,
     };
     let text = rest[3..].trim();
+    let (due, at) = match due_at(text) {
+        Some((day, at)) => (Some(day), at),
+        None => (None, None),
+    };
     Some(Task {
         done,
         text: readable(text),
         line: i,
-        due: due_date(text),
+        due,
+        at,
     })
-}
-
-pub(crate) fn is_day(s: &str) -> bool {
-    let b = s.as_bytes();
-    b.len() == 10
-        && b[4] == b'-'
-        && b[7] == b'-'
-        && b.iter()
-            .enumerate()
-            .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
-}
-
-/// The first day a task names.
-pub fn due_date(text: &str) -> Option<String> {
-    for (target, _) in wiki_targets(text) {
-        if is_day(&target) {
-            return Some(target);
-        }
-    }
-    for marker in ["@", "📅 ", "📅"] {
-        let mut rest = text;
-        while let Some(at) = rest.find(marker) {
-            let after = &rest[at + marker.len()..];
-            if let Some(day) = after.get(..10).filter(|d| is_day(d)) {
-                return Some(day.to_owned());
-            }
-            rest = &rest[at + marker.len()..];
-        }
-    }
-    None
 }
 
 /// Words in a line of Markdown, in one pass: runs of letters and digits

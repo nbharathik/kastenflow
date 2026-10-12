@@ -88,7 +88,7 @@ describe("on an element", () => {
     const { session, insert, open } = await setup();
     const [a] = insert(shape("rect", { x: 10, y: 10, w: 100, h: 100 })) as [string];
     open("element");
-    for (const name of [/^Cut/, /^Copy/, /^Paste/, /^Duplicate/, /^Delete/]) expect(isDisabled(row(name)), String(name)).toBe(false);
+    for (const name of [/^Cut/, /^Copy/, /^Paste(?! in place)/, /^Paste in place/, /^Duplicate/, /^Delete/]) expect(isDisabled(row(name)), String(name)).toBe(false);
     fireEvent.click(row(/^Duplicate/));
     expect(session.slide.elements.filter((e) => e.type === "shape")).toHaveLength(2);
     open("element");
@@ -97,22 +97,27 @@ describe("on an element", () => {
     expect(a).toBeTruthy();
   });
 
-  it("has Order, Rotate & flip and the rest, and Align only for two or more", async () => {
+  it("has Order, Rotate & flip and the rest, and Align to the slide for one and to each other for two or more", async () => {
     const { session, insert, open } = await setup();
     const [a, b] = insert(shape("rect", { x: 10, y: 10, w: 100, h: 100 }), shape("rect", { x: 200, y: 50, w: 100, h: 100 })) as [string, string];
     act(() => session.select([a]));
     open("element");
-    for (const name of [/^Order/, /^Rotate & flip/, /^Group/, /^Lock/, /^Format options/, /^Edit text/, /^Link…/]) expect(has(name), String(name)).toBe(true);
-    expect(has(/^Align/)).toBe(false);
+    for (const name of [/^Order/, /^Rotate & flip/, /^Align to slide/, /^Group/, /^Lock/, /^Format options/, /^Edit text/, /^Link…/]) expect(has(name), String(name)).toBe(true);
     expect(isDisabled(row(/^Group/))).toBe(true);
     expect(has(/^Ungroup/)).toBe(false);
+    // One thing aligns to the slide: there is nothing to space out, so no Distribute rows.
+    fireEvent.click(row(/^Align to slide/));
+    expect(has(/^Distribute/)).toBe(false);
+    fireEvent.click(row("Left"));
+    expect(session.elements.find([a])[0]?.x).toBe(0);
+    open("element");
     fireEvent.click(row(/^Order/));
     fireEvent.click(row(/^Bring to front/));
     expect(session.slide.elements.at(-1)?.id).toBe(a);
 
     act(() => session.select([a, b]));
     open("element");
-    expect(has(/^Align/)).toBe(true);
+    expect(has(/^Align$/)).toBe(true);
     expect(isDisabled(row(/^Group/))).toBe(false);
     fireEvent.click(row(/^Align/));
     fireEvent.click(row("Top"));
@@ -191,12 +196,12 @@ describe("on an element", () => {
 });
 
 describe("on the empty slide", () => {
-  it("offers paste, select all, layout, background, and the notes and snapping switches", async () => {
+  it("offers paste, paste in place, select all, layout, background, and the notes and snapping switches", async () => {
     const { session, ui, insert, open } = await setup();
     insert(shape("rect", { x: 10, y: 10, w: 100, h: 100 }));
     act(() => session.select([]));
     open("canvas");
-    expect(names()).toEqual(["Paste", "Select all", "Change layout…", "Change background…", "Speaker notes", "Snap to guides"]);
+    expect(names()).toEqual(["Paste", "Paste in place", "Select all", "Change layout…", "Change background…", "Speaker notes", "Snap to guides"]);
     expect(row(/^Speaker notes/).getAttribute("aria-checked")).toBe("true");
     expect(row(/^Snap to guides/).getAttribute("aria-checked")).toBe("true");
 
@@ -222,7 +227,7 @@ describe("on a slide in the filmstrip", () => {
   it("adds, duplicates and deletes slides", async () => {
     const { session, open } = await setup();
     open("slide");
-    expect(names()).toEqual(["New slide", "Duplicate slide", "Delete slide", "Select all slides", "Skip slide", "Backup slide", "Move slide", "Change layout…", "Change background…", "Add section here", "Rename section", "Remove section"]);
+    expect(names()).toEqual(["Cut", "Copy", "Paste", "New slide", "Duplicate slide", "Delete slide", "Select all slides", "Skip slide", "Backup slide", "Move slide", "Change layout…", "Change background…", "Add section here", "Rename section", "Remove section"]);
     fireEvent.click(row(/^New slide/));
     expect(session.deck.slides).toHaveLength(2);
     open("slide");

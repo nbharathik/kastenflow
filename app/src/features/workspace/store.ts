@@ -11,7 +11,10 @@ import { useShell } from "../../lib/store";
 import type { NoteMeta, VaultClient } from "../../lib/vault/types";
 import { boardTitle, useBoards } from "../boards/store";
 import { deckTitle, useDecks } from "../slides/store";
+import { titleOfPath } from "../diagrams/names";
+import { useDiagrams } from "../diagrams/store";
 import { dropDraft, isDraft, madeOf, newDraft, nowAt } from "./drafts";
+import { wayToOpen } from "./go-how";
 import { directoryOf } from "./links";
 import { titleOf } from "./names";
 import { putBack, spotOf } from "./placing";
@@ -27,7 +30,7 @@ import { withDrafts } from "./with-drafts";
 
 export type { Place, ViewId } from "./tabs";
 export type { OpenHow } from "./store-layout";
-export { howFrom, howFromView } from "./store-layout";
+export { howFrom, howFromName, howFromView } from "./store-layout";
 
 import type { WorkspaceState } from "./store-types";
 export type { Draft, Toast, WorkspaceState } from "./store-types";
@@ -96,10 +99,16 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         // read, they stay open.
         const boards = await attempt((c) => c.boards());
         const decks = await attempt((c) => c.decks());
+        const diagrams = await attempt((c) => c.diagrams());
         // A tag's database (`#tag`) stays open too.
         // So does a journal day, written in or not.
         const kept = (path: string) =>
-          known.has(path) || path.startsWith("#") || JOURNAL_DAY.test(path) || (path.endsWith(".canvas") && (!boards || boards.some((b) => b.path === path))) || (path.endsWith(".deck") && (!decks || decks.some((d) => d.path === path)));
+          known.has(path) ||
+          path.startsWith("#") ||
+          JOURNAL_DAY.test(path) ||
+          (path.endsWith(".canvas") && (!boards || boards.some((b) => b.path === path))) ||
+          (path.endsWith(".deck") && (!decks || decks.some((d) => d.path === path))) ||
+          (path.endsWith(".drawio") && (!diagrams || diagrams.some((d) => d.path === path)));
         let layout = get().layout;
         for (const path of tabs.openPaths(layout)) if (!kept(path)) layout = tabs.forgetPath(layout, path);
         if (layout !== get().layout) apply(layout);
@@ -109,7 +118,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       set({ ready: true });
       // The very first time, open the guide when the vault has one, unless
       // the person went somewhere while the window was opening.
-      const welcome = findByTitle(get().notes, "Welcome to Kasten");
+      // Vaults made before the KastenFlow name have the guide by its old title.
+      const welcome = findByTitle(get().notes, "Welcome to KastenFlow") ?? findByTitle(get().notes, "Welcome to Kasten");
       if (welcome && !get().navigated && get().recent.length === 0 && get().place.view === "home") get().openPath(welcome.path);
     },
 
@@ -144,20 +154,13 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     go(place, how = "here") {
       if (!get().navigated) set({ navigated: true });
-      // Pages in new tabs: a page gets its own tab, and a place already open
-      // in a tab is gone back to there.
-      if (how === "here" && usePrefs.getState().newTabs) {
-        const open = tabs.focusedPane(get().layout).tabs.some((t) => tabs.samePlace(t.place, place));
-        if (open || tabs.opensOwnTab(get().place, place)) how = "tab";
-      }
-      if (how === "peek") {
-        const mode = usePrefs.getState().peekMode;
-        if (place.path && mode !== "full") return usePeek.getState().open(place.path, mode);
-        how = "here";
-      }
-      if (how === "tab") return get().openTab(place);
-      if (how === "split") return get().splitRight(place);
-      if (how === "stack" && place.path) return get().openInStack(place.path);
+      const { newTabs, peekMode } = usePrefs.getState();
+      const way = wayToOpen(how, place, { current: get().place, layout: get().layout, newTabs, peekMode, peekOpen: usePeek.getState().peek?.mode ?? null });
+      if ("peek" in way) return usePeek.getState().open(place.path!, way.peek ?? undefined);
+      if (way.how === "tab") return get().openTab(place);
+      if (way.how === "split") return get().splitRight(place);
+      if (way.how === "right") return get().openRight(place);
+      if (way.how === "stack" && place.path) return get().openInStack(place.path);
       apply(tabs.navigate(get().layout, place));
       get().recentVisit(place);
     },
@@ -179,7 +182,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     openPath(path, how) {
       // A journal day opens in the journal, beside the other days.
-      const view = path.endsWith(".canvas") ? "boards" : path.endsWith(".deck") ? "slides" : /\.pdf$/i.test(path) ? "highlights" : JOURNAL_DAY.test(path) ? "journal" : "page";
+      const view = path.endsWith(".canvas") ? "boards" : path.endsWith(".deck") ? "slides" : path.endsWith(".drawio") ? "diagrams" : /\.pdf$/i.test(path) ? "highlights" : JOURNAL_DAY.test(path) ? "journal" : "page";
       get().go({ view, path }, how);
     },
 
@@ -243,9 +246,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       }
       const board = path.endsWith(".canvas");
       const deck = path.endsWith(".deck");
-      const title = board ? boardTitle(useBoards.getState().list, path) : deck ? deckTitle(useDecks.getState().list, path) : (noteAt(get().notes, path)?.title ?? path);
+      // A diagram goes with its picture, which is not a page of its own.
+      const diagram = path.endsWith(".drawio");
+      const title = board ? boardTitle(useBoards.getState().list, path) : deck ? deckTitle(useDecks.getState().list, path) : diagram ? titleOfPath(path) : (noteAt(get().notes, path)?.title ?? path);
       // Its sub-pages go with it, as in the core.
-      const going = board || deck ? [path] : withSubPages(get().notes, path);
+      const going = board || deck || diagram ? [path] : withSubPages(get().notes, path);
       // Typing waiting to be written goes into the note before it goes.
       await flushOpenPage();
       const trashed = await attempt((c) => c.trash(path));
@@ -261,6 +266,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       for (const p of going) if (get().stack.includes(p)) get().closeInStack(p);
       if (board) void useBoards.getState().load();
       if (deck) void useDecks.getState().load();
+      if (diagram) void useDiagrams.getState().load();
       const along = going.length === 2 ? " and its sub-page" : going.length > 2 ? ` and ${going.length - 1} sub-pages` : "";
       if (!quiet) get().toast(`Moved “${title}”${along} to the trash`, { label: "Undo", run: () => void get().restore(trashed) });
       return trashed;
@@ -272,6 +278,13 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         if (!path) return;
         await useDecks.getState().load();
         get().toast(`Restored “${deckTitle(useDecks.getState().list, path)}”`, { label: "Open", run: () => get().openPath(path) });
+        return;
+      }
+      if (trashed.endsWith(".drawio") || trashed.endsWith(".drawio.svg")) {
+        const path = await attempt((c) => c.restoreDiagram(trashed));
+        if (!path) return;
+        await useDiagrams.getState().load();
+        get().toast(`Restored “${titleOfPath(path)}”`, { label: "Open", run: () => get().openPath(path) });
         return;
       }
       if (trashed.endsWith(".canvas")) {

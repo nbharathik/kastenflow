@@ -125,21 +125,28 @@
    500-node board would cost layout, hit-testing and store updates on every
    frame. React Flow knows where they are from the node's data. */
 .kasten-board .kasten-side-handle {
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid var(--color-accent);
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
   border-radius: 50%;
   background: var(--board-card);
   pointer-events: all;
   cursor: crosshair;
+  animation: kasten-fade var(--motion-base) var(--ease-standard);
 }
 
 /* A bigger target than the dot. */
 .kasten-board .kasten-side-handle::before {
   content: "";
   position: absolute;
-  inset: -7px;
+  inset: -8px;
   border-radius: 50%;
+}
+
+/* Joining things with the connector tool: bigger dots, easier to catch. */
+.kasten-board.is-tool-connect .kasten-side-handle {
+  width: 13px;
+  height: 13px;
 }
 
 .kasten-board .kasten-side-handle.connectingto,
@@ -152,10 +159,10 @@
 }
 
 .kasten-board .kasten-resize-handle {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border: 1.5px solid var(--color-accent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   background: var(--board-card);
 }
 

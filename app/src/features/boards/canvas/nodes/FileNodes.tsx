@@ -68,7 +68,7 @@ export const NestedBoardNode = memo(function NestedBoardNode({ id, data, selecte
   const title = node.title ?? preview?.title ?? nameOf(node.file).replace(/\.canvas$/, "");
   return (
     <div className={`kasten-node kasten-nested${node.missing ? " kasten-missing" : ""}${node.color ? " is-tinted" : ""}`} style={tint(node.color)} aria-label={`Board: ${title}`}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={180} minHeight={100} />}
       <div className="kasten-card-head">
         <span className="kasten-nested-icon" aria-hidden="true">
@@ -88,7 +88,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: BoardNo
   const name = nameOf(node.file);
   return (
     <div className={`kasten-node kasten-image${node.missing ? " kasten-missing" : ""}`} aria-label={`Image: ${name}`}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={60} minHeight={60} />}
       {url && !node.missing ? (
         <img src={url} alt={name} draggable={false} loading="lazy" decoding="async" />
@@ -111,7 +111,7 @@ export const FileNode = memo(function FileNode({ id, data, selected }: BoardNode
   const name = nameOf(node.file);
   return (
     <div className={`kasten-node kasten-card${node.missing ? " kasten-missing" : ""}${node.color ? " is-tinted" : ""}`} style={tint(node.color)} aria-label={`File: ${name}`}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={160} minHeight={60} />}
       <div className="kasten-card-face">
         <div className="kasten-card-head">

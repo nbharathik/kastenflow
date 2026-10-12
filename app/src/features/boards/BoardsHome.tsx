@@ -40,10 +40,13 @@ export function BoardsHome() {
   const draftProject = useBoards((s) => s.draftProject);
   const notes = useWorkspace((s) => s.notes);
   const [query, setQuery] = useState("");
+  // A project's home can ask for its boards only; the view takes that once, then clears it.
+  const [only, setOnly] = useState(() => useBoards.getState().onlyProject);
   useEffect(() => void useBoards.getState().load(), []);
+  useEffect(() => void useBoards.setState({ onlyProject: null }), []);
 
   const words = query.trim().toLowerCase();
-  const shown = useMemo(() => (words ? list.filter((b) => b.title.toLowerCase().includes(words)) : list), [list, words]);
+  const shown = useMemo(() => list.filter((b) => (!only || b.project === only) && (!words || b.title.toLowerCase().includes(words))), [list, words, only]);
   const sections = useMemo(() => groups(shown, notes), [shown, notes]);
   const start = () => useBoards.setState({ creating: true, draftProject: null });
 
@@ -68,6 +71,15 @@ export function BoardsHome() {
           New whiteboard
         </button>
       </header>
+
+      {only && (
+        <p className="mt-4 flex flex-wrap items-center gap-2 text-13 text-muted">
+          <span>Only the boards of {projectTitle(notes, only)}.</span>
+          <button type="button" onClick={() => setOnly(null)} className="rounded px-1.5 py-0.5 text-accent hover:bg-hover">
+            Show every project
+          </button>
+        </p>
+      )}
 
       {creating && <NewBoard key={draftProject ?? ""} />}
 

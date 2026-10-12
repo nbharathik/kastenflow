@@ -7,6 +7,9 @@ import { NodeSelection, TextSelection, type Command, type EditorState } from "@m
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { carryFolds } from "../blocks/toggle-view";
+import { isHidden } from "../sections/api";
+import { extendedBlocks, pickedBlocks } from "./block-range";
+import { moveBlocksTo } from "./move-blocks";
 
 export interface BlockAt {
   pos: number;
@@ -54,18 +57,19 @@ export const selectCurrentBlock: Command = (state, dispatch) => {
   return true;
 };
 
-/** With a block selected, selects the sibling before (-1) or after (1) it. */
+/** With a block or several selected, selects the sibling before (-1) or after (1) them. */
 export function stepBlockSelection(dir: -1 | 1): Command {
   return (state, dispatch) => {
-    const { selection } = state;
-    if (!(selection instanceof NodeSelection)) return false;
-    const $pos = state.doc.resolve(selection.from);
+    const picked = pickedBlocks(state.selection);
+    if (!picked) return false;
+    const $pos = state.doc.resolve(picked.from);
     const index = $pos.index();
     const parent = $pos.parent;
-    const target = index + dir;
+    // Past a range is the block after its last; a folded section's blocks are not stepped on.
+    let target = dir > 0 ? index + picked.count : index - 1;
+    while (target >= 0 && target < parent.childCount && isHidden(state, $pos.posAtIndex(target) + 1)) target += dir;
     if (target < 0 || target >= parent.childCount) return true;
-    let pos = $pos.start();
-    for (let i = 0; i < target; i++) pos += parent.child(i).nodeSize;
+    const pos = $pos.posAtIndex(target);
     if (NodeSelection.isSelectable(parent.child(target))) {
       dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, pos)).scrollIntoView());
     }
@@ -73,20 +77,40 @@ export function stepBlockSelection(dir: -1 | 1): Command {
   };
 }
 
-/** With a block selected, puts the caret at the end of its text to edit it. */
+/** With a block or several selected, Shift and an arrow grow the selection by the block beyond it (or shrink it). */
+export function extendBlockSelection(dir: -1 | 1): Command {
+  return (state, dispatch) => {
+    if (!pickedBlocks(state.selection)) return false;
+    const next = extendedBlocks(state, dir);
+    if (next) dispatch?.(state.tr.setSelection(next).scrollIntoView());
+    return true;
+  };
+}
+
+/** With a block or several selected, puts the caret at the end of the last one's text to edit it. */
 export const editSelectedBlock: Command = (state, dispatch) => {
   const { selection } = state;
-  if (!(selection instanceof NodeSelection)) return false;
-  const end = selection.from + selection.node.nodeSize;
-  const target = TextSelection.findFrom(state.doc.resolve(end), -1, true);
-  if (!target || target.from < selection.from) return false;
+  const picked = pickedBlocks(selection);
+  if (!picked) return false;
+  const target = TextSelection.findFrom(state.doc.resolve(picked.to), -1, true);
+  if (!target || target.from < picked.from) return false;
   dispatch?.(state.tr.setSelection(target));
   return true;
 };
 
-/** Moves the current block above its previous sibling (-1) or below its next one (1). */
+/** Moves the current block, or the several selected, above the sibling before (-1) or below the one after (1). */
 export function moveBlock(dir: -1 | 1): Command {
   return (state, dispatch, view) => {
+    const picked = pickedBlocks(state.selection);
+    if (picked && picked.count > 1) {
+      const $pos = state.doc.resolve(picked.from);
+      const sibling = $pos.parent.maybeChild(dir < 0 ? $pos.index() - 1 : $pos.index() + picked.count);
+      if (!sibling) return true;
+      const tr = moveBlocksTo(state, picked, dir < 0 ? picked.from - sibling.nodeSize : picked.to + sibling.nodeSize);
+      if (tr && dispatch && view) carryFolds(view, picked.from, picked.to);
+      if (tr) dispatch?.(tr.scrollIntoView());
+      return true;
+    }
     const block = currentBlock(state);
     if (!block) return false;
     const $pos = state.doc.resolve(block.pos);

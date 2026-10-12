@@ -86,13 +86,13 @@ export function useNoteSession(client: VaultClient, path: string) {
         },
         onMerged: (merged, waiting) => {
           start(merged, pageView(next), waiting);
-          useWorkspace.getState().toast("This page also changed outside Kasten; both edits were kept");
+          useWorkspace.getState().toast("This page also changed outside KastenFlow; both edits were kept");
         },
         onError: (message) => useWorkspace.getState().toast(`Could not save: ${message}`),
         onRecovered: (kept, title) => {
           const ws = useWorkspace.getState();
           ws.noteChanged(kept.meta);
-          ws.toast(`“${title}” was moved or deleted outside Kasten while you typed; your text is in “${kept.meta.title}”`, {
+          ws.toast(`“${title}” was moved or deleted outside KastenFlow while you typed; your text is in “${kept.meta.title}”`, {
             label: "Open",
             run: () => useWorkspace.getState().openPath(kept.meta.path),
           });
@@ -108,7 +108,7 @@ export function useNoteSession(client: VaultClient, path: string) {
           (fresh) => {
             if (session.current === next && !next.busy && fresh.hash !== next.currentHash) {
               start(fresh, pageView(next));
-              useWorkspace.getState().toast("This page changed outside Kasten, so it was updated");
+              useWorkspace.getState().toast("This page changed outside KastenFlow, so it was updated");
             }
           },
           () => {},
@@ -127,7 +127,7 @@ export function useNoteSession(client: VaultClient, path: string) {
       if (pending !== null) next.editBody(pending);
       setLoaded({ note, prefix, body: pending ?? body, version: ++version.current, keep });
       setError(null);
-      if (restored) useWorkspace.getState().toast("Typing that wasn't saved when Kasten last closed was put back");
+      if (restored) useWorkspace.getState().toast("Typing that wasn't saved when KastenFlow last closed was put back");
     },
     [client, finish],
   );

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useShell } from "../../lib/store";
 import type { ChangedFile, CommitInfo, SessionInfo, Undone } from "../../lib/vault/types";
 import { AppShell } from "../../shell/AppShell";
+import { usePrefs } from "../workspace/prefs";
 import { MemoryVault } from "../workspace/preview/memory-vault";
 import { useWorkspace } from "../workspace/store";
 import { showSession } from "./session-request";
@@ -63,6 +64,8 @@ class HistoryVault extends MemoryVault {
 let vault: HistoryVault;
 
 async function openHistory() {
+  // The sidebar pins a few views; this one is pinned so its button is there to click.
+  usePrefs.setState({ navPinned: ["history"] });
   render(<AppShell connect={async () => ({ client: vault })} />);
   const sidebar = await screen.findByRole("navigation", { name: "Sidebar" });
   fireEvent.click(within(sidebar).getByRole("button", { name: "History" }));

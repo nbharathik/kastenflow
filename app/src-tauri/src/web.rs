@@ -13,7 +13,7 @@ fn web_url(url: &str) -> Result<String, String> {
     let web =
         url.starts_with("https://") || url.starts_with("http://") || url.starts_with("mailto:");
     if !web || url.len() > MAX_URL || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
-        return Err(format!("“{url}” is not a web address Kasten opens"));
+        return Err(format!("“{url}” is not a web address KastenFlow opens"));
     }
     Ok(if url.starts_with("mailto:") {
         mail_url(url)

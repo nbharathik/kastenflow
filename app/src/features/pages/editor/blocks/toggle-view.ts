@@ -36,6 +36,15 @@ export function flipToggleAt(pos: number): boolean {
   return false;
 }
 
+/** Opens the toggle at `pos` (of `editor`, when given) if it is closed, as
+ * find does for a match inside it; true when one was opened. */
+export function openToggleAt(pos: number, editor?: EditorView): boolean {
+  for (const view of views) {
+    if (view.position() === pos && (!editor || view.editor === editor)) return view.open();
+  }
+  return false;
+}
+
 class ToggleView implements NodeView {
   readonly dom: HTMLElement;
   readonly contentDOM: HTMLElement;
@@ -94,6 +103,13 @@ class ToggleView implements NodeView {
 
   flip(): void {
     this.setExpanded(!this.expanded);
+  }
+
+  /** Opens it; false when it already was. */
+  open(): boolean {
+    if (this.expanded) return false;
+    this.setExpanded(true);
+    return true;
   }
 
   destroy(): void {

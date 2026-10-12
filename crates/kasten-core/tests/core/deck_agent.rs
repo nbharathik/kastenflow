@@ -136,7 +136,7 @@ fn an_update_refuses_what_is_not_a_deck_and_leaves_the_file_alone() {
         Ok(Some("{}".to_owned()))
     });
     match refused {
-        Err(Error::Invalid(why)) => assert!(why.starts_with("Not a Kasten deck"), "{why}"),
+        Err(Error::Invalid(why)) => assert!(why.starts_with("Not a KastenFlow deck"), "{why}"),
         other => panic!("{other:?}"),
     }
     // A failure of the caller's own is passed on, with nothing written.
@@ -295,7 +295,10 @@ fn agents_cannot_write_decks_in_hidden_folders_templates_or_that_are_not_there()
     }
     // A deck whose text is not a deck is refused whatever the tool said.
     let err = k.agent_run(&s, &edit(&path, &text, "{}"), NOW).unwrap_err();
-    assert!(err.to_string().starts_with("Not a Kasten deck"), "{err}");
+    assert!(
+        err.to_string().starts_with("Not a KastenFlow deck"),
+        "{err}"
+    );
     assert_eq!(k.deck(&path).unwrap().text, text);
 }
 

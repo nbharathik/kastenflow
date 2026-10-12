@@ -347,7 +347,7 @@ fn the_operation_is_in_the_registry_for_agents_and_the_editor() {
 /// A composite of each of the nine kinds, by number, for the property test of undo.
 pub(super) fn sample(kind: u8) -> Value {
     let at = json!({ "x": 64, "y": 148, "w": 832, "h": 300 });
-    let mut value = match kind % 9 {
+    let mut value = match kind % 12 {
         0 => {
             json!({ "type": "code", "language": "python", "code": "a = 1\nb = 2\nc = 3", "focus": ["1", "2-3"] })
         }
@@ -363,8 +363,15 @@ pub(super) fn sample(kind: u8) -> Value {
         }
         5 => json!({ "type": "citation", "keys": ["a2020"] }),
         6 => json!({ "type": "step-label" }),
-        7 => json!({ "type": "embed", "url": "https://example.com" }),
-        _ => json!({ "type": "video", "src": "assets/clip.mp4" }),
+        7 => {
+            json!({ "type": "embed", "url": "https://example.com", "design": { "w": 390, "h": 844 }, "zoom": 0.5, "fit": "page" })
+        }
+        8 => json!({ "type": "video", "src": "assets/clip.mp4" }),
+        9 => {
+            json!({ "type": "chart", "kind": "bar", "categories": ["A", "B"], "series": [{ "name": "S", "values": [1, 2] }] })
+        }
+        10 => json!({ "type": "timer", "seconds": 90, "label": "Break" }),
+        _ => json!({ "type": "qr", "data": "https://example.com/slides" }),
     };
     if let (Some(map), Some(extra)) = (value.as_object_mut(), at.as_object()) {
         map.extend(extra.clone());

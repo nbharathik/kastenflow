@@ -28,10 +28,19 @@ pub fn guidance(kind: &str) -> Option<&'static str> {
             "\"Step n / N\", kept up to date as the slide is stepped through, in the deck's wording (`present.stepLabel`). `format`, with {n} and {total}, changes only the sample shown while editing. Put one, small, in a corner of a slide that has steps."
         }
         "embed" => {
-            "A live web page in present mode, and a picture with a link everywhere else, PowerPoint included. `url` should be a web address (http or https). Give a `poster` image sized like the box so the slide is never blank; without one a panel is drawn with the page's `title` (or its site) and its address."
+            "A live web page in present mode, and a picture with a link everywhere else, PowerPoint included. `url` should be a web address (http or https). Give a `poster` snapshot sized like the box so the slide is never blank; without one a panel names the page and its address. The page is laid out at a window of `design` ({w, h}, 1280 by 800 by default) and scaled to the box, so size the box like that window; `zoom` (0.25 to 3) and `fit` (width, page, fill) say how it is seen."
         }
         "video" => {
             "A video file from the image store, or a web address, with a `poster` still: that is what shows in the editor and in PowerPoint, with a play button over it, and the video plays in present mode. Size the box like the poster. `autoplay` and `looped` are optional."
+        }
+        "chart" => {
+            "A chart of a small table of numbers, drawn from shapes so that it follows the theme. `kind` is bar, line or pie; `categories` names the bar groups, points or slices; `series` is a list of {name, values (a number for each category), color?}. A pie draws the first series only. `title` sits above, `labels` writes the numbers on the marks, `legend` forces the legend on or off. Keep to about eight categories and a few series."
+        }
+        "timer" => {
+            "A countdown that runs while presenting: `seconds` to count from (up to a day), an optional `label` over it, and `autostart` to begin when the slide shows; otherwise a click starts it. Elsewhere (a picture, PowerPoint) it shows the time it starts at. A box about 2:1 reads well."
+        }
+        "qr" => {
+            "A QR code of `data`, a web address or some words of up to 213 bytes, drawn as squares in black on white whatever the theme. `caption` is set under it. Make the box square (or taller than wide with a caption): the code fills the shorter side."
         }
         _ => return None,
     })
@@ -44,7 +53,7 @@ mod tests {
     /// The longest a paragraph may be, in characters: instructions are read by every agent, on every turn.
     const LONGEST: usize = 600;
 
-    const KINDS: [&str; 9] = [
+    const KINDS: [&str; 12] = [
         "code",
         "math",
         "chat",
@@ -54,6 +63,9 @@ mod tests {
         "step-label",
         "embed",
         "video",
+        "chart",
+        "timer",
+        "qr",
     ];
 
     #[test]
@@ -82,8 +94,11 @@ mod tests {
             ("card-grid", &["title", "body", "columns"][..]),
             ("citation", &["keys", "format"][..]),
             ("step-label", &["format"][..]),
-            ("embed", &["url", "poster"][..]),
+            ("embed", &["url", "poster", "design", "zoom", "fit"][..]),
             ("video", &["poster"][..]),
+            ("chart", &["kind", "categories", "series", "title"][..]),
+            ("timer", &["seconds", "label", "autostart"][..]),
+            ("qr", &["data", "caption"][..]),
         ] {
             let text = guidance(kind).unwrap_or_default();
             for field in fields {

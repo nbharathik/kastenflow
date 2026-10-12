@@ -7,6 +7,8 @@
   min-height: 0;
   background: var(--ks-panel);
   overflow: hidden;
+  /* It takes the focus (tabindex -1) when a press lands where nothing inside can, so its keys still arrive; no ring for that. */
+  outline: none;
 }
 .ks-loading {
   margin: auto;

@@ -1,17 +1,49 @@
 <section class="section" id="private" aria-labelledby="private-title">
         <div class="wrap">
           <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Yours</p>
-            <h2 id="private-title">Private by design</h2>
-            <p class="lead">No account, no cloud of ours and no lock-in. Kasten is a program on your computer that works on a folder of files.</p>
+            <p class="label">Privacy</p>
+            <h2 id="private-title">Your notes stay <span class="hl">on your computer</span></h2>
+            <p class="lead">KastenFlow works offline with files in a folder you choose. AI and online backups are optional.</p>
           </header>
           <div class="private-grid">
-            <article data-reveal><svg class="i" aria-hidden="true"><use href="#i-user" /></svg><h3>No account</h3><p>Nothing to sign up for. Kasten opens a folder and you start writing.</p></article>
-            <article data-reveal style="--d: 1"><svg class="i" aria-hidden="true"><use href="#i-folder" /></svg><h3>Your folder, your files</h3><p>Markdown, YAML and JSON Canvas that any editor can open. Back them up to GitHub, any git host, or Dropbox, Drive or OneDrive.</p></article>
-            <article data-reveal style="--d: 2"><svg class="i" aria-hidden="true"><use href="#i-git" /></svg><h3>History you own</h3><p>Saved changes are recorded, with typing batched, in the vault's own <code>.git</code> folder, pushed only to a backup you confirmed.</p></article>
-            <article data-reveal><svg class="i" aria-hidden="true"><use href="#i-key" /></svg><h3>Keys in your keychain</h3><p>API keys live in the system keychain, each tied to the address it was saved for.</p></article>
-            <article data-reveal style="--d: 1"><svg class="i" aria-hidden="true"><use href="#i-shield" /></svg><h3>Choose trusted vaults</h3><p>Kasten applies path and credential checks. Open vaults from trusted sources and keep an independent backup.</p></article>
-            <article data-reveal style="--d: 2"><svg class="i" aria-hidden="true"><use href="#i-code" /></svg><h3>Open source</h3><p>MIT licensed. Read every line, build it yourself, or help make it better.</p></article>
+            <article data-reveal><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-user" /></svg></span><h3>No account</h3><p>Open a folder and start writing. No KastenFlow account is needed.</p></article>
+            <article data-reveal style="--d: 1"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-folder" /></svg></span><h3>Local files</h3><p>Your notes are Markdown files you can open in other apps. Choose where to keep your backups.</p></article>
+            <article data-reveal style="--d: 2"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-key" /></svg></span><h3>Optional connections</h3><p>Connect AI or an online backup when you need it. API keys are stored in your system keychain.</p></article>
           </div>
+        </div>
+      </section>
+
+      <section class="section zone-dark ai-zone" id="ai" aria-labelledby="ai-title">
+        <div class="wrap">
+          <div class="ai-top">
+            <header class="section-head" data-reveal>
+              <p class="label">AI tools</p>
+              <h2 id="ai-title">Optional AI <span class="hl">assistance</span></h2>
+              <p class="lead">Connect your preferred model to ask about notes, summarise pages or work on a draft. AI changes are marked on the page and listed in History.</p>
+              <div class="cta-row">
+                <a class="cta cta-glass" href="#app" data-view="ai">Try the sample chat<svg class="i" aria-hidden="true"><use href="#i-arrow-up-right" /></svg></a>
+              </div>
+            </header>
+
+            <div class="ai-connect" data-reveal style="--d: 1">
+              <div class="code-card">
+                <div class="code-head">
+                  <span>Connect an MCP client</span>
+                  <button type="button" class="copy-btn" data-copy="claude mcp add --scope user kasten -- kasten-app --mcp --vault ~/Notes"><svg class="i" aria-hidden="true"><use href="#i-copy" /></svg><span>Copy</span></button>
+                </div>
+                <pre><code><span class="c-dim">$</span> claude mcp add --scope user kasten -- kasten-app --mcp --vault ~/Notes</code></pre>
+                <p class="code-note">The app is the server. Settings → AI agents copies this line with its path on your computer.</p>
+              </div>
+              <p class="ai-models">Supports Anthropic's API, OpenAI-compatible servers and local models. AI is optional.</p>
+            </div>
+          </div>
+
+          <ul class="checks">
+            <li data-reveal><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg></span><b>Preview answers.</b><span>Review writing suggestions before adding them to a page.</span></li>
+            <li data-reveal style="--d: 1"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-shield" /></svg></span><b>Protected notes.</b><span>Agents cannot permanently delete notes, rewrite history or edit locked notes.</span></li>
+            <li data-reveal style="--d: 2"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-eye" /></svg></span><b>Review changes.</b><span>Large removals, new templates and batches of edits go to the review queue.</span></li>
+            <li data-reveal style="--d: 3"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-undo" /></svg></span><b>Undo a session.</b><span>Revert an agent's changes from History.</span></li>
+            <li data-reveal style="--d: 4"><span class="icon-box"><svg class="i" aria-hidden="true"><use href="#i-key" /></svg></span><b>Stored API keys.</b><span>Keys stay in your system keychain and are sent only to the configured provider.</span></li>
+          </ul>
         </div>
       </section>

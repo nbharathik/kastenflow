@@ -3,7 +3,7 @@
 
 use std::sync::LazyLock;
 
-use slides_core::{Extra, Insets, VAlign};
+use slides_core::{Extra, Insets, TextFit, VAlign};
 
 use crate::import::dom::Node;
 use crate::import::units::length;
@@ -27,12 +27,25 @@ pub struct BodyProps {
     pub font_scale: Option<f64>,
     /// The share of line spacing taken away when it was shrunk to fit.
     pub line_reduction: Option<f64>,
+    /// What the box does with words that do not fit: shrinks them, grows to hold them, or lets them overflow.
+    pub fit: Option<TextFit>,
+    /// Whether lines wrap at the box's edge.
+    pub wrap: Option<bool>,
 }
 
 impl BodyProps {
     pub fn read(node: &Node) -> BodyProps {
         let inset = |name: &str| node.int(name).map(length);
         let shrink = node.child("a:normAutofit");
+        let fit = if shrink.is_some() {
+            Some(TextFit::Shrink)
+        } else if node.child("a:spAutoFit").is_some() {
+            Some(TextFit::Resize)
+        } else if node.child("a:noAutofit").is_some() {
+            Some(TextFit::Off)
+        } else {
+            None
+        };
         BodyProps {
             anchor: node.attr("anchor").map(|a| match a {
                 "ctr" => VAlign::Middle,
@@ -46,6 +59,8 @@ impl BodyProps {
             line_reduction: shrink
                 .and_then(|n| n.int("lnSpcReduction"))
                 .map(|v| (v as f64 / 100_000.0).clamp(0.0, 0.9)),
+            fit,
+            wrap: node.attr("wrap").map(|w| w != "none"),
         }
     }
 
@@ -56,6 +71,8 @@ impl BodyProps {
             insets: std::array::from_fn(|i| self.insets[i].or(below.insets[i])),
             font_scale: self.font_scale,
             line_reduction: self.line_reduction,
+            fit: self.fit.clone().or_else(|| below.fit.clone()),
+            wrap: self.wrap.or(below.wrap),
         }
     }
 

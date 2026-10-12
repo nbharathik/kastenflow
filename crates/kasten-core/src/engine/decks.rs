@@ -33,10 +33,23 @@ fn stem_of(path: &str) -> String {
 }
 
 impl Kasten {
-    /// Every deck, by title.
+    /// Every deck, by title. The slide templates in `templates/slides/` are not among them
+    /// (`deck_templates` lists those): they are not the person's decks to open, count or present.
     pub fn decks(&self) -> Result<Vec<DeckInfo>> {
+        self.decks_where(|path| !deck::is_template(path))
+    }
+
+    /// Every slide template, by title.
+    pub fn deck_templates(&self) -> Result<Vec<DeckInfo>> {
+        self.decks_where(deck::is_template)
+    }
+
+    fn decks_where(&self, wanted: impl Fn(&str) -> bool) -> Result<Vec<DeckInfo>> {
         let mut out = Vec::new();
         for file in self.vault.files(".deck")? {
+            if !wanted(&file.path) {
+                continue;
+            }
             let read =
                 deck::read_deck(&self.vault, &file.path).and_then(|deck| deck::head_of(&deck.text));
             let (title, slides, problem) = match read {
@@ -62,6 +75,31 @@ impl Kasten {
         }
         out.sort_by_cached_key(|d| (d.title.to_lowercase(), d.path.clone()));
         Ok(out)
+    }
+
+    /// Saves a deck's look as a template in `templates/slides/`, holding `text` (the editor's
+    /// engine makes it); returns its path. Only a person makes one: the folder is read-only for
+    /// agents, which may read a template and start a deck from it.
+    pub fn create_deck_template(
+        &self,
+        actor: &Actor,
+        title: &str,
+        text: &str,
+        now: Instant,
+    ) -> Result<String> {
+        if actor.is_agent() {
+            return Err(Error::Invalid(
+                "A template is saved by a person only: templates are read-only for agents".into(),
+            ));
+        }
+        self.apply(actor, "create_template", false, now.millis, |vault| {
+            let path = deck::create_template(vault, title, text)?;
+            Ok(Change {
+                message: format!("template: create {}", title.trim()),
+                paths: vec![path.clone()],
+                value: path,
+            })
+        })
     }
 
     /// The deck at `path`, with the hash a save brings back.

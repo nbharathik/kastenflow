@@ -12,7 +12,7 @@ use crate::tools;
 #[tool_router(router = read_tools, vis = "pub")]
 impl KastenServer {
     #[tool(
-        description = "Ranked full-text search with snippets. Filters narrow by tag, project, type and date.",
+        description = "Ranked full-text search with snippets. Filters narrow by tag, project, type and date. The query may also hold on:2026-10-06 (made or changed that day), created:2026-10 or updated:2026-09-01..2026-09-30 (a day, a month or a range) and under:<note id or path> (that page and its sub-pages).",
         annotations(read_only_hint = true)
     )]
     async fn search(&self, Parameters(args): Parameters<SearchArgs>) -> CallToolResult {

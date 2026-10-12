@@ -10,7 +10,7 @@ afterEach(() => {
 
 describe("Settings: About", () => {
   it("shows the open-source licences the build carries", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("Kasten is MIT-licensed. It includes…\n\nRust crates (2)\n", { status: 200 })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("KastenFlow is MIT-licensed. It includes…\n\nRust crates (2)\n", { status: 200 })));
     render(<About />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Show" })));
     expect((await screen.findByLabelText("Open-source licences")).textContent).toContain("Rust crates (2)");

@@ -69,7 +69,7 @@ fn explain(err: Error) -> String {
         }
         Error::ReleaseNotFound => "The latest release can't be installed from here yet.".into(),
         Error::Minisign(_) | Error::SignatureUtf8(_) | Error::Base64(_) => {
-            "The download isn't signed with Kasten's key, so it was not installed.".into()
+            "The download isn't signed with KastenFlow's key, so it was not installed.".into()
         }
         Error::SignedVersionMismatch { .. } => {
             "The download was signed for another version, so it was not installed.".into()
@@ -103,7 +103,7 @@ pub async fn update_prepare(
     installer: State<'_, Installer>,
 ) -> Result<Option<String>, String> {
     if !installer.on {
-        return Err("This copy of Kasten can't install updates itself.".into());
+        return Err("This copy of KastenFlow can't install updates itself.".into());
     }
     let manifest = crate::updates::manifest_url(env!("CARGO_PKG_REPOSITORY"))
         .ok_or("This build does not say where its releases are.")?;

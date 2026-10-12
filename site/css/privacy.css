@@ -1,0 +1,192 @@
+/* Privacy, on the light page: three promises as cards. Then AI, in the dark
+   zone: what it may do, and how to connect an agent. */
+
+.private-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.private-grid article {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 24px 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.private-grid .icon-box {
+  margin-bottom: 14px;
+}
+
+.private-grid h3,
+.checks b {
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+
+.private-grid p {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* A symbol on a small tile of the app's blue. */
+.icon-box {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.icon-box .i {
+  width: 18px;
+  height: 18px;
+}
+
+/* AI, in the app's dark colours. */
+
+.ai-zone {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cta-glass {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 12%);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+}
+
+.cta-glass:hover {
+  background: rgb(255 255 255 / 20%);
+}
+
+.ai-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  align-items: end;
+  gap: clamp(32px, 5vw, 72px);
+  margin-bottom: clamp(40px, 5vw, 64px);
+}
+
+.ai-top .section-head {
+  margin: 0;
+}
+
+.ai-connect {
+  display: grid;
+  gap: 14px;
+}
+
+.code-card {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: #151514;
+  color: #e8e7e3;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: 500 11px/1.2 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.copy-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--r-sm);
+  background: rgb(255 255 255 / 8%);
+  color: #ffffff;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.copy-btn.is-done {
+  border-color: #3fbf85;
+  color: #3fbf85;
+}
+
+.code-card pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font: 14px/1.6 var(--mono);
+}
+
+.code-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.c-dim {
+  color: var(--faint);
+}
+
+.ai-models {
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+/* What an agent may and may not do, as a row of cards. */
+.checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks li {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 20px 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.checks .icon-box {
+  margin-bottom: 10px;
+}
+
+.checks b {
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .private-grid,
+  .ai-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

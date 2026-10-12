@@ -8,7 +8,7 @@ export interface TabSet {
   tabs: { place: Place; pinned: boolean }[];
 }
 
-const VIEWS = new Set(["home", "page", "inbox", "journal", "calendar", "library", "tasks", "trash", "settings", "boards", "slides", "tags", "highlights", "chat", "history", "review", "import"]);
+const VIEWS = new Set(["home", "page", "inbox", "journal", "calendar", "library", "tasks", "trash", "settings", "boards", "slides", "diagrams", "tags", "highlights", "chat", "history", "review", "import", "graph", "overview"]);
 
 /** The pane's tabs as a set called `name`: Home left out, each place once. */
 export function setOf(pane: Pane, name: string): TabSet | null {

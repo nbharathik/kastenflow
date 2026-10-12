@@ -1,3 +1,4 @@
+import type { SlidesHost } from "../host.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorState } from "../session/types.ts";
 import type { EditorUi, UiState } from "../ui-state.ts";
@@ -28,8 +29,14 @@ export interface Command {
   inFields?: boolean;
   /** What its keys do where that is not what a click on its menu item or button does (the click arms a tool, the key adds at once). */
   byKey?(context: CommandContext): void | Promise<void>;
-  /** Whether it can be done now; absent means always. */
-  enabled?(state: EditorState, ui: UiState): boolean;
+  /** Whether it can be done now; absent means always. `host` is what the editor runs in, for a command that needs something of it; `context` is there when the caller has it (what depends on where the focus is). */
+  enabled?(state: EditorState, ui: UiState, host: SlidesHost, context?: CommandContext): boolean;
+  /**
+   * Its keys are the browser's own (copy, cut, paste): the press is left alone and the event the browser makes of it does the work
+   * (`clipboard/events.ts`), with the data in hand and no permission to ask. The keys are listed so menus show them. A function is told
+   * that the key went down.
+   */
+  native?: boolean | (() => void);
   /** For a command that is on or off: whether it is on now. */
   checked?(state: EditorState, ui: UiState): boolean;
   run(context: CommandContext): void | Promise<void>;

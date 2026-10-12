@@ -2,7 +2,7 @@
   "name": "@kasten-slides/dev",
   "version": "0.1.0",
   "private": true,
-  "description": "The Kasten Slides editor as a web page: what `slides dev` serves, and the page the editor's visual checks open",
+  "description": "The KastenFlow Slides editor as a web page: what `slides dev` serves, and the page the editor's visual checks open",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {

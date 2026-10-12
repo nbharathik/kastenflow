@@ -23,7 +23,7 @@ export function signInProblem(end: SignInEnd): string | null {
     case "denied":
       return "GitHub sign-in was cancelled";
     case "disabled":
-      return "This copy of Kasten can't sign in by code. Paste a token instead";
+      return "This copy of KastenFlow can't sign in by code. Paste a token instead";
     case "failed":
       return end.message;
   }
@@ -88,13 +88,13 @@ export function GitHubRow({ Row }: { Row: RowComponent }) {
   return (
     <>
       {!account.signedIn ? (
-        <Row label="Back up to GitHub" detail="Sign in, and Kasten makes a private repository in your account for this vault.">
+        <Row label="Back up to GitHub" detail="Sign in, and KastenFlow makes a private repository in your account for this vault.">
           <button type="button" className={BUTTON} onClick={() => void start()}>
             Sign in with GitHub
           </button>
         </Row>
       ) : onGitHub ? (
-        <Row label="GitHub" detail={`Signed in as ${account.login ?? "you"}. This vault backs up to ${remote?.replace("https://github.com/", "").replace(/\.git$/, "")}.`}>
+        <Row label="GitHub" detail={`Signed in as ${account.login ?? "you"}`} help={`This vault backs up to ${remote?.replace("https://github.com/", "").replace(/\.git$/, "")}.`}>
           <button type="button" className={BUTTON} onClick={() => void signOut()}>
             Sign out
           </button>

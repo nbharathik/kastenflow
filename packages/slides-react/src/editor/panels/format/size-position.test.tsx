@@ -193,16 +193,18 @@ describe("Size and rotation: more kinds of element", () => {
 });
 
 describe("Position", () => {
-  it("enables aligning for two elements, distributing for three, and stacking for any", async () => {
+  it("enables aligning for one element (to the slide), distributing for three, and stacking for any", async () => {
     await mount({ elements: [rect(10, 10, 50, 50)] });
     const disabled = (name: string) => screen.getByRole("button", { name }).hasAttribute("disabled");
-    expect(disabled("Align left")).toBe(true);
+    expect(disabled("Align left")).toBe(false);
+    expect(screen.getByText("Align to slide")).toBeTruthy();
     expect(disabled("Distribute horizontally")).toBe(true);
     expect(disabled("Bring to front")).toBe(false);
     cleanup();
 
     await mount({ elements: [rect(10, 10, 50, 50), rect(200, 60, 50, 50)] });
     expect(disabled("Align left")).toBe(false);
+    expect(screen.queryByText("Align to slide")).toBeNull();
     expect(disabled("Distribute horizontally")).toBe(true);
     cleanup();
 
@@ -226,6 +228,18 @@ describe("Position", () => {
     expect(kit.session.slide.elements.map((e) => e.id)).toEqual([b, a, c]);
   });
 
+  it("aligns one element to the slide, and still aligns two to each other", async () => {
+    const kit = await mount({ elements: [rect(10, 10, 50, 50)] });
+    const [a] = kit.ids as [string];
+    fireEvent.click(screen.getByRole("button", { name: "Align right" }));
+    expect(held(kit, a).x).toBe(910);
+    fireEvent.click(screen.getByRole("button", { name: "Align middle" }));
+    expect(held(kit, a).y).toBe(245);
+    fireEvent.click(screen.getByRole("button", { name: "Align left" }));
+    expect(held(kit, a).x).toBe(0);
+    expect(kit.errors).toEqual([]);
+  });
+
   it("spreads three elements evenly", async () => {
     const kit = await mount({ elements: [rect(0, 0, 50, 50), rect(60, 0, 50, 50), rect(300, 0, 50, 50)] });
     const [, b] = kit.ids as [string, string, string];
@@ -245,7 +259,7 @@ describe("Which sections show", () => {
     const kit = await mount({ elements: [rect(0, 0, 50, 50, { shape: "roundRect" })] });
     expect(sections()).toEqual(["size", "position", "fill", "border", "radius", "shadow", "text", "access"]);
     edit(() => kit.session.select([]));
-    expect(sections()).toEqual(["background", "layout", "transition", "theme"]);
+    expect(sections()).toEqual(["background", "layout", "transition", "numbers", "theme"]);
   });
 });
 

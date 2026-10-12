@@ -68,6 +68,15 @@
   white-space: nowrap;
 }
 
+/* The time a to-do or mention carries, before its title. */
+.kasten-cal-chip-time {
+  margin-right: 5px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 .kasten-cal-chip.is-done {
   opacity: 0.72;
 

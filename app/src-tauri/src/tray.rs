@@ -30,7 +30,7 @@ fn build(app: &AppHandle) -> tauri::Result<()> {
         .ok()
         .and_then(|dir| AppSettings::load(&dir).capture_shortcut)
         .unwrap_or_else(|| crate::shortcut::DEFAULT.to_owned());
-    let open = MenuItem::with_id(app, "open", "Open Kasten", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open KastenFlow", true, None::<&str>)?;
     let capture = MenuItem::with_id(
         app,
         "capture",
@@ -40,7 +40,7 @@ fn build(app: &AppHandle) -> tauri::Result<()> {
     )?;
     let backup = MenuItem::with_id(app, "backup", "Back up now", true, None::<&str>)?;
     let latest = MenuItem::with_id(app, "latest", "Get latest", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Kasten", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit KastenFlow", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -54,7 +54,7 @@ fn build(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     let mut tray = TrayIconBuilder::with_id("kasten")
-        .tooltip("Kasten")
+        .tooltip("KastenFlow")
         .menu(&menu)
         // A Mac's menu bar opens its menu on a click; elsewhere a click
         // opens the window and the menu is on the other button.
@@ -115,7 +115,7 @@ fn back_up_now(app: &AppHandle) {
             if failed {
                 crate::notify::tell(&app, crate::notify::Notice::BackupFailing);
             }
-            let _ = app.emit("vault-committed", kasten_core::Tick::default());
+            let _ = app.emit_to(MAIN, "vault-committed", kasten_core::Tick::default());
         });
 }
 

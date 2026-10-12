@@ -4,6 +4,8 @@
 mod app_settings;
 mod backup;
 mod brainstorm;
+mod browser;
+mod calendars;
 mod capture;
 mod chat;
 mod clip;
@@ -11,8 +13,10 @@ mod closing;
 mod commands;
 mod crash;
 mod desktop_prefs;
+mod diagrams;
 mod downloads;
 mod drops;
+mod extension;
 mod git_host;
 mod guard;
 mod launch;
@@ -71,7 +75,7 @@ pub fn run() {
         .thread_name("kasten-async")
         .thread_stack_size(STACK_BYTES)
         .build()
-        .expect("error while starting the Kasten app's runtime");
+        .expect("error while starting the KastenFlow app's runtime");
     tauri::async_runtime::set(runtime.handle().clone());
     let context = tauri::generate_context!();
     let vault_from_env = std::env::var_os("KASTEN_VAULT").is_some();
@@ -114,6 +118,25 @@ pub fn run() {
         .manage(update_install::Installer::new(can_install))
         .manage(git_host::SignIn::default())
         .manage(guard::Embeds::default())
+        .manage(calendars::Calendars::default())
+        .manage(browser::Browser::default())
+        .manage(extension::Extension::default())
+        .manage(diagrams::Editor::default())
+        // The installed diagram editor's files, to its frame and nobody else.
+        .register_asynchronous_uri_scheme_protocol(
+            diagrams::protocol::SCHEME,
+            |ctx, request, responder| {
+                let app = ctx.app_handle().clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let editor = diagrams::installed_dir(&app);
+                    responder.respond(diagrams::protocol::respond(
+                        editor.as_deref(),
+                        request.method(),
+                        request.uri().path(),
+                    ));
+                });
+            },
+        )
         .on_window_event(|window, event| {
             closing::on_window_event(window, event);
             capture::on_window_event(window, event);
@@ -128,6 +151,12 @@ pub fn run() {
             main_window::prepare(app.handle(), settings.as_deref());
             tray::start(app.handle());
             shortcut::start(app.handle());
+            // Subscribed calendars are refreshed while the app runs.
+            calendars::start(app.handle());
+            // Off until the person turns the browser tab on.
+            browser::start(app.handle());
+            // Shut until the person turns the browser extension's door on.
+            extension::start(app.handle());
             if std::env::args().any(|a| a == "--capture") {
                 capture::show(app.handle());
             }
@@ -189,7 +218,17 @@ pub fn run() {
             commands::imports::plan_import,
             commands::imports::import_notes,
             commands::imports::undo_commit,
+            commands::replace::find_under,
+            commands::replace::replace_under,
+            commands::graph::vault_graph,
+            calendars::commands::calendars_list,
+            calendars::commands::calendar_add,
+            calendars::commands::calendar_edit,
+            calendars::commands::calendar_remove,
+            calendars::commands::calendar_refresh,
+            calendars::commands::calendar_events,
             clip::clip_url,
+            clip::web_title,
             web::open_url,
             updates::check_update,
             update_install::update_prepare,
@@ -238,6 +277,7 @@ pub fn run() {
             git_host::git_token_forget,
             capture::capture_hide,
             capture::capture_done,
+            capture::capture_resize,
             presenter::open_presenter,
             presenter::presenter_post,
             presenter::presenter_close,
@@ -286,6 +326,23 @@ pub fn run() {
             commands::decks::create_deck,
             commands::decks::save_deck,
             commands::decks::restore_deck,
+            commands::decks::list_deck_templates,
+            commands::decks::create_deck_template,
+            commands::diagrams::list_diagrams,
+            commands::diagrams::read_diagram,
+            commands::diagrams::read_diagram_preview,
+            commands::diagrams::create_diagram,
+            commands::diagrams::import_diagram,
+            commands::diagrams::save_diagram,
+            commands::diagrams::save_diagram_preview,
+            commands::diagrams::rename_diagram,
+            commands::diagrams::move_diagram,
+            commands::diagrams::duplicate_diagram,
+            commands::diagrams::restore_diagram,
+            diagrams::commands::diagram_editor_status,
+            diagrams::commands::diagram_editor_install,
+            diagrams::commands::diagram_editor_cancel,
+            diagrams::commands::diagram_editor_remove,
             commands::agents::mcp_token,
             commands::agents::list_proposals,
             commands::agents::accept_proposal,
@@ -309,11 +366,33 @@ pub fn run() {
             chat::commands::chat_send,
             chat::commands::chat_stop,
             chat::commands::chat_reset,
+            chat::chatgpt::commands::chatgpt_sign_in_start,
+            chat::chatgpt::commands::chatgpt_sign_in_cancel,
+            chat::chatgpt::commands::chatgpt_account,
+            chat::chatgpt::commands::chatgpt_sign_out,
             chat::commands::save_chat,
             brainstorm::brainstorm_board,
+            browser::browser_open,
+            browser::browser_bounds,
+            browser::browser_hide,
+            browser::browser_show,
+            browser::browser_close,
+            browser::browser_nav,
+            browser::browser_enabled,
+            browser::set_browser_enabled,
+            browser::browser_clear_data,
+            browser::flow::browser_capture,
+            browser::flow::browser_capture_confirm,
+            browser::flow::browser_capture_discard,
+            extension::extension_status,
+            extension::set_extension_enabled,
+            extension::set_extension_port,
+            extension::extension_pair_start,
+            extension::extension_pair_cancel,
+            extension::extension_revoke,
         ]))
         .build(context)
-        .expect("error while building the Kasten app");
+        .expect("error while building the KastenFlow app");
     app.run(|handle, event| match event {
         RunEvent::ExitRequested { api, code, .. } => closing::on_exit_requested(handle, &api, code),
         // Typing is committed on close, not lost to the 30 s wait.

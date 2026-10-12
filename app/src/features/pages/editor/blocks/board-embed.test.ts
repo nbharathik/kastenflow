@@ -10,6 +10,7 @@ import { createKastenCrepe } from "../crepe";
 import { findBoard, isBoardTarget, type BoardLink, type LinkProvider } from "../links";
 import { startLink } from "../menus/mention";
 import { openNote, type OpenNote } from "../session";
+import { heightOf } from "./embed-heights";
 import { refreshMentions } from "./wikilink-view";
 
 const BOARDS: BoardLink[] = [
@@ -92,6 +93,38 @@ describe("whiteboard embeds", () => {
     crepe = undefined;
     await settle();
     expect(unmount).toHaveBeenCalled();
+  });
+
+  it("mounts the board embedded, with a slim head that presents it and a grip that sets its height", async () => {
+    localStorage.removeItem("kasten.embedHeights");
+    const { links } = provider();
+    await open("![[projects/trip/boards/map.canvas]]\n", links);
+    await settle();
+    const embed = root!.querySelector<HTMLElement>(".kasten-board-embed")!;
+    expect(links.mountBoard).toHaveBeenCalledWith(expect.any(HTMLElement), "projects/trip/boards/map.canvas", { embedded: true });
+    // Present is asked of the board inside, which knows its sections.
+    const asked = vi.fn();
+    embed.addEventListener("kasten:present", asked);
+    embed.querySelector(".kasten-board-embed-present")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    expect(asked).toHaveBeenCalledTimes(1);
+    // The grip: keys and a drag set the height, kept per board and kept within limits.
+    const body = embed.querySelector<HTMLElement>(".kasten-board-embed-body")!;
+    const grip = embed.querySelector<HTMLElement>(".kasten-board-embed-grip")!;
+    expect(body.style.height).toBe("440px");
+    grip.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+    expect(body.style.height).toBe("480px");
+    grip.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientY: 100 }));
+    window.dispatchEvent(new PointerEvent("pointermove", { clientY: 5000 }));
+    expect(body.style.height).toBe("1200px");
+    window.dispatchEvent(new PointerEvent("pointermove", { clientY: -5000 }));
+    window.dispatchEvent(new PointerEvent("pointerup", {}));
+    expect(body.style.height).toBe("200px");
+    expect(JSON.parse(localStorage.getItem("kasten.embedHeights")!)).toEqual({ "projects/trip/boards/map.canvas": 200 });
+    // Drawn again, or opened in another page, it is as it was left.
+    refreshMentions();
+    expect(body.style.height).toBe("200px");
+    expect(heightOf("library/ideas.canvas")).toBe(440);
+    localStorage.removeItem("kasten.embedHeights");
   });
 
   it("gives each board its own element, so React unmounts it cleanly when it goes", async () => {

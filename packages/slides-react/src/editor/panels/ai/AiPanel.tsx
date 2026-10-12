@@ -37,7 +37,7 @@ export function AiPanel({ session }: { session: EditorSession; ui: EditorUi }): 
         <Icon name="sparkles" size={20} />
       </span>
       <h3>Assistant</h3>
-      <p>Available in Kasten.</p>
+      <p>Available in KastenFlow.</p>
     </div>
   );
 }

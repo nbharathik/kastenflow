@@ -100,7 +100,9 @@ pub fn read_code(body: &str) -> Result<DeviceCode, String> {
     let code: DeviceCode = serde_json::from_str(body)
         .map_err(|_| "GitHub's answer could not be read; try again".to_owned())?;
     if code.verification_uri != VERIFY {
-        return Err("GitHub named a sign-in page that is not its own, so Kasten stopped".into());
+        return Err(
+            "GitHub named a sign-in page that is not its own, so KastenFlow stopped".into(),
+        );
     }
     Ok(code)
 }
@@ -288,7 +290,7 @@ pub async fn create_private_repo(
         &json!({
             "name": name,
             "private": true,
-            "description": "Kasten vault backup",
+            "description": "KastenFlow vault backup",
             "has_issues": false,
             "has_projects": false,
             "has_wiki": false,
@@ -350,7 +352,7 @@ pub async fn protect(http: &reqwest::Client, token: &str, full_name: &str) -> bo
     with_json(
         request,
         &json!({
-            "name": "Kasten backup",
+            "name": "KastenFlow backup",
             "target": "branch",
             "enforcement": "active",
             "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },

@@ -24,6 +24,9 @@ pub struct BoardInfo {
     pub project: Option<String>,
     pub nodes: usize,
     pub modified: u64,
+    /// The id of the page the board is a map of, if it was made from one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// What a batch of board changes made, and the board after it.
@@ -70,6 +73,7 @@ impl Kasten {
                 project: project_of(&file.path),
                 nodes: canvas.nodes().len(),
                 modified: file.modified,
+                source: canvas.source_page().map(str::to_owned),
                 path: file.path,
             });
         }

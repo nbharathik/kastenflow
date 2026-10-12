@@ -1,80 +1,57 @@
-<section class="hero" aria-labelledby="hero-title">
-        <div class="hero-bg" aria-hidden="true"><div class="hero-dots"></div><div class="hero-glow"></div></div>
+<section class="hero" id="tour" aria-labelledby="hero-title" data-hero>
         <div class="wrap hero-copy">
-          <a class="pill rise" href="https://github.com/__REPO__">
-            <span class="pill-tag">Open source</span>
-            Early source release
+          <a class="chip rise" href="https://github.com/__REPO__">
+            Open source · Early source release
             <svg class="i" aria-hidden="true"><use href="#i-arrow-up-right" /></svg>
           </a>
-          <h1 id="hero-title" class="rise" style="--d: 1">Think freely.<br /><span class="ink-gradient">Keep everything.</span></h1>
+          <h1 id="hero-title" class="rise" style="--d: 1">A home for your <span class="hl">notes</span></h1>
           <p class="lead rise" style="--d: 2">
-            Kasten is a desktop app for your daily journal and notes. Write pages, plan on whiteboards and keep every day in one place, as plain Markdown files in a folder you choose, with Git history and optional AI tools governed by operation and review rules.
+            KastenFlow is a desktop app for your daily journal and notes. Write pages, plan on whiteboards and keep every day in one place, as plain Markdown files.
           </p>
           <div class="cta-row rise" style="--d: 3">
-            <a class="btn btn-primary btn-lg" href="demo/">
-              Try it in your browser
+            <a class="cta cta-solid" href="demo/">
+              Try the demo
               <svg class="i" aria-hidden="true"><use href="#i-arrow-up-right" /></svg>
             </a>
-            <a class="btn btn-ghost btn-lg" href="#download">
+            <a class="cta cta-line" href="#download">
               <svg class="i" aria-hidden="true"><use href="#i-download" /></svg>
               <span data-os-label>Download</span>
             </a>
           </div>
-          <p class="hero-note rise" style="--d: 4">Desktop-first · No account · Works offline · Your folder, your files</p>
+          <p class="hero-note rise" style="--d: 4">Works offline. No account required.</p>
         </div>
 
-        <div class="wrap hero-stage rise" style="--d: 5">
-          <div class="window hero-window">
-            <div class="window-bar" aria-hidden="true"><i></i><i></i><i></i><span>Seaside trip</span></div>
-            <picture>
-              <source srcset="img/page-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
-              <img src="img/page.webp" width="2400" height="1500" alt="A page in Kasten: a trip plan with its tags and properties under the title, a callout and the itinerary" fetchpriority="high" />
-            </picture>
+        <div class="wrap hero-live" id="app" style="--views: 8" data-track>
+          <div class="tour-tabs" role="tablist" aria-label="Explore KastenFlow">
+            <button type="button" role="tab" id="tab-pages" data-window-title="Seaside trip" aria-controls="view-pages" aria-selected="true"><svg class="i" aria-hidden="true"><use href="#i-page" /></svg><span class="tab-label">Pages</span></button>
+            <button type="button" role="tab" id="tab-inbox" data-window-title="Inbox" aria-controls="view-inbox" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-inbox" /></svg><span class="tab-label">Inbox</span></button>
+            <button type="button" role="tab" id="tab-projects" data-window-title="Note-taking study" aria-controls="view-projects" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-project" /></svg><span class="tab-label">Projects</span></button>
+            <button type="button" role="tab" id="tab-board" data-window-title="brainstorm" aria-controls="view-board" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-board" /></svg><span class="tab-label">Whiteboards</span></button>
+            <button type="button" role="tab" id="tab-present" data-window-title="Presenting" aria-controls="view-present" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-present" /></svg><span class="tab-label">Present</span></button>
+            <button type="button" role="tab" id="tab-library" data-window-title="Card Library" aria-controls="view-library" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-library" /></svg><span class="tab-label">Library</span></button>
+            <span class="tab-rule" aria-hidden="true"></span>
+            <button type="button" role="tab" id="tab-history" data-window-title="Seaside trip · History" aria-controls="view-history" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-history" /></svg><span class="tab-label">History</span></button>
+            <button type="button" role="tab" id="tab-ai" data-window-title="Chat" aria-controls="view-ai" aria-selected="false" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-sparkle" /></svg><span class="tab-label">AI chat</span></button>
           </div>
 
-          <div class="float float-link" aria-hidden="true">
-            <div class="fl-line">Dinner near the <span class="fl-typed">[[Harb</span><span class="fl-caret"></span></div>
-            <ul class="fl-menu">
-              <li class="is-on"><svg class="i"><use href="#i-page" /></svg>Harbour walk<small>in Seaside trip</small></li>
-              <li><svg class="i"><use href="#i-page" /></svg>Harbour restaurants<small>in Pages</small></li>
-              <li><svg class="i"><use href="#i-plus" /></svg>New page “Harb”</li>
-            </ul>
-          </div>
-
-          <div class="float float-todo" aria-hidden="true">
-            <span class="fl-check"><svg class="i"><use href="#i-check" /></svg></span>
-            Travel insurance
-            <span class="fl-chip">Seaside trip</span>
-          </div>
-
-          <div class="float float-agent" aria-hidden="true">
-            <span class="fl-spark"><svg class="i"><use href="#i-sparkle" /></svg></span>
-            <div>
-              <p><b>Claude</b> added 3 cards to <b>brainstorm</b></p>
-              <div class="fl-actions"><span>Review</span><span class="fl-undo"><svg class="i"><use href="#i-undo" /></svg>Undo session</span></div>
+          <div class="tour-pin">
+          <div class="window app-window">
+            <div class="window-bar"><i></i><i></i><i></i><span data-app-title>Seaside trip</span></div>
+            <div class="app-stage">
+              <!-- include partials/demo-files.html -->
+              <!-- include partials/flow.html -->
+              <!-- include partials/demo-board.html -->
+              <!-- include partials/demo-history.html -->
+              <!-- include partials/demo-ai.html -->
             </div>
           </div>
 
-          <div class="float float-file" aria-hidden="true">
-            <div class="ff-head"><svg class="i"><use href="#i-page" /></svg>library/seaside-trip.md</div>
-            <pre><span class="md-fm">---
-title: Seaside trip
-tags: [travel]
----</span>
-- [x] Flights
-- [ ] Travel insurance</pre>
-          </div>
-        </div>
+          <picture class="hero-static">
+            <source srcset="img/page-dark.webp" media="(prefers-color-scheme: dark)" data-dark />
+            <img src="img/page.webp" width="2400" height="1500" alt="A page in KastenFlow: a trip plan with tags, properties and an itinerary" />
+          </picture>
 
-        <div class="wrap formats" data-reveal>
-          <p>Built on formats that outlive apps</p>
-          <ul>
-            <li><svg class="i" aria-hidden="true"><use href="#i-hash" /></svg>Markdown</li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-code" /></svg>YAML</li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-board" /></svg>JSON Canvas</li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-git" /></svg>Git</li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-plug" /></svg>MCP</li>
-            <li><svg class="i" aria-hidden="true"><use href="#i-page" /></svg>PDF</li>
-          </ul>
+          <p class="hero-fine"><span class="fine-scroll">Scroll to see each part of KastenFlow, or pick one from the list.</span> Everything in this window runs in your browser, on sample notes.</p>
+          </div>
         </div>
       </section>

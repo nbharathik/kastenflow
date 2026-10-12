@@ -1,28 +1,25 @@
-<section class="section" id="history" aria-labelledby="history-title">
-        <div class="wrap">
-          <header class="section-head" data-reveal>
-            <p class="eyebrow"><svg class="i" aria-hidden="true"><use href="#i-history" /></svg>History</p>
-            <h2 id="history-title">Revisit earlier versions</h2>
-            <p class="lead">Saved changes are recorded in the vault's Git history; typing is batched. Keep an independent backup. Slide back to any version of a page, see what changed, and bring it back. Restoring adds a version; it never erases one.</p>
-          </header>
+<section class="app-panel" id="view-history" role="tabpanel" aria-labelledby="tab-history">
+            <header class="view-head">
+              <h2 class="view-title"><svg class="i" aria-hidden="true"><use href="#i-history" /></svg>Revisit earlier versions</h2>
+              <p>Browse saved versions of a page, compare changes and restore an earlier version. Restoring adds a new version to your local Git history.</p>
+            </header>
 
-          <div class="demo demo-history" data-demo="history" data-reveal>
-            <div class="dh-page">
-              <div class="dh-head">
-                <span class="dh-title">✈️ Seaside trip</span>
-                <span class="dh-when" data-history-when></span>
+            <div class="demo demo-history" data-demo="history">
+              <div class="dh-page">
+                <div class="dh-head">
+                  <span class="dh-title">✈️ Seaside trip</span>
+                  <span class="dh-when" data-history-when></span>
+                </div>
+                <div class="dh-body" data-history-body></div>
               </div>
-              <div class="dh-body" data-history-body></div>
+              <div class="dh-side">
+                <label class="dh-label" for="dh-range">Versions</label>
+                <input id="dh-range" class="dh-range" type="range" min="0" max="4" step="1" value="4" data-history-range />
+                <ol class="dh-list" data-history-list></ol>
+                <button type="button" class="btn btn-primary btn-sm dh-restore" data-history-restore disabled>
+                  <svg class="i" aria-hidden="true"><use href="#i-restore" /></svg>Restore this version
+                </button>
+                <p class="dh-note" data-history-note aria-live="polite"></p>
+              </div>
             </div>
-            <div class="dh-side">
-              <label class="dh-label" for="dh-range">Versions</label>
-              <input id="dh-range" class="dh-range" type="range" min="0" max="4" step="1" value="4" data-history-range />
-              <ol class="dh-list" data-history-list></ol>
-              <button type="button" class="btn btn-primary btn-sm dh-restore" data-history-restore disabled>
-                <svg class="i" aria-hidden="true"><use href="#i-restore" /></svg>Restore this version
-              </button>
-              <p class="dh-note" data-history-note aria-live="polite"></p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>

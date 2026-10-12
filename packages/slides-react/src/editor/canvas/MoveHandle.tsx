@@ -40,6 +40,7 @@ export function MoveHandles({ zoom, selected, group, hovered, gesture, active }:
             className={`ks-move is-${handle.kind}${place.inside ? " is-inside" : ""}${dragging ? " is-dragging" : ""}`}
             style={{ left: place.x, top: place.y }}
             data-move={handle.id ?? ""}
+            data-chrome={handle.kind === "selection" ? "" : undefined}
             data-ks-keep-focus=""
             aria-label="Move"
             title="Drag to move (arrow keys nudge)"

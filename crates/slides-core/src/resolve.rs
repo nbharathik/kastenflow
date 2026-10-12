@@ -1,7 +1,7 @@
 //! Where an element is. An element with its own box is where it says; one
 //! that fills a placeholder is where its slide's layout puts that slot.
 
-use crate::model::{Element, Layout, PlaceholderDef, Slide, Theme};
+use crate::model::{Background, Element, Layout, PlaceholderDef, Slide, Theme};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
@@ -14,6 +14,14 @@ pub struct Rect {
 /// The layout a slide uses.
 pub fn layout_of<'a>(theme: &'a Theme, slide: &Slide) -> Option<&'a Layout> {
     theme.layout(&slide.layout)
+}
+
+/// What fills a slide behind its elements: the slide's own background, or else its layout's.
+pub fn background_of<'a>(theme: &'a Theme, slide: &'a Slide) -> Option<&'a Background> {
+    slide
+        .background
+        .as_ref()
+        .or_else(|| layout_of(theme, slide).and_then(|l| l.background.as_ref()))
 }
 
 /// The slot an element fills, on its slide's layout.

@@ -4,6 +4,7 @@
 //! the one in the linking note's project; when that does not pick one, the
 //! reader is asked.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::note::NoteMeta;
@@ -85,6 +86,22 @@ pub fn title_key(title: &str) -> String {
     title.trim().to_lowercase()
 }
 
+/// `text` in lowercase, copied only when it has capitals to change: the
+/// index keeps link targets lowercase, and following ten thousand notes' links
+/// need not copy each one.
+fn lowered(text: &str) -> Cow<'_, str> {
+    if text.is_ascii() && !text.bytes().any(|b| b.is_ascii_uppercase()) {
+        Cow::Borrowed(text)
+    } else {
+        Cow::Owned(text.to_lowercase())
+    }
+}
+
+/// Whether a path names a note by its file, in any case.
+fn ends_with_md(path: &str) -> bool {
+    path.len() >= 3 && path.as_bytes()[path.len() - 3..].eq_ignore_ascii_case(b".md")
+}
+
 /// The vault's notes by path and by title, to follow links.
 pub struct Directory<'a> {
     by_path: HashMap<String, &'a NoteMeta>,
@@ -115,7 +132,7 @@ impl<'a> Directory<'a> {
     /// Notes with this title, by path.
     pub fn titled(&self, title: &str) -> &[&'a NoteMeta] {
         self.by_title
-            .get(&title_key(title))
+            .get(lowered(title.trim()).as_ref())
             .map_or(&[], Vec::as_slice)
     }
 
@@ -127,12 +144,19 @@ impl<'a> Directory<'a> {
     /// Where a link to `target`, written at `from`, goes.
     pub fn resolve(&self, target: &str, from: Place) -> Resolution<'a> {
         let target = target.trim();
-        if (target.contains('/') || target.to_lowercase().ends_with(".md"))
+        if (target.contains('/') || ends_with_md(target))
             && let Some(note) = self.note(target)
         {
             return Resolution::Note(note);
         }
         let all = self.titled(target);
+        // The usual link: one note has the title (a note's link to its own
+        // title goes to it too, when none else has it).
+        match all {
+            [] => return Resolution::Missing,
+            [only] => return Resolution::Note(only),
+            _ => {}
+        }
         // A note's link to its own title means another note by that title.
         let others: Vec<&'a NoteMeta> = all
             .iter()

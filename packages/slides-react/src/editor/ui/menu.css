@@ -1,0 +1,131 @@
+/* Popovers and the menus in them. A popover is measured before it is shown, then fades and scales in over the fast motion token, from the
+   corner it opens from, so it never jumps. Menus, dropdowns and context menus are all this one component. */
+.ks-popover {
+  position: fixed;
+  z-index: 50;
+  background: var(--ks-raised);
+  color: var(--ks-ink);
+  border-radius: var(--ks-radius-md);
+  box-shadow: var(--ks-shadow-pop);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  transform-origin: var(--ks-origin, top left);
+  animation: ks-pop var(--ks-fast) var(--ks-ease) backwards;
+}
+@keyframes ks-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* A popover that opens upward rises into place instead. */
+.ks-popover[data-placement="top"] {
+  animation-name: ks-pop-up;
+}
+@keyframes ks-pop-up {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* No motion where the host or the computer asks for none. */
+:root[data-motion="off"] .ks-popover {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="on"]) .ks-popover {
+    animation: none;
+  }
+}
+
+.ks-menu {
+  min-width: 200px;
+  padding: 4px;
+}
+.ks-menu-list {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+.ks-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--ks-radius);
+  cursor: pointer;
+  position: relative;
+}
+.ks-menu-item:hover:not(:disabled),
+.ks-menu-item:focus-visible,
+.ks-menu-item.is-open {
+  background: var(--ks-hover);
+  outline: none;
+}
+.ks-menu-item:active:not(:disabled) {
+  background: var(--ks-pressed);
+}
+.ks-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ks-menu-item.is-danger {
+  color: var(--ks-danger);
+}
+.ks-menu-mark {
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--ks-muted);
+}
+.ks-menu-item[aria-checked="true"] .ks-menu-mark {
+  color: var(--ks-ink);
+}
+.ks-menu-label {
+  flex: 1;
+  white-space: nowrap;
+}
+/* A row of things to insert says what each makes, in a line under its name. */
+.ks-menu-item.has-desc {
+  height: auto;
+  min-height: 40px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.ks-menu-desc {
+  display: block;
+  color: var(--ks-muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.ks-kbd {
+  font: 11.5px var(--ks-font);
+  color: var(--ks-faint);
+  white-space: nowrap;
+}
+.ks-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--ks-line);
+}
+.ks-menu-heading {
+  padding: 6px 8px 2px 8px;
+  color: var(--ks-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

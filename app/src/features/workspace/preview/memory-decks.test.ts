@@ -23,7 +23,7 @@ describe("deck envelopes", () => {
       ['{"format":"kasten-deck","formatVersion":1}', "slides"],
       ['{"format":"kasten-deck","formatVersion":1,"slides":[],"title":4}', "title"],
     ] as const) {
-      expect(() => deckHead(text)).toThrow(new RegExp(`^Not a Kasten deck: .*${why}`));
+      expect(() => deckHead(text)).toThrow(new RegExp(`^Not a KastenFlow deck: .*${why}`));
     }
   });
 });
@@ -37,7 +37,7 @@ describe("decks in the preview", () => {
     await expect(vault.createDeck("X", "nope", deck("X"))).rejects.toThrow("No project called nope");
     await expect(vault.createDeck("  ", null, deck("X"))).rejects.toThrow("title");
     await expect(vault.createDeck("A|B", null, deck("X"))).rejects.toThrow("title");
-    await expect(vault.createDeck("X", null, "{}")).rejects.toThrow("Not a Kasten deck");
+    await expect(vault.createDeck("X", null, "{}")).rejects.toThrow("Not a KastenFlow deck");
   });
 
   it("lists decks by title, a broken one by its file name", async () => {
@@ -48,7 +48,7 @@ describe("decks in the preview", () => {
       ["library/broken.deck", "broken", 0],
       ["library/a.deck", "Tool use", 4],
     ]);
-    expect(decks[1]!.problem).toMatch(/^Not a Kasten deck/);
+    expect(decks[1]!.problem).toMatch(/^Not a KastenFlow deck/);
     expect(decks[0]!.problem).toBeNull();
     const report = await vault.verify();
     expect(report.decks).toBe(3);
@@ -73,7 +73,7 @@ describe("decks in the preview", () => {
     expect((await vault.deck(path)).text).toBe(second);
     expect((await vault.deck(clash.copy)).text).toBe(mine);
     expect(clash.copy).toMatch(/^library\/tool-use \(conflict \d{4}-\d\d-\d\d \d\d-\d\d\)\.deck$/);
-    await expect(vault.saveDeck(path, "{}", first.hash)).rejects.toThrow("Not a Kasten deck");
+    await expect(vault.saveDeck(path, "{}", first.hash)).rejects.toThrow("Not a KastenFlow deck");
     expect((await vault.deck(path)).text).toBe(second);
     await expect(vault.saveDeck("library/none.deck", mine, "x")).rejects.toThrow();
   });

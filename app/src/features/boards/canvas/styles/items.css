@@ -2,55 +2,81 @@
 
 /* ---- Sections -------------------------------------------------------- */
 
+/* A soft frame, tinted a little, with its name on a small chip at the top
+   left. No header bar: the strip across the top is only where it is grabbed
+   (it draws nothing), and the fold chevron shows when the pointer is there. */
 .kasten-section {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  border: 1.5px solid color-mix(in srgb, var(--tint, var(--color-ink)) 13%, transparent);
-  border-radius: var(--radius-3xl);
-  background: color-mix(in srgb, var(--tint, var(--color-ink)) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint, var(--color-ink)) 11%, transparent);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--tint, var(--color-ink)) 3.5%, transparent);
+  transition: border-color var(--motion-base) var(--ease-standard);
 }
 
 .kasten-section.is-tinted {
-  border-color: color-mix(in srgb, var(--tint) 40%, transparent);
-  background: color-mix(in srgb, var(--tint) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tint) 26%, transparent);
+  background: color-mix(in srgb, var(--tint) 7%, transparent);
 }
 
+/* Chosen: a thin outline, and the corner handles (parts.tsx). */
 .react-flow__node.selected > .kasten-section {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  box-shadow: 0 0 0 0.5px var(--color-accent);
 }
 
 .kasten-section.is-folded {
-  border-style: solid;
   background: var(--board-card);
   box-shadow: var(--shadow-card);
 }
 
 .kasten-section.is-folded.is-tinted {
-  background: color-mix(in srgb, var(--tint) 12%, var(--board-card));
+  background: color-mix(in srgb, var(--tint) 10%, var(--board-card));
 }
 
 .kasten-section-bar {
   position: absolute;
   inset: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 14px 0 8px;
+  height: 40px;
   pointer-events: all;
   cursor: grab;
+}
+
+.kasten-section-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 20px);
+  height: 26px;
+  margin: 7px 0 0 8px;
+  padding: 0 8px 0 3px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--tint, var(--color-ink)) 8%, transparent);
+}
+
+.kasten-section.is-folded .kasten-section-chip {
+  margin-top: 9px;
+  background: transparent;
 }
 
 .kasten-section-fold {
   display: grid;
   flex: none;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-lg);
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-md);
   color: var(--color-muted);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.kasten-section-bar:hover .kasten-section-fold,
+.kasten-section-fold:focus-visible,
+.react-flow__node.selected .kasten-section-fold,
+.kasten-section.is-folded .kasten-section-fold {
+  opacity: 1;
 }
 
 .kasten-section-fold:hover {
@@ -60,18 +86,27 @@
 
 .kasten-section-label {
   min-width: 0;
+  padding-left: 4px;
   overflow: hidden;
-  color: color-mix(in srgb, var(--tint, var(--color-ink)) 75%, var(--color-ink));
-  font-size: var(--text-16);
-  font-weight: 650;
+  color: color-mix(in srgb, var(--tint, var(--color-ink)) 70%, var(--color-ink));
+  font-size: var(--text-13);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.kasten-section-chip .kasten-line-editor {
+  min-width: 96px;
+  padding-left: 4px;
+  font-size: var(--text-13);
+  font-weight: 600;
+}
+
 .kasten-section-count {
   flex: none;
+  margin-left: 6px;
   color: var(--color-muted);
-  font-size: var(--text-13);
+  font-size: var(--text-12);
 }
 
 .kasten-section .kasten-side-handle,

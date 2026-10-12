@@ -14,3 +14,6 @@ export const SHOW_OPTIONS: readonly { key: keyof CalendarShow; label: string; de
 
 /** How many kinds shown by default are hidden, for the Show button's badge. */
 export const hiddenCount = (show: CalendarShow) => SHOW_OPTIONS.filter((o) => CALENDAR_SHOW[o.key] && !show[o.key]).length;
+
+/** How many subscribed calendars are hidden: they count in the badge too. */
+export const hiddenCalendars = (calendars: readonly { shown: boolean }[] | null) => calendars?.filter((c) => !c.shown).length ?? 0;

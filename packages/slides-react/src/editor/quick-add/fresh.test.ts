@@ -4,7 +4,7 @@ import { newDeck } from "../../test/engine.ts";
 import { plainText, shape, textBox } from "../factory.ts";
 import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
-import { markFresh, settleFresh } from "./fresh.ts";
+import { isUntouched, markFresh, settleFresh } from "./fresh.ts";
 
 async function open() {
   const session = new EditorSession(await newDeck("Talk"), new MemoryHost(), { saveDelay: 60_000 });
@@ -112,5 +112,52 @@ describe("a text box made empty and closed with nothing typed", () => {
     settleFresh(session, id);
     expect(session.deck.slides.find((s) => s.id === first)?.elements.map((e) => e.id)).toContain(id);
     expect(ids()).not.toContain(id);
+  });
+});
+
+describe("the first words typed in a box made just now", () => {
+  const wordsOf = (session: EditorSession, id: string): string => {
+    const found = session.slide.elements.find((e) => e.id === id);
+    return found?.type === "text" ? found.text.paragraphs.map((p) => p.runs.map((r) => r.t).join("")).join("\n") : "";
+  };
+
+  it("are one step of undo with the box, and of redo", async () => {
+    const { session, made, ids } = await open();
+    const slide = session.state.slideId;
+    const before = session.state.undoLabel;
+    const id = made();
+    expect(isUntouched(session, id, slide)).toBe(true);
+    session.elements.setText(id, plainText("Hello"), slide, true);
+    expect(wordsOf(session, id)).toBe("Hello");
+    expect(session.state.undoLabel).toBe("add_elements");
+    session.undo();
+    expect(ids(), "the box and the words go together").not.toContain(id);
+    expect(session.state.undoLabel).toBe(before);
+    session.redo();
+    expect(wordsOf(session, id)).toBe("Hello");
+  });
+
+  it("are a step of their own when something else was done to the deck after the box was made", async () => {
+    const { session, made, ids } = await open();
+    const slide = session.state.slideId;
+    const id = made();
+    session.elements.style({ fill: { color: "accent1" } }, [id]);
+    expect(isUntouched(session, id, slide)).toBe(false);
+    session.elements.setText(id, plainText("Hello"), slide, isUntouched(session, id, slide));
+    session.undo();
+    expect(ids()).toContain(id);
+    expect(wordsOf(session, id)).toBe("");
+  });
+
+  it("are not joined to a box that was not made just now, or on another slide", async () => {
+    const { session, made } = await open();
+    const slide = session.state.slideId;
+    const [plain] = session.elements.insert([textBox({ x: 10, y: 10, w: 100, h: 40 })]) as [string];
+    expect(isUntouched(session, plain, slide), "never marked").toBe(false);
+    const id = made();
+    expect(isUntouched(session, id, "s-elsewhere")).toBe(false);
+    session.stopEditing();
+    settleFresh(session, id);
+    expect(isUntouched(session, id, slide), "the mark is spent when editing ends").toBe(false);
   });
 });

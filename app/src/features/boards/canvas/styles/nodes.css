@@ -32,10 +32,12 @@
   grid-area: 1 / 1;
 }
 
+/* Cards, link cards and nested boards share one padding, corner and edge,
+   and stickies match them below: quiet until the pointer is on them. */
 .kasten-card,
 .kasten-weblink,
 .kasten-nested {
-  padding: 13px 16px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-xl);
   background: var(--board-card);
@@ -48,21 +50,25 @@
 .kasten-card.is-tinted,
 .kasten-weblink.is-tinted,
 .kasten-nested.is-tinted {
-  border-color: color-mix(in srgb, var(--tint) 45%, var(--color-line));
-  background: color-mix(in srgb, var(--tint) 9%, var(--board-card));
+  border-color: color-mix(in srgb, var(--tint) 32%, var(--color-line));
+  background: color-mix(in srgb, var(--tint) 8%, var(--board-card));
 }
 
 .react-flow__node:hover > .kasten-card,
 .react-flow__node:hover > .kasten-weblink,
-.react-flow__node:hover > .kasten-nested,
+.react-flow__node:hover > .kasten-nested {
+  box-shadow: var(--shadow-hover);
+}
+
 .react-flow__node.dragging > .kasten-node {
   box-shadow: var(--shadow-lift);
 }
 
+/* Chosen: a 1.5px outline in the accent, over the node's own edge. */
 .react-flow__node.selected > .kasten-node:not(.kasten-section) {
   box-shadow:
-    0 0 0 2px var(--color-accent),
-    var(--shadow-lift);
+    0 0 0 1.5px var(--color-accent),
+    var(--shadow-card);
 }
 
 .kasten-card-head {
@@ -258,17 +264,68 @@
 
 .kasten-sticky {
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-xl);
   background: var(--board-sticky);
   box-shadow: var(--shadow-card);
   font-size: var(--text-14);
   line-height: 1.45;
+  transition: box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.react-flow__node:hover > .kasten-sticky {
+  box-shadow: var(--shadow-hover);
 }
 
 .kasten-sticky.is-tinted {
-  border-color: color-mix(in srgb, var(--tint) 42%, transparent);
-  background: color-mix(in srgb, var(--tint) 17%, var(--board-card));
+  border-color: color-mix(in srgb, var(--tint) 30%, transparent);
+  background: color-mix(in srgb, var(--tint) 14%, var(--board-card));
+}
+
+/* A page map's branch whose line left the page: dimmed, dashed and marked,
+   with a way to take it off. */
+.kasten-sticky.is-stale {
+  position: relative;
+  border-style: dashed;
+}
+
+.kasten-sticky.is-stale .kasten-sticky-text {
+  opacity: 0.55;
+}
+
+.kasten-stale-mark {
+  position: absolute;
+  top: -11px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px 1px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-2xl);
+  background: var(--color-canvas);
+  color: var(--color-muted);
+  font-size: var(--text-11);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.kasten-stale-mark button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: inherit;
+}
+
+.kasten-stale-mark button:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-board.is-far .kasten-stale-mark {
+  display: none;
 }
 
 .kasten-sticky-text {

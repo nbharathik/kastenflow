@@ -1,0 +1,162 @@
+/* The week by the hour: the usual columns as the all-day row, and under them
+   the day's 24 hours. Light and dark follow the theme tokens. */
+
+.kasten-cal-hourweek {
+  --gutter: 54px;
+  flex: 1;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-2xl);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-card);
+}
+
+.kasten-cal-hourweek-in {
+  display: flex;
+  flex-direction: column;
+  min-width: 760px;
+}
+
+/* The week's columns as the all-day row, after the hours' gutter, with the
+   line under them that the hours start at. */
+.kasten-cal-weekgrid.is-hours {
+  flex: none;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-height: 0;
+  margin-left: var(--gutter);
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.kasten-cal-weekgrid.is-hours .kasten-cal-col {
+  border-radius: 0;
+
+  &:first-child {
+    border-left: 1px solid var(--color-line);
+  }
+}
+
+.kasten-cal-weekgrid.is-hours .kasten-cal-col-body {
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+/* The hours: a day's height is 24 of them, in view 12 at most. */
+.kasten-cal-hours {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr));
+  grid-template-rows: calc(var(--hour) * 24);
+  align-content: start;
+  height: min(calc(var(--hour) * 12), 68vh);
+  overflow-y: auto;
+  outline: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-accent) 70%, transparent);
+  }
+}
+
+.kasten-cal-hours-gutter {
+  position: relative;
+
+  & span {
+    position: absolute;
+    right: 8px;
+    color: var(--color-muted);
+    font-size: var(--text-11);
+    font-variant-numeric: tabular-nums;
+    transform: translateY(-50%);
+  }
+}
+
+.kasten-cal-hours-col {
+  position: relative;
+  border-left: 1px solid var(--color-line);
+  /* One line under each hour. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--hour) - 1px),
+    var(--color-line) calc(var(--hour) - 1px),
+    var(--color-line) var(--hour)
+  );
+
+  &.is-weekend {
+    background-color: color-mix(in srgb, var(--color-panel) 60%, transparent);
+  }
+
+  &.is-today {
+    background-color: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  }
+}
+
+/* One thing on its hours; overlapping ones share the column. */
+.kasten-cal-block {
+  position: absolute;
+  z-index: 1;
+  min-width: 0;
+  padding: 1px 2px;
+  box-sizing: border-box;
+
+  & > .kasten-cal-chip {
+    align-items: flex-start;
+    width: 100%;
+    height: 100%;
+    padding-top: 3px;
+    overflow: hidden;
+  }
+}
+
+/* A tall block has room for its hours on a line of their own. */
+.kasten-cal-block.is-tall > .kasten-cal-chip .kasten-cal-chip-title {
+  white-space: normal;
+}
+
+.kasten-cal-block.is-tall > .kasten-cal-chip .kasten-cal-chip-time {
+  display: block;
+  margin: 0 0 1px;
+}
+
+/* Where now is, in today's column. */
+.kasten-cal-now {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  height: 0;
+  border-top: 2px solid var(--color-accent);
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-accent);
+  }
+}
+
+.kasten-cal-hours-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-line));
+  background: var(--color-soft);
+  color: var(--color-accent);
+}
+
+.kasten-cal-hours-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

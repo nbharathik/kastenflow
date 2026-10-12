@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
 publish.workspace = true
-description = "Kasten Slides drawn by a headless Chrome or Chromium: a slide or a grid of slides as PNG, PDF, the HTML export, and the size of laid-out text for lint"
+description = "KastenFlow Slides drawn by a headless Chrome or Chromium: a slide or a grid of slides as PNG, PDF, the HTML export, and the size of laid-out text for lint"
 build = "build.rs"
 
 [dependencies]

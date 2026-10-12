@@ -5,11 +5,10 @@
 import { useState } from "react";
 
 import { checkUpdate, type UpdateInfo } from "../../../../lib/api";
+import { Button } from "../../../../ui/Button";
 import { loadUpdates, updatePrefs } from "../../../updates/prefs";
 import { outText, useUpdates } from "../../../updates/store";
 import { Row, Switch } from "./parts";
-
-const BUTTON = "ui-btn";
 
 /** How long ago a check answered, in words. */
 export function agoText(then: number, now = Date.now()): string {
@@ -31,7 +30,7 @@ export function Updates({ check = checkUpdate }: { check?: () => Promise<UpdateI
     await useUpdates.getState().check(check);
   };
 
-  let said = "See whether a newer Kasten is out";
+  let said = "See whether a newer KastenFlow is out";
   if (checking) said = "Checking…";
   else if (error && ran) said = error;
   else if (info) said = info.newer ? `${outText(info)}${info.latest === skipped ? ", skipped" : ""}` : `You have the latest version (${info.current})`;
@@ -40,21 +39,22 @@ export function Updates({ check = checkUpdate }: { check?: () => Promise<UpdateI
 
   return (
     <>
-      <Row label="Updates" detail={said}>
+      {/* The status is a fragment, not a string: it stays in view, however long. */}
+      <Row id="about.updates" detail={<>{said}</>}>
         <div className="flex gap-2">
           {info?.newer && (
-            <button type="button" className={BUTTON} onClick={() => useUpdates.getState().show()}>
+            <Button size="sm" icon="download" onClick={() => useUpdates.getState().show()}>
               What’s new
-            </button>
+            </Button>
           )}
-          <button type="button" className={BUTTON} disabled={checking} onClick={() => void run()}>
+          <Button size="sm" icon="refresh" disabled={checking} onClick={() => void run()}>
             Check now
-          </button>
+          </Button>
         </div>
       </Row>
       <Switch
-        label="Check for new versions"
-        detail="Once a day, and when Kasten starts, asks GitHub for the latest release. Off until you turn it on."
+        id="about.autoCheck"
+        usual={false}
         checked={auto}
         onChange={(value) => {
           setAuto(value);
@@ -63,8 +63,7 @@ export function Updates({ check = checkUpdate }: { check?: () => Promise<UpdateI
       />
       {canInstall && (
         <Switch
-          label="Download new versions automatically"
-          detail="A new version the check finds downloads in the background. It installs only when you choose Restart to update."
+          id="about.autoDownload"
           checked={fetch}
           onChange={(value) => {
             setFetch(value);

@@ -7,12 +7,12 @@
 // `resolveStyle` give that look in full; `paragraphCss` gives the paragraph's
 // own part.
 
-import type { Align, Paragraph, Run, TextStyle, Theme } from "@kasten-slides/wasm";
+import type { Align, Paragraph, Run, Script, TextStyle, Theme } from "@kasten-slides/wasm";
 
 import { colorOf, fontStack, hexOf } from "../theme/index.ts";
 import { type Css, ptToPx, px } from "./css.ts";
-import { levelOf } from "./lists.ts";
-import { DEFAULT_LINE_SPACING, LIST_INDENT, LIST_STEP } from "./metrics.ts";
+import { type Geometry, layoutParagraphs } from "./lists.ts";
+import { DEFAULT_LINE_SPACING, SCRIPT_SIZE, scriptTop } from "./metrics.ts";
 
 export { cssText } from "./css.ts";
 export type { Css } from "./css.ts";
@@ -41,6 +41,11 @@ export interface ResolvedStyle {
   strike: boolean;
   code: boolean;
   link: string | null;
+  script: Script | null;
+  smallCaps: boolean;
+  allCaps: boolean;
+  /** Extra space between letters, in points. */
+  spacing: number;
 }
 
 export const isSize = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -65,6 +70,10 @@ export function resolveStyle(theme: Theme, baseStyle: string, paragraph: Paragra
     strike: Boolean(run.s),
     code: Boolean(run.code),
     link: run.link ? run.link : null,
+    script: run.script === "super" || run.script === "sub" ? run.script : null,
+    smallCaps: Boolean(run.smallCaps),
+    allCaps: Boolean(run.allCaps),
+    spacing: typeof run.spacing === "number" && Number.isFinite(run.spacing) ? run.spacing : 0,
   };
 }
 
@@ -97,6 +106,16 @@ export function runCss(theme: Theme, baseStyle: string, paragraph: Paragraph, ru
     css.background = codeBackground(theme);
     css.borderRadius = "3px";
   }
+  if (look.script) {
+    css.fontSize = px(ptToPx(look.size * SCRIPT_SIZE));
+    css.verticalAlign = "baseline";
+    css.position = "relative";
+    css.top = scriptTop(look.script);
+    css.lineHeight = 0;
+  }
+  if (look.smallCaps) css.fontVariantCaps = "small-caps";
+  if (look.allCaps) css.textTransform = "uppercase";
+  if (look.spacing !== 0) css.letterSpacing = px(ptToPx(look.spacing));
   return css;
 }
 
@@ -104,6 +123,8 @@ export function runCss(theme: Theme, baseStyle: string, paragraph: Paragraph, ru
 export interface ParagraphContext {
   /** The step being shown: paragraphs that appear at a later step are hidden, but keep their place. */
   step?: number;
+  /** Where the paragraph sets its lines, which depends on the list it is in (`layoutParagraphs`); worked out for the paragraph alone when absent. */
+  geometry?: Geometry;
 }
 
 /**
@@ -111,12 +132,15 @@ export interface ParagraphContext {
  * text has a first invisible "strut" of its own font size on every line, so
  * when every run sets a size of its own, the paragraph takes the smallest of
  * them and lines stay as tight as the text in them. Otherwise it is the size
- * of the paragraph's text style.
+ * of the paragraph's text style. A paragraph with no words is measured by its
+ * mark, the one empty run it holds, so an empty line is as tall as the words
+ * that were or will be typed on it.
  */
 export function strutSize(theme: Theme, baseStyle: string, paragraph: Paragraph): number {
   const own = resolveStyle(theme, baseStyle, paragraph, EMPTY_RUN).size;
   const sized = paragraph.runs.filter((run) => run.t !== "");
-  if (sized.length === 0 || !sized.every((run) => isSize(run.size))) return own;
+  if (sized.length === 0) return resolveStyle(theme, baseStyle, paragraph, paragraph.runs[0] ?? EMPTY_RUN).size;
+  if (!sized.every((run) => isSize(run.size))) return own;
   return Math.min(...sized.map((run) => run.size as number));
 }
 
@@ -128,13 +152,39 @@ export function strutSize(theme: Theme, baseStyle: string, paragraph: Paragraph)
 export function markerCss(theme: Theme, baseStyle: string, paragraph: Paragraph): Css {
   const first = paragraph.runs.find((run) => run.t !== "") ?? paragraph.runs[0] ?? EMPTY_RUN;
   const look = resolveStyle(theme, baseStyle, paragraph, { ...first, code: false, math: false });
+  const scale = isSize(paragraph.bulletSize) ? paragraph.bulletSize : 1;
+  const own = paragraph.bulletColor && hexOf(theme, paragraph.bulletColor) ? paragraph.bulletColor : look.color;
   return {
-    "--ks-marker-size": px(ptToPx(look.size)),
+    "--ks-marker-size": px(ptToPx(look.size * scale)),
     "--ks-marker-family": fontStack(theme, look.font),
-    "--ks-marker-color": colorOf(theme, look.color),
+    "--ks-marker-color": colorOf(theme, own),
     "--ks-marker-weight": String(look.bold ? 700 : 400),
     "--ks-marker-style": look.italic ? "italic" : "normal",
   };
+}
+
+/** The size of a paragraph's list marker in points: the first words' size, times the marker's own scale. */
+export function markerPoints(theme: Theme, baseStyle: string, paragraph: Paragraph): number {
+  const first = paragraph.runs.find((run) => run.t !== "") ?? paragraph.runs[0] ?? EMPTY_RUN;
+  const size = resolveStyle(theme, baseStyle, paragraph, { ...first, code: false, math: false }).size;
+  return size * (isSize(paragraph.bulletSize) ? paragraph.bulletSize : 1);
+}
+
+/** The geometry of each paragraph of a text: where its marker hangs and where its words start. */
+export function textGeometry(theme: Theme, baseStyle: string, paragraphs: readonly Paragraph[]): Geometry[] {
+  return layoutParagraphs(
+    paragraphs,
+    paragraphs.map((paragraph) => markerPoints(theme, baseStyle, paragraph)),
+  );
+}
+
+/** The CSS that puts a paragraph's lines where `geometry` says: the hanging indent, and how wide a marker's room is. */
+export function geometryCss(paragraph: Pick<Paragraph, "list">, geometry: Geometry): Css {
+  const css: Css = {};
+  if (geometry.margin !== 0) css.paddingLeft = px(geometry.margin);
+  if (geometry.indent !== 0) css.textIndent = px(geometry.indent);
+  if (paragraph.list) css["--ks-indent"] = px(Math.max(0, -geometry.indent));
+  return css;
 }
 
 /**
@@ -145,7 +195,6 @@ export function markerCss(theme: Theme, baseStyle: string, paragraph: Paragraph)
 export function paragraphBlockCss(theme: Theme, baseStyle: string, paragraph: Paragraph, ctx?: ParagraphContext | null): Css {
   const style = textStyleOf(theme, baseStyle, paragraph);
   const look = resolveStyle(theme, baseStyle, paragraph, EMPTY_RUN);
-  const level = levelOf(paragraph);
   const css: Css = {
     fontFamily: fontStack(theme, look.font),
     fontWeight: look.bold ? 700 : 400,
@@ -155,14 +204,8 @@ export function paragraphBlockCss(theme: Theme, baseStyle: string, paragraph: Pa
     lineHeight: paragraph.lineSpacing ?? style.lineSpacing ?? DEFAULT_LINE_SPACING,
     marginTop: px(ptToPx(paragraph.spaceBefore ?? style.spaceBefore ?? 0)),
     marginBottom: px(ptToPx(paragraph.spaceAfter ?? style.spaceAfter ?? 0)),
+    ...geometryCss(paragraph, ctx?.geometry ?? textGeometry(theme, baseStyle, [paragraph])[0] ?? { margin: 0, indent: 0 }),
   };
-  if (paragraph.list) {
-    css.paddingLeft = px(LIST_INDENT + LIST_STEP * level);
-    css.textIndent = px(-LIST_INDENT);
-    css["--ks-indent"] = px(LIST_INDENT);
-  } else if (level > 0) {
-    css.paddingLeft = px(LIST_STEP * level);
-  }
   const shown = ctx?.step;
   if (shown !== undefined && paragraph.step != null && paragraph.step > shown) css.visibility = "hidden";
   return css;
@@ -176,10 +219,10 @@ export function paragraphFlowCss(theme: Theme, baseStyle: string, paragraph: Par
 
 /**
  * Everything a paragraph's `div` is styled with: alignment, line height as a
- * unitless multiple, space before and after in pixels, the hanging indent of
- * a list item (`padding-left` of `LIST_INDENT + LIST_STEP * level` with a
- * `text-indent` of `-LIST_INDENT`), the base look of its text style, and the
- * size its lines are measured by. `ctx.step` hides paragraphs of later steps.
+ * unitless multiple, space before and after in pixels, where its lines start
+ * (`padding-left` for the words and a `text-indent` that hangs a list marker
+ * out to the left, from `layoutParagraphs`), the base look of its text style,
+ * and the size its lines are measured by. `ctx.step` hides paragraphs of later steps.
  */
 export function paragraphCss(theme: Theme, baseStyle: string, paragraph: Paragraph, ctx?: ParagraphContext | null): Css {
   return { ...paragraphBlockCss(theme, baseStyle, paragraph, ctx), ...paragraphFlowCss(theme, baseStyle, paragraph) };

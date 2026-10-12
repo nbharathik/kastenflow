@@ -4,6 +4,7 @@
 
 import type { ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
+import { swatch, type Swatch } from "../panel/properties/schemas";
 
 const GLYPHS = {
   grid: (
@@ -58,14 +59,26 @@ export function Glyph({ name, className = "" }: { name: GlyphName; className?: s
   );
 }
 
-const PALETTE = new Set(["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"]);
-const ALIASES: Record<string, string> = { grey: "gray", teal: "green", cyan: "blue", violet: "purple", rose: "pink", amber: "yellow" };
+const GRAY = swatch("gray")!;
+/** One object per colour, so chips that memoise on it redraw only when it changes. */
+const swatches = new Map<string, Swatch>();
 
-/** A tag schema's colour as one of the page palette's (tokens.css); gray otherwise. */
-export function tagTone(color: string | undefined): string {
-  const name = color?.trim().toLowerCase() ?? "";
-  const tone = ALIASES[name] ?? name;
-  return PALETTE.has(tone) ? tone : "gray";
+/** A tag schema's colour as text and background colours: the Tag Database's
+ * own function (`swatch`, so teal and #hex colours read the same here), gray
+ * for a colour it does not know and null for none. */
+export function tagSwatch(color: string | null | undefined): Swatch | null {
+  const name = color?.trim().toLowerCase();
+  if (!name) return null;
+  let found = swatches.get(name);
+  if (!found) swatches.set(name, (found = swatch(name) ?? GRAY));
+  return found;
+}
+
+/** How a tag's chip is coloured: its schema colour, or, with none, as the
+ * Tag Database draws such a tag (a soft well, plain ink). */
+export function tagChipColors(color: string | null | undefined): { background: string; color: string } {
+  const tone = tagSwatch(color);
+  return tone ? { background: tone.bg, color: tone.fg } : { background: "var(--color-soft)", color: "var(--color-ink)" };
 }
 
 /** Tags as coloured chips, the first `max` of them and a count of the rest. */
@@ -75,13 +88,12 @@ export function TagChips({ tags, colors, max = 4, small = false }: { tags: reado
   return (
     <span className="flex min-w-0 flex-wrap gap-1">
       {tags.slice(0, max).map((tag, i) => {
-        const tone = tagTone(colors[tag.toLowerCase()]);
         return (
           <span
             // A note may list a tag twice.
             key={`${i}:${tag}`}
             className={`max-w-[10rem] truncate rounded font-medium leading-[1.4] ${size}`}
-            style={{ background: `var(--notion-${tone}-bg)`, color: `var(--notion-${tone})` }}
+            style={tagChipColors(colors[tag.toLowerCase()])}
           >
             {tag}
           </span>

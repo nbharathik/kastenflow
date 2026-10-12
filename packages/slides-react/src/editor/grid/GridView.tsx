@@ -51,7 +51,9 @@ export function GridView({ session, ui }: { session: EditorSession; ui: EditorUi
     },
     [],
   );
-  const reorder = useReorder({ session, locate, scroller });
+  // The slides in the hand are copies of their thumbnails, held under the pointer as in the filmstrip.
+  const frameOf = useCallback((id: string) => grid.current?.querySelector<HTMLElement>(`[data-slide="${id}"] .ks-gv-frame`) ?? null, []);
+  const reorder = useReorder({ session, locate, scroller, frameOf });
   const { drag } = reorder;
 
   // ---- following the shown slide
@@ -163,6 +165,13 @@ export function GridView({ session, ui }: { session: EditorSession; ui: EditorUi
       aria-activedescendant={order.includes(shown) ? `${prefix}${shown}` : undefined}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onPointerDown={(event) => {
+        // Bare space (round the tiles and between them) is a press on the grid itself: the slides picked go back to the one shown.
+        if (event.button === 0 && (event.target === event.currentTarget || event.target === grid.current)) {
+          session.select([]);
+          scroller.current?.focus({ preventScroll: true });
+        }
+      }}
     >
       <div
         ref={grid}

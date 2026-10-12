@@ -27,6 +27,9 @@ describe("Settings → AI agents", () => {
     await act(async () => fireEvent.click(within(section).getByTitle(/^Copy: claude mcp add --scope user kasten -- /)));
     expect(writeText).toHaveBeenLastCalledWith('claude mcp add --scope user kasten -- kasten-mcp --vault "~/Notes"');
 
+    // How to connect by URL is behind the row's ?.
+    expect(section.textContent).not.toContain("with the token as a bearer");
+    fireEvent.click(within(section).getByRole("button", { name: "About Clients that connect by URL" }));
     expect(section.textContent).toContain("connect to http://127.0.0.1:7433/mcp with the token as a bearer");
     expect(section.textContent).toContain("~/Notes/.kasten/cache/mcp-token");
     await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Copy the URL config" })));

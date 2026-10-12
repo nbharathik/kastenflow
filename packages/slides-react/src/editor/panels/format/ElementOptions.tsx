@@ -4,6 +4,7 @@ import { AccessSection } from "./AccessSection.tsx";
 import { ArrowsSection } from "./ArrowsSection.tsx";
 import { BorderSection } from "./BorderSection.tsx";
 import { CompositeSections } from "./composites/CompositeSections.tsx";
+import { PageSourceSection } from "./composites/PageSourceSection.tsx";
 import { FillSection } from "./FillSection.tsx";
 import { ImageSection } from "./ImageSection.tsx";
 import { PositionSection } from "./PositionSection.tsx";
@@ -44,10 +45,13 @@ export function ElementOptions({ session, ui, elements, theme }: SectionProps) {
   const text = section(APPLIES.text);
   const image = section(APPLIES.image);
   const table = section(APPLIES.table);
+  // What came from a page and is not an embedded page (which has its own section): the contents of a page, a section, a link.
+  const fromPage = section((e) => e.type !== "embed" && e.source != null);
   return (
     <>
       <p className="ks-sp-summary">{describe(elements)}</p>
       <CompositeSections {...all} />
+      {fromPage ? <PageSourceSection {...fromPage} /> : null}
       <SizeSection {...all} />
       <PositionSection {...all} />
       {fill ? <FillSection {...fill} /> : null}

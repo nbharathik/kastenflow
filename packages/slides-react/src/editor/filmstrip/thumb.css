@@ -9,12 +9,40 @@
   background: var(--ks-canvas);
 }
 
-/* The slide count in the hand while several are dragged. */
-.ks-drag-badge {
+/* What is in the hand while slides are dragged: their thumbnails, stacked, and the count when there are several. The view moves
+   the whole of it with the pointer. */
+.ks-drag-ghost {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 40;
+  pointer-events: none;
+  will-change: transform;
+}
+.ks-drag-pile {
+  position: relative;
+}
+@keyframes ks-lift {
+  from {
+    opacity: 0.6;
+    scale: 0.96;
+  }
+}
+.ks-drag-card {
+  position: absolute;
+  left: calc(var(--n, 0) * 5px);
+  top: calc(var(--n, 0) * 5px);
+  border-radius: 2px;
+  background: var(--ks-canvas);
+  box-shadow: var(--ks-shadow-pop);
+  opacity: 0.94;
+  animation: ks-lift var(--ks-fast) var(--ks-ease);
+}
+.ks-drag-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--ks-accent);
@@ -24,4 +52,35 @@
   white-space: nowrap;
   pointer-events: none;
   box-shadow: var(--ks-shadow-pop);
+}
+/* On the thumbnails the count sits at the corner, half outside it. */
+.ks-drag-ghost.has-pile .ks-drag-badge {
+  left: auto;
+  right: -10px;
+  top: -10px;
+}
+/* A plus at the lower corner says that what is put down is a copy (Alt or Ctrl is held). */
+.ks-drag-copy {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ks-accent);
+  color: var(--ks-on-accent);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: var(--ks-shadow-pop);
+  animation: ks-lift var(--ks-fast) var(--ks-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-drag-card,
+  .ks-drag-copy {
+    animation: none;
+  }
 }

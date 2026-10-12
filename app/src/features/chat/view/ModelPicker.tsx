@@ -8,10 +8,10 @@ import { openProviders } from "../actions";
 import { modelFor } from "../prefs";
 import { useChat } from "../store";
 import type { Thread } from "../thread";
-import type { ProviderKind } from "../types";
+import type { ChatKind } from "../types";
 import { Icon } from "../../../ui/Icon";
 
-export const KIND_LABELS: Record<ProviderKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible" };
+export const KIND_LABELS: Record<ChatKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible", chatgpt: "ChatGPT plan" };
 
 export function ModelPicker({ thread }: { thread: Thread }) {
   const providers = useChat((s) => s.providers);

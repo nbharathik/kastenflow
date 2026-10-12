@@ -3,6 +3,7 @@
 node_modules/
 app/dist/
 app/public/third-party-notices.txt
+/app/public/drawio/
 *.tsbuildinfo
 
 app/src-tauri/gen/schemas/

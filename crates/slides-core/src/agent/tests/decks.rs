@@ -222,6 +222,80 @@ fn the_outline_layouts_and_theme_can_be_read_and_the_only_deck_need_not_be_named
 }
 
 #[test]
+fn a_layout_a_person_made_is_listed_used_and_checked_like_the_built_in_ones() {
+    use crate::ops::Engine;
+
+    // A deck with a layout of its own: a dark page, with the title and subtitle slots of the slide it was saved from.
+    let mut made = Engine::create("Mine", "Light", 1).unwrap();
+    let slide = made.deck().slides[0].id.clone();
+    made.apply(
+        "add_elements",
+        json!({ "slide": slide, "elements": [{ "type": "shape", "shape": "rect", "x": 0, "y": 0, "w": 40, "h": 540 }] }),
+    )
+    .unwrap();
+    made.apply(
+        "set_background",
+        json!({ "slide": slide, "background": { "color": "text1" } }),
+    )
+    .unwrap();
+    made.apply(
+        "save_layout",
+        json!({ "slide": slide, "label": "Night", "roles": {} }),
+    )
+    .unwrap();
+    let mut kit = Kit::new();
+    kit.store
+        .decks
+        .insert("mine.deck".into(), canonical::write(made.deck()).unwrap());
+
+    let layouts = kit.ok("list_layouts", json!({ "deck": "mine.deck" }));
+    let all = layouts["layouts"].as_array().unwrap();
+    let night = all.iter().find(|l| l["name"] == "night").unwrap();
+    assert_eq!(night["custom"], true);
+    assert_eq!(night["label"], "Night");
+    assert_eq!(
+        night["decoration"], 1,
+        "the stripe it draws behind its slides"
+    );
+    assert_eq!(night["background"]["color"], "text1");
+    assert_eq!(night["slots"][0]["role"], "title");
+    let title_body = all.iter().find(|l| l["name"] == "title-body").unwrap();
+    assert_eq!(title_body["custom"], false);
+    assert_eq!(title_body["decoration"], 0);
+
+    // A slide made of it is filled by role, as for any layout.
+    let added = kit.ok(
+        "add_slide",
+        json!({ "deck": "mine.deck", "layout": "night", "content": { "title": "Hello" } }),
+    );
+    assert_eq!(added["slides"], 2, "{added}");
+    assert_eq!(kit.deck("mine.deck").slides[1].layout, "night");
+    assert!(
+        kit.err(
+            "add_slide",
+            json!({ "deck": "mine.deck", "layout": "night", "content": { "body": "x" } })
+        )
+        .contains("title"),
+        "a slot the layout lacks is named"
+    );
+
+    // Lint reads the layout's dark page: the dark words on it cannot be read.
+    let lint = kit.ok("lint_deck", json!({ "deck": "mine.deck" }));
+    assert!(lint.to_string().contains("contrast"), "{lint}");
+
+    // Nothing here is a tool of its own: an assistant uses layouts and does not make them.
+    let tools: Vec<String> = crate::agent::tools().into_iter().map(|t| t.name).collect();
+    for editor_only in [
+        "save_layout",
+        "set_layout_design",
+        "apply_template",
+        "delete_layout",
+    ] {
+        assert!(!tools.iter().any(|t| t == editor_only), "{editor_only}");
+    }
+}
+
+#[test]
 fn an_unknown_tool_lists_the_tools() {
     let mut kit = Kit::new();
     let message = kit.err("make_it_pretty", json!({}));

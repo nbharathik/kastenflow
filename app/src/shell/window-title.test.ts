@@ -10,10 +10,10 @@ const boards = [{ path: "boards/ideas.canvas", title: "Ideas" } as BoardInfo];
 
 describe("window title", () => {
   it("names the page, board or view open", () => {
-    expect(titleFor({ view: "page", path: "library/trip.md" }, notes, boards)).toBe("Trip plan · Kasten");
-    expect(titleFor({ view: "boards", path: "boards/ideas.canvas" }, notes, boards)).toBe("Ideas · Kasten");
-    expect(titleFor({ view: "journal" }, notes, boards)).toBe("Journal · Kasten");
-    expect(titleFor({ view: "home" }, notes, boards)).toBe("Home · Kasten");
-    expect(titleFor({ view: "page", path: "library/gone.md" }, notes, boards)).toBe("Kasten");
+    expect(titleFor({ view: "page", path: "library/trip.md" }, notes, boards)).toBe("Trip plan · KastenFlow");
+    expect(titleFor({ view: "boards", path: "boards/ideas.canvas" }, notes, boards)).toBe("Ideas · KastenFlow");
+    expect(titleFor({ view: "journal" }, notes, boards)).toBe("Journal · KastenFlow");
+    expect(titleFor({ view: "home" }, notes, boards)).toBe("Home · KastenFlow");
+    expect(titleFor({ view: "page", path: "library/gone.md" }, notes, boards)).toBe("KastenFlow");
   });
 });

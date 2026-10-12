@@ -78,7 +78,7 @@ export function InsertDialog({ session, ui, onClose }: DialogProps): JSX.Element
   };
 
   return (
-    <Dialog title="Insert" width={580} onClose={onClose}>
+    <Dialog title="Insert gallery" width={580} onClose={onClose}>
       <div className="ks-pl">
         <div className="ks-pl-search">
           <Icon name="search" size={16} />
@@ -124,7 +124,10 @@ export function InsertDialog({ session, ui, onClose }: DialogProps): JSX.Element
                   <span className="ks-pl-icon" aria-hidden="true">
                     {item.shape ? <ShapePreview preset={item.shape} size={18} /> : item.icon ? <Icon name={item.icon} size={16} /> : null}
                   </span>
-                  <span className="ks-pl-label">{item.label}</span>
+                  <span className="ks-pl-label">
+                    {item.label}
+                    {item.description ? <span className="ks-pl-desc">{item.description}</span> : null}
+                  </span>
                   {item.keys ? <kbd className="ks-kbd ks-pl-keys">{item.keys}</kbd> : item.hint ? <span className="ks-pl-hint">{item.hint}</span> : null}
                 </div>
               ))}

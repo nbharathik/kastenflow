@@ -30,8 +30,14 @@
   text-align: left;
   cursor: pointer;
 }
+.ks-sp-section-toggle {
+  transition: background var(--ks-fast) var(--ks-ease);
+}
 .ks-sp-section-toggle:hover {
   background: var(--ks-hover);
+}
+.ks-sp-section-toggle:active {
+  background: var(--ks-pressed);
 }
 .ks-sp-section-toggle:focus-visible {
   outline: 2px solid var(--ks-accent);
@@ -39,6 +45,11 @@
 }
 .ks-sp-section-toggle .ks-icon {
   color: var(--ks-faint);
+  transition: transform var(--ks-base) var(--ks-ease);
+}
+/* Open, the chevron points down; folded, it turns to point along the title. */
+.ks-sp-section-toggle[aria-expanded="false"] .ks-icon {
+  transform: rotate(-90deg);
 }
 .ks-sp-section-body {
   display: flex;
@@ -126,6 +137,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A number beside a row's own label does not repeat it. */
 .ks-sp-plain .ks-field-label {
   display: none;
 }
@@ -134,7 +146,7 @@
   align-items: center;
   gap: 6px;
 }
-.ks-sp-short > .ks-field-label {
+.ks-sp-short .ks-field-label {
   min-width: 1.4em;
 }
 .ks-sp-count {

@@ -6,6 +6,33 @@ export interface BoardInfo {
   project: string | null;
   nodes: number;
   modified: number;
+  /** The id of the page this board is a map of, when it was made from one. */
+  source?: string;
+}
+
+/** A branch of a page's map: where it hangs, and what the page said for it
+ * when the map last followed the page. */
+export interface SourceBranch {
+  /** The branch it hangs from, by node id; "" for the page's own card. */
+  parent: string;
+  /** The line's text with its list marks and emphasis taken off, lower
+   * case: what two readings of the page are compared by. */
+  key: string;
+  /** The words shown on the branch as the page had them. */
+  text: string;
+  /** The page no longer has this line; the branch stays, dimmed. */
+  stale?: boolean;
+}
+
+/** What a board remembers about the page it was made from
+ * (`x-kasten.source`): the core keeps the object as written. */
+export interface BoardSource {
+  /** The page's id (its path when it has none). */
+  page: string;
+  /** The node id of the page's own card, the map's root. */
+  root?: string;
+  /** Every branch made from a line of the page, by node id. */
+  branches?: Record<string, SourceBranch>;
 }
 
 /** The outlines a text node may take, as draw.io names them. */
@@ -101,7 +128,9 @@ export type BoardChange =
   /** A drawn stroke in the box at x, y, its points relative to that corner. */
   | { kind: "draw"; points: string; x: number; y: number; width: number; height: number; size: number; color?: string }
   /** How an edge is drawn; "" goes back to the default line. */
-  | { kind: "line"; id: string; line?: LineStyle | ""; dash?: boolean };
+  | { kind: "line"; id: string; line?: LineStyle | ""; dash?: boolean }
+  /** What the board remembers about the page it was made from; null forgets it. */
+  | { kind: "source"; source: BoardSource | null };
 
 export interface BoardApplied {
   /** The id of what each change that makes something made, in order. */
@@ -115,6 +144,8 @@ export interface BoardView {
   /** Lowest first: sections come before the cards in them. */
   nodes: BoardNode[];
   edges: BoardEdge[];
+  /** Set on a page's mind map: what it was made from. */
+  source?: BoardSource;
 }
 
 export interface BoardAdded {

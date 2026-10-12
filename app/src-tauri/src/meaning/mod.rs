@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::chat::commands::ChatState;
 use crate::chat::http::http_error;
 use crate::chat::providers;
+use crate::closing::MAIN;
 use crate::commands::notes::OpenVault;
 
 /// Notes sent to the model at once.
@@ -285,7 +286,7 @@ pub async fn make_vectors(
     let run = async {
         let embedder = Embedder::chosen(&kasten, &chat).await?;
         make_all(&kasten, &embedder, &meaning.stop, |s| {
-            let _ = app.emit("meaning-progress", s);
+            let _ = app.emit_to(MAIN, "meaning-progress", s);
         })
         .await
     }
@@ -327,7 +328,7 @@ pub async fn search_meaning(
             let caught_up = make_some(&kasten, &embedder, CATCH_UP).await;
             drop(running);
             if let Ok(status) = caught_up {
-                let _ = app.emit("meaning-progress", &status);
+                let _ = app.emit_to(MAIN, "meaning-progress", &status);
             }
         });
     }

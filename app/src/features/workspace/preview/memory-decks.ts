@@ -8,6 +8,9 @@ import { contentHash, slugify, stamps } from "./vault-text";
 
 const FORMAT = "kasten-deck";
 
+/** Where slide templates are made; a deck anywhere in `templates/` is a template, not one of the person's decks (kasten-core's `deck::is_template`). */
+const TEMPLATES = "templates/slides/";
+
 interface Head {
   title: string | null;
   slides: number;
@@ -15,7 +18,7 @@ interface Head {
 
 /** The envelope of a deck's text, or why it is not a deck (deck/head.rs). */
 export function deckHead(text: string): Head {
-  const bad = (why: string) => new Error(`Not a Kasten deck: ${why}`);
+  const bad = (why: string) => new Error(`Not a KastenFlow deck: ${why}`);
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -55,18 +58,41 @@ export class MemoryDecks extends MemoryBoards {
     return { path, text, hash: contentHash(text), modified: this.now() };
   }
 
-  async decks(): Promise<DeckInfo[]> {
-    const out = Object.entries(this.data.decks ?? {}).map(([path, text]): DeckInfo => {
-      const project = path.startsWith("projects/") ? (path.split("/")[1] ?? null) : null;
-      const size = new TextEncoder().encode(text).length;
-      try {
-        const head = deckHead(text);
-        return { path, title: head.title?.trim() ? head.title : stemOf(path), project, slides: head.slides, modified: this.now(), size, problem: null };
-      } catch (err) {
-        return { path, title: stemOf(path), project, slides: 0, modified: this.now(), size, problem: err instanceof Error ? err.message : String(err) };
-      }
-    });
+  /** The decks of the vault, templates apart (kasten-core's `Kasten::decks` and `deck_templates`). */
+  private listed(templates: boolean): DeckInfo[] {
+    const out = Object.entries(this.data.decks ?? {})
+      .filter(([path]) => path.startsWith("templates/") === templates)
+      .map(([path, text]): DeckInfo => {
+        const project = path.startsWith("projects/") ? (path.split("/")[1] ?? null) : null;
+        const size = new TextEncoder().encode(text).length;
+        try {
+          const head = deckHead(text);
+          return { path, title: head.title?.trim() ? head.title : stemOf(path), project, slides: head.slides, modified: this.now(), size, problem: null };
+        } catch (err) {
+          return { path, title: stemOf(path), project, slides: 0, modified: this.now(), size, problem: err instanceof Error ? err.message : String(err) };
+        }
+      });
     return out.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()) || a.path.localeCompare(b.path));
+  }
+
+  async decks(): Promise<DeckInfo[]> {
+    return this.listed(false);
+  }
+
+  async deckTemplates(): Promise<DeckInfo[]> {
+    return this.listed(true);
+  }
+
+  async createDeckTemplate(title: string, text: string): Promise<string> {
+    const name = title.trim();
+    if (!name || /[[\]|\n\r]/.test(name)) throw new Error("A title needs some text and no [ ] or | characters");
+    deckHead(text);
+    const decks = (this.data.decks ??= {});
+    let path = `${TEMPLATES}${slugify(name)}.deck`;
+    for (let n = 2; decks[path] !== undefined; n++) path = `${TEMPLATES}${slugify(name)}-${n}.deck`;
+    decks[path] = text;
+    this.persist();
+    return path;
   }
 
   async deck(path: string): Promise<DeckFile> {

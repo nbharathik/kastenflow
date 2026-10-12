@@ -8,6 +8,7 @@ use kasten_core::config::Provider;
 use serde::{Deserialize, Serialize};
 
 use super::address;
+use super::chatgpt;
 use super::http::Kind;
 use crate::secrets::KeyStore;
 
@@ -19,7 +20,8 @@ pub struct ChatProvider {
     pub kind: String,
     pub base_url: String,
     pub model: String,
-    /// Whether the keychain holds a key for it.
+    /// Whether the keychain holds a key for it; for a ChatGPT provider,
+    /// whether Kasten is signed in with ChatGPT.
     pub has_key: bool,
     /// Whether notes may go to its address from this computer.
     pub confirmed: bool,
@@ -58,7 +60,11 @@ pub fn list(kasten: &Kasten, keys: &dyn KeyStore) -> Vec<ChatProvider> {
         .into_iter()
         .map(|p| ChatProvider {
             // A keychain that cannot be read holds no key the chat could use.
-            has_key: address::key_for(keys, &p).is_ok_and(|k| k.is_some()),
+            has_key: if Kind::of(&p.kind) == Ok(Kind::ChatGpt) {
+                chatgpt::signed_in(keys)
+            } else {
+                address::key_for(keys, &p).is_ok_and(|k| k.is_some())
+            },
             // The commands say which are confirmed on this computer.
             confirmed: false,
             name: p.name,
@@ -98,6 +104,11 @@ fn checked(input: ProviderInput) -> Result<Provider, String> {
     }
     if kind == Kind::OpenAi {
         super::openai::url(base_url)?;
+    }
+    // Its requests go to OpenAI and nowhere else, so there is no address to
+    // set (and none a vault's settings could redirect the sign-in to).
+    if kind == Kind::ChatGpt && !base_url.is_empty() {
+        return Err("A ChatGPT sign-in has a fixed address; leave the base URL empty".to_owned());
     }
     Ok(Provider {
         name: name.to_owned(),

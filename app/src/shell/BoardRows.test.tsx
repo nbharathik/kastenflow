@@ -117,7 +117,7 @@ describe("boards in the sidebar", () => {
     await act(async () => useBoards.getState().load());
     await act(async () => useWorkspace.getState().openPath(BOARD));
     await act(async () => useWorkspace.getState().go({ view: "home" }));
-    const jump = await screen.findByRole("region", { name: "Jump back in" });
+    const jump = await screen.findByRole("region", { name: "Recent" });
     const tile = within(jump).getByRole("button", { name: /Launch plan/ });
     expect(tile.textContent).toContain("Whiteboard");
     await act(async () => fireEvent.click(tile));

@@ -58,6 +58,37 @@ export function moveFocus(index: number, key: string, columns: number, count: nu
   }
 }
 
+/** `moveFocus` over groups drawn one under another, each its own grid
+ * `columns` wide (`sizes` are their card counts, in order, the cards numbered
+ * through all of them). Down from a group's last row goes to the next group's
+ * first row, in the same column or its last card; up is the reverse. */
+export function moveInGroups(index: number, key: string, columns: number, sizes: readonly number[]): number {
+  const count = sizes.reduce((a, b) => a + b, 0);
+  if (sizes.length < 2 || (key !== "ArrowDown" && key !== "ArrowUp")) return moveFocus(index, key, columns, count);
+  if (count === 0) return -1;
+  const cols = Math.max(1, columns);
+  const starts = sizes.map((_, g) => sizes.slice(0, g).reduce((a, b) => a + b, 0));
+  let g = 0;
+  while (g < sizes.length - 1 && index >= starts[g]! + sizes[g]!) g++;
+  const offset = index - starts[g]!;
+  const size = sizes[g]!;
+  const column = offset % cols;
+  if (key === "ArrowDown") {
+    if (offset + cols < size) return index + cols;
+    // Into a shorter last row, the last card is the one below.
+    if (Math.floor(offset / cols) < Math.floor((size - 1) / cols)) return starts[g]! + size - 1;
+    for (let h = g + 1; h < sizes.length; h++) if (sizes[h]! > 0) return starts[h]! + Math.min(column, sizes[h]! - 1);
+    return index;
+  }
+  if (offset - cols >= 0) return index - cols;
+  for (let h = g - 1; h >= 0; h--) {
+    if (sizes[h]! === 0) continue;
+    const last = sizes[h]! - 1;
+    return starts[h]! + Math.min(Math.floor(last / cols) * cols + column, last);
+  }
+  return index;
+}
+
 /** Columns in a wrapped grid: the cards that share the first card's top.
  * Boxes with no height mean no layout (tests), so one column. */
 export function columnsOf(boxes: readonly { top: number; height: number }[]): number {

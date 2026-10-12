@@ -1,6 +1,6 @@
 # @kasten-slides/wasm
 
-slides-core compiled to WebAssembly with wasm-bindgen. The Kasten Slides
+slides-core compiled to WebAssembly with wasm-bindgen. The KastenFlow Slides
 editor applies every operation through it, so an edit shows at once and the
 same code checks it on the command line and for agents.
 

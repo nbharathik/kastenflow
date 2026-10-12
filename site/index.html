@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kasten: notes, whiteboards and a journal, as plain files you own</title>
-    <meta name="description" content="Kasten is an early, open-source desktop app for journals, notes, whiteboards and slides. Keep plain files in a folder you choose, with Git history and optional AI tools governed by operation and review rules." />
+    <title>KastenFlow: a home for your notes</title>
+    <meta name="description" content="KastenFlow is a desktop app for your daily journal and notes. Write pages, plan on whiteboards and keep every day in one place, as plain Markdown files." />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfaf9" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f0e" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Kasten: think freely, keep everything" />
-    <meta property="og:description" content="Notes, whiteboards and a journal, as plain Markdown you own." />
+    <meta property="og:title" content="KastenFlow: a home for your notes" />
+    <meta property="og:description" content="A desktop app for notes, whiteboards and your daily journal, as plain Markdown files." />
     <meta property="og:url" content="__SITE__/" />
     <meta property="og:image" content="__SITE__/img/social-preview.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -19,15 +19,22 @@
     <link rel="stylesheet" href="css/base.css" />
     <link rel="stylesheet" href="css/header.css" />
     <link rel="stylesheet" href="css/hero.css" />
+    <link rel="stylesheet" href="css/hero-explore.css" />
     <link rel="stylesheet" href="css/floats.css" />
-    <link rel="stylesheet" href="css/features.css" />
-    <link rel="stylesheet" href="css/tiles.css" />
     <link rel="stylesheet" href="css/flow.css" />
+    <link rel="stylesheet" href="css/facts.css" />
     <link rel="stylesheet" href="css/demo-files.css" />
     <link rel="stylesheet" href="css/demo-board.css" />
     <link rel="stylesheet" href="css/demo-history.css" />
     <link rel="stylesheet" href="css/demo-ai.css" />
+    <link rel="stylesheet" href="css/features.css" />
+    <link rel="stylesheet" href="css/tiles.css" />
+    <link rel="stylesheet" href="css/privacy.css" />
     <link rel="stylesheet" href="css/closing.css" />
+    <link rel="stylesheet" href="css/surfaces.css" />
+    <link rel="stylesheet" href="css/large.css" />
+    <!-- Without scripting the live window cannot run, so a picture of the app stands in. -->
+    <noscript><style>.app-window, .tour-tabs, .hero-fine { display: none; } .hero-static { display: block; }</style></noscript>
     <script src="js/theme.js"></script>
     <script type="module" src="js/main.js"></script>
   </head>
@@ -40,15 +47,9 @@
     <!-- include partials/header.html -->
     <main id="main">
       <!-- include partials/hero.html -->
+      <!-- include partials/facts.html -->
       <!-- include partials/features.html -->
-      <!-- include partials/flow.html -->
-      <!-- include partials/demo-files.html -->
-      <!-- include partials/demo-board.html -->
-      <!-- include partials/demo-history.html -->
-      <!-- include partials/demo-ai.html -->
-      <!-- include partials/safe.html -->
       <!-- include partials/private.html -->
-      <!-- include partials/download.html -->
       <!-- include partials/faq.html -->
       <!-- include partials/closing.html -->
     </main>

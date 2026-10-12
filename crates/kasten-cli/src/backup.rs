@@ -15,10 +15,12 @@ use crate::show::say;
 
 /// `kasten backup-file FOLDER [--computer NAME]`
 pub fn backup_file(args: &Args) -> Outcome {
-    let folder = args
-        .positional
-        .get(1)
-        .ok_or("Usage: kasten backup-file FOLDER [--computer NAME]")?;
+    let folder = args.positional.get(1).ok_or_else(|| {
+        format!(
+            "Usage: {} backup-file FOLDER [--computer NAME]",
+            crate::program()
+        )
+    })?;
     let kasten = open(args)?;
     let computer = args
         .value("--computer")
@@ -50,7 +52,10 @@ pub fn backup_file(args: &Args) -> Outcome {
 /// address; DIR must be empty or not there yet.
 pub fn clone(args: &Args) -> Outcome {
     let (Some(source), Some(dir)) = (args.positional.get(1), args.positional.get(2)) else {
-        return Err("Usage: kasten clone-backup BACKUP-FILE-OR-GIT-ADDRESS DIR".to_owned());
+        return Err(format!(
+            "Usage: {} clone-backup BACKUP-FILE-OR-GIT-ADDRESS DIR",
+            crate::program()
+        ));
     };
     let target = PathBuf::from(dir);
     let file = Path::new(source);

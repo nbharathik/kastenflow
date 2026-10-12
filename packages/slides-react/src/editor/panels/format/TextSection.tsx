@@ -1,12 +1,13 @@
-import type { Align, ListKind, VAlign } from "@kasten-slides/wasm";
+import type { Align, ListKind, TextFit, VAlign } from "@kasten-slides/wasm";
 
-
-import { textFormat } from "../../commands/index.ts";
+import { textExtras, textFormat } from "../../commands/index.ts";
+import { IndentFields } from "../../text-ui/SpacingButton.tsx";
+import { useTextView } from "../../toolbar/useTextView.ts";
 import { IconButton } from "../../ui/Button.tsx";
 import { Segmented } from "../../ui/Fields.tsx";
 import { Icon, type IconName } from "../../ui/Icon.tsx";
 import { useUiState } from "../../useUi.ts";
-import { Cluster, Row, SelectField, ShortNumber } from "./controls.tsx";
+import { Cluster, Row, SelectField, ShortNumber, TriToggle } from "./controls.tsx";
 import { PanelSection } from "./PanelSection.tsx";
 import { SIDES, insetsOf, textFacts, withList, withParagraphs } from "./text-facts.ts";
 import type { SectionProps } from "./types.ts";
@@ -22,6 +23,9 @@ const ALIGNS: { value: Align; title: string; icon: IconName }[] = [
 
 const SPACINGS = [1, 1.15, 1.5, 2];
 
+/** The three things a box can do with words that do not fit it. */
+const FITS = textExtras.FITS;
+
 /** A vertical place for the words in a box, as three icons. */
 const VALIGNS: { value: VAlign; title: string; icon: IconName }[] = [
   { value: "top", title: "Align top", icon: "align-start-horizontal" },
@@ -34,7 +38,8 @@ const spacingLabel = (n: number): string => (n === 1 ? "Single" : n === 2 ? "Dou
 /** Paragraph settings and the space around the words in a text box or a shape. */
 export function TextSection({ session, ui, elements, theme }: SectionProps) {
   const editing = useUiState(ui).text !== null;
-  const context = { session, ui };
+  const view = useTextView(session, ui);
+  const context = view.ctx;
   const facts = textFacts(theme, session.slide.layout, elements);
   // With a text box open the words selected in it are what the controls show and change.
   const live = editing ? textFormat.currentFormat(context) : null;
@@ -96,9 +101,18 @@ export function TextSection({ session, ui, elements, theme }: SectionProps) {
           </Cluster>
         </div>
       </Row>
+      <div className="ks-sp-field" role="group" aria-label="Indents">
+        <span className="ks-sp-label">Indents</span>
+        <IndentFields view={view} />
+      </div>
       <Row label="Vertical">
         <ValignButtons value={facts.valign} onPick={(picked) => rewriteText(session, elements, (text) => ({ ...text, valign: picked }))} />
       </Row>
+      {/* What the box does when its words do not fit it, and whether its lines wrap. */}
+      <Row label="Fitting">
+        <SelectField<TextFit> label="Text fitting" value={view.format.fit} options={FITS.map(({ fit, label }) => ({ value: fit, label }))} onPick={(fit) => textExtras.setFit(context, fit)} />
+      </Row>
+      <TriToggle label="Wrap text" on={view.format.wrap} onChange={(on) => textExtras.setWrap(context, on)} />
       <div className="ks-sp-field" role="group" aria-label="Text insets">
         <span className="ks-sp-label">Space around the text</span>
         <div className="ks-sp-grid">

@@ -1,10 +1,10 @@
 ---
-title: Welcome to Kasten
+title: Welcome to KastenFlow
 type: page
 icon: 👋
 cover: gradient-dawn
 ---
-Kasten is a quiet place to write, collect and connect your notes: pages, quick
+KastenFlow is a quiet place to write, collect and connect your notes: pages, quick
 notes, a daily journal, whiteboards and PDFs. Everything is a plain Markdown
 file in a folder you choose. Local history helps you recover edits; keep an
 independent backup for important notes.

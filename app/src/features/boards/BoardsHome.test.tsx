@@ -25,7 +25,7 @@ async function open(seed: Record<string, string> = SEED) {
 beforeEach(() => {
   localStorage.clear();
   usePrefs.setState({ favourites: [] });
-  useBoards.setState({ list: [], loaded: false, creating: false });
+  useBoards.setState({ list: [], loaded: false, creating: false, onlyProject: null });
 });
 afterEach(cleanup);
 
@@ -54,6 +54,19 @@ describe("Whiteboards", () => {
     expect(screen.getByRole("button", { name: "Open Reading map" })).toBeTruthy();
     fireEvent.change(screen.getByRole("searchbox", { name: "Find a whiteboard" }), { target: { value: "zzz" } });
     expect(screen.getByText("No whiteboard is called “zzz”.")).toBeTruthy();
+  });
+
+  it("shows only one project's boards when a project's home asks, until told to show them all", async () => {
+    useBoards.setState({ onlyProject: "trip" });
+    await open();
+    await screen.findByRole("button", { name: "Open Route ideas" });
+    expect(screen.queryByRole("button", { name: "Open Reading map" })).toBeNull();
+    expect(screen.getByText("Only the boards of Summer trip.")).toBeTruthy();
+    // The view took the request: it is not asked again on the next visit.
+    expect(useBoards.getState().onlyProject).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show every project" }));
+    expect(screen.getByRole("button", { name: "Open Reading map" })).toBeTruthy();
+    expect(screen.queryByText(/Only the boards of/)).toBeNull();
   });
 
   it("makes a new board in a project and opens it", async () => {

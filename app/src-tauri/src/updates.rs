@@ -163,7 +163,7 @@ fn update_info(release: Release, current: &str, os: &str, arch: &str) -> UpdateI
         name: release
             .name
             .filter(|n| !n.trim().is_empty())
-            .unwrap_or_else(|| format!("Kasten {latest}")),
+            .unwrap_or_else(|| format!("KastenFlow {latest}")),
         download: pick_download(&release.assets, os, arch),
         latest,
         // The release's page, where "What's new" links: GitHub's own, or
@@ -189,7 +189,7 @@ pub async fn check_update(chat: State<'_, ChatState>) -> Result<UpdateInfo, Stri
     let response = chat
         .http()?
         .get(&api)
-        .header(USER_AGENT, format!("Kasten/{current}"))
+        .header(USER_AGENT, format!("KastenFlow/{current}"))
         .header(ACCEPT, "application/vnd.github+json")
         .timeout(WAIT)
         .send()
@@ -346,7 +346,7 @@ mod tests {
         let info = update_info(release, "0.2.1", "windows", "x86_64");
         assert_eq!(info.latest, "0.3.0");
         assert!(info.newer);
-        assert_eq!(info.name, "Kasten 0.3.0");
+        assert_eq!(info.name, "KastenFlow 0.3.0");
         assert_eq!(info.notes, "- Mind maps");
         assert_eq!(info.download.as_ref().map(|d| d.size), Some(5_000_000));
         let json = serde_json::to_value(&info).unwrap();

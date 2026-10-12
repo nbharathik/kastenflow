@@ -54,7 +54,7 @@ export function altOf(image: HostImage): string {
 const LEAST_SIDE = 96;
 
 /** The box a picture of `natural` size starts at on a slide of `slide` units: at most `share` of it, and not too small to see. */
-function preferredBox(natural: { w: number; h: number }, slide: { w: number; h: number }, share = 0.6): Box {
+export function preferredBox(natural: { w: number; h: number }, slide: { w: number; h: number }, share = 0.6): Box {
   const scale = Math.min((slide.w * share) / natural.w, (slide.h * share) / natural.h, 1);
   const grow = Math.max(scale, LEAST_SIDE / Math.max(natural.w, natural.h));
   const w = Math.max(1, Math.round(natural.w * grow));

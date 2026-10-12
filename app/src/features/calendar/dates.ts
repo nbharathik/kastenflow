@@ -3,7 +3,7 @@
 // (ranges.ts); what was made or edited each day; and the grids a month or a
 // week draws. Pure functions over the notes list, cached per list.
 
-import { isoDay } from "../../lib/dates";
+import { isoDay, startOfWeek } from "../../lib/dates";
 import type { NoteMeta, TagSchema } from "../../lib/vault/types";
 import { byStart, findRanges, type DateRange } from "./ranges";
 
@@ -258,12 +258,6 @@ export function activityByDay(notes: readonly NoteMeta[]): Map<string, { created
   }
   activityCache.set(notes, out);
   return out;
-}
-
-/** Monday first, as in most of the world; `weekStart` 0 makes it Sunday. */
-function startOfWeek(date: Date, weekStart: number): Date {
-  const shift = (date.getDay() - weekStart + 7) % 7;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - shift);
 }
 
 /** Six weeks of days covering `month` (0-11) of `year`, as a month view draws them. */

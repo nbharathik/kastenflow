@@ -2,7 +2,8 @@
    a large icon and title, and the Markdown panel on the right. */
 
 .kasten-page {
-  --page-width: 708px;
+  /* 708px at the usual 16px root. In rem, so Small text does not narrow the column. */
+  --page-width: 44.25rem;
   --page-gutter: 96px;
   display: flex;
   height: 100%;
@@ -10,7 +11,7 @@
   background: var(--notion-bg);
   color: var(--notion-text);
   font-family: var(--page-font, var(--notion-font));
-  font-size: var(--page-font-size, 16px);
+  font-size: var(--page-font-size, 1rem);
 
   &.is-full-width {
     --page-width: 100%;
@@ -116,13 +117,15 @@
   width: max-content;
 }
 
+/* The icon is drawn at 4.5 times the page text (72px at 16px) and sits in a
+   box a sixth larger, so it follows the page's text size. */
 .kasten-page-icon {
   display: grid;
   place-items: center;
-  width: 84px;
-  height: 84px;
+  width: calc(7em / 6);
+  height: calc(7em / 6);
   border-radius: var(--radius-lg);
-  font-size: 72px;
+  font-size: 4.5em;
   line-height: 1;
 
   &:hover {
@@ -130,8 +133,9 @@
   }
 }
 
+/* Half of it reaches up into the cover. */
 .kasten-page-header.has-cover .kasten-page-icon {
-  margin-top: -42px;
+  margin-top: calc(-7em / 12);
 }
 
 .kasten-page-controls {
@@ -179,7 +183,8 @@
   background: transparent;
   color: var(--notion-text);
   font-family: inherit;
-  font-size: var(--text-40);
+  /* 40px at 16px text: the title follows the page's text size. */
+  font-size: 2.5em;
   font-weight: 700;
   line-height: 1.2;
 

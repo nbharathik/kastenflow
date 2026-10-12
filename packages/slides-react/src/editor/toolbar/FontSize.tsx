@@ -2,15 +2,17 @@ import type { JSX } from "react";
 
 import { textFormat } from "../commands/index.ts";
 import { useReturnFocus } from "../menus/focus.ts";
+import { plainItem } from "../menus/build.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { NumberField } from "../ui/Fields.tsx";
-import { ToolButton } from "./ToolButton.tsx";
+import { MenuButton, ToolButton } from "./ToolButton.tsx";
 import type { TextView } from "./useTextView.ts";
 
 /**
  * The size of the words in hand: smaller and bigger buttons that step along
- * the usual sizes, and a box to type one. The box shows the text style's
- * size for words that set none, and nothing where the selection disagrees.
+ * the usual sizes, a box to type one, and a list of the usual sizes under it.
+ * The box shows the text style's size for words that set none, and nothing
+ * where the selection disagrees.
  */
 export function FontSize({ view, ui }: { view: TextView; ui: EditorUi }): JSX.Element {
   const { ctx, format, can, base } = view;
@@ -29,6 +31,13 @@ export function FontSize({ view, ui }: { view: TextView; ui: EditorUi }): JSX.El
     >
       <ToolButton icon="minus" label="Decrease font size" disabled={!can} onClick={() => textFormat.stepSize(ctx, -1, base.size)} />
       <NumberField label="Font size" value={size} min={1} max={400} decimals={1} width={40} disabled={!can} onCommit={(points) => textFormat.setSize(ctx, points)} />
+      <MenuButton
+        ui={ui}
+        label="Font sizes"
+        className="ks-tb-size-list"
+        disabled={!can}
+        items={() => textFormat.SIZES.map((points) => plainItem(`size-${points}`, String(points), () => textFormat.setSize(ctx, points), { checked: size === points }))}
+      />
       <ToolButton icon="plus" label="Increase font size" disabled={!can} onClick={() => textFormat.stepSize(ctx, 1, base.size)} />
     </span>
   );

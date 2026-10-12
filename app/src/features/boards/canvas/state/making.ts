@@ -3,6 +3,7 @@
 // asked for, is selected, and waits to be written in when it has text.
 
 import type { ShapeKind } from "../../../../lib/vault/types";
+import { editDiagram } from "../../../diagrams/host-store";
 import type { OpenHow } from "../../../workspace/store";
 import { CARD, STICKY } from "../model/geometry";
 import { toStroke } from "../nodes/outlines";
@@ -123,7 +124,7 @@ export async function addLink(board: BoardController, url: string, at: Point): P
  * up selected. */
 export async function addNotes(board: BoardController, paths: readonly string[], at: Point): Promise<string[]> {
   const known = new Set(board.deps.notes().map((n) => n.path));
-  const wanted = [...new Set(paths)].filter((p) => p !== board.path && (known.has(p) || p.endsWith(".canvas")));
+  const wanted = [...new Set(paths)].filter((p) => p !== board.path && (known.has(p) || p.endsWith(".canvas") || p.endsWith(".drawio")));
   if (wanted.length === 0) return [];
   const corners = dropGrid(at, wanted.length);
   const applied = await board.commit(wanted.map((path, i) => ({ kind: "card", path, x: corners[i]!.x, y: corners[i]!.y })));
@@ -145,8 +146,14 @@ export async function addNewBoard(board: BoardController, title: string, at: Poi
 }
 
 /** Opens what a file card shows: a note where asked (the side stack by
- * default), a nested board in this tab unless asked otherwise. */
+ * default), a nested board in this tab unless asked otherwise, a diagram in
+ * the editor over the board unless a tab or a split was asked for. */
 export function openFile(board: BoardController, file: string, how: OpenHow): void {
+  if (file.endsWith(".drawio")) {
+    if (how === "here" || how === "stack") editDiagram(file);
+    else board.deps.open(file, how);
+    return;
+  }
   if (file.endsWith(".canvas")) {
     if (how === "here" || how === "stack") board.deps.enter(file);
     else board.deps.open(file, how);

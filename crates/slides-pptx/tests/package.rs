@@ -11,7 +11,7 @@ use slides_core::Deck;
 use slides_pptx::{Exported, Options, export};
 
 use common::inspect::{self, Package, package_with};
-use common::{Files, decks, variety};
+use common::{Files, decks, lists, variety};
 
 type Sample = (String, Deck, Files);
 
@@ -32,6 +32,7 @@ fn everything() -> &'static [Sample] {
             add(format!("theme {name}"), (deck, files));
         }
         add("text heavy".into(), variety::text_heavy());
+        add("list looks".into(), lists::list_looks());
         add("turned".into(), variety::turned());
         add("four by three".into(), variety::four_three());
         add("sectioned".into(), variety::sectioned());

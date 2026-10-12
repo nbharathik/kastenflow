@@ -135,6 +135,9 @@ pub enum BoardChange {
         line: Option<String>,
         dash: Option<bool>,
     },
+    /// What the board remembers about the page it was made from (an object
+    /// naming the page, kept under `x-kasten.source`); None forgets it.
+    Source { source: Option<Value> },
 }
 
 impl Canvas {
@@ -363,6 +366,7 @@ impl Canvas {
             BoardChange::Line { id, line, dash } => {
                 self.style_line(id, line.as_deref(), *dash)?;
             }
+            BoardChange::Source { source } => self.set_source(source.as_ref())?,
         }
         Ok(None)
     }

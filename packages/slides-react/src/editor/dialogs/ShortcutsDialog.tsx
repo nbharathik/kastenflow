@@ -15,6 +15,7 @@ const AREAS: [prefix: string, name: string][] = [
   ["steps", "Steps"],
   ["arrange", "Arrange"],
   ["view", "View"],
+  ["embed", "Embedded page"],
   ["file", "File"],
   ["insert", "Insert"],
   ["help", "Help"],

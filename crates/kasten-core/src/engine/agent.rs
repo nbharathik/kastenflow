@@ -125,8 +125,18 @@ impl Kasten {
                 "{path} is read-only for agents (templates and hidden folders)"
             )));
         }
-        // Boards and decks have no lock: the folders and the file being there are all that is asked.
-        if let Some(ext) = [".canvas", ".deck"].into_iter().find(|e| path.ends_with(e)) {
+        // A diagram's picture is as writable as its source, which is what an agent changes.
+        if let Some(source) = path
+            .strip_suffix(".svg")
+            .filter(|s| s.ends_with(crate::diagrams::EXT))
+        {
+            return self.writable(source);
+        }
+        // Boards, decks and diagrams have no lock: the folders and the file being there are all that is asked.
+        if let Some(ext) = [".canvas", ".deck", crate::diagrams::EXT]
+            .into_iter()
+            .find(|e| path.ends_with(e))
+        {
             return match self.vault.file_of(path, &[ext])?.is_file() {
                 true => Ok(()),
                 false => Err(Error::NotFound(path.to_owned())),
@@ -231,6 +241,9 @@ impl Kasten {
                 crate::tags::schema_yaml(tag, schema)?;
             }
             AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => self.deck_refusals(op)?,
+            AgentOp::CreateDiagram { .. } | AgentOp::UpdateDiagram { .. } => {
+                self.diagram_refusals(op)?;
+            }
             AgentOp::Template {
                 name, text, base, ..
             } => {
@@ -313,6 +326,10 @@ impl Kasten {
     ) -> Result<Option<String>> {
         // Decks: a deck to the trash, and many slides taken out, wait even when trusted.
         if let Some(reason) = self.deck_review_reason(session, op, now)? {
+            return Ok(Some(reason));
+        }
+        // Diagrams: one to the trash waits even when trusted; a rewrite that takes a lot out, when not.
+        if let Some(reason) = self.diagram_review_reason(session, op, now)? {
             return Ok(Some(reason));
         }
         match op {

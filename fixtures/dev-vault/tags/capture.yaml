@@ -1,0 +1,12 @@
+name: capture
+color: blue
+properties:
+  - {key: url, type: url}
+  - {key: site, type: text}
+  - {key: captured, type: date}
+  - {key: status, type: select, options: [New, Read, Filed]}
+views:
+  - {name: All, type: table, sort: [{key: captured, dir: desc}]}
+  - {name: By site, type: table, sort: [{key: site, dir: asc}, {key: captured, dir: desc}]}
+  - {name: This week, type: calendar, date: captured}
+  - {name: This project, type: table, scope: project, sort: [{key: captured, dir: desc}]}

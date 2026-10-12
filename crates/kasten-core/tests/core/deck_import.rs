@@ -201,7 +201,7 @@ fn what_can_refuse_the_deck_is_found_before_the_first_picture_is_written() {
     let err = k
         .agent_import_deck(&s, &request, |_| "not a deck".to_owned(), NOW)
         .unwrap_err();
-    assert!(err.to_string().contains("Not a Kasten deck"), "{err}");
+    assert!(err.to_string().contains("Not a KastenFlow deck"), "{err}");
     assert_eq!(kept(t.vault.root()), before);
     // The bad title said what is wrong with it.
     let err = import(&k, &s, "Q3 [draft]", None, &pictures(), NOW).unwrap_err();

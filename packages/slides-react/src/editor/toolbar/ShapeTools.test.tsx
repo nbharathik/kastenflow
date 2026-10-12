@@ -28,18 +28,21 @@ async function setup() {
 }
 
 describe("the shape controls", () => {
-  it("are there only when the selection has a shape, a line, a connector or a text box", async () => {
+  it("are there only when the selection has a shape, a line, a connector, a text box or a picture, and the fill only where there is one", async () => {
     const { session, one } = await setup();
     expect(queryButton("Fill colour")).toBeNull();
     expect(queryButton("Border weight")).toBeNull();
 
+    // A picture has a border, a shadow and an opacity, and no fill.
     const picture = one({ type: "image", id: "", src: "assets/x.png", x: 0, y: 0, w: 100, h: 100 } as Element);
     act(() => session.select([picture]));
     expect(queryButton("Fill colour")).toBeNull();
+    for (const name of ["Border colour", "Border weight", "Shadow", "Opacity"]) expect(button(name), name).toBeTruthy();
 
     const grid = one(table(2, 2, { x: 10, y: 10, w: 200, h: 100 }));
     act(() => session.select([grid]));
     expect(queryButton("Fill colour")).toBeNull();
+    expect(queryButton("Border colour")).toBeNull();
 
     const box = one(textBox({ x: 40, y: 40, w: 200, h: 60 }, "Words"));
     act(() => session.select([box]));
@@ -134,8 +137,8 @@ describe("the shape controls", () => {
     const { session, one, styleOf } = await setup();
     const id = one(line("straight", true, { x: 10, y: 10 }, { x: 200, y: 100 }));
     act(() => session.select([id]));
-    // Lines have no fill.
-    expect((button("Fill colour") as HTMLButtonElement).disabled).toBe(true);
+    // Lines have no fill, so there is no button for it.
+    expect(queryButton("Fill colour")).toBeNull();
     click(button("Arrow end"));
     expect(["None", "Triangle", "Stealth", "Open", "Oval", "Diamond"].every((label) => row(label))).toBe(true);
     expect(row("Triangle").getAttribute("aria-checked")).toBe("true");
@@ -148,6 +151,35 @@ describe("the shape controls", () => {
     click(button("Arrow start"));
     click(row("None"));
     expect(styleOf(id)?.startArrow ?? null).toBeNull();
+  });
+
+  it("give a soft, medium or hard shadow, and take it off, checking the one in use", async () => {
+    const { session, one, styleOf } = await setup();
+    const id = one(shape("rect", { x: 10, y: 10, w: 100, h: 100 }));
+    act(() => session.select([id]));
+    click(button("Shadow"));
+    expect(row("No shadow").getAttribute("aria-checked")).toBe("true");
+    click(row("Medium"));
+    expect(styleOf(id)?.shadow).toEqual({ color: "text1", blur: 16, dx: 4, dy: 8, alpha: 0.35 });
+    expect(button("Shadow").getAttribute("aria-pressed")).toBe("true");
+    click(button("Shadow"));
+    expect(row("Medium").getAttribute("aria-checked")).toBe("true");
+    click(row("No shadow"));
+    expect(styleOf(id)?.shadow ?? null).toBeNull();
+  });
+
+  it("make what is selected see-through by a few steps, and back", async () => {
+    const { session, one, styleOf } = await setup();
+    const id = one(shape("rect", { x: 10, y: 10, w: 100, h: 100 }));
+    act(() => session.select([id]));
+    click(button("Opacity"));
+    expect(row("100%").getAttribute("aria-checked")).toBe("true");
+    click(row("50%"));
+    expect(styleOf(id)?.opacity).toBe(0.5);
+    click(button("Opacity"));
+    expect(row("50%").getAttribute("aria-checked")).toBe("true");
+    click(row("100%"));
+    expect(styleOf(id)?.opacity ?? null).toBeNull();
   });
 
   it("leave an image alone when it is selected with a shape", async () => {

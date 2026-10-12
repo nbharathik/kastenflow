@@ -48,6 +48,46 @@ fn sets_and_clears_a_page_s_font_width_and_text_one_line_each() {
 }
 
 #[test]
+fn takes_every_text_size_the_page_menu_offers() {
+    let t = dev_vault();
+    page(&t, "---\ntitle: Layout\n---\nBody.\n");
+    for value in ["small", "normal", "large", "xl"] {
+        let note = set_meta(&t.vault, PAGE, "text", Some(value), NOW).unwrap();
+        assert!(note.text.contains(&format!("\ntext: {value}\n")), "{value}");
+    }
+}
+
+#[test]
+fn sets_where_a_page_s_links_open_and_its_sections_layout() {
+    let t = dev_vault();
+    page(&t, "---\ntitle: Layout\n---\nBody.\n");
+    for value in ["here", "tab", "right", "peek-side", "peek-center", "stack"] {
+        let note = set_meta(&t.vault, PAGE, "opens", Some(value), NOW).unwrap();
+        assert!(
+            note.text.contains(&format!("\nopens: {value}\n")),
+            "{value}"
+        );
+    }
+    let note = set_meta(&t.vault, PAGE, "layout", Some("sections"), NOW).unwrap();
+    assert!(note.text.contains("\nlayout: sections\n"), "{}", note.text);
+    // Cleared again, the keys leave the file as they found it.
+    set_meta(&t.vault, PAGE, "opens", None, NOW).unwrap();
+    let cleared = set_meta(&t.vault, PAGE, "layout", None, NOW).unwrap();
+    assert!(!cleared.text.contains("opens:") && !cleared.text.contains("layout:"));
+    assert!(cleared.text.ends_with("---\nBody.\n"), "{}", cleared.text);
+}
+
+#[test]
+fn leaves_another_tool_s_layout_key_alone() {
+    // Jekyll and Hugo pages name a `layout` of their own.
+    let t = dev_vault();
+    let text = "---\ntitle: Layout\nlayout: post\n---\nBody.\n";
+    page(&t, text);
+    let after = set_meta(&t.vault, PAGE, "icon", Some("🧪"), NOW).unwrap();
+    assert!(after.text.contains("\nlayout: post\n"), "{}", after.text);
+}
+
+#[test]
 fn refuses_values_the_app_does_not_know() {
     let t = dev_vault();
     page(&t, "---\ntitle: Layout\n---\nBody.\n");
@@ -55,8 +95,12 @@ fn refuses_values_the_app_does_not_know() {
         ("font", "comic"),
         ("font", "Serif"),
         ("width", "wide"),
-        ("text", "large"),
+        ("text", "huge"),
         ("text", ""),
+        ("opens", "elsewhere"),
+        ("opens", "Tab"),
+        ("layout", "post"),
+        ("layout", ""),
     ] {
         assert!(
             matches!(

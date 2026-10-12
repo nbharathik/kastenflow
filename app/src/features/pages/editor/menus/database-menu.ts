@@ -33,6 +33,20 @@ export function databaseSections(query: string, links: LinkProvider, view: TagVi
     icon: "icon:database",
     onPick: () => pick(view && links.viewOf ? links.viewOf(d.tag, view).then((name) => target(d.path, name)) : d.path),
   }));
+  // In a project's page, a tag's view of what is filed in that project comes first.
+  const here: MenuItem[] = view
+    ? []
+    : all
+        .filter((d) => d.inThisProject && d.tag.toLowerCase().includes(q))
+        .sort((a, b) => b.inThisProject!.count - a.inThisProject!.count)
+        .slice(0, MAX)
+        .map((d) => ({
+          key: `db-here:${d.path}`,
+          label: `#${d.tag} in this project`,
+          hint: `${d.inThisProject!.count} ${d.inThisProject!.count === 1 ? "note" : "notes"}`,
+          icon: "icon:database",
+          onPick: () => pick(target(d.path, d.inThisProject!.view)),
+        }));
   const name = query.trim();
   const tag = tagFrom(name);
   const create: MenuItem[] =
@@ -47,5 +61,5 @@ export function databaseSections(query: string, links: LinkProvider, view: TagVi
           },
         ]
       : [];
-  return [{ items: create }, { title: view ? `Show a database as a ${VIEW_NAMES[view].toLowerCase()}` : "Show a tag database", items }];
+  return [{ items: create }, ...(here.length > 0 ? [{ title: "In this project", items: here }] : []), { title: view ? `Show a database as a ${VIEW_NAMES[view].toLowerCase()}` : "Show a tag database", items }];
 }

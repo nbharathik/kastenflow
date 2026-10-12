@@ -173,6 +173,12 @@ export function applyChange(doc: BoardDoc, change: BoardChange, made?: string): 
         }
         return next;
       });
+    case "source": {
+      const next = { ...doc };
+      if (change.source) next.source = change.source;
+      else delete next.source;
+      return next;
+    }
     case "restore": {
       const taken = new Set([...doc.nodes, ...doc.edges].map((item) => item.id));
       const fresh = change.nodes.map(nodeFromRaw).filter((n) => !taken.has(n.id));

@@ -38,6 +38,13 @@ function adjustTags(tags: string[], add: string[], remove: string[]): string[] {
   return out;
 }
 
+/**
+ * Properties Kasten keeps for a page's own views: a project's home sections and its saved overview tables.
+ * They are changed in those views (Customize, the overview's tables), so the property list does not offer
+ * them as text; they stay in the file as they are.
+ */
+export const VIEW_KEYS: ReadonlySet<string> = new Set(["home", "overview"]);
+
 /** A note's tags and properties with edits on their way applied, and how
  * to change them: each edit sends just its key and shows at once, and
  * rolls back when the core refuses it. */
@@ -52,7 +59,7 @@ export function usePropertyEdits(note: NoteMeta, page: PanelPage) {
   const tags = pendingTags.current?.value ?? note.tags;
   const groups = tags.map((tag) => ({ tag, schema: schemaOf(schemas, tag) })).filter((g): g is { tag: string; schema: TagSchema } => g.schema !== undefined);
   const schemaKeys = new Set(groups.flatMap((g) => g.schema.properties.map((p) => p.key)));
-  const otherKeys = Object.keys(props).filter((key) => !schemaKeys.has(key));
+  const otherKeys = Object.keys(props).filter((key) => !schemaKeys.has(key) && !VIEW_KEYS.has(key));
 
   const saveProp = async (key: string, value: unknown) => {
     const waiting = pendingProps.current.get(key);

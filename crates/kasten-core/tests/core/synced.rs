@@ -109,6 +109,13 @@ fn verify_says_when_the_vault_is_in_a_synced_folder() {
     assert_eq!(synced.len(), 1, "{:?}", report.problems);
     assert!(synced[0].detail.contains("Dropbox"), "{}", synced[0].detail);
     assert!(synced[0].detail.contains("Backup"), "{}", synced[0].detail);
+    assert!(
+        synced[0]
+            .detail
+            .contains("which copies files while KastenFlow writes them"),
+        "{}",
+        synced[0].detail
+    );
 
     let outside = dir.join("Notes/Kasten");
     Kasten::init(&outside, "Kasten").unwrap();

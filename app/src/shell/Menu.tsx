@@ -3,7 +3,10 @@ import "../features/pages/page/popups.css";
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 
+import { boxOf } from "../features/browser/bounds";
+import { useOccludes } from "../features/browser/occlusion";
 import { Popup } from "../features/pages/page/Popup";
+import { Icon } from "../ui/Icon";
 import { menuItems, moveInMenu } from "../ui/menu-keys";
 
 export interface MenuItem {
@@ -11,6 +14,8 @@ export interface MenuItem {
   icon?: ReactNode;
   hint?: string;
   danger?: boolean;
+  /** A switch: shown ticked or not, read out as on or off. */
+  checked?: boolean;
   onSelect: () => void;
 }
 
@@ -46,6 +51,43 @@ function floatAt(anchor: DOMRect, menu: DOMRect, align: "left" | "right"): CSSPr
   return { left: Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - menu.width)), top };
 }
 
+/** The rows of a menu: each item a button, dividers between groups. `onPick`
+ * runs first (the menu closes), then the item. Shared by `Menu` and the
+ * Open menu, so every menu looks and answers the same. */
+export function MenuItems({ items, onPick }: { items: (MenuItem | "divider")[]; onPick: () => void }) {
+  return (
+    <>
+      {items.map((item, i) =>
+        item === "divider" ? (
+          <hr key={`d${i}`} className="my-1 border-line" />
+        ) : (
+          <button
+            key={item.label}
+            type="button"
+            role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+            aria-checked={item.checked}
+            tabIndex={-1}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-13 outline-none hover:bg-hover focus-visible:bg-hover ${item.danger ? "text-danger" : ""}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPick();
+              item.onSelect();
+            }}
+          >
+            {item.checked !== undefined ? (
+              <span className="flex w-5 justify-center text-accent">{item.checked && <Icon name="check" className="size-4" />}</span>
+            ) : (
+              item.icon !== undefined && <span className="flex w-5 justify-center text-muted">{item.icon}</span>
+            )}
+            <span className="flex-1 whitespace-nowrap">{item.label}</span>
+            {item.hint && <span className="whitespace-nowrap text-12 text-muted">{item.hint}</span>}
+          </button>
+        ),
+      )}
+    </>
+  );
+}
+
 /** A button with a small dropdown of actions, closed by Escape or a click
  * outside. The arrows move between its items; opened from the keyboard,
  * the first item has the focus, and Escape gives it back to the button. */
@@ -56,6 +98,11 @@ export function Menu({ label, items, children, buttonClass = "", wrapClass = "",
   const box = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLSpanElement>(null);
   const menu = () => wrap.current?.querySelector<HTMLElement>('[role="menu"]') ?? null;
+  // Over a browser tab's page it would be hidden behind it.
+  useOccludes(Boolean(open), () => {
+    const list = menu();
+    return list ? boxOf(list.getBoundingClientRect()) : null;
+  });
 
   // Focus goes into the menu once it is placed: to its first item when
   // opened from the keyboard, else to the menu itself, so the arrows work.
@@ -93,28 +140,7 @@ export function Menu({ label, items, children, buttonClass = "", wrapClass = "",
       className={`kasten-shell-menu min-w-56 p-1 outline-none ${float ? "" : `top-full mt-1 ${align === "right" ? "right-0" : "left-0"}`}`}
     >
       {header}
-      {items.map((item, i) =>
-        item === "divider" ? (
-          <hr key={`d${i}`} className="my-1 border-line" />
-        ) : (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-13 outline-none hover:bg-hover focus-visible:bg-hover ${item.danger ? "text-danger" : ""}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpen(false);
-              item.onSelect();
-            }}
-          >
-            {item.icon !== undefined && <span className="flex w-5 justify-center text-muted">{item.icon}</span>}
-            <span className="flex-1">{item.label}</span>
-            {item.hint && <span className="text-12 text-muted">{item.hint}</span>}
-          </button>
-        ),
-      )}
+      <MenuItems items={items} onPick={() => setOpen(false)} />
     </Popup>
   );
 

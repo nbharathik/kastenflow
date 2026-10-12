@@ -7,7 +7,7 @@ use crate::lint::rules;
 use crate::themes;
 
 /// The composite kinds, in the order the guidance is given.
-const COMPOSITES: [&str; 9] = [
+const COMPOSITES: [&str; 12] = [
     "code",
     "math",
     "chat",
@@ -17,6 +17,9 @@ const COMPOSITES: [&str; 9] = [
     "step-label",
     "embed",
     "video",
+    "chart",
+    "timer",
+    "qr",
 ];
 
 /// The size of a text style of the default theme, in points.
@@ -32,7 +35,7 @@ pub fn instructions() -> String {
     let layouts: Vec<&str> = theme.layouts.iter().map(|l| l.name.as_str()).collect();
     let mut out = String::new();
     out.push_str(
-        "Kasten Slides: you build and edit slide decks, which are .deck files. Every tool changes a deck with the same operations the editor uses, a change is saved at once (a person with the deck open sees it), and nothing is ever deleted: removed slides are kept as a copy in the trash, and decks go to the trash too.\n\n",
+        "KastenFlow Slides: you build and edit slide decks, which are .deck files. Every tool changes a deck with the same operations the editor uses, a change is saved at once (a person with the deck open sees it), and nothing is ever deleted: removed slides are kept as a copy in the trash, and decks go to the trash too.\n\n",
     );
     out.push_str("THE DECK\n");
     out.push_str("- A slide is 960 by 540 units (1 unit is 1/96 inch). Slides have ids (s-...) and elements ids (e-...); tools return them and take them. A slide may also be named by its number, counting from 1.\n");

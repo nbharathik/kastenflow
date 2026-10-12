@@ -1,5 +1,6 @@
 import type { AlignMode, Arrange, Axis } from "@kasten-slides/wasm";
 
+import { selectedElements } from "../session/scope.ts";
 import type { IconName } from "../ui/icons.ts";
 import type { Command } from "./types.ts";
 
@@ -17,11 +18,12 @@ const order = (id: string, label: string, to: Arrange, icon: IconName, keys: str
   run: ({ session }) => session.elements.arrange(to),
 });
 
+// One element aligns to the slide; two or more align to each other.
 const align = (id: string, label: string, mode: AlignMode, icon: IconName): Command => ({
   id: `arrange.align-${id}`,
   label,
   icon,
-  enabled: two,
+  enabled: some,
   run: ({ session }) => session.elements.align(mode),
 });
 
@@ -90,7 +92,7 @@ export const arrangeCommands: Command[] = [
     icon: "ungroup",
     keys: ["Mod+Alt+Shift+G"],
     scope: "canvas",
-    enabled: (s) => some(s) && s.deck.slides.find((x) => x.id === s.slideId)?.elements.some((e) => s.selection.includes(e.id) && e.type === "group") === true,
+    enabled: (s) => some(s) && selectedElements(s).some((e) => e.type === "group"),
     run: ({ session }) => session.elements.ungroup(),
   },
   {
@@ -98,7 +100,7 @@ export const arrangeCommands: Command[] = [
     label: "Lock",
     icon: "lock",
     enabled: some,
-    checked: (s) => s.deck.slides.find((x) => x.id === s.slideId)?.elements.filter((e) => s.selection.includes(e.id)).every((e) => e.locked) === true && some(s),
+    checked: (s) => some(s) && selectedElements(s).every((e) => e.locked),
     run: ({ session }) => {
       const picked = session.elements.find();
       session.elements.lock(!picked.every((e) => e.locked));

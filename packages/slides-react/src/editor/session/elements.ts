@@ -5,6 +5,8 @@
 import type { AlignMode, Arrange, Axis, Element, JsonValue, Text, Transform } from "@kasten-slides/wasm";
 
 import { boxOf } from "../../theme/index.ts";
+import { STEP } from "./clipboard.ts";
+import { findElement } from "./scope.ts";
 import type { EditorSession } from "./session.ts";
 import type { Box } from "./types.ts";
 
@@ -24,7 +26,13 @@ export interface Placement {
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
+/** How long after a tap of an arrow key the next one still belongs to the same step of undo, in milliseconds. */
+export const BURST_MS = 800;
+
 export class ElementCommands {
+  /** The last nudge: which elements, the revision it made and when, for joining the next tap to it. */
+  private burst: { key: string; revision: number; at: number } | null = null;
+
   constructor(private readonly s: EditorSession) {}
 
   private get slideId(): string {
@@ -35,10 +43,17 @@ export class ElementCommands {
     return [...this.s.state.selection];
   }
 
-  /** The elements on the slide with these ids, in stacking order. */
+  /** The elements with these ids, in stacking order: those among the ones in view (the slide's own, or what a group gone into holds), then any other that is somewhere on the slide. */
   find(ids: readonly string[] = this.chosen): Element[] {
     const wanted = new Set(ids);
-    return this.s.slide.elements.filter((e) => wanted.has(e.id));
+    const inView = this.s.scope.filter((e) => wanted.has(e.id));
+    if (inView.length === wanted.size) return inView;
+    const seen = new Set(inView.map((e) => e.id));
+    const elsewhere = [...wanted].flatMap((id) => {
+      const found = seen.has(id) ? undefined : findElement(this.s.slide.elements, id);
+      return found ? [found] : [];
+    });
+    return [...inView, ...elsewhere];
   }
 
   /** Where an element is on the slide, whether it says so or its layout does. */
@@ -66,8 +81,11 @@ export class ElementCommands {
     this.patch({ style }, ids);
   }
 
-  transform(items: Transform[]): void {
-    if (items.length > 0) this.s.run(() => this.s.core.apply("transform_elements", { slide: this.slideId, items }));
+  /** Changes boxes, turns and flips. `join` makes it part of the step before it, which a burst of arrow keys is. */
+  transform(items: Transform[], join = false): void {
+    if (items.length === 0) return;
+    const input = { slide: this.slideId, items };
+    this.s.run(() => (join ? this.s.core.applyIntoLast("transform_elements", input) : this.s.core.apply("transform_elements", input)));
   }
 
   /** Applies where a drag left the elements, by id. */
@@ -88,14 +106,22 @@ export class ElementCommands {
     );
   }
 
-  /** Moves the selection by `dx`, `dy` slide units. */
+  /**
+   * Moves the selection by `dx`, `dy` slide units. Taps of the arrow keys that follow one another on the same elements, with
+   * nothing else done between them, are one step of undo, as a drag is: a person who nudged five times undoes it once.
+   */
   nudge(dx: number, dy: number, ids: readonly string[] = this.chosen): void {
     const items: Transform[] = [];
     for (const element of this.find(ids)) {
       const box = this.boxOf(element);
       if (box && !element.locked) items.push({ id: element.id, x: round(box.x + dx), y: round(box.y + dy) });
     }
-    this.transform(items);
+    const key = items.map((item) => item.id).join(",");
+    const now = Date.now();
+    const burst = this.burst;
+    const joined = burst !== null && burst.key === key && burst.revision === this.s.state.revision && now - burst.at < BURST_MS;
+    this.transform(items, joined);
+    this.burst = items.length > 0 ? { key, revision: this.s.state.revision, at: now } : null;
   }
 
   remove(ids: readonly string[] = this.chosen): void {
@@ -113,29 +139,31 @@ export class ElementCommands {
     if (done) this.s.select([done.output.group]);
   }
 
-  /** Ungroups the selected groups and selects what they held. */
+  /** Ungroups the selected groups and selects what they held. Several groups are one step of undo. */
   ungroup(ids: readonly string[] = this.chosen): void {
     const groups = this.find(ids).filter((e) => e.type === "group");
-    const freed: string[] = [];
-    for (const group of groups) {
-      const done = this.s.run(() => this.s.core.apply("ungroup_element", { slide: this.slideId, id: group.id }));
-      if (done) freed.push(...done.output.ids);
-    }
+    if (groups.length === 0) return;
+    const done = this.s.run(() =>
+      this.s.core.applyBatch(groups.map((group) => ["ungroup_element", { slide: this.slideId, id: group.id }] as ["ungroup_element", { slide: string; id: string }])),
+    );
+    const freed = (done ?? []).flatMap((applied) => ((applied.output as { ids?: string[] }).ids ?? []));
     if (freed.length > 0) this.s.select(freed);
   }
 
+  /** Aligns the elements to each other; one element aligns to the slide. */
   align(mode: AlignMode, ids: readonly string[] = this.chosen): void {
-    if (ids.length > 1) this.s.run(() => this.s.core.apply("align_elements", { slide: this.slideId, ids: [...ids], mode }));
+    if (ids.length > 0) this.s.glide(() => this.s.run(() => this.s.core.apply("align_elements", { slide: this.slideId, ids: [...ids], mode })));
   }
 
   distribute(axis: Axis, ids: readonly string[] = this.chosen): void {
-    if (ids.length > 2) this.s.run(() => this.s.core.apply("distribute_elements", { slide: this.slideId, ids: [...ids], axis }));
+    if (ids.length > 2) this.s.glide(() => this.s.run(() => this.s.core.apply("distribute_elements", { slide: this.slideId, ids: [...ids], axis })));
   }
 
-  /** Copies the elements a little down and right and selects the copies. */
-  duplicate(ids: readonly string[] = this.chosen): void {
+  /** Copies the elements 16 units down and right (as a paste is), or `dx` and `dy` away (a drag that copies), and selects the copies. */
+  duplicate(ids: readonly string[] = this.chosen, dx?: number, dy?: number): void {
     if (ids.length === 0) return;
-    const done = this.s.run(() => this.s.core.apply("duplicate_elements", { slide: this.slideId, ids: [...ids] }));
+    const offset = dx === undefined && dy === undefined ? { dx: STEP, dy: STEP } : { dx: round(dx ?? 0), dy: round(dy ?? 0) };
+    const done = this.s.run(() => this.s.core.apply("duplicate_elements", { slide: this.slideId, ids: [...ids], ...offset }));
     if (done) this.s.select(done.output.ids);
   }
 
@@ -147,7 +175,7 @@ export class ElementCommands {
 
   /** Turns each element by `degrees` clockwise. */
   rotateBy(degrees: number, ids: readonly string[] = this.chosen): void {
-    this.transform(this.find(ids).map((e) => ({ id: e.id, rotation: (((e.rotation ?? 0) + degrees) % 360 + 360) % 360 })));
+    this.s.glide(() => this.transform(this.find(ids).map((e) => ({ id: e.id, rotation: (((e.rotation ?? 0) + degrees) % 360 + 360) % 360 }))));
   }
 
   lock(locked: boolean, ids: readonly string[] = this.chosen): void {
@@ -157,13 +185,21 @@ export class ElementCommands {
   /**
    * Writes text an editor finished with, unless it is what the element already holds.
    * `slideId` is the slide the box was on when editing began: the person may have moved on since.
+   * `join` makes it part of the step before it (a box just made and the first words typed in it are one step of undo).
    */
-  setText(id: string, text: Text, slideId: string = this.slideId): void {
+  setText(id: string, text: Text, slideId: string = this.slideId, join = false): void {
     const element = this.s.deck.slides.find((slide) => slide.id === slideId)?.elements.find((e) => e.id === id);
     if (!element) return;
     const held = element.type === "text" ? element.text : element.type === "shape" ? element.text : element.type === "connector" ? element.label : null;
     if (held && JSON.stringify(held) === JSON.stringify(text)) return;
-    this.s.run(() => this.s.core.apply("set_rich_text", { slide: slideId, id, text }));
+    const input = { slide: slideId, id, text };
+    this.s.run(() => (join ? this.s.core.applyIntoLast("set_rich_text", input) : this.s.core.apply("set_rich_text", input)));
+  }
+
+  /** Makes a text box as tall as its words: part of the step before it (`join`, the one that wrote the words) or a step of its own. */
+  setHeight(id: string, height: number, slideId: string = this.slideId, join = false): void {
+    const input = { slide: slideId, patches: [{ id, patch: { h: height } }] };
+    this.s.run(() => (join ? this.s.core.applyIntoLast("patch_elements", input) : this.s.core.apply("patch_elements", input)));
   }
 
   /** Finds and replaces across the deck; resolves to how many were replaced. */

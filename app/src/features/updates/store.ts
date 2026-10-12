@@ -76,4 +76,4 @@ export const useUpdates = create<UpdatesState>()((set, get) => ({
 export const selectAvailable = (s: UpdatesState): UpdateInfo | null => (s.info?.newer && s.info.latest !== s.skipped ? s.info : null);
 
 /** The words for a newer release. */
-export const outText = (info: UpdateInfo) => `${info.name.includes(info.latest) ? info.name : `Kasten ${info.latest}`} is out (this is ${info.current})`;
+export const outText = (info: UpdateInfo) => `${info.name.includes(info.latest) ? info.name : `KastenFlow ${info.latest}`} is out (this is ${info.current})`;

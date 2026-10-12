@@ -1,0 +1,104 @@
+/* A divider in the page (divider-view.ts): its line, and on hover the title of
+   the section it opens with buttons that fold it and present from it. */
+
+.kasten-page-editor .kasten-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 11px 2px;
+
+  & .kasten-divider-line {
+    flex: 1;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: var(--notion-line);
+  }
+
+  &.ProseMirror-selectednode,
+  &.kasten-range-picked {
+    background: transparent;
+    outline: none;
+
+    & .kasten-divider-line {
+      background: var(--notion-accent);
+    }
+  }
+
+  & .kasten-divider-tools {
+    position: absolute;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 0 0 8px;
+    background: var(--notion-bg);
+    color: var(--notion-text-2);
+    opacity: 0;
+    transition: opacity var(--motion-fast) var(--ease-standard);
+  }
+
+  &:hover .kasten-divider-tools,
+  &:focus-within .kasten-divider-tools,
+  &.is-folded .kasten-divider-tools {
+    opacity: 1;
+  }
+
+  &.is-nested .kasten-divider-tools {
+    display: none;
+  }
+
+  & .kasten-divider-title {
+    max-width: 28ch;
+    overflow: hidden;
+    font-size: var(--text-12);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A folded section already says its title in its own row. */
+  &.is-folded .kasten-divider-title {
+    display: none;
+  }
+
+  & .kasten-divider-fold,
+  & .kasten-divider-present {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 24px;
+    border-radius: var(--radius);
+    color: inherit;
+    font-size: var(--text-12);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--notion-hover);
+      color: var(--notion-text);
+    }
+
+    & svg {
+      flex: none;
+    }
+  }
+
+  /* Fold: a chevron, down while the section is open and turned right when it is folded. */
+  & .kasten-divider-fold {
+    width: 24px;
+
+    & svg {
+      transition: transform var(--motion-fast) var(--ease-standard);
+    }
+  }
+
+  &.is-folded .kasten-divider-fold svg {
+    transform: rotate(-90deg);
+  }
+
+  /* Present: a presentation screen and its word. */
+  & .kasten-divider-present {
+    padding: 0 7px 0 5px;
+  }
+}

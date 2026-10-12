@@ -6,7 +6,7 @@
 use slides_core::{Layout, ListKind, PlaceholderDef, PlaceholderKind, VAlign};
 
 use crate::cx::Cx;
-use crate::elements::{Ph, ph_of};
+use crate::elements::{Env, Ph, ph_of, write_all};
 use crate::rels;
 use crate::text::metrics::DEFAULT_INSETS;
 use crate::text::resolve;
@@ -160,10 +160,14 @@ pub fn open_root(x: &mut Xml, name: &str) {
         .attr("xmlns:p", NS_P);
 }
 
-/// A layout part. Its relationships are the master alone.
+/// A layout part: its background, the decoration it draws behind every slide (written as the
+/// shapes and pictures of the layout, which PowerPoint shows on each slide that uses it) and its
+/// slots. Its relationships are the master alone, and the pictures it uses.
 pub fn write(cx: &mut Cx, layout: &Layout) -> Vec<u8> {
     cx.rels
         .add(rels::SLIDE_MASTER, "../slideMasters/slideMaster1.xml");
+    // The decoration is drawn as the master's is: its own empty picture slot is no mistake.
+    cx.master = true;
     let mut x = Xml::document();
     open_root(&mut x, "p:sldLayout");
     if let Some(kind) = layout_type(&layout.name) {
@@ -174,8 +178,13 @@ pub fn write(cx: &mut Cx, layout: &Layout) -> Vec<u8> {
         x.attr("showMasterSp", "0");
     }
     x.open("p:cSld").attr("name", &layout.label);
+    if let Some(background) = &layout.background {
+        crate::slide::write_background(&mut x, cx, background);
+    }
     x.open("p:spTree");
     write_tree_header(&mut x);
+    cx.ids.assign(&layout.elements);
+    write_all(&mut x, cx, &layout.elements, &Env::default());
     for def in &layout.placeholders {
         if let Some(ph) = ph_of(layout, &def.role) {
             write_slot(&mut x, cx, &Slot::from_def(def, ph));
@@ -281,6 +290,47 @@ mod tests {
         let out = layout_xml("title-image");
         assert!(out.contains(r#"<p:ph type="pic" idx="2"/>"#), "{out}");
         assert!(out.contains("<a:t>Click to add image</a:t>"), "{out}");
+    }
+
+    fn stripe(id: &str) -> slides_core::Element {
+        use slides_core::{Base, Element, Extra, Fill, Style};
+        let mut base = Base::new(id).place(0.0, 0.0, 40.0, 540.0);
+        base.style = Some(Style {
+            fill: Some(Fill {
+                color: "accent2".to_owned(),
+                alpha: None,
+                extra: Extra::new(),
+            }),
+            ..Style::default()
+        });
+        Element::shape(base, "rect", None)
+    }
+
+    #[test]
+    fn a_layout_s_decoration_and_background_are_written_before_its_slots() {
+        let xml = with_cx(|cx| {
+            let mut layout = cx
+                .deck
+                .theme
+                .layout("title-only")
+                .cloned()
+                .unwrap_or_else(|| panic!("layout"));
+            layout.elements = vec![stripe("stripe")];
+            layout.background = Some(slides_core::Background {
+                color: Some("bg2".to_owned()),
+                image: None,
+                extra: slides_core::Extra::new(),
+            });
+            String::from_utf8(write(cx, &layout)).unwrap_or_default()
+        });
+        assert!(
+            xml.contains(r#"<p:cSld name="Title only"><p:bg><p:bgPr><a:solidFill><a:schemeClr val="bg2"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>"#),
+            "{xml}"
+        );
+        let decoration = xml.find(r#"<p:nvPr userDrawn="1"/>"#).unwrap_or(usize::MAX);
+        let slot = xml.find(r#"<p:ph type="title"/>"#).unwrap_or(0);
+        assert!(decoration < slot, "{xml}");
+        assert!(xml.contains(r#"<a:schemeClr val="accent2"/>"#), "{xml}");
     }
 
     #[test]

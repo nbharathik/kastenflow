@@ -28,7 +28,8 @@ const NAMES: Readonly<Record<string, string>> = {
   set_text: "Edit text",
   set_rich_text: "Format text",
   replace_all: "Replace text",
-  add_slides: "Import slides",
+  // Slides that were pasted, dragged in with Alt, or imported: they were all added.
+  add_slides: "Add slides",
   replace_deck: "Import slides",
   collapse_slides: "Collapse slides",
 };

@@ -18,7 +18,7 @@ pub const DEFAULT: &str = "CmdOrCtrl+Shift+Space";
 /// or it would steal plain typing in every other app.
 pub fn parse(text: &str) -> Result<Shortcut, String> {
     let shortcut = Shortcut::from_str(text.trim())
-        .map_err(|_| format!("“{text}” is not a shortcut Kasten knows"))?;
+        .map_err(|_| format!("“{text}” is not a shortcut KastenFlow knows"))?;
     let held = shortcut.mods - Modifiers::SHIFT;
     if held.is_empty() {
         return Err(

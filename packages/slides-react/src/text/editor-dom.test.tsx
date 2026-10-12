@@ -6,7 +6,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { TextEditor, type TextEditorHandle } from "./TextEditor.tsx";
 import { sanitizeCopiedHtml } from "./paste.ts";
 import { installDomShims, themeNamed } from "./test-support.ts";
-import { mount, selectRange } from "./test-editor.tsx";
+import { mount, press, selectRange } from "./test-editor.tsx";
 
 let light: Theme;
 
@@ -25,10 +25,10 @@ describe("list markers", () => {
   it("are the list's own numbers, and follow when an item goes", () => {
     const editor = mount(light, text({ runs: [{ t: "a" }], list: "number" }, { runs: [{ t: "b" }], list: "number" }, { runs: [{ t: "c" }], list: "number" }, { runs: [{ t: "d" }], list: "bullet" }));
     const markers = () => [...editor.view.dom.querySelectorAll(".ks-p")].map((element) => element.getAttribute("data-marker"));
-    expect(markers()).toEqual(["1.", "2.", "3.", "•"]);
+    expect(markers()).toEqual(["1.", "2.", "3.", "●"]);
     const second = editor.view.state.doc.child(0).nodeSize;
     editor.view.dispatch(editor.view.state.tr.delete(second, second + editor.view.state.doc.child(1).nodeSize));
-    expect(markers()).toEqual(["1.", "2.", "•"]);
+    expect(markers()).toEqual(["1.", "2.", "●"]);
     editor.handle.selectAll();
     editor.handle.toggleList("number");
     expect(markers()).toEqual(["1.", "2.", "3."]);
@@ -57,6 +57,58 @@ describe("list markers", () => {
     const editor = mount(light, text({ runs: [{ t: "Item" }], list: "bullet" }));
     expect(editor.view.dom.textContent).toBe("Item");
     expect(editor.handle.getText().paragraphs[0]?.runs).toEqual([{ t: "Item" }]);
+  });
+});
+
+describe("the marker of an empty item", () => {
+  const sized = text({ runs: [{ t: "How are you", size: 12 }], list: "bullet" }, { runs: [{ t: "", size: 12 }], list: "bullet" });
+  const paragraphs = (editor: ReturnType<typeof mount>) => [...editor.view.dom.querySelectorAll<HTMLElement>(".ks-p")];
+
+  it("is as large as the one above it when the empty item has the same size", () => {
+    const [first, second] = paragraphs(mount(light, sized));
+    expect(second!.style.getPropertyValue("--ks-marker-size")).toBe(first!.style.getPropertyValue("--ks-marker-size"));
+    expect(second!.style.getPropertyValue("--ks-marker-size")).toBe("16px");
+    expect(second!.style.fontSize).toBe(first!.style.fontSize);
+  });
+
+  it("follows a size set on everything, empty items included, and keeps it in the text", () => {
+    const editor = mount(light, text({ runs: [{ t: "How are you" }], list: "bullet" }, { runs: [{ t: "" }], list: "bullet" }));
+    editor.handle.selectAll();
+    editor.handle.setSize(20);
+    const [first, second] = paragraphs(editor);
+    expect(second!.style.getPropertyValue("--ks-marker-size")).toBe("26.667px");
+    expect(first!.style.getPropertyValue("--ks-marker-size")).toBe("26.667px");
+    expect(second!.style.fontSize).toBe("26.667px");
+    expect(editor.handle.getText().paragraphs.map((paragraph) => paragraph.runs)).toEqual([[{ t: "How are you", size: 20 }], [{ t: "", size: 20 }]]);
+    editor.handle.setColor("accent2");
+    expect(editor.handle.getText().paragraphs[1]?.runs).toEqual([{ t: "", size: 20, color: "accent2" }]);
+    // A paragraph whose settings change is drawn again, so it is asked for again.
+    expect(paragraphs(editor).map((paragraph) => paragraph.style.getPropertyValue("--ks-marker-color"))).toEqual(["#ea4335", "#ea4335"]);
+  });
+
+  it("is drawn in the look of the line it came from when Enter makes it", () => {
+    const editor = mount(light, text({ runs: [{ t: "How are you", size: 12 }], list: "bullet" }), { autoFocus: "end" });
+    press(editor.view, "Enter");
+    const [first, second] = paragraphs(editor);
+    expect(second!.style.getPropertyValue("--ks-marker-size")).toBe(first!.style.getPropertyValue("--ks-marker-size"));
+    expect(editor.handle.getText().paragraphs[1]).toEqual({ runs: [{ t: "", size: 12 }], list: "bullet" });
+    editor.handle.insertText("fine");
+    expect(editor.handle.getText().paragraphs[1]).toEqual({ runs: [{ t: "fine", size: 12 }], list: "bullet" });
+  });
+
+  it("is made larger or smaller than its words by a share of them, in every selected item", () => {
+    const editor = mount(light, text({ runs: [{ t: "a" }], list: "bullet" }, { runs: [{ t: "" }], list: "bullet" }));
+    editor.handle.selectAll();
+    editor.handle.setBulletSize(1.5);
+    expect(paragraphs(editor).map((paragraph) => paragraph.style.getPropertyValue("--ks-marker-size"))).toEqual(["44px", "44px"]);
+    expect(editor.handle.getText().paragraphs.map((paragraph) => paragraph.bulletSize)).toEqual([1.5, 1.5]);
+    expect(editor.handle.formatState().bulletSize).toBe(1.5);
+    editor.handle.setBulletSize(null);
+    expect(paragraphs(editor).map((paragraph) => paragraph.style.getPropertyValue("--ks-marker-size"))).toEqual(["29.333px", "29.333px"]);
+    editor.handle.setBulletColor("accent2");
+    expect(editor.handle.getText().paragraphs.map((paragraph) => paragraph.bulletColor)).toEqual(["accent2", "accent2"]);
+    editor.handle.setBulletColor("not a colour");
+    expect(editor.handle.getText().paragraphs.map((paragraph) => paragraph.bulletColor)).toEqual(["accent2", "accent2"]);
   });
 });
 

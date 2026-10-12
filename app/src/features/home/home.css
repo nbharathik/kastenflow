@@ -1,0 +1,316 @@
+/* Home: short, calm, one screen. An 8px grid, hairline edges, one row height
+   (32px) and one card look, so nothing shouts and nothing jumps. The list is
+   in recent.css. */
+
+/* The container the layout asks about; its page inside holds the padding. */
+.kasten-home {
+  container: kasten-home / inline-size;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+.kasten-home-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 32px 32px;
+}
+
+/* The top: the greeting, the capture field, + New. */
+.kasten-home-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.kasten-home-hello {
+  flex: none;
+  padding-top: 2px;
+}
+.kasten-home-hello h1 {
+  font-size: var(--text-20);
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.01em;
+}
+.kasten-home-hello p {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  line-height: 16px;
+  white-space: nowrap;
+}
+.kasten-home-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding-top: 2px;
+}
+
+.kasten-home-capture-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 720px;
+}
+.kasten-home-capture {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+.kasten-home-capture:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent),
+    0 0 0 3px var(--color-soft);
+}
+.kasten-home-capture-icon {
+  margin-top: 10px;
+  color: var(--color-muted);
+}
+.kasten-home-capture-text {
+  min-width: 0;
+  flex: 1;
+  resize: none;
+  padding: 8px 0;
+  background: transparent;
+  font-size: var(--text-14);
+  line-height: 20px;
+  outline: none;
+}
+.kasten-home-capture-text::placeholder {
+  color: var(--color-faint);
+}
+/* The invitation stays on one line, however narrow the field; typed text wraps as usual. */
+.kasten-home-capture-text:placeholder-shown {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-home-capture-hint {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-top: 9px;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  line-height: 18px;
+  white-space: nowrap;
+}
+.kasten-home-capture > .ui-btn {
+  margin-top: 5px;
+}
+.kasten-home-slash {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  padding: 4px;
+  border-radius: var(--radius-xl);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-pop);
+  list-style: none;
+}
+.kasten-home-slash-item {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+.kasten-home-slash-item[aria-selected="true"] {
+  background: var(--color-hover);
+}
+
+/* The body: the main column and the slim one. */
+.kasten-home-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 32px;
+  margin-top: 20px;
+}
+.kasten-home-main,
+.kasten-home-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+.kasten-home-cell {
+  min-width: 0;
+}
+/* A section with nothing to show takes no room. */
+.kasten-home-cell:empty {
+  display: none;
+}
+
+/* Cards in the slim column: one panel shade, no edge. */
+.kasten-home .kasten-dash-card {
+  height: auto;
+  padding: 8px 12px 12px;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-panel);
+}
+.kasten-home .kasten-dash-head {
+  min-height: 28px;
+  margin-bottom: 2px;
+}
+.kasten-home .kasten-dash-row {
+  height: 28px;
+}
+/* To-dos here are one line each, so the card keeps its height; the page a to-do
+   is on is in its tooltip. */
+.kasten-home-side .kasten-todo {
+  height: 28px;
+  align-items: center;
+  padding-block: 0;
+}
+.kasten-home-side .kasten-todo input[type="checkbox"] {
+  margin-top: 0;
+}
+.kasten-home-side .kasten-todo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-home-side .kasten-todo-page {
+  display: none;
+}
+.kasten-home-side .kasten-todo-add {
+  height: 28px;
+  padding-block: 0;
+}
+
+/* Thin rows of chips: favourites and projects. */
+.kasten-home-chips {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  overflow: hidden;
+}
+.kasten-home-chip {
+  display: inline-flex;
+  height: 28px;
+  min-width: 0;
+  max-width: 176px;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+.kasten-home-chip:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.kasten-home-chip.is-more {
+  flex: none;
+}
+.kasten-home-chip-icon {
+  display: inline-flex;
+  flex: none;
+  font-size: var(--text-14);
+}
+.kasten-home-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-home-chip-detail {
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+
+.kasten-home-welcome {
+  padding: 32px 8px;
+}
+
+/* The week, when it is turned on. */
+.kasten-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+.kasten-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  line-height: 16px;
+}
+.kasten-week-day:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.kasten-week-day.is-today {
+  background: var(--color-selected);
+  color: var(--color-ink);
+}
+.kasten-week-date {
+  color: var(--color-ink);
+  font-size: var(--text-14);
+  font-weight: 500;
+  line-height: 20px;
+}
+.kasten-week-count {
+  min-height: 16px;
+  color: var(--color-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A pane of a laptop's width: the slim column narrows. */
+@container kasten-home (max-width: 980px) {
+  .kasten-home-page {
+    padding-inline: 24px;
+  }
+  .kasten-home-body {
+    grid-template-columns: minmax(0, 1fr) 264px;
+    gap: 24px;
+  }
+}
+/* Below the list only while the pane is narrow. */
+@container kasten-home (max-width: 700px) {
+  .kasten-home-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+@container kasten-home (max-width: 540px) {
+  .kasten-home-page {
+    padding-inline: 16px;
+  }
+  .kasten-home-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .kasten-home-hello {
+    flex: 1;
+  }
+  .kasten-home-capture-wrap {
+    flex-basis: 100%;
+    max-width: none;
+    order: 3;
+  }
+  .kasten-home-capture-hint {
+    display: none;
+  }
+}

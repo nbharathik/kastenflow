@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { newDeck } from "../../test/engine.ts";
 import type { SaveOutcome, SlidesHost } from "../host.ts";
 import { shape, textBox } from "../factory.ts";
-import { unpack } from "./clipboard.ts";
 import { EditorSession } from "./session.ts";
 
 interface FakeHost extends SlidesHost {
@@ -47,8 +46,8 @@ describe("slides", () => {
     const second = session.slides.add();
     expect(second).toBeDefined();
     expect(session.state.slideId).toBe(second);
-    // After a title slide comes a title and body.
-    expect(session.slide.layout).toBe("title-body");
+    // A new slide is blank, whatever comes before it.
+    expect(session.slide.layout).toBe("blank");
     expect(ids(session)).toEqual([first, second]);
 
     const [copy] = session.slides.duplicate();
@@ -187,18 +186,18 @@ describe("elements", () => {
 });
 
 describe("clipboard", () => {
+  // The details (steps, cut, groups, in place, slides) are in `clipboard.test.ts` and `slide-clipboard.test.ts`.
   it("copies, pastes with a step, cuts, and turns plain text into a text box", async () => {
     const { session } = await open();
     const [a] = session.elements.insert([shape("ellipse", { x: 50, y: 50, w: 100, h: 100 })]) as [string];
-    const payload = session.clipboard.copy([a])!;
-    expect(unpack(payload)).toHaveLength(1);
-    expect(unpack("hello")).toBeNull();
+    const clip = session.clipboard.copy([a])!;
+    expect(clip.elements).toHaveLength(1);
 
     const [p1] = session.clipboard.paste();
     const [p2] = session.clipboard.paste();
     const at = (id: string) => session.slide.elements.find((e) => e.id === id)!;
-    expect([at(p1!).x, at(p1!).y]).toEqual([62, 62]);
-    expect([at(p2!).x, at(p2!).y]).toEqual([74, 74]);
+    expect([at(p1!).x, at(p1!).y]).toEqual([66, 66]);
+    expect([at(p2!).x, at(p2!).y]).toEqual([82, 82]);
 
     // Onto another slide it lands where it was.
     session.slides.add();
@@ -213,9 +212,9 @@ describe("clipboard", () => {
     const [words] = session.clipboard.paste("Just some words");
     const made = at(words!);
     expect(made.type).toBe("text");
-    // From the system clipboard, a copy from another deck.
-    const [fromText] = session.clipboard.paste(payload);
-    expect(at(fromText!).type).toBe("shape");
+    // A copy from another deck is what a paste is given.
+    const [fromClip] = session.clipboard.paste(clip);
+    expect(at(fromClip!).type).toBe("shape");
   });
 });
 

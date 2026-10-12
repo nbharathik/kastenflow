@@ -42,7 +42,7 @@ pub fn home_folder() -> Option<PathBuf> {
 /// What `verify` and the app say about a vault in `app`'s folder.
 pub fn synced_warning(app: &str) -> String {
     format!(
-        "This vault is inside {app}, which copies files while Kasten writes them. That can leave conflicted copies or a half-copied history. Move the vault to a folder {app} doesn't sync, and use Backup for a copy in the cloud."
+        "This vault is inside {app}, which copies files while KastenFlow writes them. That can leave conflicted copies or a half-copied history. Move the vault to a folder {app} doesn't sync, and use Backup for a copy in the cloud."
     )
 }
 

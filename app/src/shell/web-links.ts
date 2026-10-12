@@ -1,11 +1,14 @@
-// Web links in the desktop app open in the system's browser: the app's
-// window opens no other page, so a link card, a chat's link or a URL
-// property would otherwise do nothing. In text being written, as in any
-// editor, a click places the caret and Ctrl or Cmd with it follows the link.
+// Web links in the desktop app open in the system's browser (or, when
+// Settings says so and the browser is on, in a Kasten browser tab to the
+// right; Shift+click uses the other): the app's window opens no other page, so
+// a link card, a chat's link or a URL property would otherwise do nothing. In
+// text being written, as in any editor, a click places the caret and Ctrl or
+// Cmd with it follows the link.
 
 import { useEffect } from "react";
 
 import { inTauri, openUrl } from "../lib/api";
+import { useBrowserPrefs } from "../features/browser/prefs";
 import { useWorkspace } from "../features/workspace/store";
 
 const WEB = /^(https?:\/\/|mailto:)/i;
@@ -26,13 +29,23 @@ export function followWebLink(event: MouseEvent, open: (url: string) => void): v
   open(href);
 }
 
+/** Opens a web link where Settings says (Browser: the system's browser, or a
+ * Kasten browser tab to the right); `other` (Shift) uses the other one. A tab
+ * needs the browser turned on, and only web pages go there, never a mail link. */
+export function openWeb(url: string, other = false): void {
+  const { webLinks, enabled } = useBrowserPrefs.getState();
+  const tab = (webLinks === "tab") !== other;
+  if (tab && enabled && /^https?:\/\//i.test(url)) {
+    void import("../features/browser/open").then((m) => m.openInBrowserTab(url));
+    return;
+  }
+  openUrl(url).catch((err: unknown) => useWorkspace.getState().toast(err instanceof Error ? err.message : String(err)));
+}
+
 export function useWebLinks(): void {
   useEffect(() => {
     if (!inTauri()) return;
-    const follow = (event: MouseEvent) =>
-      followWebLink(event, (url) => {
-        openUrl(url).catch((err: unknown) => useWorkspace.getState().toast(err instanceof Error ? err.message : String(err)));
-      });
+    const follow = (event: MouseEvent) => followWebLink(event, (url) => openWeb(url, event.shiftKey));
     document.addEventListener("click", follow);
     document.addEventListener("auxclick", follow);
     return () => {

@@ -55,7 +55,7 @@ pub fn sandbox_for(
         Ok(Sandbox::Off)
     } else if root {
         Err(format!(
-            "it will not run its sandbox as the administrator (root), and the sandbox is what keeps a damaged or hostile picture in a deck from taking over the browser, so Kasten Slides does not switch it off for you. Run as an ordinary user; in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1 to run the browser without its sandbox."
+            "it will not run its sandbox as the administrator (root), and the sandbox is what keeps a damaged or hostile picture in a deck from taking over the browser, so KastenFlow Slides does not switch it off for you. Run as an ordinary user; in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1 to run the browser without its sandbox."
         ))
     } else {
         Ok(Sandbox::On)
@@ -81,7 +81,7 @@ pub fn launch_failure(sandbox_on: bool, status: &str, stderr: &[u8]) -> Error {
     let text = String::from_utf8_lossy(stderr).to_lowercase();
     if sandbox_on && (text.contains("sandbox") || text.contains("as root")) {
         return Error::Launch(format!(
-            "its sandbox could not start here (it said: {}). Kasten Slides does not run the browser without its sandbox unless you say so: in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1.",
+            "its sandbox could not start here (it said: {}). KastenFlow Slides does not run the browser without its sandbox unless you say so: in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1.",
             said(stderr)
         ));
     }

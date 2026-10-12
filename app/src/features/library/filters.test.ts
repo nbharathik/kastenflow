@@ -162,6 +162,22 @@ describe("parseQuery", () => {
     expect(parseQuery("# tag:").words).toEqual(["#", "tag:"]);
     expect(parseQuery("tag:#idea").tags).toEqual(["idea"]);
   });
+
+  it("reads on:, created: and updated: with a day, a month, a year or a range", () => {
+    const q = parseQuery("on:2026-09-23 created:2026-09 updated:2026-09-01..2026-09-30 notes");
+    expect(q.words).toEqual(["notes"]);
+    expect(q.on).toEqual({ from: new Date(2026, 8, 23).getTime(), to: new Date(2026, 8, 24).getTime() });
+    expect(q.created).toEqual({ from: new Date(2026, 8, 1).getTime(), to: new Date(2026, 9, 1).getTime() });
+    expect(q.updated).toEqual({ from: new Date(2026, 8, 1).getTime(), to: new Date(2026, 9, 1).getTime() });
+    expect(parseQuery("created:2026").created).toEqual({ from: new Date(2026, 0, 1).getTime(), to: new Date(2027, 0, 1).getTime() });
+    expect(parseQuery("updated:2026-09-20..").updated).toEqual({ from: new Date(2026, 8, 20).getTime(), to: Number.POSITIVE_INFINITY });
+  });
+
+  it("keeps a value that is no date as a word, as the core does", () => {
+    const q = parseQuery("on:soon created:2026-13-45 updated:");
+    expect(q.words).toEqual(["on:soon", "created:2026-13-45", "updated:"]);
+    expect([q.on, q.created, q.updated]).toEqual([null, null, null]);
+  });
 });
 
 describe("filterRows", () => {
@@ -193,6 +209,29 @@ describe("filterRows", () => {
     // The week starts on Monday the 21st.
     expect(filtered({ updated: "week" })).toEqual(["call-the-printer.md", "diff-metric.md", "lost.md", "2026-09-23.md"]);
     expect(filtered({ updated: "month" })).toEqual(["call-the-printer.md", "zettelkasten.md", "_project.md", "diff-metric.md", "lost.md", "2026-09-23.md"]);
+  });
+
+  it("filters by last week, last month, a chosen month and a custom range", () => {
+    expect(filtered({ updated: "last-week" })).toEqual(["zettelkasten.md"]);
+    expect(filtered({ updated: "last-month" })).toEqual(["roadmap.md"]);
+    expect(filtered({ updated: "month:2026-08" })).toEqual(["roadmap.md"]);
+    // The range's last day counts whole.
+    expect(filtered({ updated: "range:2026-09-22..2026-09-23" })).toEqual(["diff-metric.md", "lost.md", "2026-09-23.md"]);
+    expect(filtered({ updated: "range:2026-09-24.." })).toEqual(["call-the-printer.md"]);
+  });
+
+  it("starts 'this week' on the day the preferences say", () => {
+    // Sunday 20 September is the first day of a Sunday week, and last week's last day on Monday.
+    expect(filtered({ updated: "week" }, { weekStart: 0 })).toEqual(["call-the-printer.md", "zettelkasten.md", "diff-metric.md", "lost.md", "2026-09-23.md"]);
+    expect(filtered({ updated: "week" }, { weekStart: 1 })).not.toContain("zettelkasten.md");
+    expect(filtered({ updated: "last-week" }, { weekStart: 0 })).toEqual([]);
+  });
+
+  it("filters by when a note was made, leaving out notes with no created date", () => {
+    expect(filtered({ created: "week" })).toEqual(["diff-metric.md", "2026-09-23.md"]);
+    expect(filtered({ created: "month" })).toEqual(["zettelkasten.md", "_project.md", "diff-metric.md", "2026-09-23.md"]);
+    expect(filtered({ created: "last-month" })).toEqual([]);
+    expect(filtered({ created: "today", updated: "today" })).toEqual([]);
   });
 
   it("finds notes on no board, and orphans", () => {
@@ -227,6 +266,17 @@ describe("filterRows", () => {
     expect(filtered({}, { query: parseQuery("project:photo-organiser type:page") })).toEqual(["roadmap.md"]);
     expect(filtered({}, { query: parseQuery("project:inbox") })).toEqual(["call-the-printer.md"]);
     expect(filtered({}, { query: parseQuery("after:2026-09-22 before:2026-09-24") })).toEqual(["diff-metric.md", "2026-09-23.md"]);
+  });
+
+  it("applies on:, created: and updated: typed in the search box", () => {
+    // Made or changed on the day.
+    expect(filtered({}, { query: parseQuery("on:2026-09-23") })).toEqual(["diff-metric.md", "2026-09-23.md"]);
+    expect(filtered({}, { query: parseQuery("on:2026-09-02") })).toEqual(["zettelkasten.md"]);
+    expect(filtered({}, { query: parseQuery("created:2026-09") })).toEqual(["zettelkasten.md", "_project.md", "diff-metric.md", "2026-09-23.md"]);
+    expect(filtered({}, { query: parseQuery("updated:2026-08") })).toEqual(["roadmap.md"]);
+    expect(filtered({}, { query: parseQuery("updated:2026-09-22..2026-09-23 type:card") })).toEqual(["diff-metric.md"]);
+    // The old filters still work beside them.
+    expect(filtered({}, { query: parseQuery("on:2026-09 after:2026-09-22") })).toEqual(["call-the-printer.md", "diff-metric.md", "2026-09-23.md"]);
   });
 });
 
@@ -287,6 +337,7 @@ describe("helpers", () => {
   it("starts the week on Monday", () => {
     const sunday = new Date(2026, 8, 27, 10).getTime();
     expect(updatedSince("week", sunday)).toBe(new Date(2026, 8, 21).getTime());
+    expect(updatedSince("week", sunday, 0)).toBe(new Date(2026, 8, 27).getTime());
     const monday = new Date(2026, 8, 21, 10).getTime();
     expect(updatedSince("week", monday)).toBe(new Date(2026, 8, 21).getTime());
     expect(updatedSince("month", monday)).toBe(new Date(2026, 8, 1).getTime());

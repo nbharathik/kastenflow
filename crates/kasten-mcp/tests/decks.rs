@@ -114,6 +114,43 @@ fn a_deck_is_named_by_its_path_its_title_or_its_file_name() {
 }
 
 #[test]
+fn a_slide_template_may_be_read_and_not_changed_and_is_not_among_the_decks() {
+    let (_v, k, s) = open();
+    let (path, _) = deck_of_eight(&k, &s);
+    let text = k.deck(&path).unwrap().text;
+    let template = k
+        .create_deck_template(&Actor::Human, "My look", &text, Instant::now())
+        .unwrap();
+    assert_eq!(template, "templates/slides/my-look.deck");
+
+    // Listed apart: an assistant picks from the person's decks.
+    let listed = call(&k, &s, "list_decks", Value::Null).unwrap();
+    let names: Vec<&str> = listed["decks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        !names.iter().any(|n| n.starts_with("templates/")),
+        "{names:?}"
+    );
+    // Named by its path it can be read ...
+    let read = call(&k, &s, "get_deck", json!({"deck": template})).unwrap();
+    assert!(read["hash"].is_string(), "{read}");
+    // ... and not changed.
+    let refused = call(
+        &k,
+        &s,
+        "set_notes",
+        json!({"deck": template, "slide": 1, "notes": "changed"}),
+    )
+    .unwrap_err();
+    assert!(refused.contains("read-only"), "{refused}");
+    assert_eq!(k.deck(&template).unwrap().text, text);
+}
+
+#[test]
 fn a_change_commits_under_the_tools_name_and_reports_what_lint_thinks() {
     let (_v, k, s) = open();
     let (path, ids) = deck_of_eight(&k, &s);

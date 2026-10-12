@@ -1,64 +1,25 @@
-//! Full-text search: BM25 with
-//! titles boosted, prefix matches, and filters such as
-//! `tag:paper project:photo-organiser type:card before:2026-10-01 after:2026-09-01`.
+//! Full-text search: BM25 with titles boosted, prefix matches, and filters
+//! beside the words (read out of the query by `filters`):
+//!
+//! - `tag:paper` or `#paper`, `project:photo-organiser`, `type:card`
+//! - `before:2026-10-01`, `after:2026-09-01`: the note's own date (its
+//!   `updated`, else `created`, else its file's time)
+//! - `on:2026-10-06`: made or changed on that day
+//! - `created:2026-10`, `updated:2026-09-01..2026-09-30`: a day, a month, a
+//!   year or a range `a..b` (`a..` and `..b` leave one end open); `created`
+//!   is the note's `created`, `updated` its own date as `before:` reads it
+//! - `under:<note id or path>`: that page and every page below it, through
+//!   the `parent` chain; a path with spaces is quoted, `under:"a b.md"`
+//!
+//! All narrow together, with words or alone (then the newest come first).
 
 use rusqlite::ToSql;
 
 use super::Index;
+use super::filters::{Filters, filter_sql, parse_query};
 use super::query::{META_COLUMNS, meta_of};
 use crate::error::Result;
 use crate::search::Hit;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Filters {
-    pub tags: Vec<String>,
-    pub project: Option<String>,
-    pub kind: Option<String>,
-    /// Days, YYYY-MM-DD, compared with the note's own date.
-    pub before: Option<String>,
-    pub after: Option<String>,
-}
-
-/// Splits a query into search words (and "quoted phrases") and filters.
-pub fn parse_query(query: &str) -> (Vec<String>, Filters) {
-    let mut words = Vec::new();
-    let mut filters = Filters::default();
-    let mut rest = query.trim();
-    while !rest.is_empty() {
-        if let Some(after) = rest.strip_prefix('"') {
-            let (phrase, tail) = after.split_once('"').unwrap_or((after, ""));
-            words.push(phrase.to_owned());
-            rest = tail.trim_start();
-            continue;
-        }
-        let (token, tail) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
-        rest = tail.trim_start();
-        let value = |prefix: &str| {
-            token
-                .strip_prefix(prefix)
-                .filter(|v| !v.is_empty())
-                .map(str::to_owned)
-        };
-        if let Some(tag) = value("tag:") {
-            filters
-                .tags
-                .push(tag.trim_start_matches('#').to_lowercase());
-        } else if let Some(project) = value("project:") {
-            filters.project = Some(project.to_lowercase());
-        } else if let Some(kind) = value("type:") {
-            filters.kind = Some(kind.to_lowercase());
-        } else if let Some(day) = value("before:") {
-            filters.before = Some(day);
-        } else if let Some(day) = value("after:") {
-            filters.after = Some(day);
-        } else if let Some(tag) = token.strip_prefix('#').filter(|t| !t.is_empty()) {
-            filters.tags.push(tag.to_lowercase());
-        } else {
-            words.push(token.to_owned());
-        }
-    }
-    (words, filters)
-}
 
 /// The words as an FTS5 query: each a quoted prefix match, all required.
 fn match_expression(words: &[String]) -> Option<String> {
@@ -74,37 +35,6 @@ fn match_expression(words: &[String]) -> Option<String> {
         .map(|w| format!("\"{w}\"*"))
         .collect();
     (!parts.is_empty()).then(|| parts.join(" "))
-}
-
-fn filter_sql(filters: &Filters, params: &mut Vec<Box<dyn ToSql>>) -> String {
-    let mut sql = String::new();
-    for tag in &filters.tags {
-        params.push(Box::new(tag.clone()));
-        sql.push_str(&format!(
-            " AND n.num IN (SELECT num FROM tags WHERE tag = ?{})",
-            params.len()
-        ));
-    }
-    if let Some(project) = &filters.project {
-        params.push(Box::new(project.clone()));
-        sql.push_str(&format!(" AND lower(n.project) = ?{}", params.len()));
-    }
-    match &filters.kind {
-        Some(kind) => {
-            params.push(Box::new(kind.clone()));
-            sql.push_str(&format!(" AND n.kind = ?{}", params.len()));
-        }
-        None => sql.push_str(" AND n.kind != 'template'"),
-    }
-    if let Some(day) = &filters.before {
-        params.push(Box::new(day.clone()));
-        sql.push_str(&format!(" AND n.day < ?{}", params.len()));
-    }
-    if let Some(day) = &filters.after {
-        params.push(Box::new(day.clone()));
-        sql.push_str(&format!(" AND n.day > ?{}", params.len()));
-    }
-    sql
 }
 
 /// The upper bound of a prefix range: `abc` → `abd`, so `title_key >= q
@@ -275,15 +205,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_filters_and_phrases() {
-        let (words, filters) = parse_query(
-            "tag:Paper #idea project:Photo-Organiser type:card before:2026-10-01 \"old notes\" diff",
-        );
-        assert_eq!(words, ["old notes", "diff"]);
-        assert_eq!(filters.tags, ["paper", "idea"]);
-        assert_eq!(filters.project.as_deref(), Some("photo-organiser"));
+    fn makes_the_match_expression_from_the_words() {
+        let (words, filters) = parse_query("type:card \"old notes\" diff");
         assert_eq!(filters.kind.as_deref(), Some("card"));
-        assert_eq!(filters.before.as_deref(), Some("2026-10-01"));
         assert_eq!(
             match_expression(&words).as_deref(),
             Some("\"old notes\"* \"diff\"*")

@@ -1,0 +1,78 @@
+/* Insert → Page…: the page chosen, and the four ways it goes on the slide. */
+.ks-pg-page {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+
+.ks-pg-icon {
+  flex: none;
+}
+
+.ks-pg-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-pg-project {
+  flex: none;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+
+.ks-pg-ways {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ks-pg-way {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius-md);
+  cursor: pointer;
+}
+
+.ks-pg-way:hover {
+  background: var(--ks-hover);
+}
+
+.ks-pg-way.is-on {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+  box-shadow: 0 0 0 1px var(--ks-accent);
+}
+
+.ks-pg-way:focus-within {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+
+.ks-pg-way input {
+  margin-top: 3px;
+  accent-color: var(--ks-accent);
+}
+
+.ks-pg-way-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ks-pg-way-name {
+  font-weight: 600;
+}
+
+.ks-pg-way-says {
+  color: var(--ks-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}

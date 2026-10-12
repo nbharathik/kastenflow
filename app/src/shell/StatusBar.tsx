@@ -1,6 +1,7 @@
 import { describeBackup, useVaultStatus, type Tone } from "../features/workspace/status";
 import { useWorkspace } from "../features/workspace/store";
 import { openable } from "../features/workspace/tree";
+import { openSettingsAt } from "../features/workspace/views/settings/jump";
 import { UpdatePill } from "../features/updates/UpdatePill";
 
 export const DOT: Record<Tone, string> = {
@@ -41,7 +42,7 @@ function Backup() {
   return (
     <button
       type="button"
-      onClick={() => useWorkspace.getState().go({ view: "settings" })}
+      onClick={() => openSettingsAt({ group: "history" })}
       title={detail}
       aria-label={`${shown.label}. ${detail}`}
       className={`flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-hover hover:text-ink ${tone === "ok" ? "" : "text-muted"}`}

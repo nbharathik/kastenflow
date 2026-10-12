@@ -82,7 +82,8 @@ describe("the toolbar handle", () => {
     expect(editor.handle.formatState()).toMatchObject({ align: "right", list: "number", level: 1, lineSpacing: 1.5 });
     editor.handle.setLineSpacing(null);
     editor.handle.toggleList("number");
-    expect(editor.handle.getText().paragraphs[0]).toEqual({ runs: [{ t: "one" }], align: "right", level: undefined });
+    // The list is off and the words stay where they were: 24 for the empty first level and 36 for the "a." of the second.
+    expect(editor.handle.getText().paragraphs[0]).toEqual({ runs: [{ t: "one" }], align: "right", level: 1, marginLeft: 60 });
   });
 
   it("links text, or takes the link off, and refuses an address that must not be followed", () => {

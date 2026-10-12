@@ -12,7 +12,8 @@ use super::build::{
 use super::geom::{pad, sane};
 use super::measure::{Face, MONO_EM, columns, fit_pt, line_count};
 use super::media::{RADIUS, READABLE, addressed, host_of, middle, still, web_address};
-use crate::model::{Align, Element, EmbedEl, VAlign};
+use crate::model::{Align, Element, EmbedEl, PageSource, Text, TextFit, VAlign};
+use crate::page;
 use crate::resolve::Rect;
 use crate::units::points_to_units;
 
@@ -21,9 +22,21 @@ const TITLE_FLOOR: f64 = 12.0;
 /// The most lines an address takes; longer ones are cut in the middle.
 const URL_LINES: usize = 2;
 
+/// The page of the host an embed shows, when it shows one in place of a web page: it has no address, and a source.
+fn page_of(element: &EmbedEl) -> Option<&PageSource> {
+    element
+        .base
+        .source
+        .as_ref()
+        .filter(|_| element.url.trim().is_empty())
+}
+
 /// The words a person who cannot see the embedded page is told.
 pub fn alt_of(element: &EmbedEl) -> String {
-    format!("Web page: {}", title_of(element, &element.url))
+    match page_of(element) {
+        Some(source) => format!("Page: {}", source.name()),
+        None => format!("Web page: {}", title_of(element, &element.url)),
+    }
 }
 
 fn title_of(element: &EmbedEl, fallback: &str) -> String {
@@ -35,9 +48,96 @@ fn title_of(element: &EmbedEl, fallback: &str) -> String {
         .map_or_else(|| fallback.to_owned(), str::to_owned)
 }
 
-/// The address the parts link to, if it is one that is safe to link.
-pub fn link_of(element: &EmbedEl) -> Option<&str> {
-    web_address(&element.url)
+/// The address the parts link to, if it is one that is safe to link: a web address, or `page:` and the page of the host.
+pub fn link_of(element: &EmbedEl) -> Option<String> {
+    match page_of(element) {
+        Some(source) => Some(page::page_link(&source.page, source.section.as_deref())),
+        None => web_address(&element.url).map(str::to_owned),
+    }
+}
+
+/// An embedded page of the host as it is drawn where it cannot be shown live: a card with the page's name over a line, and
+/// the words of the page under it, set to fit. What the page held when it was read is what is drawn.
+fn page_card(cx: &Ctx, rect: Rect, source: &PageSource) -> Vec<Element> {
+    let mut parts = Parts::new(cx.id, rect);
+    parts.shape(
+        "roundRect",
+        rect,
+        filled("bg1")
+            .radius(RADIUS)
+            .stroke("text2", 1.5)
+            .stroke_alpha(0.5),
+        None,
+    );
+    let inner = pad(
+        rect,
+        (rect.w * 0.04).clamp(8.0, 24.0),
+        (rect.h * 0.05).clamp(6.0, 20.0),
+    );
+    let title = match source
+        .icon
+        .as_deref()
+        .map(str::trim)
+        .filter(|i| !i.is_empty())
+    {
+        Some(icon) => format!("{icon} {}", source.name()),
+        None => source.name(),
+    };
+    let head = (inner.h * 0.18).clamp(20.0, 44.0).min(inner.h);
+    let size = fit_pt(22.0, 10.0, |pt| {
+        line_count(&title, inner.w, pt, Face::Sans, true) as f64 * points_to_units(pt * 1.2) <= head
+    });
+    let flat = insets(0.0, 0.0, 0.0, 0.0);
+    let name = para(vec![
+        run(&title, size).bold().font("heading").color("text1"),
+    ])
+    .style("body")
+    .spacing(1.2)
+    .after(0.0);
+    parts.text(
+        Rect {
+            x: inner.x,
+            y: inner.y,
+            w: inner.w,
+            h: head,
+        },
+        text_of(vec![name], VAlign::Middle, flat.clone()),
+    );
+    parts.line(
+        Rect {
+            x: inner.x,
+            y: inner.y + head + 4.0,
+            w: inner.w,
+            h: 0.0,
+        },
+        outlined("text2", 1.0).stroke_alpha(0.4),
+    );
+    let top = inner.y + head + 12.0;
+    let room = Rect {
+        x: inner.x,
+        y: top,
+        w: inner.w,
+        h: (inner.y + inner.h - top).max(0.0),
+    };
+    let words = source
+        .markdown
+        .as_deref()
+        .map(|md| page::text_paragraphs(&page::blocks(md)))
+        .unwrap_or_default();
+    if words.is_empty() || room.h < 12.0 {
+        parts.skip();
+    } else {
+        parts.text(
+            room,
+            Text {
+                valign: Some(VAlign::Top),
+                insets: Some(flat),
+                fit: Some(TextFit::Shrink),
+                ..Text::from_paragraphs(words)
+            },
+        );
+    }
+    parts.finish()
 }
 
 /// What is inside the panel at a size of the title, in units: the space it takes and its parts.
@@ -103,13 +203,21 @@ pub fn expand(cx: &Ctx, element: &EmbedEl) -> Vec<Element> {
         .as_deref()
         .map(str::trim)
         .filter(|p| !p.is_empty());
+    let link = link_of(element);
     if let Some(src) = poster {
         parts.image(rect, src, None);
         let mut done = parts.finish();
         if let Some(picture) = done.first_mut() {
             still(picture);
         }
-        return addressed(done, link_of(element), &alt_of(element));
+        return addressed(done, link.as_deref(), &alt_of(element));
+    }
+    if let Some(source) = page_of(element) {
+        return addressed(
+            page_card(cx, rect, source),
+            link.as_deref(),
+            &alt_of(element),
+        );
     }
 
     let panel = filled("bg2")
@@ -210,7 +318,7 @@ pub fn expand(cx: &Ctx, element: &EmbedEl) -> Vec<Element> {
         },
         text_of(vec![address], VAlign::Top, flat),
     );
-    addressed(parts.finish(), link_of(element), &alt_of(element))
+    addressed(parts.finish(), link.as_deref(), &alt_of(element))
 }
 
 #[cfg(test)]

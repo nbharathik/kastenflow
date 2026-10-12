@@ -5,6 +5,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { newDeck } from "../../test/engine.ts";
+import { PLAIN_FORMAT } from "../../text/handle.ts";
 import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
 import type { FormatState } from "../session/text-commands.ts";
@@ -20,7 +21,7 @@ export async function openEditor(theme = "Light") {
 }
 
 /** How text looks when nothing is set. */
-export const PLAIN: FormatState = { bold: false, italic: false, underline: false, strike: false, code: false, color: null, size: null, font: null, align: "left", list: null, level: 0, link: null, lineSpacing: null };
+export const PLAIN: FormatState = PLAIN_FORMAT;
 
 /** A text box being edited, as far as the commands can tell: every action is a spy. */
 export function fakeTextBox(format: Partial<FormatState> = {}): TextHandle & { current: FormatState } {

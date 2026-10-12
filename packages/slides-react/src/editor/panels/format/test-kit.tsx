@@ -32,6 +32,8 @@ interface Options {
 
 /** An editor on a blank slide holding `elements`, with the panel open. */
 export async function mount({ theme = "Light", elements = [], select, panel = "format" }: Options = {}): Promise<Kit> {
+  // What the chrome keeps in the browser (folded sections, the fonts and colours used lately) starts empty in every test.
+  localStorage.clear();
   const engine = await newDeck("Panels", theme);
   const host = new MemoryHost();
   const errors: string[] = [];

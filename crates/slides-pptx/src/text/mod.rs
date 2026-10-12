@@ -9,10 +9,10 @@ mod run;
 
 pub use para::write_level;
 
-use slides_core::{Insets, Text, VAlign};
+use slides_core::{Insets, Text, TextFit, VAlign};
 
 use crate::cx::Cx;
-use crate::units::length;
+use crate::units::{length, thousandths};
 use crate::xml::Xml;
 use metrics::DEFAULT_INSETS;
 
@@ -29,6 +29,9 @@ pub struct Look<'a> {
     /// Whether the shape is mirrored top to bottom. PowerPoint turns the words
     /// upside down with it, the editor does not, so they are turned back.
     pub flipped: bool,
+    /// The width and height of the room the words have, in slide units, when known: a box
+    /// that shrinks its words to fit says by how much.
+    pub area: Option<(f64, f64)>,
 }
 
 /// The space between a box and its text.
@@ -64,26 +67,64 @@ fn paragraphs(x: &mut Xml, cx: &mut Cx, text: &Text, look: &Look) {
         .iter()
         .map(|p| para::marker_size(theme, p, look.style))
         .collect();
-    let hangs = lists::hangs(&text.paragraphs, &sizes);
-    for ((paragraph, number), hang) in text.paragraphs.iter().zip(numbering).zip(hangs) {
+    let places = slides_core::list::layout(&text.paragraphs, &sizes);
+    for ((paragraph, number), geometry) in text.paragraphs.iter().zip(numbering).zip(places) {
         para::write(
             x,
             cx,
             paragraph,
             look.style,
-            para::Item { number, hang },
+            para::Item {
+                number,
+                geometry: Some(geometry),
+            },
             look.opacity,
         );
     }
 }
 
+/// What a box does with words that do not fit it, as `a:bodyPr` says it: `a:noAutofit` lets
+/// them run past the edge, `a:normAutofit` shrinks them (by the scale the words are
+/// estimated to need), and `a:spAutoFit` makes the shape as tall as they are.
+fn write_autofit(x: &mut Xml, cx: &Cx, text: &Text, look: &Look) {
+    match text.fit {
+        Some(TextFit::Shrink) => {
+            let scale = look
+                .area
+                .map(|(w, h)| {
+                    slides_core::text_fit::estimated_scale(&cx.deck.theme, look.style, text, w, h)
+                })
+                .unwrap_or(1.0);
+            let open = x.open("a:normAutofit");
+            if scale < 1.0 {
+                open.int("fontScale", thousandths(scale));
+            }
+            x.close();
+        }
+        Some(TextFit::Resize) => {
+            x.open("a:spAutoFit").close();
+        }
+        _ => {
+            x.open("a:noAutofit").close();
+        }
+    }
+}
+
 /// The body of a shape: `tag` (`p:txBody`) holding the box's settings and the paragraphs.
-/// The text never shrinks to fit: a box that is too small overflows, as it does in the editor.
+/// What happens to words that do not fit is the text's own `fit`; by default they overflow, as
+/// they do in the editor.
 pub fn write_body(x: &mut Xml, cx: &mut Cx, tag: &str, text: &Text, look: &Look) {
     let space = insets(text);
     x.open(tag);
     x.open("a:bodyPr")
-        .attr("wrap", if look.wrap { "square" } else { "none" })
+        .attr(
+            "wrap",
+            if look.wrap && text.wrap != Some(false) {
+                "square"
+            } else {
+                "none"
+            },
+        )
         .int("lIns", length(space.left))
         .int("tIns", length(space.top))
         .int("rIns", length(space.right))
@@ -96,7 +137,7 @@ pub fn write_body(x: &mut Xml, cx: &mut Cx, tag: &str, text: &Text, look: &Look)
     if look.flipped {
         x.int("rot", 10_800_000);
     }
-    x.open("a:noAutofit").close();
+    write_autofit(x, cx, text, look);
     x.close();
     x.open("a:lstStyle").close();
     paragraphs(x, cx, text, look);
@@ -126,6 +167,7 @@ mod tests {
             wrap: true,
             opacity: 1.0,
             flipped: false,
+            area: None,
         }
     }
 
@@ -239,6 +281,54 @@ mod tests {
             1,
             "{out}"
         );
+    }
+
+    #[test]
+    fn what_a_box_does_with_words_that_do_not_fit_is_in_its_body_properties() {
+        let with_fit = |fit: Option<TextFit>, text: &str, area: Option<(f64, f64)>| {
+            body(
+                &Text {
+                    fit,
+                    ..Text::plain(text)
+                },
+                &Look {
+                    area,
+                    ..look("body")
+                },
+            )
+        };
+        assert!(with_fit(None, "x", None).contains("<a:noAutofit/>"));
+        assert!(with_fit(Some(TextFit::Off), "x", None).contains("<a:noAutofit/>"));
+        assert!(with_fit(Some(TextFit::Resize), "x", None).contains("<a:spAutoFit/>"));
+        // Shrinking says nothing of the scale where the room is not known, or where the words fit.
+        assert!(with_fit(Some(TextFit::Shrink), "x", None).contains("<a:normAutofit/>"));
+        assert!(
+            with_fit(Some(TextFit::Shrink), "x", Some((400.0, 200.0))).contains("<a:normAutofit/>")
+        );
+        // Many words in a small box are shrunk, to no less than half.
+        let words = "lorem ipsum dolor sit amet ".repeat(30);
+        let out = with_fit(Some(TextFit::Shrink), &words, Some((400.0, 120.0)));
+        let scale: i64 = out
+            .split(r#"<a:normAutofit fontScale=""#)
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .and_then(|n| n.parse().ok())
+            .unwrap_or_else(|| panic!("a font scale: {out}"));
+        assert!((50_000..100_000).contains(&scale), "{scale}");
+    }
+
+    #[test]
+    fn a_box_that_does_not_wrap_says_so() {
+        let text = Text {
+            wrap: Some(false),
+            ..Text::plain("x")
+        };
+        assert!(body(&text, &look("body")).contains(r#"<a:bodyPr wrap="none""#));
+        let wraps = Text {
+            wrap: Some(true),
+            ..Text::plain("x")
+        };
+        assert!(body(&wraps, &look("body")).contains(r#"<a:bodyPr wrap="square""#));
     }
 
     #[test]

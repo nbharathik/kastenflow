@@ -1,5 +1,7 @@
 // The top bar on a whiteboard: where it lives, and its star and menu.
 
+import { lazy, Suspense } from "react";
+
 import { boardTitle, useBoards } from "../features/boards/store";
 import { iconOf, titleOf } from "../features/workspace/names";
 import { usePrefs } from "../features/workspace/prefs";
@@ -11,6 +13,9 @@ import { Menu } from "./Menu";
 
 const crumb = "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5";
 const iconButton = "ui-icon-btn";
+
+/** Loaded with the board it belongs to, not with the window. */
+const MapChip = lazy(() => import("../features/boards/MapChip").then((m) => ({ default: m.MapChip })));
 
 /** Whiteboards / its project / the board. */
 export function BoardCrumbs({ path }: { path: string }) {
@@ -42,12 +47,16 @@ export function BoardCrumbs({ path }: { path: string }) {
   );
 }
 
-/** Star the board for the sidebar, open it again in a tab, or trash it. */
+/** Star the board for the sidebar, open it again in a tab, or trash it; on a
+ * page's map, bring it in step with the page. */
 export function BoardActions({ path }: { path: string }) {
   const favourite = usePrefs((s) => s.favourites.includes(path));
   const { openPath, trash } = useWorkspace.getState();
   return (
     <div className="flex shrink-0 items-center gap-0.5">
+      <Suspense fallback={null}>
+        <MapChip path={path} />
+      </Suspense>
       <button
         type="button"
         aria-label={favourite ? "Remove from Favourites" : "Add to Favourites"}

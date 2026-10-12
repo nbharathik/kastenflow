@@ -212,6 +212,16 @@ fn an_empty_paragraph_is_kept_with_the_height_its_mark_gives_it() {
 }
 
 #[test]
+fn the_exact_line_height_of_an_empty_paragraph_is_a_multiple_of_the_size_of_its_mark() {
+    let t = read(
+        r#"<a:p><a:pPr><a:lnSpc><a:spcPts val="1800"/></a:lnSpc></a:pPr><a:endParaRPr sz="1200"/></a:p>"#,
+    );
+    let p = &t.paragraphs[0];
+    assert_eq!(p.runs[0].size, Some(12.0));
+    assert_eq!(p.line_spacing, Some(1.5));
+}
+
+#[test]
 fn a_run_with_a_ground_in_a_monospace_face_is_code() {
     let t = read(
         r#"<a:p><a:r><a:rPr><a:highlight><a:srgbClr val="EBEBEB"/></a:highlight><a:latin typeface="Roboto Mono"/></a:rPr><a:t>x()</a:t></a:r><a:r><a:rPr><a:latin typeface="Consolas"/></a:rPr><a:t>y</a:t></a:r></a:p>"#,
@@ -222,10 +232,11 @@ fn a_run_with_a_ground_in_a_monospace_face_is_code() {
 }
 
 #[test]
-fn a_box_shrunk_to_fit_keeps_the_size_it_was_shrunk_to() {
+fn a_box_shrunk_to_fit_keeps_the_sizes_it_was_written_in_and_says_it_shrinks() {
     let body = BodyProps {
         font_scale: Some(0.5),
         line_reduction: Some(0.1),
+        fit: Some(slides_core::TextFit::Shrink),
         ..BodyProps::default()
     };
     let (t, _) = text_of(
@@ -233,7 +244,9 @@ fn a_box_shrunk_to_fit_keeps_the_size_it_was_shrunk_to() {
         BODY_LAYER,
         body,
     );
-    assert_eq!(t.paragraphs[0].runs[0].size, Some(11.0));
+    // The scale is found again from the words and the box, so the words keep their own size.
+    assert_eq!(t.paragraphs[0].runs[0].size, None);
+    assert_eq!(t.fit, Some(slides_core::TextFit::Shrink));
 }
 
 #[test]
@@ -267,17 +280,129 @@ fn anchor_and_insets_are_kept_only_when_they_differ_from_the_boxs_own() {
 }
 
 #[test]
-fn superscript_is_set_as_normal_text_and_said_so() {
+fn raised_and_lowered_words_small_capitals_capitals_and_spacing_are_kept() {
     let (t, warnings) = text_of(
-        r#"<a:p><a:r><a:rPr baseline="30000"/><a:t>2</a:t></a:r></a:p>"#,
+        concat!(
+            r#"<a:p><a:r><a:rPr baseline="30000"/><a:t>2</a:t></a:r>"#,
+            r#"<a:r><a:rPr baseline="-25000"/><a:t>i</a:t></a:r>"#,
+            r#"<a:r><a:rPr cap="small" spc="150"/><a:t>sc</a:t></a:r>"#,
+            r#"<a:r><a:rPr cap="all"/><a:t>up</a:t></a:r></a:p>"#
+        ),
         BODY_LAYER,
         BodyProps::default(),
     );
-    assert_eq!(t.paragraphs[0].runs[0].t, "2");
-    assert!(
-        warnings.iter().any(|w| w.contains("superscript")),
-        "{warnings:?}"
+    let runs = &t.paragraphs[0].runs;
+    assert_eq!(runs.len(), 4, "{runs:?}");
+    assert_eq!(runs[0].script, Some(slides_core::Script::Super));
+    assert_eq!(runs[1].script, Some(slides_core::Script::Sub));
+    assert!(runs[2].small_caps && runs[2].spacing == Some(1.5) && runs[2].script.is_none());
+    assert!(runs[3].all_caps && !runs[3].small_caps);
+    assert!(warnings.is_empty(), "{warnings:?}");
+}
+
+#[test]
+fn what_a_box_does_with_words_that_do_not_fit_and_whether_it_wraps_are_kept() {
+    let read_with =
+        |body: BodyProps| text_of(r#"<a:p><a:r><a:t>x</a:t></a:r></a:p>"#, BODY_LAYER, body).0;
+    let shrink = read_with(BodyProps {
+        fit: Some(slides_core::TextFit::Shrink),
+        ..BodyProps::default()
+    });
+    assert_eq!(shrink.fit, Some(slides_core::TextFit::Shrink));
+    let resize = read_with(BodyProps {
+        fit: Some(slides_core::TextFit::Resize),
+        wrap: Some(false),
+        ..BodyProps::default()
+    });
+    assert_eq!(
+        (resize.fit, resize.wrap),
+        (Some(slides_core::TextFit::Resize), Some(false))
     );
+    // Overflowing and wrapping are what a box does when it says nothing.
+    let plain = read_with(BodyProps {
+        fit: Some(slides_core::TextFit::Off),
+        wrap: Some(true),
+        ..BodyProps::default()
+    });
+    assert_eq!((plain.fit, plain.wrap), (None, None));
+}
+
+#[test]
+fn a_bullet_keeps_its_glyph_colour_and_size_and_a_number_its_scheme() {
+    let (t, _) = text_of(
+        concat!(
+            r#"<a:p><a:pPr><a:buClr><a:srgbClr val="FF0000"/></a:buClr><a:buSzPct val="150000"/><a:buFont typeface="Arial"/><a:buChar char="➢"/></a:pPr><a:r><a:t>a</a:t></a:r></a:p>"#,
+            r#"<a:p><a:pPr><a:buChar char="●"/></a:pPr><a:r><a:t>b</a:t></a:r></a:p>"#,
+            r#"<a:p><a:pPr><a:buAutoNum type="romanUcPeriod"/></a:pPr><a:r><a:t>c</a:t></a:r></a:p>"#,
+            r#"<a:p><a:pPr><a:buAutoNum type="arabicPeriod"/></a:pPr><a:r><a:t>d</a:t></a:r></a:p>"#
+        ),
+        BODY_LAYER,
+        BodyProps::default(),
+    );
+    let [a, b, c, d] = &t.paragraphs[..] else {
+        panic!("four paragraphs");
+    };
+    assert_eq!(a.list_style, Some(slides_core::ListStyle::Arrow));
+    assert_eq!(a.bullet_color.as_deref(), Some("#ff0000"));
+    assert_eq!(a.bullet_size, Some(1.5));
+    // The first level's usual bullet and the usual numbers are the level's own: nothing is written.
+    assert_eq!(
+        (b.list_style.clone(), b.bullet_color.clone(), b.bullet_size),
+        (None, None, None)
+    );
+    assert_eq!(c.list_style, Some(slides_core::ListStyle::UpperRoman));
+    assert_eq!(d.list_style, None);
+}
+
+#[test]
+fn a_run_of_numbers_begins_at_the_number_the_file_says_and_goes_on() {
+    // PowerPoint puts the starting number on every item of the run; the deck says it once.
+    let item = |start: Option<u32>, text: &str| {
+        let at = start.map_or(String::new(), |n| format!(r#" startAt="{n}""#));
+        format!(
+            r#"<a:p><a:pPr><a:buAutoNum type="arabicPeriod"{at}/></a:pPr><a:r><a:t>{text}</a:t></a:r></a:p>"#
+        )
+    };
+    let xml = [
+        item(Some(3), "a"),
+        item(Some(3), "b"),
+        item(Some(3), "c"),
+        r#"<a:p><a:r><a:t>break</a:t></a:r></a:p>"#.to_owned(),
+        item(None, "d"),
+        item(None, "e"),
+    ]
+    .concat();
+    let (t, _) = text_of(&xml, BODY_LAYER, BodyProps::default());
+    let starts: Vec<Option<u32>> = t.paragraphs.iter().map(|p| p.start).collect();
+    assert_eq!(starts, [Some(3), None, None, None, None, None]);
+    let numbers = slides_core::list::numbers(&t.paragraphs);
+    assert_eq!(numbers, [Some(3), Some(4), Some(5), None, Some(1), Some(2)]);
+}
+
+#[test]
+fn a_paragraph_whose_indents_are_not_the_editors_says_where_its_lines_start() {
+    let (t, _) = text_of(
+        concat!(
+            // 36 units in and hanging 36: not what the editor sets for a bullet at this size.
+            r#"<a:p><a:pPr marL="342900" indent="-342900"><a:buChar char="•"/></a:pPr><a:r><a:t>a</a:t></a:r></a:p>"#,
+            // What the editor sets for a bullet at 22 pt: 30 units.
+            r#"<a:p><a:pPr marL="285750" indent="-285750"><a:buChar char="•"/></a:pPr><a:r><a:t>b</a:t></a:r></a:p>"#,
+            r#"<a:p><a:pPr marL="0" indent="0"/><a:r><a:t>c</a:t></a:r></a:p>"#,
+            r#"<a:p><a:pPr marL="457200" indent="0"/><a:r><a:t>d</a:t></a:r></a:p>"#
+        ),
+        BODY_LAYER,
+        BodyProps::default(),
+    );
+    let places: Vec<(Option<f64>, Option<f64>)> = t
+        .paragraphs
+        .iter()
+        .map(|p| (p.margin_left, p.indent))
+        .collect();
+    assert_eq!(places[0], (Some(36.0), Some(-36.0)));
+    assert_eq!(places[2], (None, None));
+    assert_eq!(places[3], (Some(48.0), None));
+    // A bullet that is at the usual place names nothing.
+    assert_eq!(places[1], (None, None));
 }
 
 #[test]

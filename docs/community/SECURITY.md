@@ -1,6 +1,6 @@
 # Security model
 
-Kasten is early software. Use trusted vaults and keep an independent backup.
+KastenFlow is early software. Use trusted vaults and keep an independent backup.
 These are the intended boundaries, not a guarantee that every implementation
 path is free of vulnerabilities.
 
@@ -39,7 +39,7 @@ its own Git configuration, as a sandboxed operation.
 
 Edits use local Git history, with human typing batched before committing.
 Trash and undo help recover changes; they do not protect against disk failure,
-filesystem corruption or programs that change files outside Kasten.
+filesystem corruption or programs that change files outside KastenFlow.
 
 Atomic creation requires filesystem support for hard links. Unsupported
 filesystems fail instead of falling back to a potentially overwriting rename.
@@ -58,7 +58,7 @@ API keys and backup credentials are stored through the operating system's
 keychain. Custom provider destinations and backup remotes have local
 confirmation controls.
 
-Kasten's MCP and chat tools enforce operation and review rules. Routine
+KastenFlow's MCP and chat tools enforce operation and review rules. Routine
 operations may run without confirmation; locked notes are readable by agents
 but protected from their edits. These controls do not constrain an external
 agent given shell access or direct access to the vault files.
@@ -104,6 +104,6 @@ unsigned installers should not be described as signed releases.
 
 ## Limits
 
-Kasten does not defend against someone who can run programs as your user or
+KastenFlow does not defend against someone who can run programs as your user or
 read your files. Keep the app and dependencies updated. Report suspected
 vulnerabilities privately without sharing credentials or personal notes.

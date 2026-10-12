@@ -2,11 +2,12 @@
 // that is put on the slide when the pointer is let go. The controller decides
 // when a press is a drawing; what a drawing comes to is here.
 
-import type { Point, Rect } from "@kasten-slides/canvas";
+import { type Point, type Rect, boundsOf } from "@kasten-slides/canvas";
 import type { Element, Route } from "@kasten-slides/wasm";
 
 import { clickBox, line, shape, textBox } from "../factory.ts";
 import { markFresh } from "../quick-add/fresh.ts";
+import { SNAP, spotAt } from "../quick-add/spot.ts";
 import type { EditorSession } from "../session/session.ts";
 import { CLICK_SIZE } from "../shapes.ts";
 import { itemsOf, nearestSite } from "./geometry.ts";
@@ -41,7 +42,7 @@ const isLineTool = (tool: string): boolean => tool.startsWith("line:") || tool.s
 /** Where a drawing ends for a pointer at `at`: a line's end sticks to a shape's side near it, or goes in 45° steps with Shift; a box is square with Shift. */
 export function drawEnd(session: EditorSession, zoom: number, tool: string, from: Point, at: Point, shift: boolean): Point {
   if (isLineTool(tool)) {
-    const site = nearestSite(itemsOf(session), session.slide.elements, at, STICK / zoom);
+    const site = nearestSite(itemsOf(session), session.scope, at, STICK / zoom);
     return site ? site.point : shift ? snapAngle(from, at) : at;
   }
   if (shift) {
@@ -51,13 +52,25 @@ export function drawEnd(session: EditorSession, zoom: number, tool: string, from
   return at;
 }
 
-/** Puts what was drawn on the slide, selected, and gives the pointer back. A text box opens for typing. */
-export function finishDraw(session: EditorSession, zoom: number, tool: string, from: Point, to: Point): void {
+/**
+ * Where a text box made by a click goes: its top left at the click, as the T key puts it at the pointer, snapped to the edges and
+ * middles of what is on the slide as a drag would be (`snap`) and kept inside the slide.
+ */
+function clickSpot(session: EditorSession, zoom: number, at: Point, size: { w: number; h: number }, snap: boolean): Rect {
+  return spotAt(at, size, session.deck.size, snap ? itemsOf(session).map(boundsOf) : [], snap ? SNAP / zoom : null);
+}
+
+/**
+ * Puts what was drawn on the slide, selected, and gives the pointer back. A text box opens for typing. A click makes a text box
+ * with its top left where the pointer was, and a shape of its usual size centred there; a drag makes the box it drew.
+ */
+export function finishDraw(session: EditorSession, zoom: number, tool: string, from: Point, to: Point, snap = true): void {
   session.setTool("select");
   if (tool === "text" || tool.startsWith("shape:")) {
     const dragged = Math.abs(to.x - from.x) >= MIN_DRAW * 2 || Math.abs(to.y - from.y) >= MIN_DRAW * 2;
     const size = tool === "text" ? CLICK_SIZE.text : CLICK_SIZE.shape;
-    const box = dragged ? boxOfPoints(from, to) : clickBox(from, size);
+    const click = tool === "text" ? clickSpot(session, zoom, from, size, snap) : clickBox(from, size);
+    const box = dragged ? boxOfPoints(from, to) : click;
     const [id] = session.elements.insert([tool === "text" ? textBox(box) : shape(tool.slice("shape:".length), box)]);
     if (id && tool === "text") {
       markFresh(session, id);
@@ -74,8 +87,8 @@ function insertLine(session: EditorSession, zoom: number, tool: string, from: Po
   const end = short ? { x: from.x + 120, y: from.y } : to;
   const items = itemsOf(session);
   const reach = STICK / zoom;
-  const a = nearestSite(items, session.slide.elements, from, reach);
-  const b = short ? null : nearestSite(items, session.slide.elements, end, reach);
+  const a = nearestSite(items, session.scope, from, reach);
+  const b = short ? null : nearestSite(items, session.scope, end, reach);
   const element = line(route, kind === "arrow", a ? a.point : from, b ? b.point : end);
   if (a || b) {
     // Attached to an element at either end, it is a connector: it follows the elements when they move.

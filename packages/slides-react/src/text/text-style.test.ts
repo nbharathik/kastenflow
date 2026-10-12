@@ -154,12 +154,31 @@ describe("paragraphCss", () => {
     expect(resolveAlign(centred, "body", para())).toBe("right");
   });
 
-  it("hangs the marker of a list item in the space left of its text", () => {
+  it("hangs the marker of a list item in the room it needs, left of its text", () => {
+    // A bullet at 22 pt needs 28 units and its air, which is 30 in steps of 6.
     const bullet = paragraphCss(light, "body", para({ list: "bullet" }));
-    expect(bullet).toMatchObject({ paddingLeft: "24px", textIndent: "-24px", "--ks-indent": "24px" });
-    expect(paragraphCss(light, "body", para({ list: "bullet", level: 0 })).paddingLeft).toBe("24px");
-    expect(paragraphCss(light, "body", para({ list: "number", level: 1 })).paddingLeft).toBe("48px");
-    expect(paragraphCss(light, "body", para({ list: "bullet", level: 2 }))).toMatchObject({ paddingLeft: "72px", textIndent: "-24px" });
+    expect(bullet).toMatchObject({ paddingLeft: "30px", textIndent: "-30px", "--ks-indent": "30px" });
+    expect(paragraphCss(light, "body", para({ list: "bullet", level: 0 })).paddingLeft).toBe("30px");
+    // Each level sits under the words of the one above: 24 for the empty first level, then what its marker needs.
+    expect(paragraphCss(light, "body", para({ list: "number", level: 1 }))).toMatchObject({ paddingLeft: "60px", textIndent: "-36px" });
+    expect(paragraphCss(light, "body", para({ list: "bullet", level: 2 }))).toMatchObject({ paddingLeft: "78px", textIndent: "-30px" });
+  });
+
+  it("sets the lines of a paragraph where it says, and where its list puts them for the others", () => {
+    expect(paragraphCss(light, "body", para({ list: "bullet", marginLeft: 50, indent: -20 }))).toMatchObject({ paddingLeft: "50px", textIndent: "-20px", "--ks-indent": "20px" });
+    expect(paragraphCss(light, "body", para({ marginLeft: 40, indent: 12 }))).toMatchObject({ paddingLeft: "40px", textIndent: "12px" });
+    const alone = paragraphCss(light, "body", para({ list: "bullet" }), { geometry: { margin: 60, indent: -36 } });
+    expect(alone).toMatchObject({ paddingLeft: "60px", textIndent: "-36px", "--ks-indent": "36px" });
+  });
+
+  it("sets raised and lowered words smaller, small capitals, capitals and the space between letters", () => {
+    const run = (extra: Partial<Run>) => runCss(light, "body", para(), { t: "x", ...extra });
+    expect(run({ script: "super" })).toMatchObject({ fontSize: "19.067px", position: "relative", top: "-0.4615em", verticalAlign: "baseline", lineHeight: 0 });
+    expect(run({ script: "sub" })).toMatchObject({ top: "0.3846em" });
+    expect(run({ smallCaps: true }).fontVariantCaps).toBe("small-caps");
+    expect(run({ allCaps: true }).textTransform).toBe("uppercase");
+    expect(run({ spacing: 3 }).letterSpacing).toBe("4px");
+    expect(run({})).not.toHaveProperty("letterSpacing");
   });
 
   it("indents a plain paragraph by its level, without a hanging marker", () => {
@@ -181,7 +200,9 @@ describe("paragraphCss", () => {
     expect(strutSize(light, "body", para({}, { t: "a", size: 16 }, { t: "b", size: 12 }))).toBe(12);
     expect(strutSize(light, "body", para({}, { t: "a", size: 16 }, { t: "b" }))).toBe(22);
     expect(strutSize(light, "body", para({}, { t: "a", size: 40 }))).toBe(40);
-    expect(strutSize(light, "body", para({}, { t: "", size: 8 }))).toBe(22);
+    // A paragraph with no words is measured by its mark, the one empty run it holds.
+    expect(strutSize(light, "body", para({}, { t: "", size: 8 }))).toBe(8);
+    expect(strutSize(light, "body", para({}, { t: "" }))).toBe(22);
     expect(strutSize(light, "body", para({}, { t: "a", size: 16 }, { t: "", size: 8 }))).toBe(16);
     expect(paragraphCss(light, "body", para({}, { t: "a", size: 16 })).fontSize).toBe("21.333px");
   });
@@ -198,5 +219,12 @@ describe("paragraphCss", () => {
     const plain = paragraphCss(light, "body", para({ list: "bullet" }));
     expect(plain).toMatchObject({ "--ks-marker-size": "29.333px", "--ks-marker-color": "#202124" });
     expect(paragraphCss(light, "body", para())).not.toHaveProperty("--ks-marker-size");
+  });
+
+  it("lets the marker have a colour and a size of its own", () => {
+    const css = paragraphCss(light, "body", para({ list: "bullet", bulletColor: "accent2", bulletSize: 1.5 }, { t: "a", color: "accent3" }));
+    expect(css).toMatchObject({ "--ks-marker-size": "44px", "--ks-marker-color": "#ea4335" });
+    // A colour that is not one is not used.
+    expect(paragraphCss(light, "body", para({ list: "bullet", bulletColor: "nonsense" }))).toMatchObject({ "--ks-marker-color": "#202124" });
   });
 });

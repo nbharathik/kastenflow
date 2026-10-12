@@ -4,3 +4,7 @@ export * from "./theme/index.ts";
 export * from "./editor/index.ts";
 export * from "./text/index.ts";
 export * from "./present/index.ts";
+export { PageView } from "./embed/PageView.tsx";
+export type { PageViewProps } from "./embed/PageView.tsx";
+export { kindOfLink, followLink, nameOfPath } from "./pages/follow.ts";
+export { isPageLink, makePageLink, parsePageLink } from "./pages/links.ts";

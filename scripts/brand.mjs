@@ -35,7 +35,7 @@ function symbol(color, id) {
 }
 
 const svg = (viewBox, body) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" role="img" aria-label="Kasten"><title>Kasten</title>${body}</svg>\n`;
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" role="img" aria-label="KastenFlow"><title>KastenFlow</title>${body}</svg>\n`;
 const onTile = (color) => `<g transform="translate(${TILE.dx} ${TILE.dy}) scale(${TILE.scale})">${symbol(color, "kasten")}</g>`;
 
 // The app icon: the tile on Apple's icon grid, 824 px in 1024.
@@ -50,13 +50,15 @@ const tile = svg("0 0 24 24", `<rect width="24" height="24" rx="${TILE.rx}" fill
 // The symbol alone, in the text colour.
 const mark = svg("0 0 24 24", symbol("currentColor", "kasten"));
 // The lockup for the README and the website: the tile beside the name, on a
-// light page and on a dark one, where the tile turns to paper.
+// light page and on a dark one, where the tile turns to paper. The width
+// leaves room for the name in the widest font of the list (Arial, about 165
+// units at this size), plus about the 14 units between the tile and the name.
 const WORD = 'font-family="Inter, -apple-system, BlinkMacSystemFont, \'Segoe UI\', Helvetica, Arial, sans-serif" font-size="30" font-weight="650" letter-spacing="-0.6"';
 const lockup = (tileColor, markColor, textColor) =>
   svg(
-    "0 0 172 48",
+    "0 0 240 48",
     `<g transform="scale(2)"><rect width="24" height="24" rx="${TILE.rx}" fill="${tileColor}"/>${onTile(markColor)}</g>` +
-      `<text x="62" y="35" ${WORD} fill="${textColor}">Kasten</text>`,
+      `<text x="62" y="35" ${WORD} fill="${textColor}">KastenFlow</text>`,
   );
 
 const files = {

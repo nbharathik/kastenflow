@@ -80,6 +80,8 @@ export function codePointsOf(deck: Deck): Set<number> {
   walk(deck.title);
   walk(deck.present.stepLabel);
   walk(deck.theme.master);
+  // The words a layout a person made draws behind its slides.
+  for (const layout of deck.theme.layouts ?? []) walk(layout.elements);
   return points;
 }
 

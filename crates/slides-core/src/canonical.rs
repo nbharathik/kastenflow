@@ -33,7 +33,7 @@ pub fn from_value(value: Value) -> Result<Deck> {
 fn migrate(value: Value) -> Result<Value> {
     if value.get("format").and_then(Value::as_str) != Some(FORMAT_NAME) {
         return Err(Error::malformed(
-            "it is not a Kasten Slides deck (`format` should be `kasten-deck`)",
+            "it is not a KastenFlow Slides deck (`format` should be `kasten-deck`)",
         ));
     }
     let found = value
@@ -92,6 +92,11 @@ pub fn check_structure(deck: &Deck) -> Result<()> {
                 layout.name
             )));
         }
+        check_elements(
+            &layout.elements,
+            &format!("layout `{}`", layout.name),
+            &mut HashSet::new(),
+        )?;
     }
     Ok(())
 }
@@ -112,15 +117,20 @@ pub fn check_slide(deck: &Deck, index: usize) -> Result<()> {
             slide.id, slide.layout
         )));
     }
-    check_elements(&slide.elements, &slide.id, &mut HashSet::new())
+    check_elements(
+        &slide.elements,
+        &format!("slide `{}`", slide.id),
+        &mut HashSet::new(),
+    )
 }
 
-fn check_elements<'a>(list: &'a [Element], slide: &str, ids: &mut HashSet<&'a str>) -> Result<()> {
+/// `owner` says where the list is: "slide `s-1`" or "layout `quote`".
+fn check_elements<'a>(list: &'a [Element], owner: &str, ids: &mut HashSet<&'a str>) -> Result<()> {
     for element in list {
         let id = element.id();
         if id.is_empty() || !ids.insert(id) {
             return Err(Error::invalid(format!(
-                "slide `{slide}` has {} element id `{id}`",
+                "{owner} has {} element id `{id}`",
                 if id.is_empty() {
                     "an empty"
                 } else {
@@ -128,7 +138,7 @@ fn check_elements<'a>(list: &'a [Element], slide: &str, ids: &mut HashSet<&'a st
                 }
             )));
         }
-        check_elements(element.children(), slide, ids)?;
+        check_elements(element.children(), owner, ids)?;
     }
     Ok(())
 }

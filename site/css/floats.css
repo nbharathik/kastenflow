@@ -1,250 +1,49 @@
-/* Pieces of the app floating by the hero's window, drifting a little. */
+/* A small hint floating beside the live page, pointing at the file. It fades
+   in once and goes at the visitor's first touch. */
 
-.float {
+.df-todos-wrap {
+  position: relative;
+}
+
+.coach {
   position: absolute;
-  z-index: 2;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
+  padding: 5px 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
-  font-size: 13.5px;
-  animation: float-in 900ms var(--ease) backwards, bob 7s ease-in-out infinite;
-}
-
-.float-link {
-  top: 14%;
-  left: -3%;
-  width: 262px;
-  padding: 12px;
-  animation-delay: 700ms, 1.6s;
-}
-
-.fl-line {
-  padding: 0 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
   color: var(--ink-2);
-  font-size: 14.5px;
-}
-
-.fl-typed {
-  color: var(--accent);
-}
-
-.fl-caret {
-  display: inline-block;
-  width: 1.5px;
-  height: 1.05em;
-  margin-left: 1px;
-  background: var(--accent);
-  vertical-align: -0.15em;
-  animation: caret 1s steps(2) infinite;
-}
-
-.fl-menu {
-  margin: 0;
-  padding: 4px;
-  border-top: 1px solid var(--line);
-  list-style: none;
-}
-
-.fl-menu li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 7px;
-  color: var(--ink-2);
-}
-
-.fl-menu li.is-on {
-  background: var(--well);
-}
-
-.fl-menu small {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 11.5px;
-}
-
-.float-todo {
-  top: 42%;
-  right: -3%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  font-size: 14.5px;
-  animation-delay: 950ms, 2.2s;
-}
-
-.fl-check {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: var(--accent);
-  color: #fff;
-  animation: tick 4.5s ease-in-out infinite 1.4s;
-}
-
-.fl-check .i {
-  width: 14px;
-  height: 14px;
-  stroke-width: 3;
-}
-
-.fl-chip {
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--hl-blue);
-  color: var(--ink-2);
-  font-size: 12px;
-}
-
-.float-agent {
-  bottom: 10%;
-  left: 4%;
-  display: flex;
-  gap: 11px;
-  max-width: 300px;
-  padding: 12px 14px;
-  animation-delay: 1.2s, 2.8s;
-}
-
-.fl-spark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: 8px;
-  background: var(--hl-purple);
-  color: var(--ink);
-}
-
-.float-agent p {
-  color: var(--ink-2);
-}
-
-.fl-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
   font-size: 12.5px;
   font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: coach-in 600ms var(--ease) 1.4s backwards;
+  transition: opacity 250ms, translate 250ms var(--ease);
 }
 
-.fl-actions span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
+.coach.is-gone {
+  opacity: 0;
+  translate: 10px -50%;
 }
 
-.fl-actions .fl-undo {
-  border-color: transparent;
-  background: var(--btn);
-  color: var(--on-btn);
-}
-
-.fl-actions .i {
-  width: 13px;
-  height: 13px;
-}
-
-.float-file {
-  right: 6%;
-  bottom: -5%;
-  width: 250px;
-  overflow: hidden;
-  animation-delay: 1.45s, 3.4s;
-}
-
-.ff-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--muted);
-  font: 12px/1.2 var(--mono);
-}
-
-.float-file pre {
-  margin: 0;
-  padding: 10px 12px 12px;
-  color: var(--ink-2);
-  font: 12px/1.6 var(--mono);
-}
-
-.md-fm {
-  color: var(--muted);
-}
-
-@keyframes float-in {
+@keyframes coach-in {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.96);
+    translate: -10px -50%;
   }
 }
 
-@keyframes bob {
-  50% {
-    translate: 0 -6px;
-  }
-}
-
-@keyframes caret {
-  50% {
-    opacity: 0;
-  }
-}
-
-@keyframes tick {
-  0%,
-  12% {
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--line-strong);
-    color: transparent;
-  }
-
-  20%,
-  100% {
-    background: var(--accent);
-    box-shadow: none;
-    color: #fff;
-  }
-}
-
-@media (max-width: 1000px) {
-  .float-link,
-  .float-file {
+@media (max-width: 520px) {
+  .coach {
     display: none;
-  }
-
-  .float-todo {
-    right: 2%;
-  }
-}
-
-@media (max-width: 640px) {
-  .float {
-    display: none;
-  }
-
-  .window-bar span {
-    margin-right: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .float,
-  .fl-caret,
-  .fl-check {
+  .coach {
     animation: none;
   }
 }

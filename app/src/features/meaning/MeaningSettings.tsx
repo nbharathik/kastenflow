@@ -5,15 +5,14 @@
 
 import { useEffect, useState } from "react";
 
+import { Button } from "../../ui/Button";
 import { useChat } from "../chat/store";
-import { Group, Row } from "../workspace/views/settings/parts";
+import { Group, Note, Row } from "../workspace/views/settings/parts";
 import { useWorkspace } from "../workspace/store";
 import { meaningApi, type MeaningApi, type MeaningStatus } from "./client";
 
 /** OpenAI's small embedding model: cheap, and good at notes. */
 export const DEFAULT_MODEL = "text-embedding-3-small";
-const BUTTON = "ui-btn";
-const FIELD = "rounded-md bg-canvas px-2 py-1 text-13 ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent/40";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -44,9 +43,7 @@ export function MeaningSettings({ api = meaningApi }: { api?: MeaningApi }) {
   if (!available) {
     return (
       <Group title="Search by meaning">
-        <Row label="Search by meaning works in the desktop app" detail="It asks an embedding model, with a key kept in your system keychain">
-          {null}
-        </Row>
+        <Row id="search.unavailable" />
       </Group>
     );
   }
@@ -80,12 +77,9 @@ export function MeaningSettings({ api = meaningApi }: { api?: MeaningApi }) {
   const chosen = status?.provider && status.model;
   const shown = progress ?? status;
   return (
-    <Group
-      title="Search by meaning"
-      detail="Finds notes about what you ask, not just the words you type: Ctrl+K, then “by meaning”. Each note's text goes to the provider below to make its vector; the vectors stay on this computer. Notes written later get theirs when you next search."
-    >
-      <Row label="Provider" detail={makers.length ? "An OpenAI-compatible one: OpenAI, or a local server such as vLLM or Ollama" : "Add an OpenAI-compatible provider under AI providers first"}>
-        <select aria-label="Provider for search by meaning" className={FIELD} value={provider} onChange={(e) => setProvider(e.target.value)}>
+    <Group title="Search by meaning">
+      <Row id="search.provider" detail={makers.length ? undefined : "Add an OpenAI-compatible provider under AI providers first"}>
+        <select aria-label="Provider for search by meaning" className="ui-field kasten-set-select" value={provider} onChange={(e) => setProvider(e.target.value)}>
           <option value="">None</option>
           {makers.map((p) => (
             <option key={p.name} value={p.name}>
@@ -94,32 +88,28 @@ export function MeaningSettings({ api = meaningApi }: { api?: MeaningApi }) {
           ))}
         </select>
       </Row>
-      <Row label="Embedding model" detail="OpenAI's text-embedding-3-small, or the embedding model your server runs">
+      <Row id="search.model">
         <div className="flex gap-2">
-          <input aria-label="Embedding model" className={`${FIELD} w-56`} value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} />
-          <button type="button" className={BUTTON} onClick={() => void save()}>
+          <input aria-label="Embedding model" className="ui-field w-56" value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} />
+          <Button size="sm" icon="check" onClick={() => void save()}>
             Save
-          </button>
+          </Button>
         </div>
       </Row>
       {chosen && shown && (
-        <Row label="Vectors" detail={`${shown.done} of ${shown.total} notes have vectors`}>
+        <Row id="search.vectors" detail={`${shown.done} of ${shown.total} notes have vectors`}>
           {status?.running ? (
-            <button type="button" className={BUTTON} onClick={() => void api.stop()}>
+            <Button size="sm" icon="stop" onClick={() => void api.stop()}>
               Stop
-            </button>
+            </Button>
           ) : (
-            <button type="button" className={BUTTON} disabled={shown.done === shown.total} onClick={() => void make()}>
+            <Button size="sm" icon="sparkle" disabled={shown.done === shown.total} onClick={() => void make()}>
               Make vectors
-            </button>
+            </Button>
           )}
         </Row>
       )}
-      {problem && (
-        <Row label="Search by meaning could not go on" detail={problem}>
-          {null}
-        </Row>
-      )}
+      {problem && <Note tone="danger">{problem}</Note>}
     </Group>
   );
 }

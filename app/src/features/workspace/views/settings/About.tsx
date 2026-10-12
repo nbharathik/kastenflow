@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { appInfo } from "../../../../lib/api";
+import { Button } from "../../../../ui/Button";
 import { Group, Row } from "./parts";
 import { Updates } from "./Updates";
 
@@ -33,7 +34,8 @@ export function About() {
     try {
       const response = await fetch(noticesUrl());
       const text = response.ok ? await response.text() : "";
-      setNotices(text.startsWith("Kasten is MIT-licensed") ? text : "");
+      // Lists written before the KastenFlow name start with "Kasten is".
+      setNotices(/^Kasten(Flow)? is MIT-licensed/.test(text) ? text : "");
     } catch {
       setNotices("");
     }
@@ -41,17 +43,17 @@ export function About() {
 
   return (
     <Group title="About">
-      <Row label="Kasten" detail={version ? `Version ${version}${core ? ` · core ${core}` : ""} · MIT licence` : "MIT licence"}>
-        <span />
+      <Row id="about.version">
+        <span className="text-13 text-muted">{version ? `Version ${version}${core ? ` · core ${core}` : ""} · MIT licence` : "MIT licence"}</span>
       </Row>
       <Updates />
-      <Row label="Open-source licences" detail="The libraries Kasten is built on, and their licences">
-        <button type="button" className="ui-btn" onClick={() => (open ? setOpen(false) : void show())}>
+      <Row id="about.licences">
+        <Button size="sm" onClick={() => (open ? setOpen(false) : void show())}>
           {open ? "Hide" : "Show"}
-        </button>
+        </Button>
       </Row>
       {open && (
-        <div className="py-3">
+        <div className="kasten-set-extra">
           {notices === null ? (
             <p className="text-13 text-muted">Loading…</p>
           ) : notices === "" ? (

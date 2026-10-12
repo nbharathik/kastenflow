@@ -60,7 +60,7 @@ pub fn import(args: &Args) -> Outcome {
         .positional
         .get(1)
         .map(PathBuf::from)
-        .ok_or("Which folder? kasten import FOLDER [--kind obsidian|markdown|notion|heptabase] [--project TITLE] [--dry-run]")?;
+        .ok_or_else(|| format!("Which folder? {} import FOLDER [--kind obsidian|markdown|notion|heptabase] [--project TITLE] [--dry-run]", crate::program()))?;
     let options = ImportOptions {
         kind: args.value("--kind").map(kind).transpose()?,
         project: args.value("--project").map(str::to_owned),
@@ -105,7 +105,7 @@ pub fn import(args: &Args) -> Outcome {
         say!("  {warning}");
     }
     if let Some(commit) = &done.commit {
-        say!("Undo it with: kasten undo {commit}");
+        say!("Undo it with: {} undo {commit}", crate::program());
     }
     Ok(0)
 }
@@ -115,7 +115,7 @@ pub fn undo(args: &Args) -> Outcome {
     let rev = args
         .positional
         .get(1)
-        .ok_or("Which commit? kasten undo COMMIT")?;
+        .ok_or_else(|| format!("Which commit? {} undo COMMIT", crate::program()))?;
     let kasten = open(args)?;
     let undone = kasten
         .undo_commit(rev, Instant::now())

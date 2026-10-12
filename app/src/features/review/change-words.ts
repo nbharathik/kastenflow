@@ -37,7 +37,7 @@ const PLAIN: Record<string, [string, IconName]> = {
   highlight: ["Highlighted", "highlight"],
   accept: ["Kept an agent’s writing", "check"],
   propose: ["Proposed", "agent"],
-  external: ["Changed outside Kasten", "external"],
+  external: ["Changed outside KastenFlow", "external"],
   init: ["Started the vault", "sparkle"],
   templates: ["Added templates", "template"],
   import: ["Imported", "import"],

@@ -35,6 +35,11 @@ pub(super) fn logo() -> Element {
 /// The number of the slide, at the bottom right. The run stands for the
 /// field: its text is only the sample shown when the slide is edited.
 pub(super) fn slide_number() -> Element {
+    slide_number_at(860.0, 500.0)
+}
+
+/// The number of the slide in a box 80 by 24 units whose top left is at `x`, `y`.
+pub(super) fn slide_number_at(x: f64, y: f64) -> Element {
     let run = Run {
         field: Some("slideNumber".to_owned()),
         ..Run::plain("‹#›")
@@ -46,7 +51,27 @@ pub(super) fn slide_number() -> Element {
         ..Paragraph::plain("")
     };
     Element::text_el(
-        Base::new("master-number").place(860.0, 500.0, 80.0, 24.0),
+        Base::new("master-number").place(x, y, 80.0, 24.0),
         Text::from_paragraphs(vec![paragraph]),
     )
+}
+
+/// A flat rectangle in a theme colour, without an outline: the stripes, bars and marks that give a
+/// theme its look. `alpha` lets the paper show through, for a line that should be quiet.
+pub(super) fn mark(
+    id: &str,
+    (x, y, w, h): (f64, f64, f64, f64),
+    color: &str,
+    alpha: Option<f64>,
+) -> Element {
+    let mut base = Base::new(id).place(x, y, w, h);
+    base.style = Some(Style {
+        fill: Some(Fill {
+            color: color.to_owned(),
+            alpha,
+            extra: Extra::new(),
+        }),
+        ..Style::default()
+    });
+    Element::shape(base, "rect", None)
 }

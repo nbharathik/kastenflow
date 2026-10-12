@@ -18,12 +18,18 @@ import { bgColorSchema, remarkColor, textColorSchema } from "./blocks/color";
 import { remarkToggle, toggleSchema, wrapInToggleCommand } from "./blocks/toggle";
 import { toggleView } from "./blocks/toggle-view";
 import { remarkUnderline, underlineSchema } from "./blocks/underline";
-import { aloneLinks, wikiLinkView } from "./blocks/wikilink-view";
+import { aloneLinks } from "./blocks/alone";
+import { dividerView } from "./blocks/divider-view";
+import { wikiLinkView } from "./blocks/wikilink-view";
+import { foldKeyCtx, smartCtx, smartPageCtx } from "./sections/key";
+import { sectionsPlugin, smartDecorations } from "./sections/sections";
 import { configureTextEscaping } from "./escaping";
 import { fileProviderCtx, type FileProvider } from "./files";
 import { linkProviderCtx, type LinkProvider } from "./links";
 import { configureMarkdownStyle } from "./markdown-style";
 import { codeLanguagePicker } from "./menus/code-language";
+import { blockRangePlugin } from "./menus/block-range";
+import { gutter } from "./menus/gutter";
 import { blockHandle } from "./menus/handle";
 import { notionKeymap } from "./menus/keymap";
 import { embedSpots } from "./menus/embed-spot";
@@ -53,6 +59,14 @@ export interface KastenCrepeOptions {
   /** Opens the template gallery to fill the page, offered as "Template…"
    * in the slash menu while the page is empty; none by default. */
   onTemplate?: () => void;
+  /** Which page this is, for the sections folded in it, which are kept per
+   * page: its note id, or its path while it is a draft. None keeps no folds. */
+  foldKey?: string;
+  /** Draws the page's sections as slide-like cards (the page's `layout:
+   * sections`) from the start; `setSmart` changes it later. */
+  smart?: boolean;
+  /** Called when "/smart page" turns the sections layout on, so the page can keep it. */
+  onSmartPage?: () => void;
 }
 
 const noUploads = () => Promise.reject(new Error("This editor keeps no files; paste a link instead."));
@@ -97,10 +111,16 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
       if (files) ctx.set(fileProviderCtx.key, files);
       if (options.agent) ctx.set(agentActionsCtx.key, options.agent);
       if (options.onTemplate) ctx.set(templatePickerCtx.key, options.onTemplate);
+      if (options.foldKey) ctx.set(foldKeyCtx.key, options.foldKey);
+      if (options.smart) ctx.set(smartCtx.key, true);
+      if (options.onSmartPage) ctx.set(smartPageCtx.key, options.onSmartPage);
     })
     .use(linkProviderCtx)
     .use(fileProviderCtx)
     .use(templatePickerCtx)
+    .use(foldKeyCtx)
+    .use(smartCtx)
+    .use(smartPageCtx)
     .use([agentActionsCtx, agentMarks])
     .use(findPlugin)
     .use(aiPlugin)
@@ -109,13 +129,14 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
     .use(pasteLink)
     .use(fileLinks)
     .use([remarkWikiLink, wikiLinkSchema, wikiLinkView, aloneLinks].flat())
+    .use([dividerView, sectionsPlugin, smartDecorations].flat())
     .use([remarkCallout, calloutSchema, calloutView, wrapInCalloutCommand].flat())
     .use([remarkToggle, toggleSchema, toggleView, wrapInToggleCommand].flat())
     .use([remarkColor, textColorSchema, bgColorSchema].flat())
     .use([remarkUnderline, underlineSchema].flat())
     .use([remarkMathSyntax, remarkKastenMath, mathInlineSchema, mathBlockSchema, mathInlineView, mathBlockView, mathEditing, mathKeymap].flat())
     // The slash menu sees keys before the Notion keymap, so Esc closes it first.
-    .use([blockHandle, codeLanguagePicker, slashMenu, mentionMenu, embedSpots, notionKeymap, placeholder, menusCloseWithEditor].flat())
+    .use([blockHandle, blockRangePlugin, gutter, codeLanguagePicker, slashMenu, mentionMenu, embedSpots, notionKeymap, placeholder, menusCloseWithEditor].flat())
     .use([todoInputRule, toggleInputRule, quoteInputRule, wikiLinkInputRule, mathBlockInputRule, mathInlineInputRule, ...arrowRules]);
   const { onUpdate } = options;
   if (onUpdate) crepe.on((api) => api.updated((ctx, doc) => onUpdate(ctx, doc)));

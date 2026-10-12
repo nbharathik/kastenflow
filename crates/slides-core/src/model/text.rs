@@ -30,6 +30,53 @@ model! {
         Number,
     }
 
+    /// How the marker in front of a list item looks: a glyph for a bullet list, a
+    /// counting scheme for a numbered one. The paragraph's `list` says which kind of
+    /// list it is; a style of the other kind is ignored and the level's own is used.
+    #[serde(rename_all = "camelCase")]
+    pub enum ListStyle {
+        /// ● (the first level of a bullet list).
+        Disc,
+        /// ○ (the second level).
+        Circle,
+        /// ■ (the third level).
+        Square,
+        Arrow,
+        Check,
+        Dash,
+        /// 1. 2. 3. (the first level of a numbered list).
+        Decimal,
+        /// 1) 2) 3)
+        DecimalParen,
+        /// a. b. c. (the second level).
+        LowerAlpha,
+        /// A. B. C.
+        UpperAlpha,
+        /// i. ii. iii. (the third level).
+        LowerRoman,
+        /// I. II. III.
+        UpperRoman,
+    }
+
+    /// Raised or lowered text, set smaller as in a footnote mark or a power.
+    #[serde(rename_all = "camelCase")]
+    pub enum Script {
+        Super,
+        Sub,
+    }
+
+    /// What a text box does when its words do not fit it.
+    #[serde(rename_all = "camelCase")]
+    pub enum TextFit {
+        /// The words run past the edge of the box (the default).
+        #[serde(rename = "none")]
+        Off,
+        /// The type is set smaller, to a floor, until the words fit.
+        Shrink,
+        /// The box grows or shrinks in height to fit its words.
+        Resize,
+    }
+
     /// Space between a box's edge and its text, in slide units.
     #[serde(rename_all = "camelCase")]
     pub struct Insets {
@@ -65,7 +112,7 @@ model! {
         /// `heading`, `body`, `code` or a family name.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub font: Option<String>,
-        /// A web address, or `slide:<id>` for a link to a slide.
+        /// A web address, `slide:<id>` for a link to a slide, or `page:<path>` (then `#` and a heading) for a link to a page of the host.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub link: Option<String>,
         /// Inline code: drawn in the code font.
@@ -77,6 +124,18 @@ model! {
         /// A field the text stands for, such as `slideNumber`; `t` is its sample.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub field: Option<String>,
+        /// Raised (superscript) or lowered (subscript) and set smaller.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub script: Option<Script>,
+        /// Lower-case letters drawn as small capitals.
+        #[serde(default, skip_serializing_if = "is_false")]
+        pub small_caps: bool,
+        /// Every letter drawn as a capital; the words themselves are not changed.
+        #[serde(default, skip_serializing_if = "is_false")]
+        pub all_caps: bool,
+        /// Extra space between letters, in points; negative tightens.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub spacing: Option<f64>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -110,6 +169,30 @@ model! {
         /// The step at which this paragraph appears, for lists that build line by line.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub step: Option<u32>,
+        /// How the marker of a list item looks; the level's own when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub list_style: Option<ListStyle>,
+        /// The number a numbered item begins counting at: it starts a run of its own
+        /// even when numbered items come before it ("restart numbering", or a run
+        /// that goes on after something else, "continue the previous list").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub start: Option<u32>,
+        /// The marker's colour, a theme token or `#rrggbb`; the first words' own when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bullet_color: Option<String>,
+        /// The marker's size as a multiple of the words' size, 0.25 to 4 (25% to 400%); 1 when absent.
+        /// An empty paragraph's words are the one empty run it holds, whose size, colour and other
+        /// settings are the paragraph's mark: they decide how large its marker and its line are.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bullet_size: Option<f64>,
+        /// Where the lines after the first start, in slide units from the box's inset. The
+        /// list level decides when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub margin_left: Option<f64>,
+        /// Where the first line starts, in slide units from `margin_left`; negative hangs it
+        /// out to the left, as a list marker does. The marker's room decides when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub indent: Option<f64>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -124,6 +207,12 @@ model! {
         pub valign: Option<VAlign>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub insets: Option<Insets>,
+        /// What the box does when the words do not fit; they run past the edge when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub fit: Option<TextFit>,
+        /// `false` keeps every paragraph on one line instead of wrapping at the box's edge.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub wrap: Option<bool>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -150,6 +239,10 @@ impl Run {
             code: false,
             math: false,
             field: None,
+            script: None,
+            small_caps: false,
+            all_caps: false,
+            spacing: None,
             extra: Extra::new(),
         }
     }
@@ -167,6 +260,12 @@ impl Paragraph {
             space_after: None,
             line_spacing: None,
             step: None,
+            list_style: None,
+            start: None,
+            bullet_color: None,
+            bullet_size: None,
+            margin_left: None,
+            indent: None,
             extra: Extra::new(),
         }
     }
@@ -179,12 +278,7 @@ impl Paragraph {
 
 impl Text {
     pub fn plain(t: impl Into<String>) -> Text {
-        Text {
-            paragraphs: vec![Paragraph::plain(t)],
-            valign: None,
-            insets: None,
-            extra: Extra::new(),
-        }
+        Text::from_paragraphs(vec![Paragraph::plain(t)])
     }
 
     pub fn from_paragraphs(paragraphs: Vec<Paragraph>) -> Text {
@@ -192,6 +286,8 @@ impl Text {
             paragraphs,
             valign: None,
             insets: None,
+            fit: None,
+            wrap: None,
             extra: Extra::new(),
         }
     }

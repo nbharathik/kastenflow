@@ -1,22 +1,25 @@
-/* The Kasten website's colours and sizes. Light and dark follow the system
-   unless the visitor picks one (data-theme on <html>). */
+/* The Kasten website's colours and sizes, taken from the app (app/src/styles.css):
+   warm paper and white by day, the app's neutral greys by night, and its blue
+   as the one accent. Flat surfaces with hairline edges; no glows. Light and
+   dark follow the system unless the visitor picks one (data-theme on <html>). */
 
 :root {
   --bg: #fbfaf9;
-  --bg-alt: #f5f3f0;
+  --bg-alt: #f5f4f2;
   --surface: #ffffff;
   --panel: #f7f6f4;
   --well: #f1f0ee;
-  --ink: #1c1b1a;
-  --ink-2: #3b3a37;
-  --muted: #6f6c67;
-  --faint: #a19e98;
-  --line: rgb(28 27 26 / 9%);
-  --line-strong: rgb(28 27 26 / 16%);
-  --dot: rgb(28 27 26 / 13%);
+  --sunk: #f1f0ee;
+  --ink: #1f1e1c;
+  --ink-2: #31302e;
+  --muted: #64615c;
+  --faint: #8f8c87;
+  --line: rgb(0 0 0 / 8.5%);
+  --line-strong: rgb(0 0 0 / 16%);
+  --dot: rgb(0 0 0 / 12%);
   --accent: #0075de;
-  --accent-soft: rgb(0 117 222 / 10%);
-  --btn: #1c1b1a;
+  --accent-soft: rgb(0 117 222 / 9%);
+  --btn: #1f1e1c;
   --on-btn: #ffffff;
   --hl-yellow: rgb(248 230 165);
   --hl-blue: rgb(199 230 253);
@@ -25,18 +28,18 @@
   --hl-orange: rgb(249 219 191);
   --hl-pink: rgb(250 214 229);
   --hl-gray: rgb(227 225 221);
-  --ok: #1a9a5f;
-  --danger: #d64545;
-  --shadow-sm: 0 1px 2px rgb(28 27 26 / 6%);
-  --shadow-md: 0 1px 2px rgb(28 27 26 / 5%), 0 6px 16px rgb(28 27 26 / 7%);
-  --shadow-lg: 0 2px 6px rgb(28 27 26 / 5%), 0 18px 40px rgb(28 27 26 / 10%), 0 50px 100px rgb(28 27 26 / 12%);
-  --glow-a: rgb(0 117 222 / 20%);
-  --glow-b: rgb(109 93 252 / 16%);
-  --glow-c: rgb(240 190 80 / 18%);
+  --ok: #1a7f52;
+  --danger: #c4403b;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 5%), 0 4px 12px rgb(0 0 0 / 6%);
+  --shadow-lg: 0 1px 3px rgb(0 0 0 / 6%), 0 16px 40px rgb(0 0 0 / 10%);
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --wrap: 1180px;
-  --radius: 16px;
+  --wrap: 1200px;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --radius: 8px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: light;
 }
@@ -44,21 +47,22 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f0f0e;
-    --bg-alt: #141413;
-    --surface: #1a1a19;
+    --bg-alt: #151514;
+    --surface: #191919;
     --panel: #202020;
     --well: #262626;
-    --ink: #f2f1ee;
-    --ink-2: #d8d6d1;
-    --muted: #a19e98;
-    --faint: #76736e;
+    --sunk: #121211;
+    --ink: #eeedea;
+    --ink-2: #d9d8d5;
+    --muted: #a3a29f;
+    --faint: #73726f;
     --line: rgb(255 255 255 / 8%);
     --line-strong: rgb(255 255 255 / 15%);
-    --dot: rgb(255 255 255 / 10%);
+    --dot: rgb(255 255 255 / 9%);
     --accent: #4b9bf5;
-    --accent-soft: rgb(75 155 245 / 14%);
-    --btn: #f2f1ee;
-    --on-btn: #111110;
+    --accent-soft: rgb(75 155 245 / 13%);
+    --btn: #eeedea;
+    --on-btn: #0f0f0e;
     --hl-yellow: rgb(79 69 26);
     --hl-blue: rgb(38 67 88);
     --hl-green: rgb(44 71 50);
@@ -66,35 +70,33 @@
     --hl-orange: rgb(87 60 33);
     --hl-pink: rgb(84 53 67);
     --hl-gray: rgb(64 64 61);
-    --ok: #3fbf85;
-    --danger: #f07070;
+    --ok: #4cc38a;
+    --danger: #ff7369;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow-md: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 35%);
-    --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 24px 60px rgb(0 0 0 / 45%), 0 60px 120px rgb(0 0 0 / 40%);
-    --glow-a: rgb(75 155 245 / 22%);
-    --glow-b: rgb(148 134 255 / 18%);
-    --glow-c: rgb(240 190 80 / 10%);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 16px rgb(0 0 0 / 35%);
+    --shadow-lg: 0 1px 3px rgb(0 0 0 / 45%), 0 24px 56px rgb(0 0 0 / 50%);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
   --bg: #0f0f0e;
-  --bg-alt: #141413;
-  --surface: #1a1a19;
+  --bg-alt: #151514;
+  --surface: #191919;
   --panel: #202020;
   --well: #262626;
-  --ink: #f2f1ee;
-  --ink-2: #d8d6d1;
-  --muted: #a19e98;
-  --faint: #76736e;
+  --sunk: #121211;
+  --ink: #eeedea;
+  --ink-2: #d9d8d5;
+  --muted: #a3a29f;
+  --faint: #73726f;
   --line: rgb(255 255 255 / 8%);
   --line-strong: rgb(255 255 255 / 15%);
-  --dot: rgb(255 255 255 / 10%);
+  --dot: rgb(255 255 255 / 9%);
   --accent: #4b9bf5;
-  --accent-soft: rgb(75 155 245 / 14%);
-  --btn: #f2f1ee;
-  --on-btn: #111110;
+  --accent-soft: rgb(75 155 245 / 13%);
+  --btn: #eeedea;
+  --on-btn: #0f0f0e;
   --hl-yellow: rgb(79 69 26);
   --hl-blue: rgb(38 67 88);
   --hl-green: rgb(44 71 50);
@@ -102,13 +104,37 @@
   --hl-orange: rgb(87 60 33);
   --hl-pink: rgb(84 53 67);
   --hl-gray: rgb(64 64 61);
-  --ok: #3fbf85;
-  --danger: #f07070;
+  --ok: #4cc38a;
+  --danger: #ff7369;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-  --shadow-md: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 35%);
-  --shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 24px 60px rgb(0 0 0 / 45%), 0 60px 120px rgb(0 0 0 / 40%);
-  --glow-a: rgb(75 155 245 / 22%);
-  --glow-b: rgb(148 134 255 / 18%);
-  --glow-c: rgb(240 190 80 / 10%);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 16px rgb(0 0 0 / 35%);
+  --shadow-lg: 0 1px 3px rgb(0 0 0 / 45%), 0 24px 56px rgb(0 0 0 / 50%);
   color-scheme: dark;
+}
+
+/* The dark zone keeps the app's dark greys whatever the theme: the AI part of
+   the page, and the footer. */
+.zone-dark {
+  --bg: #0f0f0e;
+  --bg-alt: #151514;
+  --surface: #191919;
+  --panel: #202020;
+  --well: #262626;
+  --sunk: #121211;
+  --ink: #eeedea;
+  --ink-2: #d9d8d5;
+  --muted: #a3a29f;
+  --faint: #73726f;
+  --line: rgb(255 255 255 / 8%);
+  --line-strong: rgb(255 255 255 / 15%);
+  --accent: #4b9bf5;
+  --accent-soft: rgb(75 155 245 / 13%);
+  --btn: #eeedea;
+  --on-btn: #0f0f0e;
+  --hl-yellow: rgb(79 69 26);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 40%), 0 6px 16px rgb(0 0 0 / 35%);
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--ink);
 }

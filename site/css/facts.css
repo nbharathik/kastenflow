@@ -1,0 +1,88 @@
+/* Kasten in four facts, as big numbers with a line each, and the formats it
+   keeps notes in. Every number here is a plain fact about the app, not a
+   measurement. */
+
+.facts {
+  padding-bottom: clamp(72px, 9vw, 112px);
+}
+
+.facts-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-block: 1px solid var(--line);
+  list-style: none;
+}
+
+.fact {
+  padding: 30px 28px 32px;
+  border-left: 1px solid var(--line);
+}
+
+.fact:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.fact-num {
+  margin-bottom: 14px;
+  font: 700 clamp(52px, 6vw, 76px) / 0.95 var(--display);
+  letter-spacing: -0.055em;
+}
+
+.fact p:not(.fact-num) {
+  max-width: 17em;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.formats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  margin-top: 32px;
+}
+
+.formats ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 900px) {
+  .facts-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fact:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .fact:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 480px) {
+  .facts-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fact {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .fact + .fact {
+    border-top: 1px solid var(--line);
+  }
+}

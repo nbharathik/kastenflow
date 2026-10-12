@@ -2,18 +2,31 @@
 // layout kept in this browser so the window reopens as it was left.
 
 import { usePeek } from "../peek/store";
+import { usePrefs } from "./prefs";
 import * as tabs from "./tabs";
 import type { Layout, Place } from "./tabs";
 
-/** How to open something: in the current tab, a new tab, a split pane to
- * the right, the side stack (Heptabase's card column), or a peek over the
- * view (Notion's side or center peek, as Settings chooses). */
-export type OpenHow = "here" | "tab" | "split" | "stack" | "peek";
+/** How to open something: in the current tab, a new tab, a new pane
+ * (`split`), the pane to the right of this one (`right`), the side stack
+ * (Heptabase's card column), or a peek over the view: `peek` as Settings
+ * chooses, `peek-side` and `peek-center` as asked (Notion's peeks). */
+export type OpenHow = "here" | "tab" | "split" | "right" | "stack" | "peek" | "peek-side" | "peek-center";
 
-/** The way a click asks to open: Ctrl or Cmd for a tab, Shift for the
- * stack, Alt for a split; the middle button for a tab. */
-export function howFrom(event: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; button?: number }): OpenHow {
-  if (event.button === 1 || event.ctrlKey || event.metaKey) return "tab";
+const HOWS: readonly OpenHow[] = ["here", "tab", "split", "right", "stack", "peek", "peek-side", "peek-center"];
+
+/** `how` when it is a way to open, else `here`: for the editor's own link
+ * kinds (`LinkHow`) and the `opens` key of a page, which share these names. */
+export const howFromName = (how: string | null | undefined): OpenHow => (HOWS.includes(how as OpenHow) ? (how as OpenHow) : "here");
+
+type ClickKeys = { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; button?: number };
+
+/** The way a click asks to open: Ctrl or Cmd for a tab, Ctrl or Cmd with Alt
+ * for the pane to the right, Shift for the stack, Alt for a split pane; the
+ * middle button for a tab. */
+export function howFrom(event: ClickKeys): OpenHow {
+  if (event.button === 1) return "tab";
+  if ((event.ctrlKey || event.metaKey) && event.altKey) return "right";
+  if (event.ctrlKey || event.metaKey) return "tab";
   if (event.shiftKey) return "stack";
   if (event.altKey) return "split";
   return "here";
@@ -21,7 +34,7 @@ export function howFrom(event: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?
 
 /** As `howFrom`, for a page picked in a view of many (a calendar, a
  * table, a board of cards): a plain click peeks at it, as in Notion. */
-export function howFromView(event: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; button?: number }): OpenHow {
+export function howFromView(event: ClickKeys): OpenHow {
   const how = howFrom(event);
   return how === "here" ? "peek" : how;
 }
@@ -45,12 +58,17 @@ export interface LayoutState {
   selectTab(paneId: string, tabId: string): void;
   focusPane(paneId: string): void;
   splitRight(place?: Place): void;
+  /** Opens a place in the pane to the right (Settings says whether it
+   * replaces that pane's tab or adds one), or splits when there is none. */
+  openRight(place: Place): void;
   closePane(paneId: string): void;
   /** Panes' shares of the width, by pane id. */
   resizePanes(sizes: Readonly<Record<string, number>>): void;
   cycleTab(step: 1 | -1): void;
   togglePin(paneId: string, tabId: string): void;
   moveTab(paneId: string, tabId: string, index: number): void;
+  /** A browser tab went to an address: its place keeps it, with no step in its way back. */
+  setWebUrl(tabId: string, url: string): void;
   openInStack(path: string): void;
   /** Puts pages on the side stack in the given order, first on top. */
   stackAll(paths: readonly string[]): void;
@@ -147,6 +165,10 @@ export function layoutSlice(set: Set, get: Get) {
         apply(tabs.split(get().layout, target));
         get().recentVisit(target);
       },
+      openRight(place: Place) {
+        apply(tabs.openRight(get().layout, place, usePrefs.getState().rightReplaces));
+        get().recentVisit(place);
+      },
       closePane(paneId: string) {
         apply(tabs.closePane(get().layout, paneId));
       },
@@ -156,6 +178,10 @@ export function layoutSlice(set: Set, get: Get) {
       togglePin(paneId: string, tabId: string) {
         apply(tabs.togglePin(get().layout, paneId, tabId));
       },
+      setWebUrl(tabId: string, url: string) {
+        const next = tabs.setWebUrl(get().layout, tabId, url);
+        if (next !== get().layout) apply(next);
+      },
       moveTab(paneId: string, tabId: string, index: number) {
         apply(tabs.moveTab(get().layout, paneId, tabId, index));
       },
@@ -163,12 +189,13 @@ export function layoutSlice(set: Set, get: Get) {
         // The stack holds pages; a board opens beside the current pane instead.
         if (path.endsWith(".canvas")) return get().splitRight({ view: "boards", path });
         if (path.endsWith(".deck")) return get().splitRight({ view: "slides", path });
+        if (path.endsWith(".drawio")) return get().splitRight({ view: "diagrams", path });
         const stack = [path, ...get().stack.filter((p) => p !== path)].slice(0, MAX_STACK);
         stackChange(stack, true);
         get().recentVisit({ view: "page", path });
       },
       stackAll(paths: readonly string[]) {
-        const pages = paths.filter((p) => !p.endsWith(".canvas") && !p.endsWith(".deck"));
+        const pages = paths.filter((p) => !p.endsWith(".canvas") && !p.endsWith(".deck") && !p.endsWith(".drawio"));
         if (pages.length === 0) return;
         stackChange([...new Set([...pages, ...get().stack])].slice(0, MAX_STACK), true);
       },

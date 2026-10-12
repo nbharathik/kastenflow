@@ -9,10 +9,13 @@ import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/
 import { $prose } from "@milkdown/kit/utils";
 
 import { iconElement } from "../../../../ui/icon-dom";
+import { firstDividerOf, toggleFold } from "../sections/api";
+import { START } from "../sections/model";
 import { el } from "../ui/dom";
 import type { Popover } from "../ui/popover";
 import { pressBlock, unitAt } from "./block-drag";
 import { openBlockMenu } from "./block-menu";
+import { pickedBlocks, type BlocksAt } from "./block-range";
 import { startSlash } from "./slash";
 import type { BlockAt } from "./units";
 
@@ -45,6 +48,7 @@ class HandleView {
   private readonly root: HTMLElement;
   private readonly content: HTMLElement;
   private readonly grip: HTMLButtonElement;
+  private readonly fold: HTMLButtonElement;
   private active: (BlockAt & { el: HTMLElement }) | null = null;
   private pointer: { x: number; y: number } | null = null;
   private frame = 0;
@@ -64,15 +68,24 @@ class HandleView {
     this.grip.append(iconElement("grip", 16, 2));
     this.grip.title = "Drag to move\nClick to open menu";
     this.grip.setAttribute("aria-label", "Block menu");
-    this.content.append(add, this.grip);
+    // Beside the "+" of a block above the first divider: folds that first
+    // section, which has no divider of its own to carry the button.
+    this.fold = el("button", "kasten-handle-button kasten-handle-fold", { type: "button", hidden: true });
+    this.fold.append(iconElement("fold", 16, 2));
+    this.fold.title = "Fold this section";
+    this.fold.setAttribute("aria-label", "Fold section");
+    this.content.append(this.fold, add, this.grip);
     this.root.appendChild(this.content);
 
     // Cancelling pointerdown also stops the mousedown that would select text.
-    add.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
+    for (const button of [add, this.fold]) {
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    }
     add.addEventListener("click", (event) => this.addBlock(event.altKey));
+    this.fold.addEventListener("click", () => toggleFold(this.view, START));
     this.grip.addEventListener("pointerdown", this.onGripDown);
     this.grip.addEventListener("click", () => this.openMenu());
     document.addEventListener("mousemove", this.onMove, { passive: true });
@@ -125,6 +138,9 @@ class HandleView {
     const block = active.el.getBoundingClientRect();
     const root = this.root.getBoundingClientRect();
     const line = firstLine(active.el);
+    // The first section's fold button, for blocks above the first divider.
+    const first = firstDividerOf(this.view.state);
+    this.fold.hidden = !(first !== null && active.pos < first);
     const width = this.content.offsetWidth || 44;
     const left = block.left - root.left - width - 2;
     const top = line.top - root.top + (Math.min(line.height, 40) - HANDLE) / 2;
@@ -150,24 +166,34 @@ class HandleView {
     return selection;
   }
 
-  /** A press on the grip selects the block, and drags it once the pointer travels. */
+  /** The blocks selected as a range, when the block under the handle is one of them. */
+  private heldRange(): BlocksAt | null {
+    const picked = pickedBlocks(this.view.state.selection);
+    const active = this.active;
+    return picked && picked.count > 1 && active && active.pos >= picked.from && active.pos < picked.to ? picked : null;
+  }
+
+  /** A press on the grip selects the block, and drags it once the pointer
+   * travels; on one of several selected blocks it drags them all. */
   private readonly onGripDown = (event: PointerEvent) => {
     const active = this.active;
     if (event.button !== 0 || !active || this.cancelDrag) return;
     // No focus on the grip and no text selection: the block is what is held.
     event.preventDefault();
-    this.selectBlock();
+    const range = this.heldRange();
+    if (!range) this.selectBlock();
     const { view } = this;
     this.cancelDrag = pressBlock({
       view,
       root: this.root,
       source: active,
+      ...(range ? { range } : {}),
       event,
-      onLift: (block) => {
-        this.dragging = block !== null;
+      onLift: (blocks) => {
+        this.dragging = blocks !== null;
         view.dom.dataset.dragging = String(this.dragging);
-        if (block) this.content.dataset.show = "false";
-        view.dispatch(view.state.tr.setMeta(handleKey, block));
+        if (blocks) this.content.dataset.show = "false";
+        view.dispatch(view.state.tr.setMeta(handleKey, blocks));
       },
       onEnd: () => {
         this.dragging = false;
@@ -201,7 +227,7 @@ class HandleView {
     const active = this.active;
     if (!active) return;
     this.menu?.close();
-    this.menu = openBlockMenu(this.view, active.pos, () => this.grip.getBoundingClientRect());
+    this.menu = openBlockMenu(this.view, active.pos, () => this.grip.getBoundingClientRect(), this.heldRange() ?? undefined);
   }
 }
 
@@ -213,9 +239,9 @@ export const blockHandle = $prose(
       state: {
         init: () => DecorationSet.empty,
         apply(tr, lifted) {
-          const block = tr.getMeta(handleKey) as BlockAt | null | undefined;
-          if (block === undefined) return lifted.map(tr.mapping, tr.doc);
-          return block ? DecorationSet.create(tr.doc, [Decoration.node(block.pos, block.pos + block.node.nodeSize, { class: "kasten-block-lifted" })]) : DecorationSet.empty;
+          const blocks = tr.getMeta(handleKey) as BlockAt[] | null | undefined;
+          if (blocks === undefined) return lifted.map(tr.mapping, tr.doc);
+          return blocks ? DecorationSet.create(tr.doc, blocks.map((block) => Decoration.node(block.pos, block.pos + block.node.nodeSize, { class: "kasten-block-lifted" }))) : DecorationSet.empty;
         },
       },
       props: { decorations: (state) => handleKey.getState(state) },

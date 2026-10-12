@@ -117,6 +117,8 @@ fn layouts_of(deck: &Deck) -> Vec<Layout> {
             label: "Blank".to_owned(),
             placeholders: Vec::new(),
             hide_master: false,
+            elements: Vec::new(),
+            background: None,
             extra: slides_core::Extra::new(),
         }]
     } else {

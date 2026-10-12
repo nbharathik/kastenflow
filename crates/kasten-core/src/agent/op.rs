@@ -169,6 +169,25 @@ pub enum AgentOp {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         marked: Option<String>,
     },
+    /// A new diagram, as its `mxfile` XML (a blank page when `xml` is empty).
+    CreateDiagram {
+        title: String,
+        /// The project folder to put it in; none means the library.
+        #[serde(default)]
+        project: Option<String>,
+        #[serde(default)]
+        xml: String,
+    },
+    /// A diagram's source written whole. `base` is the XML the agent read, so
+    /// accepting a proposal later keeps what a person drew meanwhile: if the
+    /// file is no longer `base`, the agent's version goes to a copy beside it.
+    UpdateDiagram {
+        path: String,
+        xml: String,
+        base: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
 }
 
 impl AgentOp {
@@ -194,6 +213,8 @@ impl AgentOp {
             AgentOp::Template { .. } => "template",
             AgentOp::EditDeck { .. } => "edit_deck",
             AgentOp::CreateDeck { .. } => "create_deck",
+            AgentOp::CreateDiagram { .. } => "create_diagram",
+            AgentOp::UpdateDiagram { .. } => "update_diagram",
         }
     }
 
@@ -208,6 +229,7 @@ impl AgentOp {
             | AgentOp::Move { path, .. }
             | AgentOp::Trash { path, .. }
             | AgentOp::Edit { path, .. }
+            | AgentOp::UpdateDiagram { path, .. }
             | AgentOp::EditDeck { path, .. } => Some(path),
             AgentOp::AddToBoard { board, .. }
             | AgentOp::Connect { board, .. }
@@ -250,6 +272,8 @@ impl AgentOp {
             AgentOp::Connect { label, .. } => label.as_ref().map_or(0, String::len),
             AgentOp::Template { text, .. } => text.len(),
             AgentOp::EditDeck { sent, .. } | AgentOp::CreateDeck { sent, .. } => *sent,
+            AgentOp::CreateDiagram { title, xml, .. } => title.len() + xml.len(),
+            AgentOp::UpdateDiagram { xml, .. } => xml.len(),
             AgentOp::Move { .. } | AgentOp::Trash { .. } => 0,
         }
     }
@@ -263,6 +287,7 @@ impl AgentOp {
                 | AgentOp::JournalAppend { .. }
                 | AgentOp::CreateBoard { .. }
                 | AgentOp::CreateDeck { .. }
+                | AgentOp::CreateDiagram { .. }
                 | AgentOp::Template { base: None, .. }
         )
     }

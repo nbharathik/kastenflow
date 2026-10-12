@@ -12,6 +12,8 @@ export interface SectionDef<Id extends string = string> {
   hint: string;
   /** Takes a whole row rather than half of one. */
   wide?: boolean;
+  /** Where Home puts it: the main column or the slim one beside it. */
+  zone?: "main" | "side";
 }
 
 /** The known ids in `saved`, each once and in its order; `fallback` when
@@ -32,6 +34,17 @@ export function shifted<Id extends string>(list: readonly Id[], id: Id, step: nu
   const from = list.indexOf(id);
   if (from < 0) return [...list];
   const to = Math.max(0, Math.min(list.length - 1, from + step));
+  const out = [...list];
+  out.splice(from, 1);
+  out.splice(to, 0, id);
+  return out;
+}
+
+/** `list` with `id` taken from where it is and put where `target` is, as dropping one row on another does. */
+export function moved<Id extends string>(list: readonly Id[], id: Id, target: Id): Id[] {
+  const from = list.indexOf(id);
+  const to = list.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return [...list];
   const out = [...list];
   out.splice(from, 1);
   out.splice(to, 0, id);

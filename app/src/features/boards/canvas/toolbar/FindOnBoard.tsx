@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { motionMs } from "../../../../lib/motion";
 import type { BoardNode } from "../../../../lib/vault/types";
 import { lineIcon } from "../../../../ui/glyph";
+import { titleOfPath } from "../../../diagrams/names";
 import { Picker, type PickerOption } from "../../../library/Picker";
 import { useBoard } from "../context";
 import { select } from "../state/store";
@@ -17,8 +18,9 @@ function named(node: BoardNode): { label: string; detail: string; icon: string }
   const first = (text: string | undefined) => (text ?? "").split("\n").map((l) => l.replace(/^#+\s*/, "").trim()).find(Boolean) ?? "";
   if (node.kind === "file") {
     const board = node.file?.endsWith(".canvas");
+    const diagram = node.file?.endsWith(".drawio");
     const name = node.title || node.file?.split("/").pop()?.replace(/\.(md|canvas)$/, "") || "Card";
-    return { label: name, detail: board ? "Board" : "Card", icon: lineIcon(board ? "board" : "page") };
+    return { label: diagram ? titleOfPath(node.file!) : name, detail: board ? "Board" : diagram ? "Diagram" : "Card", icon: lineIcon(board ? "board" : diagram ? "diagram" : "page") };
   }
   if (node.kind === "group") return { label: node.label || "Section", detail: "Section", icon: lineIcon("section") };
   if (node.kind === "link") return { label: node.url ?? "Link", detail: "Link", icon: lineIcon("link") };

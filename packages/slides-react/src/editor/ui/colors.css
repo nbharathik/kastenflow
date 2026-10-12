@@ -1,0 +1,132 @@
+/* The colour palette: theme colours and shades, standard colours, recent ones, a custom value. */
+.ks-colors {
+  padding: 6px 10px 10px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ks-colors-title {
+  margin: 4px 2px 0;
+  color: var(--ks-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.ks-color-none {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--ks-radius);
+  padding: 0 4px;
+}
+.ks-color-none:hover {
+  background: var(--ks-hover);
+}
+.ks-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 20px);
+  gap: 3px 3px;
+  justify-content: space-between;
+}
+.ks-swatch {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--ks-line);
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--ks-fast) var(--ks-ease);
+}
+.ks-swatch:hover {
+  transform: scale(1.14);
+  z-index: 1;
+}
+.ks-swatch.is-on {
+  box-shadow: 0 0 0 2px var(--ks-raised), 0 0 0 4px var(--ks-accent);
+}
+.ks-swatch.is-none {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  cursor: default;
+  background: linear-gradient(135deg, transparent 45%, var(--ks-danger) 45%, var(--ks-danger) 55%, transparent 55%);
+}
+.ks-swatch.is-preview {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  cursor: default;
+}
+.ks-swatch.is-preview:hover {
+  transform: none;
+}
+.ks-color-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ks-color-custom .ks-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The colour square and the hue bar of the custom picker. */
+.ks-hsv {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ks-hsv-square,
+.ks-hsv-hue {
+  position: relative;
+  border-radius: var(--ks-radius-md);
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.ks-hsv-square {
+  height: 112px;
+}
+/* White across the top-left, black up from the bottom: the saturation and value of one hue. */
+.ks-hsv-square::before,
+.ks-hsv-square::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.ks-hsv-square::before {
+  background: linear-gradient(90deg, #fff, rgb(255 255 255 / 0));
+}
+.ks-hsv-square::after {
+  background: linear-gradient(0deg, #000, rgb(0 0 0 / 0));
+}
+.ks-hsv-hue {
+  height: 12px;
+  background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.ks-hsv-thumb {
+  position: absolute;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+.ks-hsv-square:focus-visible,
+.ks-hsv-hue:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 2px;
+}

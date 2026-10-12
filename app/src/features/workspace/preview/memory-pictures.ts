@@ -11,7 +11,7 @@ export class MemoryPictures extends MemoryKits {
   private pictures = new MemoryAssets();
 
   protected override keeps(file: string): boolean {
-    return this.pictures.has(file);
+    return this.pictures.has(file) || super.keeps(file);
   }
 
   async saveAsset(name: string, bytes: Uint8Array): Promise<string> {

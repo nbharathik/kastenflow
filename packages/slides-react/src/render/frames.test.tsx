@@ -68,7 +68,8 @@ describe("the box of an element", () => {
   it("is not drawn when nothing gives it a box", async () => {
     const { deck, slide } = await scene("blank", [{ type: "shape", id: "e", shape: "rect", ...box(0, 0, 10, 10) }]);
     const lost: typeof slide = { ...slide, elements: [{ type: "shape", id: "lost", shape: "rect" } as Element, ...slide.elements] };
-    expect([...elementsOf(draw(<SlideView deck={deck} slide={lost} />)).keys()]).toEqual(["master-number", "e"]);
+    // (A new deck shows no slide number, so the master draws nothing here.)
+    expect([...elementsOf(draw(<SlideView deck={deck} slide={lost} />)).keys()]).toEqual(["e"]);
   });
 
   it("says what it is to assistive technology, when it has no words of its own", async () => {

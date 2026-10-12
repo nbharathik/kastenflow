@@ -2,7 +2,7 @@
   "name": "@kasten-slides/react",
   "version": "0.1.0",
   "private": true,
-  "description": "The Kasten Slides editor, slide renderer and present mode, as React components",
+  "description": "The KastenFlow Slides editor, slide renderer and present mode, as React components",
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": [

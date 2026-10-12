@@ -18,6 +18,7 @@ import { tagPlace } from "../../tags/place";
 import { findByTitle, noteAt, tagCounts } from "../tree";
 import { useSources } from "../../sources/store";
 import { openAt, searchedWords } from "../page/jump";
+import { openSettingsAt } from "../views/settings/jump";
 import { COMMANDS } from "./commands";
 import { keepSearch, pdfRows, recentSearches, settingsRows, type Row } from "./palette-rows";
 import { byModified, matchTitles, score, searchKeys } from "./match";
@@ -184,9 +185,9 @@ export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
 
 /** What a search by meaning shows in the palette. */
 function meaningRows({ query, found, error }: ByMeaning): Row[] {
-  const { openPath, go } = useWorkspace.getState();
+  const { openPath } = useWorkspace.getState();
   if (error) {
-    return [{ key: "meaning-error", icon: lineIcon("alert"), label: "Search by meaning did not work", detail: error, run: () => go({ view: "settings" }) }];
+    return [{ key: "meaning-error", icon: lineIcon("alert"), label: "Search by meaning did not work", detail: error, run: () => openSettingsAt({ group: "search" }) }];
   }
   if (!found) return [{ key: "meaning-wait", icon: lineIcon("sparkle"), label: `Finding notes about “${query}”…`, stay: true, run: () => {} }];
   return found.map((n) => ({

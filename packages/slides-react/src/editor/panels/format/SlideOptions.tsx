@@ -2,6 +2,7 @@ import type { Slide } from "@kasten-slides/wasm";
 import { useEffect, useRef } from "react";
 
 import { TextButton } from "../../ui/Button.tsx";
+import { Toggle } from "../../ui/Fields.tsx";
 import { Icon } from "../../ui/Icon.tsx";
 import { useEditor } from "../../useEditor.ts";
 import { backgroundStyle, chooseImage, colorBackground } from "./background.ts";
@@ -102,8 +103,13 @@ export function SlideOptions({ session, ui }: PanelProps) {
       <PanelSection id="transition" title="Transition">
         <Row label="Transition">
           <span className="ks-sp-value">{transitionName(slide)}</span>
-          <TextButton onClick={() => ui.openDialog("transition")}>Change…</TextButton>
+          <TextButton onClick={() => ui.openPanel("transitions")}>Change…</TextButton>
         </Row>
+      </PanelSection>
+
+      <PanelSection id="numbers" title="Slide numbers">
+        <Toggle label="Show slide numbers" on={deck.present.slideNumbers} onChange={(on) => session.slides.setSlideNumbers(on)} />
+        <p className="ks-sp-hint">For every slide of the deck: in the editor, when presenting and in exported files.</p>
       </PanelSection>
 
       <PanelSection id="theme" title="Theme">

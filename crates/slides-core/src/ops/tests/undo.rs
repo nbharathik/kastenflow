@@ -57,7 +57,19 @@ enum Action {
         b: usize,
         mode: u8,
     },
+    /// One element, aligned to the slide.
+    AlignOne {
+        slide: usize,
+        el: usize,
+        mode: u8,
+    },
     SetText {
+        slide: usize,
+        el: usize,
+        n: u8,
+    },
+    /// The look of the paragraphs of an element, without its words.
+    FormatParagraphs {
         slide: usize,
         el: usize,
         n: u8,
@@ -123,10 +135,75 @@ enum Action {
     RemoveSection {
         slide: usize,
     },
+    Present {
+        numbers: bool,
+    },
+    PageSize {
+        n: u8,
+    },
+    DeckTransition {
+        n: u8,
+    },
+    LayoutSave {
+        slide: usize,
+        el: usize,
+        n: u8,
+    },
+    LayoutAdd {
+        layout: usize,
+        n: u8,
+    },
+    LayoutDesign {
+        layout: usize,
+        n: u8,
+    },
+    LayoutEdit {
+        layout: usize,
+        n: u8,
+    },
+    LayoutDelete {
+        layout: usize,
+    },
+    LayoutMove {
+        layout: usize,
+        to: usize,
+    },
+    LayoutImport {
+        layout: usize,
+    },
+    ResetSlide {
+        slide: usize,
+    },
+    Template {
+        n: u8,
+        resize: bool,
+    },
+    /// The contents of a page, or a section of it, on a slide.
+    PageContents {
+        slide: usize,
+        n: u8,
+    },
+    /// What came from a page, made again from the page as it reads now.
+    PageUpdate {
+        n: u8,
+    },
+    /// A page as slides.
+    PageSlides {
+        n: u8,
+    },
     Replace,
     Undo,
     Redo,
 }
+
+/// What a page may say: words and lists, a picture and a table, code with a formula and a callout, and almost nothing.
+const PAGES: [&str; 5] = [
+    "## Plan\n\nOne **idea** per card.\n\n- first\n  - nested\n- second\n",
+    "# Title\n\nWords.\n\n![A cat](assets/cat.png)\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n## Next\n\nMore.\n",
+    "```rust\nfn main() {}\n```\n\n$$\nx^2\n$$\n\n> [!tip] Careful\n> Mind the gap.\n",
+    "Just words.",
+    "- [ ] one\n- [x] two\n",
+];
 
 fn action() -> impl Strategy<Value = Action> {
     let idx = || 0usize..8;
@@ -154,7 +231,9 @@ fn action() -> impl Strategy<Value = Action> {
             b,
             mode
         }),
+        (idx(), idx(), 0u8..6).prop_map(|(slide, el, mode)| Action::AlignOne { slide, el, mode }),
         (idx(), idx(), 0u8..5).prop_map(|(slide, el, n)| Action::SetText { slide, el, n }),
+        (idx(), idx(), 0u8..8).prop_map(|(slide, el, n)| Action::FormatParagraphs { slide, el, n }),
         (idx(), idx()).prop_map(|(slide, layout)| Action::Layout { slide, layout }),
         idx().prop_map(|slide| Action::DeleteSlide { slide }),
         idx().prop_map(|slide| Action::DuplicateSlide { slide }),
@@ -179,11 +258,26 @@ fn action() -> impl Strategy<Value = Action> {
             b,
             recipe
         }),
-        (idx(), 0u8..9).prop_map(|(slide, kind)| Action::AddComposite { slide, kind }),
+        (idx(), 0u8..12).prop_map(|(slide, kind)| Action::AddComposite { slide, kind }),
         (idx(), idx()).prop_map(|(slide, el)| Action::Expand { slide, el }),
         (idx(), 0u8..3).prop_map(|(slide, n)| Action::AddSection { slide, n }),
         (idx(), 0u8..3).prop_map(|(slide, n)| Action::RenameSection { slide, n }),
         idx().prop_map(|slide| Action::RemoveSection { slide }),
+        any::<bool>().prop_map(|numbers| Action::Present { numbers }),
+        (0u8..6).prop_map(|n| Action::PageSize { n }),
+        (0u8..5).prop_map(|n| Action::DeckTransition { n }),
+        (idx(), idx(), 0u8..3).prop_map(|(slide, el, n)| Action::LayoutSave { slide, el, n }),
+        (idx(), 0u8..4).prop_map(|(layout, n)| Action::LayoutAdd { layout, n }),
+        (idx(), 0u8..3).prop_map(|(layout, n)| Action::LayoutDesign { layout, n }),
+        (idx(), 0u8..4).prop_map(|(layout, n)| Action::LayoutEdit { layout, n }),
+        idx().prop_map(|layout| Action::LayoutDelete { layout }),
+        (idx(), idx()).prop_map(|(layout, to)| Action::LayoutMove { layout, to }),
+        idx().prop_map(|layout| Action::LayoutImport { layout }),
+        idx().prop_map(|slide| Action::ResetSlide { slide }),
+        (0u8..11, any::<bool>()).prop_map(|(n, resize)| Action::Template { n, resize }),
+        (idx(), 0u8..5).prop_map(|(slide, n)| Action::PageContents { slide, n }),
+        (0u8..5).prop_map(|n| Action::PageUpdate { n }),
+        (0u8..5).prop_map(|n| Action::PageSlides { n }),
         Just(Action::Replace),
         Just(Action::Undo),
         Just(Action::Redo),
@@ -262,12 +356,62 @@ fn plan(deck: &Deck, action: &Action) -> Option<(&'static str, Value)> {
                 json!({ "slide": sl, "ids": [ea, eb], "mode": mode }),
             )
         }
+        Action::AlignOne { slide: s, el, mode } => {
+            let (sl, e) = element(*s, *el)?;
+            let mode = ["left", "centerH", "right", "top", "middleV", "bottom"][usize::from(*mode)];
+            (
+                "align_elements",
+                json!({ "slide": sl, "ids": [e], "mode": mode }),
+            )
+        }
         Action::SetText { slide: s, el, n } => {
             let (sl, e) = element(*s, *el)?;
             let markdown = ["one", "**two** words", "- a\n- b", "", "x *y* z"][usize::from(*n)];
             (
                 "set_text",
                 json!({ "slide": sl, "id": e, "markdown": markdown }),
+            )
+        }
+        Action::FormatParagraphs { slide: s, el, n } => {
+            let (sl, e) = element(*s, *el)?;
+            let (paragraphs, set, clear) = [
+                (
+                    None,
+                    json!({ "list": "bullet", "listStyle": "square", "level": 1 }),
+                    json!([]),
+                ),
+                (None, json!({ "list": "number", "start": 3 }), json!([])),
+                (
+                    Some(json!([0, 1])),
+                    json!({ "listStyle": "upperRoman", "marginLeft": 40.0, "indent": -20.0 }),
+                    json!(["start"]),
+                ),
+                (None, json!({}), json!(["list"])),
+                (
+                    Some(json!([0])),
+                    json!({ "align": "center", "lineSpacing": 1.5, "spaceBefore": 6.0 }),
+                    json!([]),
+                ),
+                (
+                    None,
+                    json!({ "bulletColor": "accent2", "bulletSize": 1.25 }),
+                    json!(["level", "indent"]),
+                ),
+                (
+                    None,
+                    json!({ "list": "number", "listStyle": "lowerAlpha", "start": 1 }),
+                    json!(["marginLeft"]),
+                ),
+                (
+                    None,
+                    json!({}),
+                    json!(["align", "lineSpacing", "spaceBefore", "spaceAfter"]),
+                ),
+            ][usize::from(*n)]
+            .clone();
+            (
+                "format_paragraphs",
+                json!({ "slide": sl, "id": e, "paragraphs": paragraphs, "set": set, "clear": clear }),
             )
         }
         Action::Layout { slide: s, layout } => (
@@ -350,9 +494,130 @@ fn plan(deck: &Deck, action: &Action) -> Option<(&'static str, Value)> {
             json!({ "at": slide(*s)?.id, "title": format!("Renamed {n}") }),
         ),
         Action::RemoveSection { slide: s } => ("remove_section", json!({ "at": slide(*s)?.id })),
+        Action::Present { numbers } => ("set_present", json!({ "slideNumbers": numbers })),
+        Action::DeckTransition { n } => {
+            let kinds = ["none", "fade", "slide", "morph", "fade"];
+            let mut transition = json!({ "kind": kinds[usize::from(*n) % kinds.len()] });
+            if *n == 4 {
+                transition["duration"] = json!(0.8);
+            }
+            ("set_present", json!({ "transition": transition }))
+        }
+        Action::PageSize { n } => {
+            let sizes = [
+                json!({ "preset": "16:9" }),
+                json!({ "preset": "4:3" }),
+                json!({ "preset": "1:1" }),
+                json!({ "preset": "16:10" }),
+                json!({ "w": 720, "h": 540 }),
+                json!({ "w": 1280.5, "h": 720 }),
+            ];
+            (
+                "set_page_size",
+                sizes[usize::from(*n) % sizes.len()].clone(),
+            )
+        }
+        Action::LayoutSave { slide: s, el, n } => {
+            let (sl, e) = element(*s, *el)?;
+            let kinds = ["title", "body", "text"];
+            (
+                "save_layout",
+                json!({ "slide": sl, "label": format!("Mine {n}"), "roles": { e: kinds[usize::from(*n) % kinds.len()] }, "useForSlide": *n != 1, "newSlideDefault": *n == 2 }),
+            )
+        }
+        Action::LayoutAdd { layout, n } => {
+            let from = (*n % 2 == 0).then(|| layout_name(deck, *layout));
+            (
+                "add_layout",
+                json!({ "label": format!("Extra {n}"), "from": from }),
+            )
+        }
+        Action::LayoutDesign { layout, n } => {
+            let name = layout_name(deck, *layout);
+            let mut design = crate::design::design_deck(deck, &name).ok()?.slides[0].clone();
+            match *n {
+                0 => {}
+                1 => design.elements.clear(),
+                _ => {
+                    if let Some(first) = design.elements.first_mut() {
+                        first.base_mut().x = Some(40.0);
+                        first.base_mut().y = Some(60.0);
+                    }
+                }
+            }
+            (
+                "set_layout_design",
+                json!({ "name": name, "design": design, "hideMaster": *n == 2 }),
+            )
+        }
+        Action::LayoutEdit { layout, n } => (
+            "edit_layout",
+            json!({ "name": layout_name(deck, *layout), "label": format!("Renamed {n}"), "hideMaster": n % 2 == 0, "defaultForNew": n % 3 != 0 }),
+        ),
+        Action::LayoutDelete { layout } => {
+            let name = layout_name(deck, *layout);
+            let to = layout_name(deck, *layout + 1);
+            ("delete_layout", json!({ "name": name, "moveTo": to }))
+        }
+        Action::LayoutMove { layout, to } => (
+            "move_layout",
+            json!({ "name": layout_name(deck, *layout), "to": to }),
+        ),
+        Action::LayoutImport { layout } => {
+            let one = deck.theme.layouts.get(layout % deck.theme.layouts.len())?;
+            (
+                "import_layouts",
+                json!({ "layouts": [one], "textStyles": deck.theme.text_styles }),
+            )
+        }
+        Action::ResetSlide { slide: s } => ("reset_slides", json!({ "ids": [slide(*s)?.id] })),
+        Action::Template { n, resize } => {
+            let themes = crate::themes::all();
+            let theme = &themes[usize::from(*n) % themes.len()];
+            (
+                "apply_template",
+                json!({ "theme": theme, "size": { "w": 960, "h": 540 }, "resize": resize }),
+            )
+        }
+        Action::PageContents { slide: s, n } => {
+            let section = *n == 0;
+            let source = if section {
+                json!({ "page": "library/plan.md", "kind": "section", "section": "Plan", "sync": true })
+            } else {
+                json!({ "page": "library/plan.md", "kind": "contents" })
+            };
+            (
+                "add_page_contents",
+                json!({ "slide": slide(*s)?.id, "markdown": PAGES[usize::from(*n) % PAGES.len()], "source": source }),
+            )
+        }
+        Action::PageUpdate { n } => {
+            // The first thing on any slide that came from a page.
+            let (sl, e) = deck.slides.iter().find_map(|sl| {
+                sl.elements
+                    .iter()
+                    .find(|e| e.base().source.is_some())
+                    .map(|e| (sl.id.clone(), e.id().to_owned()))
+            })?;
+            (
+                "update_page_contents",
+                json!({ "slide": sl, "id": e, "markdown": PAGES[usize::from(*n) % PAGES.len()], "title": "Plan" }),
+            )
+        }
+        Action::PageSlides { n } => (
+            "add_page_slides",
+            json!({ "markdown": PAGES[usize::from(*n) % PAGES.len()], "title": "A page", "split": if n % 2 == 0 { 0 } else { 2 } }),
+        ),
         Action::Replace => ("replace_all", json!({ "find": "hi", "replace": "yo" })),
         Action::Undo | Action::Redo => return None,
     })
+}
+
+/// The name of the layout the number picks.
+fn layout_name(deck: &Deck, i: usize) -> String {
+    deck.theme.layouts[i % deck.theme.layouts.len()]
+        .name
+        .clone()
 }
 
 fn check_mirror(mirror: &mut Deck, changes: &Changes, engine: &Engine) {

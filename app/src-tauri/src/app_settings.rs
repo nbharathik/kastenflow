@@ -48,6 +48,14 @@ pub struct AppSettings {
     pub capture_shortcut: Option<String>,
     /// System notifications while Kasten is in the background (default on).
     pub notifications: Option<bool>,
+    /// The browser tab is on (default off): a web page of its own inside
+    /// Kasten, which is why it waits for the person to turn it on.
+    pub browser: Option<bool>,
+    /// The door for the browser extension is open (default off): a small
+    /// server on this computer's own address, only while Kasten runs.
+    pub extension: Option<bool>,
+    /// The port that door listens on, when changed from the default.
+    pub extension_port: Option<u16>,
 }
 
 impl AppSettings {
@@ -127,6 +135,22 @@ impl AppSettings {
 
     pub fn notifies(&self) -> bool {
         self.notifications.unwrap_or(true)
+    }
+
+    /// Whether the browser tab may open: off until the person turns it on.
+    pub fn browser_on(&self) -> bool {
+        self.browser.unwrap_or(false)
+    }
+
+    /// Whether the browser extension may reach Kasten: off until turned on.
+    pub fn extension_on(&self) -> bool {
+        self.extension.unwrap_or(false)
+    }
+
+    /// The port the extension's door listens on.
+    pub fn extension_port(&self) -> u16 {
+        self.extension_port
+            .unwrap_or(crate::extension::DEFAULT_PORT)
     }
 
     /// Confirms `remote` for the vault in `folder`, or forgets it.
@@ -256,6 +280,42 @@ mod tests {
             thread.join().unwrap();
         }
         assert_eq!(AppSettings::load(&dir).ai_origins.len(), 8);
+    }
+
+    #[test]
+    fn the_browser_tab_is_off_until_it_is_turned_on() {
+        let dir = scratch("browser");
+        assert!(!AppSettings::load(&dir).browser_on());
+        AppSettings::update(&dir, |s| s.browser = Some(true)).unwrap();
+        assert!(AppSettings::load(&dir).browser_on());
+        // Settings saved before the browser existed still load, with it off.
+        fs::write(
+            dir.join(FILE),
+            r#"{"vault": "/notes/a", "keepRunning": false}"#,
+        )
+        .unwrap();
+        assert!(!AppSettings::load(&dir).browser_on());
+    }
+
+    #[test]
+    fn the_extension_door_is_shut_until_it_is_turned_on() {
+        let dir = scratch("extension");
+        let settings = AppSettings::load(&dir);
+        assert!(!settings.extension_on());
+        assert_eq!(settings.extension_port(), 7434);
+        AppSettings::update(&dir, |s| {
+            s.extension = Some(true);
+            s.extension_port = Some(7500);
+        })
+        .unwrap();
+        let settings = AppSettings::load(&dir);
+        assert!(settings.extension_on());
+        assert_eq!(settings.extension_port(), 7500);
+        // Settings saved before the extension existed still load, with it off.
+        fs::write(dir.join(FILE), r#"{"vault": "/notes/a", "browser": true}"#).unwrap();
+        let older = AppSettings::load(&dir);
+        assert!(!older.extension_on());
+        assert_eq!(older.extension_port(), 7434);
     }
 
     #[test]

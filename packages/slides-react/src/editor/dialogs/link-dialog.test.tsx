@@ -2,6 +2,7 @@ import type { Element } from "@kasten-slides/wasm";
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { PLAIN_FORMAT } from "../../text/handle.ts";
 import { shape, textBox } from "../factory.ts";
 import type { FormatState } from "../session/text-commands.ts";
 import type { TextHandle } from "../text-handle.ts";
@@ -14,7 +15,7 @@ const button = (name: string) => screen.getByRole("button", { name });
 /** The parts of an open text editor the dialog talks to. */
 function fakeEditor(link: string | null = null): TextHandle & { calls: string[] } {
   const calls: string[] = [];
-  const format: FormatState = { bold: false, italic: false, underline: false, strike: false, code: false, color: null, size: null, font: null, align: "left", list: null, level: 0, link, lineSpacing: null };
+  const format: FormatState = { ...PLAIN_FORMAT, link };
   return { calls, formatState: () => format, setLink: (href: string | null) => calls.push(`link(${href})`), focus: vi.fn() } as unknown as TextHandle & { calls: string[] };
 }
 

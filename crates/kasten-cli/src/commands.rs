@@ -160,7 +160,10 @@ fn note_path(kasten: &Kasten, name: &str) -> Result<String, String> {
 pub fn history(args: &Args) -> Outcome {
     let kasten = open(args)?;
     if !kasten.has_history() {
-        return Err("This vault has no history yet (run kasten init in it)".into());
+        return Err(format!(
+            "This vault has no history yet (run {} init in it)",
+            crate::program()
+        ));
     }
     let path = match args.positional.get(1) {
         Some(name) => Some(
@@ -193,10 +196,12 @@ pub fn restore(args: &Args) -> Outcome {
     let kasten = open(args)?;
     let now = Instant::now();
     if args.has("--vault-wide") {
-        let rev = args
-            .positional
-            .get(1)
-            .ok_or("Which commit? kasten restore --vault-wide COMMIT")?;
+        let rev = args.positional.get(1).ok_or_else(|| {
+            format!(
+                "Which commit? {} restore --vault-wide COMMIT",
+                crate::program()
+            )
+        })?;
         let report = kasten
             .restore_vault(&Actor::Human, rev, now)
             .map_err(|e| e.to_string())?;
@@ -207,11 +212,12 @@ pub fn restore(args: &Args) -> Outcome {
         );
         return Ok(0);
     }
+    let usage = || format!("Usage: {} restore NOTE COMMIT", crate::program());
     let [_, name @ .., rev] = args.positional.as_slice() else {
-        return Err("Usage: kasten restore NOTE COMMIT".into());
+        return Err(usage());
     };
     if name.is_empty() {
-        return Err("Usage: kasten restore NOTE COMMIT".into());
+        return Err(usage());
     }
     let path = note_path(&kasten, &name.join(" "))?;
     let note = kasten
@@ -236,10 +242,12 @@ pub fn reindex(args: &Args) -> Outcome {
 /// `kasten dev-generate DIR [--notes N] [--boards N]`: the big vault for
 /// performance checks. Never a real vault.
 pub fn generate(args: &Args) -> Outcome {
-    let dir = args
-        .positional
-        .get(1)
-        .ok_or("Usage: kasten dev-generate DIR [--notes N] [--boards N]")?;
+    let dir = args.positional.get(1).ok_or_else(|| {
+        format!(
+            "Usage: {} dev-generate DIR [--notes N] [--boards N]",
+            crate::program()
+        )
+    })?;
     let dir = PathBuf::from(dir);
     if dir.exists()
         && std::fs::read_dir(&dir)

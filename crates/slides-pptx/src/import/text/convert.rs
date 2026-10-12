@@ -4,7 +4,9 @@
 //! style the box starts from, so text stays as plain in the deck as it was
 //! in the theme and follows the theme where the file did.
 
-use slides_core::{Align, Extra, ListKind, Paragraph, Run, Text, TextStyle, VAlign};
+use slides_core::{
+    Align, Extra, ListKind, Paragraph, Run, Script, Text, TextFit, TextStyle, VAlign, list,
+};
 
 use super::body::BodyProps;
 use super::chain::Chain;
@@ -103,6 +105,20 @@ fn run_of(piece: Piece, base: &TextStyle, scale: f64) -> Run {
     }
     run.link = piece.link;
     run.field = piece.field;
+    run.script = match props.baseline {
+        Some(b) if b > 0 => Some(Script::Super),
+        Some(b) if b < 0 => Some(Script::Sub),
+        _ => None,
+    };
+    match props.cap.as_deref() {
+        Some("small") => run.small_caps = true,
+        Some("all") => run.all_caps = true,
+        _ => {}
+    }
+    run.spacing = props
+        .spacing
+        .filter(|s| s.abs() >= 0.005)
+        .map(crate::import::units::round2);
     run
 }
 
@@ -116,6 +132,10 @@ fn same_look(a: &Run, b: &Run) -> bool {
         && a.font == b.font
         && a.link == b.link
         && a.code == b.code
+        && a.script == b.script
+        && a.small_caps == b.small_caps
+        && a.all_caps == b.all_caps
+        && a.spacing == b.spacing
         && a.field.is_none()
         && b.field.is_none()
 }
@@ -183,6 +203,18 @@ fn pieces(p: &Node, level: &Level, env: &TextEnv, sink: &mut dyn TextSink) -> Ve
     out
 }
 
+/// What a paragraph says about where its lines start and how its numbers count, to be settled
+/// when all the paragraphs of the text are known.
+struct Placed {
+    /// Where the lines after the first start, and where the first starts from there (slide units), as the file says.
+    margin: Option<f64>,
+    indent: Option<f64>,
+    /// How PowerPoint counts this item: its scheme and where its run begins.
+    count: Option<(Option<slides_core::ListStyle>, u32)>,
+    /// The size of the paragraph's marker in points, for the room it needs.
+    points: f64,
+}
+
 fn paragraph(
     p: &Node,
     own_lst: &levels::Levels,
@@ -190,7 +222,7 @@ fn paragraph(
     base: &TextStyle,
     scale: (f64, f64),
     sink: &mut dyn TextSink,
-) -> Paragraph {
+) -> (Paragraph, Placed) {
     let ppr = p.child("a:pPr");
     let lvl = ppr
         .and_then(|n| n.int("lvl"))
@@ -205,27 +237,10 @@ fn paragraph(
     let mut pieces = pieces(p, &level, env, sink);
     if pieces
         .iter()
-        .any(|piece| piece.props.baseline.is_some_and(|b| b != 0))
-    {
-        sink.warn("superscript and subscript were set as normal text");
-    }
-    let shown: Vec<f64> = pieces
-        .iter()
-        .filter(|piece| !piece.text.is_empty() || piece.field.is_some())
-        .map(|piece| piece.props.size.unwrap_or(DEFAULT_SIZE) * scale.0)
-        .collect();
-    let size = shown
-        .iter()
-        .copied()
-        .reduce(f64::max)
-        .unwrap_or_else(|| level.run.size.unwrap_or(DEFAULT_SIZE) * scale.0);
-
-    let mut runs: Vec<Run> = Vec::new();
-    if pieces
-        .iter()
         .all(|piece| piece.text.is_empty() && piece.field.is_none())
     {
-        // An empty paragraph keeps the height its paragraph mark gives it.
+        // An empty paragraph keeps the look its paragraph mark gives it: it is as tall as the
+        // mark says, and so is its marker.
         let mark = p
             .child("a:endParaRPr")
             .map(|r| levels::run_props(r, &env.reader, None))
@@ -239,6 +254,22 @@ fn paragraph(
             field: None,
         });
     }
+    // The size lines are measured by: the largest on show, or the mark's when nothing is.
+    let size = pieces
+        .iter()
+        .filter(|piece| !piece.text.is_empty() || piece.field.is_some())
+        .map(|piece| piece.props.size.unwrap_or(DEFAULT_SIZE) * scale.0)
+        .reduce(f64::max)
+        .unwrap_or_else(|| {
+            pieces
+                .first()
+                .and_then(|piece| piece.props.size)
+                .or(level.run.size)
+                .unwrap_or(DEFAULT_SIZE)
+                * scale.0
+        });
+
+    let mut runs: Vec<Run> = Vec::new();
     for piece in pieces {
         let run = run_of(piece, base, scale.0);
         if run.field.is_some() {
@@ -266,7 +297,54 @@ fn paragraph(
         space_after: None,
         line_spacing: None,
         step: None,
+        list_style: None,
+        start: None,
+        bullet_color: None,
+        bullet_size: None,
+        margin_left: None,
+        indent: None,
         extra: slides_core::Extra::new(),
+    };
+    if let Some(kind) = &out.list {
+        // The marker's own look, where it is not what the level and the words would give it.
+        let marker = &level.marker;
+        out.list_style = marker
+            .style
+            .clone()
+            .filter(|s| s.kind() == *kind && *s != list::default_style(kind, lvl));
+        let first = out
+            .runs
+            .iter()
+            .find(|r| !r.t.is_empty())
+            .or(out.runs.first());
+        let words = first
+            .and_then(|r| r.color.clone())
+            .unwrap_or_else(|| base.color.clone());
+        out.bullet_color = marker
+            .color
+            .as_ref()
+            .map(|paint| paint.value.clone())
+            .filter(|color| *color != words);
+        out.bullet_size = marker
+            .size
+            .filter(|share| (share - 1.0).abs() > 0.01)
+            .map(round4);
+    }
+    let first = out
+        .runs
+        .iter()
+        .find(|r| !r.t.is_empty())
+        .or(out.runs.first());
+    let placed = Placed {
+        margin: level.marker.margin,
+        indent: level.marker.indent,
+        count: matches!(level.bullet, Some(Bullet::Number)).then(|| {
+            (
+                level.marker.style.clone(),
+                level.marker.start_at.unwrap_or(1),
+            )
+        }),
+        points: first.and_then(|r| r.size).unwrap_or(base.size) * out.bullet_size.unwrap_or(1.0),
     };
     let base_align = base.align.clone().unwrap_or(Align::Left);
     let wanted = level.align.clone().unwrap_or(Align::Left);
@@ -290,7 +368,64 @@ fn paragraph(
             out.space_after = Some(value);
         }
     }
-    out
+    (out, placed)
+}
+
+/// The number PowerPoint shows for each numbered paragraph: an item counts on from the one before it
+/// at its level when that has the same scheme and the same starting number; otherwise it starts there.
+fn powerpoint_counts(paragraphs: &[Paragraph], placed: &[Placed]) -> Vec<Option<u32>> {
+    type Counter = (Option<slides_core::ListStyle>, u32, u32);
+    let mut counters: Vec<Option<Counter>> = Vec::new();
+    paragraphs
+        .iter()
+        .zip(placed)
+        .map(|(p, at)| {
+            let level = list::level(p);
+            match &p.list {
+                None => {
+                    counters.clear();
+                    None
+                }
+                Some(ListKind::Bullet) => {
+                    counters.truncate(level + 1);
+                    counters.resize(level + 1, None);
+                    counters[level] = None;
+                    None
+                }
+                Some(ListKind::Number) => {
+                    counters.truncate(level + 1);
+                    counters.resize(level + 1, None);
+                    let (scheme, start) = at.count.clone().unwrap_or((None, 1));
+                    let n = match &counters[level] {
+                        Some((s, st, count)) if *s == scheme && *st == start => count + 1,
+                        _ => start,
+                    };
+                    counters[level] = Some((scheme, start, n));
+                    Some(n)
+                }
+            }
+        })
+        .collect()
+}
+
+/// Makes the deck count as the file does: an item that would not come out at the number PowerPoint
+/// shows is told where to begin, and the paragraphs whose indents are not the editor's own say so.
+fn settle(paragraphs: &mut [Paragraph], placed: &[Placed]) {
+    list::reconcile(paragraphs, &powerpoint_counts(paragraphs, placed));
+    let points: Vec<f64> = placed.iter().map(|p| p.points).collect();
+    let usual = list::layout(paragraphs, &points);
+    for ((paragraph, said), usual) in paragraphs.iter_mut().zip(placed).zip(usual) {
+        if let Some(margin) = said.margin
+            && (margin - usual.margin).abs() > 0.5
+        {
+            paragraph.margin_left = Some(margin);
+        }
+        if let Some(indent) = said.indent
+            && (indent - usual.indent).abs() > 0.5
+        {
+            paragraph.indent = Some(indent);
+        }
+    }
 }
 
 /// The text of a `p:txBody` or `a:txBody`, as a deck holds it.
@@ -300,22 +435,35 @@ pub fn convert(tx_body: &Node, env: &TextEnv, sink: &mut dyn TextSink) -> Text {
         .child("a:lstStyle")
         .map(|l| levels::list_style(l, &env.reader, None))
         .unwrap_or_else(levels::Levels::empty);
-    let scale = (
-        env.body.font_scale.unwrap_or(1.0),
-        env.body.line_reduction.unwrap_or(0.0),
-    );
-    let mut paragraphs: Vec<Paragraph> = tx_body
+    // A box that PowerPoint shrank its words to fit keeps the sizes they were written in and says so (`fit`): how much to
+    // shrink is found again from the words and the box, wherever they are drawn, so more words shrink them further and
+    // fewer give them back. The scale in the file is not carried over.
+    let scale = (1.0, 0.0);
+    let (mut paragraphs, mut placed): (Vec<Paragraph>, Vec<Placed>) = tx_body
         .children_named("a:p")
         .map(|p| paragraph(p, &own_lst, env, &base, scale, sink))
-        .collect();
+        .unzip();
     if paragraphs.is_empty() {
         paragraphs.push(Paragraph::plain(""));
+        placed.push(Placed {
+            margin: None,
+            indent: None,
+            count: None,
+            points: base.size,
+        });
     }
+    settle(&mut paragraphs, &placed);
     let mut text = Text::from_paragraphs(paragraphs);
     text.insets = env.body.insets();
     // A body that names no anchor anywhere down its chain is anchored at the top.
     let anchor = env.body.anchor.clone().unwrap_or(VAlign::Top);
     text.valign = (anchor != env.default_valign).then_some(anchor);
+    text.fit = match env.body.fit {
+        Some(TextFit::Shrink) => Some(TextFit::Shrink),
+        Some(TextFit::Resize) => Some(TextFit::Resize),
+        _ => None,
+    };
+    text.wrap = (env.body.wrap == Some(false)).then_some(false);
     text
 }
 

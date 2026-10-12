@@ -62,7 +62,7 @@ pub const RULES: [RuleInfo; 14] = [
     rule(
         "min-font",
         Severity::Warning,
-        "Body text is under 14 pt, or citation text under 8 pt.",
+        "Body text is under 14 pt, or citation text under 8 pt (in proportion on a slide narrower than 960 units).",
     ),
     rule(
         "contrast",
@@ -87,7 +87,7 @@ pub const RULES: [RuleInfo; 14] = [
     rule(
         "pptx-unsafe",
         Severity::Warning,
-        "Something has no form PowerPoint or Google Slides reads: a Morph transition, an embedded page without a poster, a video, an imported object with nothing to draw, inline math.",
+        "Something has no form PowerPoint or Google Slides reads: a Morph transition, an embedded page without a snapshot, a video, a timer, an imported object with nothing to draw, inline math.",
     ),
     rule(
         "near-miss-align",

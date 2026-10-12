@@ -98,6 +98,7 @@ fn a_path_goes_to_its_note_whatever_its_title() {
         "projects/home/pages/test",
         "Projects/Home/pages/TEST",
         "projects/home/pages/test.md",
+        "projects/home/pages/Test.MD",
     ] {
         assert_eq!(
             path_of(&dir.resolve(target, from)),

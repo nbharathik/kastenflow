@@ -1,6 +1,7 @@
 /* A whiteboard inside a page (board-embed.ts): a framed, live board under
-   the embed's head. Until it is clicked, a clear cover passes the page its
-   scrolling; on hover the cover says how to start. */
+   a slim head. Until it is clicked, a clear cover passes the page its
+   scrolling, on hover the cover says how to start, and the board's own bars
+   stay away; a grip on the bottom edge sets the height. */
 
 .kasten-page-editor .kasten-embed.kasten-board-embed {
   position: relative;
@@ -9,12 +10,23 @@
 
   & .kasten-embed-head {
     box-sizing: border-box;
-    height: 36px;
+    height: 28px;
+    padding-block: 0;
   }
 
   &[data-active="true"] {
     border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
     box-shadow: 0 0 0 3px var(--color-soft);
+  }
+
+  /* The board's tools, zoom and way back appear when it is worked on. */
+  &:not([data-active]) :is(.kasten-tools, .kasten-bottombar, .kasten-zoombar) {
+    display: none;
+  }
+
+  /* The board's breadcrumb leads away from the page: an embed has none. */
+  & .kasten-crumbs {
+    display: none;
   }
 }
 
@@ -27,7 +39,7 @@
 
 .kasten-page-editor .kasten-board-embed-cover {
   position: absolute;
-  inset: 36px 0 0;
+  inset: 28px 0 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -55,7 +67,8 @@
   text-shadow: 0 0 12px var(--color-canvas);
 }
 
-.kasten-page-editor .kasten-board-embed-open {
+.kasten-page-editor .kasten-board-embed-open,
+.kasten-page-editor .kasten-board-embed-present {
   padding: 2px 6px;
   border-radius: var(--radius);
   color: var(--notion-text-2);
@@ -65,5 +78,31 @@
   &:hover {
     background: var(--color-hover);
     color: var(--notion-text);
+  }
+}
+
+/* Both buttons in the head show on hover, as the page embed's "Open" does. */
+.kasten-page-editor .kasten-board-embed-present {
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.kasten-page-editor .kasten-board-embed:hover .kasten-board-embed-present,
+.kasten-page-editor .kasten-board-embed[data-active="true"] .kasten-board-embed-present,
+.kasten-page-editor .kasten-board-embed-present:focus-visible {
+  opacity: 1;
+}
+
+.kasten-page-editor .kasten-board-embed-grip {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 3;
+  height: 6px;
+  cursor: ns-resize;
+
+  &:hover,
+  &:focus-visible,
+  &:active {
+    background: color-mix(in srgb, var(--color-accent) 35%, transparent);
   }
 }

@@ -1,8 +1,9 @@
 // Tooltips for the toolbar. The kit draws a tooltip with CSS below any control
-// that has `data-tip`, but the toolbar scrolls sideways when it is narrow, and
-// a scrolling box clips whatever pokes out of it, tooltips included. These
-// are drawn with `position: fixed`, which the box does not clip, and are kept
-// inside the window.
+// that has `data-tip`, but the toolbar clips whatever pokes out of its box
+// (it does not scroll: what does not fit goes into the more menu), tooltips
+// included. These are drawn with `position: fixed`, which the box does not
+// clip, and are kept inside the window. They come after 400 ms, and the next
+// one almost at once while the pointer moves along the row.
 
 import { type FocusEvent, type JSX, type MouseEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -13,7 +14,7 @@ interface Tip {
   y: number;
 }
 
-const FIRST_DELAY = 500;
+const FIRST_DELAY = 400;
 const NEXT_DELAY = 60;
 
 /** Whether the focus got to `element` by the keyboard, which is when a tooltip is wanted without a pointer over it. */

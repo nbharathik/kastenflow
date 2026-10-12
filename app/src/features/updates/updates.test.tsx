@@ -14,10 +14,10 @@ const newer: UpdateInfo = {
   latest: "0.3.0",
   newer: true,
   url: "https://github.com/example/kasten/releases/tag/v0.3.0",
-  name: "Kasten 0.3.0",
+  name: "KastenFlow 0.3.0",
   published: "2026-10-01T09:00:00Z",
   notes: "## Highlights\n\n- Mind maps\n- Faster search",
-  download: { name: "Kasten_0.3.0_x64-setup.exe", url: "https://github.com/example/kasten/releases/download/v0.3.0/Kasten_0.3.0_x64-setup.exe", size: 84_000_000 },
+  download: { name: "KastenFlow_0.3.0_x64-setup.exe", url: "https://github.com/example/kasten/releases/download/v0.3.0/KastenFlow_0.3.0_x64-setup.exe", size: 84_000_000 },
 };
 const same: UpdateInfo = { ...newer, latest: "0.2.0", newer: false, download: null };
 const app: AppInfo = { coreVersion: "0.3.0", appVersion: "0.3.0", vault: null, releases: "https://github.com/example/kasten/releases" };
@@ -64,7 +64,7 @@ describe("the daily check", () => {
     const check = found(newer);
     await dailyCheck(check, 5 * DAY);
     const toast = useWorkspace.getState().toasts.at(-1)!;
-    expect(toast.text).toBe("Kasten 0.3.0 is out");
+    expect(toast.text).toBe("KastenFlow 0.3.0 is out");
     toast.action!.run();
     expect(useUpdates.getState().open).toBe(true);
     // The next day the same release is not announced again, but it stays
@@ -95,11 +95,11 @@ describe("the daily check", () => {
     askOnce(check);
     const toasts = useWorkspace.getState().toasts;
     expect(toasts).toHaveLength(1);
-    expect(toasts[0]!.text).toMatch(/new Kasten is out/);
+    expect(toasts[0]!.text).toMatch(/new KastenFlow is out/);
     await act(async () => toasts[0]!.action!.run());
     expect(loadUpdates().auto).toBe(true);
     expect(check).toHaveBeenCalledTimes(1);
-    expect(useWorkspace.getState().toasts.at(-1)!.text).toBe("Kasten 0.3.0 is out");
+    expect(useWorkspace.getState().toasts.at(-1)!.text).toBe("KastenFlow 0.3.0 is out");
   });
 
   it("is not asked for when it is already on", () => {
@@ -117,7 +117,7 @@ describe("after an update", () => {
     expect(useWorkspace.getState().toasts).toEqual([]);
     greetUpdate(app, open);
     const toast = useWorkspace.getState().toasts.at(-1)!;
-    expect(toast.text).toBe("Kasten is now 0.3.0");
+    expect(toast.text).toBe("KastenFlow is now 0.3.0");
     toast.action!.run();
     expect(open).toHaveBeenCalledWith("https://github.com/example/kasten/releases/tag/v0.3.0");
     greetUpdate(app, open);
@@ -137,7 +137,7 @@ describe("What's new", () => {
     const open = vi.fn(async () => {});
     useUpdates.setState({ info: newer, open: true });
     render(<WhatsNew open={open} />);
-    expect(screen.getByRole("dialog", { name: "Kasten 0.3.0" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "KastenFlow 0.3.0" })).toBeTruthy();
     expect(screen.getByText(/You have 0.2.0/)).toBeTruthy();
     expect(screen.getByText("Mind maps")).toBeTruthy();
     expect(screen.getByText(/Your notes stay in their folder/)).toBeTruthy();

@@ -13,7 +13,7 @@ use slides_pptx::import::{ImportOptions, Imported, import};
 use slides_pptx::{Options, export};
 
 use common::pictures::pictures_for;
-use common::{Files, compare, decks, variety};
+use common::{Files, compare, decks, lists, variety};
 
 fn fixtures() -> Vec<PathBuf> {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/decks");
@@ -74,6 +74,12 @@ fn text_in_every_look_comes_back_as_it_went() {
 }
 
 #[test]
+fn lists_in_every_style_and_the_settings_of_a_box_come_back_as_they_went() {
+    let (deck, files) = lists::list_looks();
+    assert_same("list looks", &deck, files);
+}
+
+#[test]
 fn turned_and_mirrored_shapes_come_back_in_their_places() {
     let (deck, files) = variety::turned();
     assert_same("turned", &deck, files);
@@ -95,6 +101,33 @@ fn a_four_by_three_deck_and_a_deck_with_sections_and_hidden_slides_come_back() {
 fn every_theme_comes_back_with_all_its_layouts() {
     for (theme, deck, files) in variety::every_theme() {
         assert_same(&theme, &deck, files);
+    }
+}
+
+/// What a person gets from New deck: each template with its example slides, at every page size on offer. Each is
+/// exported and read back as it went, and the file is the size of the slide the deck has.
+#[test]
+fn every_template_with_its_example_slides_comes_back_at_every_page_size() {
+    for theme in slides_core::themes::all() {
+        for (preset, w, h) in slides_core::resize::PAGE_SIZES {
+            let name = format!("{} at {preset}", theme.name);
+            let deck = slides_core::Engine::create_with(&slides_core::NewDeck {
+                title: "A talk about something",
+                theme: &theme.name,
+                size: Some((w, h)),
+                examples: true,
+                seed: 5,
+            })
+            .unwrap_or_else(|e| panic!("{name}: {e}"))
+            .into_deck();
+            let back = assert_same(&name, &deck, Files::default());
+            assert_eq!(
+                (back.deck.size.w, back.deck.size.h),
+                (w, h),
+                "{name} comes back at its own size"
+            );
+            assert_eq!(back.deck.slides.len(), 7, "{name}");
+        }
     }
 }
 

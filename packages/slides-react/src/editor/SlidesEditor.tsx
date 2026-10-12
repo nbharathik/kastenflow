@@ -1,20 +1,22 @@
 import { DeckEngine, loadSlides } from "@kasten-slides/wasm";
-import { type JSX, type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { type JSX, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultActions } from "./actions.ts";
 import { SlideCanvas } from "./canvas/SlideCanvas.tsx";
+import { clearSelection, isBareBackground } from "./canvas/outside.ts";
+import { copyEvent, pasteEvent, useNativeClipboard } from "./clipboard/events.ts";
 import { dispatchKey } from "./commands/index.ts";
 import { Dialogs } from "./dialogs/Dialogs.tsx";
 import { watchFullScreen } from "./full-screen.ts";
 import { GridView } from "./grid/GridView.tsx";
 import type { SlidesHost } from "./host.ts";
+import { useChromeValue } from "./chrome/chrome.ts";
 import { ContextMenus } from "./menus/ContextMenus.tsx";
-import { MenuBar } from "./menus/MenuBar.tsx";
 import { NotesPane } from "./notes/NotesPane.tsx";
 import { OutlineView } from "./outline/OutlineView.tsx";
 import { Filmstrip } from "./filmstrip/Filmstrip.tsx";
 import { GalleryDrawer } from "./gallery/GalleryDrawer.tsx";
-import { SidePanel } from "./panels/SidePanel.tsx";
+import { PanelHost } from "./panels/PanelHost.tsx";
 import { EditorSession, type SessionOptions } from "./session/session.ts";
 import { TitleBar } from "./titlebar/TitleBar.tsx";
 import { Toolbar } from "./toolbar/Toolbar.tsx";
@@ -91,7 +93,11 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
 /** The editor once its session exists. Also the way to show an editor for a session made elsewhere (tests). */
 export function Workspace({ session, ui, className = "ks-editor", theme }: { session: EditorSession; ui: EditorUi; className?: string; theme?: "light" | "dark" }): JSX.Element {
   const view = useUiState(ui);
+  const density = useChromeValue(ui, (state) => state.density);
   const context = useMemo(() => ({ session, ui }), [session, ui]);
+  const root = useRef<HTMLDivElement>(null);
+  // The keys of copy, cut and paste make the browser's events only where the page says they may (`beforecopy` and the like).
+  useNativeClipboard(root, context);
 
   // Full screen: the page's own follows the mode, and leaving the editor (unmounting it) leaves full screen.
   useEffect(() => watchFullScreen(ui), [ui]);
@@ -107,15 +113,28 @@ export function Workspace({ session, ui, className = "ks-editor", theme }: { ses
 
   return (
     <div
+      ref={root}
       className={view.fullScreen ? `${className} is-fullscreen` : className}
       data-theme={theme}
+      data-density={density}
+      // A press on a place nothing inside can take the focus leaves it with the editor (not with the page), so its keys still reach it.
+      tabIndex={-1}
       onKeyDown={onKeyDown}
+      // The keys of copy, cut and paste are the browser's own: the events they make carry the data (`clipboard/events.ts`).
+      onCopy={(event) => copyEvent(event, context, false)}
+      onCut={(event) => copyEvent(event, context, true)}
+      onPaste={(event) => pasteEvent(event, context)}
+      // A press on bare background of the title bar, or on the part of a panel that holds nothing (the container itself, below the
+      // sections), lets go of what is selected on the slide. The slide and the lists have their own; a gap between two controls is not this.
+      onPointerDown={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && isBareBackground(target) && (target.closest(".ks-titlebar") || target.matches(".ks-side-panel, .ks-sp-tabs, .ks-sp-body"))) clearSelection(session, event);
+      }}
       onFocus={(event) => ui.areas.noteFocus(event.target)}
       onBlur={(event) => ui.areas.noteBlur(event.target, event.relatedTarget)}
     >
       <header className="ks-top">
         <TitleBar session={session} ui={ui} />
-        <MenuBar session={session} ui={ui} />
         <Toolbar session={session} ui={ui} />
       </header>
       <div className="ks-body">
@@ -125,9 +144,9 @@ export function Workspace({ session, ui, className = "ks-editor", theme }: { ses
           {view.view === "edit" ? <SlideCanvas session={session} ui={ui} /> : null}
           {view.view === "outline" ? <OutlineView session={session} ui={ui} /> : null}
           {view.view === "grid" ? <GridView session={session} ui={ui} /> : null}
-          {view.notesOpen && view.view === "edit" ? <NotesPane session={session} ui={ui} /> : null}
+          {view.view === "edit" ? <NotesPane session={session} ui={ui} /> : null}
         </main>
-        {view.panel ? <SidePanel session={session} ui={ui} /> : null}
+        <PanelHost session={session} ui={ui} />
       </div>
       <Dialogs session={session} ui={ui} />
       <ContextMenus session={session} ui={ui} />

@@ -9,10 +9,10 @@ import type { PropDef } from "../../../lib/vault/types";
 import { schemaOf } from "../../panel/properties/schemas";
 import { ViewBoundary } from "../../../ui/ViewBoundary";
 import { EmbeddedDatabase } from "../../tags/EmbeddedDatabase";
-import { newView, notesWith, viewsOf } from "../../tags/model";
+import { newView, notesWith, projectFolderOf, scoped, viewsOf } from "../../tags/model";
 import { tagPlace } from "../../tags/place";
 import { useTags } from "../../tags/store";
-import { tagFrom, type LinkProvider } from "../../pages/editor/links";
+import { tagFrom, type DatabaseLink, type LinkProvider } from "../../pages/editor/links";
 import { useWorkspace } from "../store";
 
 type DatabaseLinks = Required<Pick<LinkProvider, "databases" | "mountDatabase" | "openDatabase" | "createDatabase" | "viewOf">>;
@@ -31,7 +31,15 @@ export function databaseLinks(page: () => string | null = () => null): DatabaseL
       const { schemas } = useTags.getState();
       if (schemas === null) void useTags.getState().load();
       const notes = useWorkspace.getState().notes;
-      return (schemas ?? []).map((schema) => ({ tag: schema.name, path: schema.path, count: notesWith(notes, schema.name).length }));
+      // In a project's page, a tag with a view of what is filed in a project (a capture's "This project") offers it too.
+      const folder = projectFolderOf(page());
+      return (schemas ?? []).map((schema): DatabaseLink => {
+        const tagged = notesWith(notes, schema.name);
+        const link: DatabaseLink = { tag: schema.name, path: schema.path, count: tagged.length };
+        const here = folder === null ? undefined : viewsOf(schema).find((v) => v.scope === "project");
+        if (here) link.inThisProject = { view: here.name, count: scoped(tagged, here, folder).length };
+        return link;
+      });
     },
     mountDatabase: (host, tag, view) => {
       const root = createRoot(host);

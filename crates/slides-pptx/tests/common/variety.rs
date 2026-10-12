@@ -203,9 +203,11 @@ pub fn four_three() -> (Deck, Files) {
 
 /// A deck in each theme, each with a title, a list, a picture and a slide in every layout.
 pub fn every_theme() -> Vec<(String, Deck, Files)> {
-    ["Light", "Dark", "Serif", "Lecture"]
+    slides_core::themes::all()
         .into_iter()
+        .map(|built_in| built_in.name)
         .map(|theme| {
+            let theme = theme.as_str();
             let mut b = Builder::new(theme, &format!("{theme} theme"), 71);
             let layouts: Vec<String> = b
                 .engine

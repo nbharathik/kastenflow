@@ -172,6 +172,10 @@
   color: var(--color-accent);
 }
 
+.kasten-otd-label.is-events {
+  color: var(--notion-teal);
+}
+
 /* "· day 2 of 5" after an ongoing range's title. */
 .kasten-otd-extra {
   flex-shrink: 0;

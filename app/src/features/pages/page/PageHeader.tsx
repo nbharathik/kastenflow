@@ -1,5 +1,8 @@
+import "./title-date.css";
+
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { longDay, shortDay } from "../../../lib/dates";
 import { lineIconName } from "../../../ui/glyph";
 import { Icon } from "../../../ui/Icon";
 import { CoverPicker } from "./CoverPicker";
@@ -7,6 +10,7 @@ import { coverBackground, randomCover } from "./covers";
 import { EmojiPicker } from "./EmojiPicker";
 import { iconGlyph, randomEmoji } from "./emoji";
 import type { MetaKey, PageMeta } from "./page-meta";
+import { atQuery, DateMenu, withoutAt } from "./title-date";
 
 export interface PageHeaderProps {
   meta: PageMeta;
@@ -29,10 +33,17 @@ export interface PageHeaderProps {
   fresh?: boolean;
   /** Keeps a picture with the vault for a cover, and shows kept pictures. */
   files?: { save: (file: File) => Promise<string>; url: (src: string) => string };
+  /** The page's date (`YYYY-MM-DD`), shown as a chip beside the title. */
+  date?: string | null;
+  /** Typing `@` in the title offers dates; a pick sets the page's date, and
+   * the chip's remove button clears it (null). Without it the title has no `@` menu. */
+  onDate?: (day: string | null) => void;
+  /** The day weeks start on, for dates such as "next week". */
+  weekStart?: () => number;
 }
 
 /** Notion's page header: cover, icon, and a big title, all from the frontmatter. */
-export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleReadOnly, autoFocusTitle, place, onAddProperty, fresh, files }: PageHeaderProps) {
+export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleReadOnly, autoFocusTitle, place, onAddProperty, fresh, files, date, onDate, weekStart }: PageHeaderProps) {
   const [picker, setPicker] = useState<"icon" | "cover" | null>(null);
   const background = coverBackground(meta.cover, files?.url);
   const glyph = iconGlyph(meta.icon);
@@ -72,7 +83,7 @@ export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleRead
         {glyph && (
           <div className="kasten-page-icon-wrap">
             <button type="button" className="kasten-page-icon" aria-label="Change icon" title={line ? undefined : meta.icon} onClick={() => setPicker("icon")}>
-              {line ? <Icon name={line} className="size-[60px] text-muted" strokeWidth={1.25} /> : glyph}
+              {line ? <Icon name={line} className="size-[calc(5em/6)] text-muted" strokeWidth={1.25} /> : glyph}
             </button>
             {picker === "icon" && (
               <EmojiPicker
@@ -111,14 +122,31 @@ export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleRead
             </button>
           )}
         </div>
-        <TitleField
-          value={meta.title}
-          onChange={(title) => onChange("title", title)}
-          onEnter={onEnterBody}
-          onDone={onTitleDone}
-          readOnly={titleReadOnly}
-          autoFocus={autoFocusTitle}
-        />
+        <div className={`kasten-page-title-row${date ? " has-date" : ""}`}>
+          <TitleField
+            value={meta.title}
+            onChange={(title) => onChange("title", title)}
+            onEnter={onEnterBody}
+            onDone={onTitleDone}
+            readOnly={titleReadOnly}
+            autoFocus={autoFocusTitle}
+            onDate={onDate}
+            weekStart={weekStart}
+          />
+          {date && (
+            <div className="kasten-page-date-slot">
+              <span className="kasten-page-date" role="group" aria-label={`Date: ${longDay(date)}`}>
+                <Icon name="calendar" className="size-3.5" />
+                {shortDay(date)}
+                {onDate && (
+                  <button type="button" aria-label="Remove date" title="Remove date" onClick={() => onDate(null)}>
+                    <Icon name="close" className="size-3" />
+                  </button>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -132,17 +160,50 @@ interface TitleFieldProps {
   onDone?: () => void;
   readOnly?: boolean;
   autoFocus?: boolean;
+  onDate?: (day: string | null) => void;
+  weekStart?: () => number;
 }
 
 /** Webviews that size a text area to its text themselves (CSS
  * `field-sizing: content`), with no layout forced from script. */
 const SIZES_ITSELF = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content");
 
-function TitleField({ value, onChange, onEnter, onDone, readOnly, autoFocus }: TitleFieldProps) {
+function TitleField({ value, onChange, onEnter, onDone, readOnly, autoFocus, onDate, weekStart }: TitleFieldProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
+
+  // The date menu for an `@` typed in the title, which reads the latest props.
+  const menu = useRef<DateMenu | null>(null);
+  const latest = useRef({ onChange, onDate, weekStart });
+  useEffect(() => {
+    latest.current = { onChange, onDate, weekStart };
+  });
+  useEffect(() => () => menu.current?.close(), []);
+  const pick = (day: string) => {
+    const field = ref.current;
+    if (!field) return;
+    const caret = field.selectionStart ?? field.value.length;
+    const at = atQuery(field.value, caret);
+    const title = at ? withoutAt(field.value, at.from, caret) : field.value;
+    latest.current.onChange(title);
+    latest.current.onDate?.(day);
+    // The title is set again on the next render, which moves the caret to its end.
+    const place = Math.min(at?.from ?? title.length, title.length);
+    setTimeout(() => field.setSelectionRange(place, place), 0);
+  };
+  const watch = (field: HTMLTextAreaElement) => {
+    if (!onDate || readOnly) return;
+    const at = atQuery(field.value, field.selectionStart ?? field.value.length);
+    if (!at) return menu.current?.close();
+    menu.current ??= new DateMenu(
+      () => ref.current?.getBoundingClientRect() ?? { left: 0, top: 0, right: 0, bottom: 0 },
+      () => latest.current.weekStart?.() ?? 1,
+      pick,
+    );
+    menu.current.show(at.query);
+  };
   useLayoutEffect(() => {
     const field = ref.current;
     // Reading scrollHeight lays out the whole new page before it paints.
@@ -169,9 +230,17 @@ function TitleField({ value, onChange, onEnter, onDone, readOnly, autoFocus }: T
       spellCheck
       readOnly={readOnly}
       value={value}
-      onChange={(event) => onChange(event.target.value.replace(/\s*[\r\n]+\s*/g, " "))}
-      onBlur={() => onDone?.()}
+      onChange={(event) => {
+        onChange(event.target.value.replace(/\s*[\r\n]+\s*/g, " "));
+        watch(event.target);
+      }}
+      onSelect={(event) => watch(event.currentTarget)}
+      onBlur={() => {
+        menu.current?.close();
+        onDone?.();
+      }}
       onKeyDown={(event) => {
+        if (menu.current?.isOpen && menu.current.handleKey(event.nativeEvent)) return event.preventDefault();
         const field = event.currentTarget;
         const atEnd = field.selectionStart === field.value.length;
         if (event.key === "Enter" || (event.key === "ArrowDown" && atEnd)) {

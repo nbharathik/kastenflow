@@ -26,7 +26,7 @@ const MAX_CONTEXT_ITEMS: usize = 60;
 /// Characters of a sticky or label quoted.
 const MAX_ITEM_CHARS: usize = 200;
 
-pub const SYSTEM: &str = "You help someone think on a whiteboard in Kasten, a notes app. \
+pub const SYSTEM: &str = "You help someone think on a whiteboard in KastenFlow, a notes app. \
 Reply with a JSON array and nothing else: [{\"title\": \"...\", \"text\": \"...\"}]. \
 Each title is short (under 60 characters) and names one distinct, concrete idea; \
 text says in one to three sentences what it is and why it might help. \
@@ -210,6 +210,7 @@ mod tests {
                 node(None, None),
             ],
             edges: vec![],
+            source: None,
         };
         let asked = request(&board, "day trips", 5);
         assert!(asked.contains("Board: “Hilltown”"), "{asked}");

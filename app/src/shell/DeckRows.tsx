@@ -2,9 +2,13 @@ import { memo } from "react";
 
 import { useDecks } from "../features/slides/store";
 import { dragNotes } from "../features/workspace/drag";
+import { howFromPage } from "../features/workspace/open-how";
 import { usePrefs } from "../features/workspace/prefs";
-import { howFrom, useWorkspace } from "../features/workspace/store";
+import { useWorkspace } from "../features/workspace/store";
 import { Menu, openRowMenu } from "./Menu";
+import { openItems, openMenuHandlers } from "./open-menu";
+import { ShowMoreRow, useRowLimit } from "./row-limit";
+import { keeps, useTreeFilter } from "./tree-filter";
 import { Icon } from "../ui/Icon";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
 import { lineIcon } from "../ui/glyph";
@@ -13,7 +17,9 @@ import { lineIcon } from "../ui/glyph";
 export const DeckRow = memo(function DeckRow({ path, title, depth = 0 }: { path: string; title: string; depth?: number }) {
   const active = useWorkspace((s) => s.place.view === "slides" && s.place.path === path);
   const favourite = usePrefs((s) => s.favourites.includes(path));
+  const filter = useTreeFilter();
   const { openPath, trash } = useWorkspace.getState();
+  if (!keeps(filter, path)) return null;
   return (
     <li>
       <div
@@ -27,8 +33,8 @@ export const DeckRow = memo(function DeckRow({ path, title, depth = 0 }: { path:
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-          onClick={(e) => openPath(path, howFrom(e))}
-          onAuxClick={(e) => e.button === 1 && openPath(path, "tab")}
+          onClick={(e) => openPath(path, howFromPage(e))}
+          onAuxClick={openMenuHandlers(path).onAuxClick}
           aria-current={active ? "page" : undefined}
           title={`${title} (deck)`}
         >
@@ -45,7 +51,8 @@ export const DeckRow = memo(function DeckRow({ path, title, depth = 0 }: { path:
             buttonClass="grid size-5 place-items-center rounded-md text-muted hover:bg-hover hover:text-ink"
             items={[
               { label: favourite ? "Remove from Favourites" : "Add to Favourites", icon: <Icon name="star" className="size-4" />, onSelect: () => usePrefs.getState().toggleFavourite(path) },
-              { label: "Open in new tab", icon: <Icon name="external" className="size-4" />, hint: "Ctrl+click", onSelect: () => openPath(path, "tab") },
+              "divider",
+              ...openItems(path),
               "divider",
               { label: "Move to Trash", icon: <Icon name="trash" className="size-4" />, danger: true, onSelect: () => void trash(path) },
             ]}
@@ -58,10 +65,21 @@ export const DeckRow = memo(function DeckRow({ path, title, depth = 0 }: { path:
   );
 });
 
-/** A project's decks, listed after its whiteboards. */
+/** A project's decks, listed after its whiteboards; the first few, then "Show more". */
 export function ProjectDecks({ project, depth }: { project: string; depth: number }) {
   const decks = useDecks((s) => s.list);
-  return decks.filter((d) => d.project === project).map((d) => <DeckRow key={d.path} path={d.path} title={d.title} depth={depth} />);
+  const filter = useTreeFilter();
+  const [limit, more] = useRowLimit(`${project}:decks`);
+  const mine = decks.filter((d) => d.project === project && keeps(filter, d.path));
+  const cut = !filter && mine.length > limit;
+  return (
+    <>
+      {(cut ? mine.slice(0, limit) : mine).map((d) => (
+        <DeckRow key={d.path} path={d.path} title={d.title} depth={depth} />
+      ))}
+      {cut && <ShowMoreRow shown={limit} total={mine.length} depth={depth} onMore={more} />}
+    </>
+  );
 }
 
 /** Favourite decks, by the order they were starred. */

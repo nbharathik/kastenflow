@@ -156,7 +156,7 @@ fn chips_that_cannot_be_read_say_so() {
     );
     assert!(out.contains("has no view called"), "{out}");
     assert!(
-        out.contains("<pdf>\n(Kasten cannot read this kind of context.)\n</pdf>"),
+        out.contains("<pdf>\n(KastenFlow cannot read this kind of context.)\n</pdf>"),
         "{out}"
     );
     assert_eq!(context::expand(&v.kasten, &session, &[]), "");

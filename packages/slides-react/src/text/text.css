@@ -21,8 +21,8 @@
   display: inline-block;
   box-sizing: border-box;
   min-width: var(--ks-indent);
-  /* A number as wide as the hanging space still leaves room before its text. */
-  padding-right: 0.2em;
+  /* A marker as wide as the hanging space still leaves air before its text (the room of a marker includes this much). */
+  padding-right: 0.35em;
   text-indent: 0;
   white-space: nowrap;
   font-family: var(--ks-marker-family);

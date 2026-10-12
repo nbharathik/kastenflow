@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { shape, textBox } from "../factory.ts";
@@ -70,14 +70,45 @@ describe("the Insert menu", () => {
   it("arms the text box tool", async () => {
     const { session } = await setup();
     click(bar("Insert"));
+    fireEvent.click(row(/^Text & content/));
     fireEvent.click(row(/^Text box/));
     expect(session.state.tool).toBe("text");
+  });
+
+  it("has two levels: six groups, each opening onto its items", async () => {
+    await setup();
+    click(bar("Insert"));
+    const groups = [...screen.getAllByRole("menu")[0]!.querySelectorAll(":scope > button > .ks-menu-label")].map((r) => r.textContent);
+    expect(groups).toEqual([
+      "Text & content",
+      "Media",
+      "Shapes & lines",
+      "Data",
+      "Pages & links",
+      "Smart parts",
+      "Insert gallery…",
+      "New slide",
+    ]);
+    fireEvent.click(row(/^Smart parts/));
+    // Each item says what it makes.
+    expect(row(/^Conversation/).textContent).toMatch(/a person and an assistant/);
+    expect(row(/^Card grid/)).toBeTruthy();
+    expect(row(/^Step label/)).toBeTruthy();
+  });
+
+  it("lists nothing that cannot be made yet: no chart, timer or QR code", async () => {
+    await setup();
+    click(bar("Insert"));
+    for (const group of [/^Text & content/, /^Media/, /^Data/, /^Pages & links/, /^Smart parts/]) {
+      fireEvent.click(row(group));
+      expect(screen.queryByRole("menuitem", { name: /^(Chart|Timer|QR code)/ })).toBeNull();
+    }
   });
 
   it("arms a shape from the sub-menu of its group", async () => {
     const { session } = await setup();
     click(bar("Insert"));
-    fireEvent.click(row(/^Shape/));
+    fireEvent.click(row(/^Shapes & lines/));
     for (const group of ["Shapes", "Arrows", "Callouts", "Flowchart"]) expect(row(group)).toBeTruthy();
     fireEvent.click(row("Arrows"));
     fireEvent.click(row(/^Right arrow/));
@@ -87,7 +118,8 @@ describe("the Insert menu", () => {
   it("arms a line or an arrow", async () => {
     const { session } = await setup();
     click(bar("Insert"));
-    fireEvent.click(row(/^Line/));
+    fireEvent.click(row(/^Shapes & lines/));
+    fireEvent.click(row(/^Lines & arrows/));
     fireEvent.click(row(/^Elbow arrow connector/));
     expect(session.state.tool).toBe("arrow:elbow");
   });
@@ -95,11 +127,12 @@ describe("the Insert menu", () => {
   it("opens the images drawer and the table dialog", async () => {
     const { ui } = await setup();
     click(bar("Insert"));
-    fireEvent.click(row(/^Image/));
+    fireEvent.click(row(/^Media/));
     fireEvent.click(row(/^Image from the gallery/));
     expect(ui.state.galleryOpen).toBe(true);
     expect(ui.state.dialog).toBeNull();
     click(bar("Insert"));
+    fireEvent.click(row(/^Data/));
     fireEvent.click(row(/^Table/));
     expect(ui.state.dialog).toBe("table");
   });
@@ -110,7 +143,8 @@ describe("the Format menu", () => {
     await setup();
     click(bar("Format"));
     expect(isDisabled(row(/^Text$/))).toBe(true);
-    expect(isDisabled(row(/^Bulleted list/))).toBe(true);
+    expect(isDisabled(row(/^Bullets & numbering/))).toBe(true);
+    expect(isDisabled(row(/^Line & paragraph spacing/))).toBe(true);
     expect(isDisabled(row(/^Clear formatting/))).toBe(true);
   });
 
@@ -141,12 +175,12 @@ describe("the Format menu", () => {
     const [box] = session.elements.insert([textBox({ x: 10, y: 10, w: 300, h: 60 }, "Hello")]);
     const spacing = () => (session.elements.find([box!])[0] as { text: { paragraphs: { lineSpacing?: number }[] } }).text.paragraphs[0]!.lineSpacing;
     click(bar("Format"));
-    fireEvent.click(row(/^Line spacing/));
+    fireEvent.click(row(/^Line & paragraph spacing/));
     expect(row("Default").getAttribute("aria-checked")).toBe("true");
     fireEvent.click(row("1.5"));
     expect(spacing()).toBe(1.5);
     click(bar("Format"));
-    fireEvent.click(row(/^Line spacing/));
+    fireEvent.click(row(/^Line & paragraph spacing/));
     expect(row("1.5").getAttribute("aria-checked")).toBe("true");
     fireEvent.click(row("Default"));
     expect(spacing()).toBeUndefined();
@@ -213,7 +247,7 @@ describe("the Slide menu", () => {
     expect(ui.state.dialog).toBe("layouts");
     click(bar("Slide"));
     fireEvent.click(row(/^Transition/));
-    expect(ui.state.dialog).toBe("transition");
+    expect(ui.state.panel).toBe("transitions");
     click(bar("Slide"));
     fireEvent.click(row(/^Edit theme/));
     expect(ui.state.dialog).toBe("theme");

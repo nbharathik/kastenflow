@@ -176,7 +176,7 @@ fn refusals_and_reviews_go_back_to_the_model() {
                 ),
                 (
                     "propose_edit",
-                    json!({"note": "Welcome to Kasten", "new_body": "All new.\n", "reason": "tidy"}),
+                    json!({"note": "Welcome to KastenFlow", "new_body": "All new.\n", "reason": "tidy"}),
                 ),
             ],
             Stop::Tools,
@@ -207,7 +207,7 @@ fn refusals_and_reviews_go_back_to_the_model() {
     assert!(
         shown[1]
             .summary
-            .starts_with("Waiting for review: rewrite “Welcome to Kasten”"),
+            .starts_with("Waiting for review: rewrite “Welcome to KastenFlow”"),
         "{}",
         shown[1].summary
     );

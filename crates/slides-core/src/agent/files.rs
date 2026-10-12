@@ -48,7 +48,7 @@ pub fn add_asset(store: &mut dyn Store, args: &Value) -> ToolResult {
     }
     let kind = images::sniff(&bytes).ok_or_else(|| {
         ToolError::new(
-            "That is not a picture Kasten Slides uses. PNG, JPEG, GIF, WebP and SVG are.",
+            "That is not a picture KastenFlow Slides uses. PNG, JPEG, GIF, WebP and SVG are.",
         )
     })?;
     let from_path = args
@@ -98,7 +98,7 @@ pub fn export(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolRes
             ))
         }
         "pdf" | "png" | "html" => Err(ToolError::new(format!(
-            "Export to {format} is not available in this build. Export `pptx` or `markdown`, or open the deck in Kasten Slides and use File, Download."
+            "Export to {format} is not available in this build. Export `pptx` or `markdown`, or open the deck in KastenFlow Slides and use File, Download."
         ))),
         other => Err(ToolError::new(format!(
             "`format` is pptx or markdown, not `{other}`."
@@ -172,7 +172,7 @@ pub fn render(agent: &mut Agent, store: &mut dyn Store, args: &Value, grid: bool
         // Where nothing draws, lint is what is left to see with.
         StoreError::Unavailable(m) if m.contains("Chrome") || m.contains("not available") => {
             ToolError::new(format!(
-                "{m} Use lint_deck to find layout problems (overlaps, text that overflows, contrast), and ask the person to look at the deck in Kasten Slides."
+                "{m} Use lint_deck to find layout problems (overlaps, text that overflows, contrast), and ask the person to look at the deck in KastenFlow Slides."
             ))
         }
         StoreError::Unavailable(m) => ToolError::new(m),

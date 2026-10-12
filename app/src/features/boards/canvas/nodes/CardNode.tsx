@@ -95,7 +95,7 @@ export const CardNode = memo(function CardNode({ id, data, selected, height }: B
   if (!meta) return <MissingCard id={id} node={node} selected={selected} />;
   return (
     <div className={`kasten-node kasten-card is-${size}${node.color ? " is-tinted" : ""}`} style={tint(node.color)} aria-label={titleOf(meta)}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={180} minHeight={size === "title" ? TITLE_HEIGHT : 90} widthOnly={size === "title"} />}
       {size === "expanded" ? <Expanded id={id} meta={meta} active={selected} height={height} /> : <CardFace meta={meta} size={size} height={height} />}
     </div>
@@ -106,7 +106,7 @@ function MissingCard({ id, node, selected }: { id: string; node: BoardNode; sele
   const name = node.file?.slice(node.file.lastIndexOf("/") + 1) ?? "a file";
   return (
     <div className="kasten-node kasten-card kasten-missing" aria-label={`Missing: ${name}`}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={180} minHeight={90} />}
       <div className="kasten-card-face">
         <div className="kasten-card-head">

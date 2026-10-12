@@ -100,6 +100,11 @@ const RULES: &[Rule] = &[
                 1,
                 "copies of files an earlier drop staged in the app's own cache for Import, never the files they came from",
             ),
+            (
+                "app/src-tauri/src/diagrams/clean.rs",
+                1,
+                "the diagram editor's own folder in the app's data (a half-unpacked copy, the copy an upgrade or a removal replaces): a copy of a pinned download, never anything in the vault",
+            ),
         ],
     },
     Rule {
@@ -155,6 +160,16 @@ const RULES: &[Rule] = &[
                 "crates/kasten-core/src/vectors/store.rs",
                 1,
                 "the search-by-meaning cache, rebuilt from the notes",
+            ),
+            (
+                "app/src-tauri/src/diagrams/clean.rs",
+                1,
+                "a download of the diagram editor that did not check out: a file the installer wrote in the app's own data folder, never anything in the vault",
+            ),
+            (
+                "app/src-tauri/src/calendars/store.rs",
+                2,
+                "the cached copy of a calendar feed and what its server said about it, in the app's cache folder, when the person removes that calendar: re-fetched from the feed, never anything in the vault",
             ),
         ],
     },

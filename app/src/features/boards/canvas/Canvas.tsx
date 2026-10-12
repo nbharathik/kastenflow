@@ -8,12 +8,17 @@
 import { Background, BackgroundVariant, ConnectionMode, MiniMap, ReactFlow, SelectionMode, useReactFlow, useStore, type Viewport } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
+import { Kbd } from "../../../ui/Kbd";
+import { useBoardPrefs } from "../board-prefs";
+import { useMapSync } from "../map-live";
+import { registerBoard } from "./active";
 import { isFar, isOverview, useBoard, useBoardState } from "./context";
 import { BoardEdge } from "./edges/BoardEdge";
 import { EdgeMarkers } from "./edges/markers";
 import { editable, useBoardKeys } from "./hooks/useBoardKeys";
 import { useBoardMarks } from "./hooks/useBoardMarks";
 import { useBoardSync } from "./hooks/useBoardSync";
+import { useFocusPeek } from "./hooks/useFocusPeek";
 import { useKeepInView } from "./hooks/useKeepInView";
 import { openFromClick, useFlowHandlers } from "./hooks/useFlowHandlers";
 import { useNoteDrop } from "./hooks/useNoteDrop";
@@ -22,35 +27,30 @@ import { usePresentation } from "./hooks/usePresentation";
 import { useRightClick } from "./hooks/useRightClick";
 import type { FlowEdge, FlowNode } from "./model/flow";
 import { NODE_TYPES } from "./nodes/node-types";
-import { newCard } from "./state/making";
+import { setFocus } from "./state/focus";
+import { addSticky, newCard } from "./state/making";
+import { present } from "./state/present";
 import { BoardHelp } from "./toolbar/BoardHelp";
 import { FindOnBoard } from "./toolbar/FindOnBoard";
-import { BottomBar } from "./toolbar/BottomBar";
 import { Breadcrumb } from "./toolbar/Breadcrumb";
+import { CanvasActions } from "./toolbar/CanvasActions";
 import { ContextMenu } from "./toolbar/ContextMenu";
 import { PresentBar } from "./toolbar/PresentBar";
 import { SelectionBar } from "./toolbar/SelectionBar";
 import { SketchLayer } from "./toolbar/SketchLayer";
 import { ToolBar } from "./toolbar/ToolBar";
-import { ZoomBar } from "./toolbar/ZoomBar";
+import { ViewControl } from "./toolbar/ViewControl";
 import { rememberView, viewOf } from "./trail";
 
 const EDGE_TYPES = { board: BoardEdge };
 const FIT = { padding: 0.12, maxZoom: 1 };
 const PAN_BUTTONS = [1, 2];
-const MINIMAP_KEY = "kasten.board.minimap";
-
-function savedMinimap(): boolean {
-  try {
-    return localStorage.getItem(MINIMAP_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 const minimapColor = (node: FlowNode) => (node.type === "section" ? "var(--board-minimap-section)" : "var(--board-minimap-node)");
 
-export function Canvas() {
+/** `embedded`: the board is shown inside a page, which keeps its bars away
+ * until it is worked on, and presents it from its own header. */
+export function Canvas({ embedded = false }: { embedded?: boolean }) {
   const board = useBoard();
   const flow = useReactFlow();
   const nodes = useBoardState((s) => s.nodes);
@@ -60,7 +60,9 @@ export function Canvas() {
   const far = useStore(isFar);
   const overview = useStore(isOverview);
   const wrapper = useRef<HTMLDivElement>(null);
-  const [minimap, setMinimap] = useState(savedMinimap);
+  const minimap = useBoardPrefs((s) => s.minimap);
+  const doubleClick = useBoardPrefs((s) => s.doubleClick);
+  const focus = useBoardState((s) => s.focus);
   const [start] = useState<Viewport | undefined>(() => viewOf(board.path));
   // Fitting waits for nodes: on an empty board React Flow would fit the
   // first card or stroke the moment it appeared, and the view would jump.
@@ -74,17 +76,35 @@ export function Canvas() {
   const presentation = usePresentation(board, wrapper);
   const presenting = presentation.on;
   const selecting = tool === "select" && !presenting;
+  const connecting = tool === "connect" && !presenting;
   const rightClick = useRightClick(board, { presenting, onPaneContextMenu: handlers.onPaneContextMenu });
   useBoardSync(board);
+  useMapSync(board, !embedded);
   useBoardMarks(board);
   useKeepInView(board, wrapper);
+  useFocusPeek(wrapper, focus && !presenting);
+  // The palette acts on the whiteboard in front (a board inside a page is worked on from its own bars).
+  useEffect(() => {
+    if (embedded) return;
+    return registerBoard(board);
+  }, [board, embedded]);
 
   const colors = useMemo(() => [...new Set(edgeColors.split(" ").filter(Boolean))], [edgeColors]);
 
-  // The board takes the keys when it opens, unless something else has them.
+  // The board takes the keys when it opens, unless something else has them
+  // (or it is a page's, which keeps them until the board is clicked).
   useEffect(() => {
-    if (document.activeElement === document.body) wrapper.current?.focus({ preventScroll: true });
-  }, []);
+    if (!embedded && document.activeElement === document.body) wrapper.current?.focus({ preventScroll: true });
+  }, [embedded]);
+
+  // The embed's header asks the board to present its sections.
+  useEffect(() => {
+    if (!embedded) return;
+    const frame = wrapper.current?.closest(".kasten-board-embed");
+    const run = () => present(board);
+    frame?.addEventListener("kasten:present", run);
+    return () => frame?.removeEventListener("kasten:present", run);
+  }, [embedded, board]);
 
   /** The middle of what is in view, on the board. */
   const centre = () => {
@@ -95,18 +115,13 @@ export function Canvas() {
   const onDoubleClick = (event: ReactMouseEvent) => {
     const target = event.target as HTMLElement;
     if (!selecting || !target.classList.contains("react-flow__pane")) return;
-    void newCard(board, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    // A card or a sticky, whichever the person chose last (the "+" menu, Settings).
+    if (useBoardPrefs.getState().doubleClick === "sticky") void addSticky(board, at);
+    else void newCard(board, at);
   };
 
-  const toggleMinimap = () =>
-    setMinimap((on) => {
-      try {
-        localStorage.setItem(MINIMAP_KEY, on ? "0" : "1");
-      } catch {
-        // A convenience only.
-      }
-      return !on;
-    });
+  const toggleMinimap = () => useBoardPrefs.getState().set({ minimap: !minimap });
   const closeHelp = () => {
     setHelp(false);
     wrapper.current?.focus({ preventScroll: true });
@@ -120,7 +135,7 @@ export function Canvas() {
   return (
     <div
       ref={wrapper}
-      className={`kasten-board is-tool-${tool.split(":")[0]}${far ? " is-far" : ""}${overview ? " is-overview" : ""}${drop.over ? " is-dropping" : ""}${presenting ? " is-presenting" : ""}`}
+      className={`kasten-board is-tool-${tool.split(":")[0]}${far ? " is-far" : ""}${overview ? " is-overview" : ""}${drop.over ? " is-dropping" : ""}${presenting ? " is-presenting" : ""}${embedded ? " is-embedded" : ""}${focus && !presenting ? " is-focus" : ""}`}
       tabIndex={0}
       aria-label={`Whiteboard: ${board.doc.title}`}
       onKeyDown={(event) => (presenting ? presentation.onKey(event) : onKeyDown(event))}
@@ -171,7 +186,7 @@ export function Canvas() {
         panActivationKeyCode={presenting ? null : "Space"}
         selectionOnDrag={selecting}
         nodesDraggable={selecting}
-        nodesConnectable={selecting}
+        nodesConnectable={selecting || connecting}
         elementsSelectable={selecting}
         selectionMode={SelectionMode.Full}
         multiSelectionKeyCode="Shift"
@@ -198,20 +213,25 @@ export function Canvas() {
       </ReactFlow>
       <SketchLayer sketch={tools.sketch} />
       <EdgeMarkers colors={colors} />
-      {!presenting && <Breadcrumb />}
+      {!presenting && !embedded && <Breadcrumb />}
       {empty && (
         <div className="kasten-board-empty" aria-hidden="true">
           <p className="text-16 font-medium text-ink">An empty board</p>
-          <p>Double-click anywhere for a new card, or drag notes in from the sidebar.</p>
+          <p>Double-click anywhere for a new {doubleClick}, or drag notes in from the sidebar.</p>
         </div>
       )}
       {presenting ? (
         <PresentBar />
       ) : (
         <>
-          <ToolBar />
-          <BottomBar centre={centre} />
-          <ZoomBar minimap={minimap} onMinimap={toggleMinimap} onHelp={() => setHelp((h) => !h)} />
+          <ToolBar centre={centre} />
+          <ViewControl minimap={minimap} onMinimap={toggleMinimap} />
+          <CanvasActions embedded={embedded} onFind={() => setFinding(true)} onHelp={() => setHelp((h) => !h)} onFocus={() => setFocus(board, true)} />
+          {focus && (
+            <button type="button" className="kasten-focus-hint" onClick={() => setFocus(board, false)} aria-label="Leave focus mode" title="Leave focus mode">
+              Focus mode <Kbd keys="\" />
+            </button>
+          )}
         </>
       )}
       <ContextMenu onMinimap={toggleMinimap} minimap={minimap} onHelp={() => setHelp(true)} onFind={() => setFinding(true)} />

@@ -14,6 +14,8 @@ export interface BoxSettings {
   insets?: Insets | null | undefined;
   /** Where the text sits in the box; the text's own `valign` wins. */
   valign?: VAlign | null | undefined;
+  /** How much "shrink text on overflow" has set the type smaller (1 is not at all). The box is laid out as if it were that much bigger and drawn that much smaller, so lines wrap as they would at the smaller type and the insets keep their size. */
+  scale?: number | null | undefined;
 }
 
 const JUSTIFY: Readonly<Record<VAlign, string>> = { top: "flex-start", middle: "center", bottom: "flex-end" };
@@ -34,29 +36,34 @@ export function boxOf(text: Pick<Text, "insets" | "valign">, settings: Pick<BoxS
   };
 }
 
+/** The scale a box is drawn at: 1 unless a usable number below it says otherwise. */
+export const scaleOf = (scale: number | null | undefined): number => (typeof scale === "number" && Number.isFinite(scale) && scale > 0.05 && scale < 1 ? scale : 1);
+
 /**
  * The box itself: it fills its parent, stacks paragraphs from the top, the
  * middle or the bottom, and lets long text run past its edge. It also fixes
  * the inherited settings a page might change (spacing, case, ligatures), so
  * slide text does not depend on the CSS around it.
  */
-export function boxCss(settings: BoxSettings, text: Pick<Text, "insets" | "valign"> = {}): Css {
+export function boxCss(settings: BoxSettings, text: Pick<Text, "insets" | "valign" | "wrap"> = {}): Css {
   const { insets, valign } = boxOf(text, settings);
-  return {
+  const scale = scaleOf(settings.scale);
+  const wraps = text.wrap !== false;
+  const css: Css = {
     position: "absolute",
     inset: "0px",
-    width: px(settings.width),
-    height: px(settings.height),
+    width: px(settings.width / scale),
+    height: px(settings.height / scale),
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     justifyContent: JUSTIFY[valign],
-    padding: `${px(insets.top)} ${px(insets.right)} ${px(insets.bottom)} ${px(insets.left)}`,
+    padding: `${px(insets.top / scale)} ${px(insets.right / scale)} ${px(insets.bottom / scale)} ${px(insets.left / scale)}`,
     margin: "0px",
     overflow: "visible",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    overflowWrap: "break-word",
+    whiteSpace: wraps ? "pre-wrap" : "pre",
+    wordBreak: wraps ? "break-word" : "normal",
+    overflowWrap: wraps ? "break-word" : "normal",
     letterSpacing: "normal",
     wordSpacing: "normal",
     textTransform: "none",
@@ -66,4 +73,9 @@ export function boxCss(settings: BoxSettings, text: Pick<Text, "insets" | "valig
     fontFeatureSettings: "normal",
     hyphens: "manual",
   };
+  if (scale !== 1) {
+    css.transform = `scale(${Math.round(scale * 10000) / 10000})`;
+    css.transformOrigin = "0 0";
+  }
+  return css;
 }

@@ -26,7 +26,7 @@ export const LinkNode = memo(function LinkNode({ id, data, selected }: BoardNode
   const url = safeUrl(node.url);
   return (
     <div className={`kasten-node kasten-weblink${node.color ? " is-tinted" : ""}`} style={tint(node.color)}>
-      <SideHandles id={id} selected={selected} />
+      <SideHandles id={id} />
       {selected && <Resizer id={id} minWidth={180} minHeight={72} />}
       <div className="kasten-card-head">
         <span className="kasten-weblink-globe" aria-hidden="true">

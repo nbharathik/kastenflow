@@ -208,7 +208,17 @@ pub fn list_layouts(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> T
                 .iter()
                 .map(|p| json!({ "role": p.role, "kind": p.kind, "x": p.x, "y": p.y, "w": p.w, "h": p.h, "style": p.style, "list": p.list, "prompt": p.prompt }))
                 .collect();
-            json!({ "name": l.name, "label": l.label, "slots": slots })
+            // A layout someone made says so, and what it draws behind a slide, so an assistant knows what it is working with.
+            json!({
+                "name": l.name,
+                "label": l.label,
+                "slots": slots,
+                "custom": !crate::themes::BUILT_IN_LAYOUTS.contains(&l.name.as_str()),
+                "decoration": l.elements.len(),
+                "background": l.background,
+                "hidesMaster": l.hide_master,
+                "newSlideDefault": deck.theme.new_slide_layout.as_deref() == Some(l.name.as_str()),
+            })
         })
         .collect();
     Ok(ToolOutput::json(json!({ "layouts": layouts })))

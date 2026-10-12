@@ -50,7 +50,8 @@ describe("the paint format brush", () => {
     expect((brush() as HTMLButtonElement).disabled).toBe(false);
     click(brush());
     expect(ui.state.paint).toEqual({
-      run: { b: true, i: true, u: false, s: false, color: "accent2", size: 30 },
+      run: { b: true, i: true, u: false, s: false, color: "accent2", size: 30, script: null, smallCaps: false, allCaps: false, spacing: null },
+      paragraph: { align: "center", lineSpacing: null, spaceBefore: null, spaceAfter: null, list: null, listStyle: null, bulletColor: null, bulletSize: null },
       style: { fill: { color: "accent3" }, stroke: { color: "accent4", width: 3 }, radius: 12 },
     });
     expect(brush().getAttribute("aria-pressed")).toBe("true");
@@ -132,7 +133,7 @@ describe("the paint format brush", () => {
     session.startEditing(a);
     act(() => ui.setText(fakeTextBox({ bold: true, italic: false, color: "accent5", size: 18 })));
     click(brush());
-    expect(ui.state.paint?.run).toEqual({ b: true, i: false, u: false, s: false, color: "accent5", size: 18 });
+    expect(ui.state.paint?.run).toEqual({ b: true, i: false, u: false, s: false, color: "accent5", size: 18, script: null, smallCaps: false, allCaps: false, spacing: null });
     // Leaving the box changes nothing yet: the brush waits for another element.
     act(() => {
       ui.setText(null);
@@ -142,6 +143,35 @@ describe("the paint format brush", () => {
     select(b);
     expect(runs(b)).toEqual([{ t: "Host", b: true, color: "accent5", size: 18 }]);
     expect(get(b).style?.radius).toBe(12);
+  });
+
+  it("carries how paragraphs are set and the newer looks of words: raised words, capitals, letter spacing, a list with its marker", async () => {
+    const { ui, one, get, select } = await setup();
+    const source = one({
+      ...shape("rect", { x: 10, y: 10, w: 200, h: 100 }),
+      text: {
+        paragraphs: [
+          { runs: [{ t: "Raised", script: "super", smallCaps: true, spacing: 2 }], list: "number", listStyle: "upperRoman", bulletSize: 1.5, bulletColor: "accent2", lineSpacing: 1.5, spaceAfter: 12, align: "right" },
+        ],
+      },
+    } as Element);
+    const target = one({
+      ...shape("rect", { x: 300, y: 10, w: 200, h: 100 }),
+      text: { paragraphs: [{ runs: [{ t: "One", allCaps: true }] }, { runs: [{ t: "Two" }], list: "bullet", level: 1 }] },
+    } as Element);
+    select(source);
+    click(brush());
+    expect(ui.state.paint?.paragraph).toMatchObject({ list: "number", listStyle: "upperRoman", bulletSize: 1.5, bulletColor: "accent2", lineSpacing: 1.5, spaceAfter: 12, align: "right" });
+    select(target);
+    const text = get(target).type === "shape" ? (get(target) as Extract<Element, { type: "shape" }>).text : undefined;
+    expect(text?.paragraphs.map((p) => p.runs[0])).toEqual([
+      { t: "One", script: "super", smallCaps: true, spacing: 2 },
+      { t: "Two", script: "super", smallCaps: true, spacing: 2 },
+    ]);
+    expect(text?.paragraphs.map((p) => [p.list, p.listStyle, p.bulletSize, p.bulletColor, p.lineSpacing, p.spaceAfter, p.align])).toEqual([
+      ["number", "upperRoman", 1.5, "accent2", 1.5, 12, "right"],
+      ["number", "upperRoman", 1.5, "accent2", 1.5, 12, "right"],
+    ]);
   });
 
   it("gives a shape's look to a line without the shape's fill, and arrowheads only to lines", async () => {

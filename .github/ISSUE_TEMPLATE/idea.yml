@@ -1,5 +1,5 @@
 name: Idea
-description: Something Kasten could do, or do better
+description: Something KastenFlow could do, or do better
 labels: [enhancement]
 body:
   - type: textarea

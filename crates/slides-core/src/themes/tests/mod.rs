@@ -1,6 +1,7 @@
 //! Checks on the built-in themes.
 
 mod catalog;
+mod designs;
 mod geometry;
 mod lecture;
 mod looks;

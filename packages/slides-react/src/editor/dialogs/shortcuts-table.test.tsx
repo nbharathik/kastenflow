@@ -34,7 +34,7 @@ describe("Keyboard shortcuts", () => {
   it("groups them by the start of the id, in a set order", async () => {
     await mountDialogs({ dialog: "shortcuts" });
     const areas = [...document.querySelectorAll(".ks-dg-keys-area")].map((h) => h.textContent);
-    expect(areas).toEqual(["Edit", "Text", "Slides", "Steps", "Arrange", "View", "File", "Insert", "Help"]);
+    expect(areas).toEqual(["Edit", "Text", "Slides", "Steps", "Arrange", "View", "Embedded page", "File", "Insert", "Help"]);
     expect(within(screen.getByRole("region", { name: "Slides" })).getByText("New slide")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Text" })).getByText("Bold")).toBeTruthy();
     const groups = shortcutGroups();

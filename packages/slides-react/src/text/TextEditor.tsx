@@ -4,17 +4,21 @@
 // editor.ts; this file only mounts it, passes its events on, and keeps it in
 // step with the props.
 
-import type { Insets, Text, Theme, VAlign } from "@kasten-slides/wasm";
+import type { Insets, ListKind, Text, Theme, VAlign } from "@kasten-slides/wasm";
 import { type JSX, type Ref, useImperativeHandle, useLayoutEffect, useMemo, useRef } from "react";
 
+import { boxOf } from "./box-style.ts";
 import type { MountedEditor } from "./editor.ts";
-import type { FormatState } from "./format-state.ts";
+import { measureBox, onFontsLoaded } from "./fit.ts";
+import { type FormatState, linkAtSelection } from "./format-state.ts";
 import { type TextEditorHandle, createHandle } from "./handle.ts";
-import { type Session, restore, snapshotOf, startSession } from "./session.ts";
+import type { TextPrefs } from "./prefs.ts";
+import { type CaretAt, type Session, restore, snapshotOf, startSession } from "./session.ts";
 import "./text.css";
 
 export type { FormatState, Tri } from "./format-state.ts";
 export type { TextEditorHandle } from "./handle.ts";
+export type { CaretAt } from "./session.ts";
 
 export interface TextEditorProps {
   theme: Theme;
@@ -27,7 +31,9 @@ export interface TextEditorProps {
   insets?: Insets;
   valign?: VAlign;
   /** Where the caret goes when editing starts. Without it focus is left to the host. */
-  autoFocus?: "start" | "end" | "all";
+  autoFocus?: "start" | "end" | "all" | CaretAt;
+  /** The kind of list the slot this box fills makes of words typed into it while it is empty, as a body slot does. */
+  defaultList?: ListKind | null;
   /** The text after every change to the words. */
   onChange?: (text: Text) => void;
   /** Editing ended, by Escape or by focus leaving the editor (but not for a toolbar button marked `data-ks-keep-focus`). */
@@ -36,6 +42,10 @@ export interface TextEditorProps {
   onFormat?: (state: FormatState) => void;
   /** Mod-k: the host asks for an address and calls `handle.setLink`. `current` is the link the selection is in. */
   onLinkRequest?: (current: string | null) => void;
+  /** For a box that resizes to fit its words: how tall they are (the insets included, in slide units), whenever the words or the box change. */
+  onNaturalHeight?: (height: number) => void;
+  /** What is corrected as words are typed; the person's own choices when absent. */
+  prefs?: () => TextPrefs;
   handleRef?: Ref<TextEditorHandle>;
   className?: string;
 }
@@ -54,14 +64,49 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
   // The words as the editor has them, which the props catch up with.
   const words = useRef(props.text);
   const editor = useRef<MountedEditor | null>(null);
-  const handle = useMemo(() => createHandle(() => editor.current, () => words.current), []);
+  // How much "shrink text on overflow" has set the type smaller in the box being edited.
+  const scale = useRef(1);
+
+  /** Asks the page how the words fit: sets the scale of a box that shrinks them, and tells the host how tall a box that resizes is. */
+  const refit = (): void => {
+    const current = editor.current;
+    if (!current) return;
+    const now = latest.current;
+    const text = current.getText();
+    const shrink = text.fit === "shrink";
+    if (!shrink && text.fit !== "resize") {
+      if (scale.current !== 1) {
+        scale.current = 1;
+        current.setBox({ width: now.width, height: now.height, insets: now.insets, valign: now.valign, scale: 1 });
+      }
+      return;
+    }
+    const made = measureBox(current.view.dom as HTMLElement, { width: now.width, height: now.height, insets: boxOf(text, { insets: now.insets, valign: now.valign }).insets }, shrink);
+    if (!made.measured) return;
+    if (shrink && made.scale !== scale.current) {
+      scale.current = made.scale;
+      current.setBox({ width: now.width, height: now.height, insets: now.insets, valign: now.valign, scale: made.scale });
+    }
+    if (text.fit === "resize") now.onNaturalHeight?.(made.natural);
+  };
+
+  const handle = useMemo(
+    () =>
+      createHandle(
+        () => editor.current,
+        () => words.current,
+        (change) => editor.current?.setBoxFields(change),
+        () => latest.current.onLinkRequest?.(editor.current ? linkAtSelection(editor.current.view.state) : null),
+      ),
+    [],
+  );
   useImperativeHandle(props.handleRef, () => handle, [handle]);
 
   // The schema draws with the theme's colours, fonts and text styles, so only a change in one of those makes a new editor.
-  const look = useMemo(() => JSON.stringify([theme.colors, theme.fonts, theme.textStyles, baseStyle]), [theme, baseStyle]);
+  const look = useMemo(() => JSON.stringify([theme.colors, theme.fonts, theme.textStyles, baseStyle, props.defaultList ?? null]), [theme, baseStyle, props.defaultList]);
   const built = useRef(look);
 
-  const start = (autoFocus: "start" | "end" | "all" | undefined): Session | null => {
+  const start = (autoFocus: TextEditorProps["autoFocus"]): Session | null => {
     const element = host.current;
     if (!element) return null;
     const now = latest.current;
@@ -74,10 +119,14 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
       height: now.height,
       insets: now.insets,
       valign: now.valign,
+      scale: scale.current,
+      defaultList: now.defaultList ?? null,
       autoFocus,
+      prefs: () => latest.current.prefs?.(),
       callbacks: () => latest.current,
       changed: (text) => {
         words.current = text;
+        refit();
       },
     });
     session.current = started;
@@ -94,7 +143,12 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
   useLayoutEffect(() => {
     built.current = look;
     start(latest.current.autoFocus);
-    return stop;
+    refit();
+    const forget = onFontsLoaded(refit);
+    return () => {
+      forget();
+      stop();
+    };
     // The editor is made once; a change of theme is handled below, when nobody is composing.
   }, []);
 
@@ -108,6 +162,7 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
       built.current = look;
       const remade = start(undefined);
       if (remade) restore(remade.editor, saved);
+      refit();
     };
     // Never in the middle of an input method's composition: that would end it. Wait until it does.
     if (!current.view.composing) {
@@ -122,7 +177,8 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
   // The box moved or changed size, or was given other insets.
   const box = JSON.stringify([width, height, insets ?? null, valign ?? null]);
   useLayoutEffect(() => {
-    editor.current?.setBox({ width, height, insets, valign });
+    editor.current?.setBox({ width, height, insets, valign, scale: scale.current });
+    refit();
   }, [box]);
 
   // Other words from outside are taken up only while nobody is typing.
@@ -132,6 +188,7 @@ export function TextEditor(props: TextEditorProps): JSX.Element {
     if (sameText(props.text, current.getText())) return;
     words.current = props.text;
     current.setText(props.text);
+    refit();
   }, [props.text]);
 
   return <div ref={host} className={className ? `ks-text-editor ${className}` : "ks-text-editor"} style={{ position: "absolute", inset: 0, width, height }} />;

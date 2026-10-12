@@ -1,7 +1,8 @@
+import type { Element } from "@kasten-slides/wasm";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { shape } from "../factory.ts";
+import { shape, textBox } from "../factory.ts";
 import { button, click, isDisabled, nextFrame, openEditor, row } from "../menus/testing.ts";
 import { Toolbar } from "./Toolbar.tsx";
 
@@ -13,17 +14,69 @@ async function setup() {
   return editor;
 }
 
+/** The names of the buttons in the bar, in order; Undo and Redo name what they would undo, which is not what is looked at here. */
+function barNames(): string[] {
+  return within(screen.getByRole("toolbar"))
+    .getAllByRole("button")
+    .map((b) => (b.getAttribute("aria-label") ?? "").replace(/^(Undo|Redo) .*/, "$1"));
+}
+
 describe("the toolbar", () => {
-  it("has its tools in order, and is a toolbar", async () => {
-    await setup();
-    const bar = screen.getByRole("toolbar");
-    const names = within(bar)
-      .getAllByRole("button")
-      .map((b) => b.getAttribute("aria-label"));
-    const order = ["Undo", "Redo", "Paint format", "Zoom", "Select", "Text box", "Image", "Shape", "Line", "Font", "Decrease font size", "Increase font size", "Bold", "Italic", "Underline", "Strikethrough", "Text colour", "Insert link", "Align", "Line spacing", "Bulleted list", "Numbered list", "Decrease indent", "Increase indent", "Clear formatting", "Background", "Layout", "Theme", "Transition"];
-    const at = order.map((name) => names.findIndex((n) => n?.startsWith(name)));
-    expect(at.every((i) => i >= 0), `${names.join(", ")}`).toBe(true);
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  it("has the tools for the slide, in order, when nothing is selected, and is a toolbar", async () => {
+    const { session } = await setup();
+    act(() => session.select([]));
+    expect(barNames()).toEqual(["Undo", "Redo", "Paint format", "Zoom", "Insert gallery…", "Select", "Text box", "Image", "Shape", "Line", "Background", "Layout", "Theme", "Transition", "Format options"]);
+    // The groups are named for a screen reader.
+    for (const group of ["History", "Zoom", "Insert", "Slide"]) expect(screen.getByRole("group", { name: group }), group).toBeTruthy();
+  });
+
+  it("swaps to the tools for a text box when one is selected, and leaves out what does not apply", async () => {
+    const { session } = await setup();
+    act(() => {
+      const [id] = session.elements.insert([textBox({ x: 40, y: 40, w: 300, h: 60 }, "Words")]) as [string];
+      session.select([id]);
+    });
+    expect(barNames()).toEqual([
+      "Undo", "Redo", "Paint format", "Zoom",
+      "Font", "Decrease font size", "Font sizes", "Increase font size",
+      "Bold", "Italic", "Underline", "Strikethrough", "Text colour", "Insert link",
+      "Align", "Line and paragraph spacing", "Bulleted list", "Numbered list", "Bullets and numbering", "Decrease indent", "Increase indent", "Clear formatting",
+      "Fill colour", "Border colour", "Border weight", "Border dash", "Shadow", "Opacity",
+      "Order", "Align objects", "Animate",
+      "Format options",
+    ]);
+    // Nothing is greyed: the tools for adding things are not here at all.
+    expect(screen.queryByRole("button", { name: "Text box" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Background" })).toBeNull();
+  });
+
+  it("keeps the font and the paragraph out of the bar for a picture, which has no words", async () => {
+    const { session } = await setup();
+    act(() => {
+      const [id] = session.elements.insert([{ type: "image", id: "", src: "assets/x.png", x: 0, y: 0, w: 100, h: 100 } as Element]) as [string];
+      session.select([id]);
+    });
+    expect(barNames()).toEqual(["Undo", "Redo", "Paint format", "Zoom", "Border colour", "Border weight", "Border dash", "Shadow", "Opacity", "Order", "Align objects", "Animate", "Format options"]);
+  });
+
+  it("comes back to the insert tools when the selection is cleared", async () => {
+    const { session } = await setup();
+    act(() => {
+      const [id] = session.elements.insert([textBox({ x: 40, y: 40, w: 300, h: 60 }, "Words")]) as [string];
+      session.select([id]);
+    });
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeTruthy();
+    act(() => session.select([]));
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Text box" })).toBeTruthy();
+  });
+
+  it("opens the format options from the button at its right edge, and shows them open", async () => {
+    const { ui } = await setup();
+    expect(button("Format options").getAttribute("aria-pressed")).toBe("false");
+    click(button("Format options"));
+    expect(ui.state.panel).toBe("format");
+    expect(button("Format options").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("does not take the focus from a text box: its buttons are marked and the mouse leaves the focus", async () => {
@@ -140,34 +193,46 @@ describe("the slide's own buttons", () => {
     expect(screen.getAllByRole("menuitemcheckbox").length).toBe(session.deck.theme.layouts.length);
   });
 
-  it("apply one of the four themes, or open the theme editor", async () => {
-    const { session, ui } = await setup();
+  it("open the themes panel, and the transitions panel, and show them open", async () => {
+    const { ui } = await setup();
+    expect(button("Theme").getAttribute("aria-pressed")).toBe("false");
     click(button("Theme"));
-    expect(["Light", "Dark", "Serif", "Lecture"].every((name) => row(name))).toBe(true);
-    expect(row("Light").getAttribute("aria-checked")).toBe("true");
-    click(row("Serif"));
-    expect(session.deck.theme.name).toBe("Serif");
-    click(button("Theme"));
-    click(row(/^Edit theme/));
-    expect(ui.state.dialog).toBe("theme");
+    expect(ui.state.panel).toBe("themes");
+    expect(button("Theme").getAttribute("aria-pressed")).toBe("true");
+    click(button("Transition"));
+    expect(ui.state.panel).toBe("transitions");
+    expect(button("Theme").getAttribute("aria-pressed")).toBe("false");
+    expect(button("Transition").getAttribute("aria-pressed")).toBe("true");
+    click(button("Transition"));
+    expect(ui.state.panel).toBeNull();
   });
 
-  it("open the background and transition dialogs", async () => {
+  it("open the background dialog, and the dialog of layouts from the end of the layout list", async () => {
     const { ui } = await setup();
     click(button("Background"));
     expect(ui.state.dialog).toBe("background");
-    click(button("Transition"));
-    expect(ui.state.dialog).toBe("transition");
+    ui.openDialog(null);
+    click(button("Layout"));
+    click(row(/^Change layout/));
+    expect(ui.state.dialog).toBe("layouts");
   });
 });
 
 describe("tooltips", () => {
-  it("come from the toolbar itself, with the keys, so a scrolling row cannot clip them", async () => {
-    await setup();
+  it("come from the toolbar itself, with the keys, after a short wait, so the row cannot clip them", async () => {
+    const { session } = await setup();
+    act(() => {
+      const [id] = session.elements.insert([textBox({ x: 40, y: 40, w: 300, h: 60 }, "Words")]) as [string];
+      session.select([id]);
+    });
     const bold = button("Bold");
     fireEvent.mouseOver(bold);
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
     });
     const tip = screen.getByRole("tooltip");
     expect(tip.textContent).toMatch(/^Bold \((Ctrl\+B|⌘B)\)$/);
@@ -184,8 +249,10 @@ describe("the keyboard", () => {
     expect(document.activeElement).toBe(button("Text box"));
     fireEvent.keyDown(button("Text box"), { key: "ArrowLeft" });
     expect(document.activeElement).toBe(button("Select"));
-    // Undo and Redo are off, and so cannot be reached; the first button that can is Paint format's neighbour, the zoom.
+    // The gallery's plus comes first in the group; before it, Undo and Redo are off, and so cannot be reached: the first button that can is the zoom.
     fireEvent.keyDown(button("Select"), { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(button("Insert gallery…"));
+    fireEvent.keyDown(button("Insert gallery…"), { key: "ArrowLeft" });
     expect(document.activeElement).toBe(button("Zoom"));
   });
 
@@ -218,16 +285,20 @@ describe("the keyboard", () => {
   });
 });
 
-describe("a window too narrow for the words on the slide buttons", () => {
-  it("shows only their icons until the window is wide enough again", async () => {
-    // jsdom has no layout: give the row a width, and something to tell it when that changes.
-    let client = 900;
-    const scroll = 1400;
+describe("a window too narrow for the groups", () => {
+  /** jsdom has no layout: gives the row a width and each group 150 pixels, and answers something to tell the bar when the width changes. */
+  function withLayout() {
+    const state = { client: 1000 };
     const watchers: (() => void)[] = [];
     const proto = HTMLElement.prototype;
-    const widths = { client: Object.getOwnPropertyDescriptor(proto, "clientWidth"), scroll: Object.getOwnPropertyDescriptor(proto, "scrollWidth") };
-    Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => client });
-    Object.defineProperty(proto, "scrollWidth", { configurable: true, get: () => scroll });
+    const saved = { client: Object.getOwnPropertyDescriptor(proto, "clientWidth"), offset: Object.getOwnPropertyDescriptor(proto, "offsetWidth") };
+    Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => state.client });
+    Object.defineProperty(proto, "offsetWidth", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.dataset.group ? 150 : 30;
+      },
+    });
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -238,22 +309,71 @@ describe("a window too narrow for the words on the slide buttons", () => {
         disconnect() {}
       },
     );
+    return {
+      state,
+      resize: (client: number) => {
+        state.client = client;
+        return act(async () => watchers.forEach((watch) => watch()));
+      },
+      restore() {
+        vi.unstubAllGlobals();
+        if (saved.client) Object.defineProperty(proto, "clientWidth", saved.client);
+        else Reflect.deleteProperty(proto, "clientWidth");
+        if (saved.offset) Object.defineProperty(proto, "offsetWidth", saved.offset);
+        else Reflect.deleteProperty(proto, "offsetWidth");
+      },
+    };
+  }
+
+  it("sends the slide's own buttons into a more menu, and takes them back when there is room", async () => {
+    const layout = withLayout();
     try {
       await setup();
-      const bar = screen.getByRole("toolbar");
-      expect(bar.classList.contains("is-compact")).toBe(true);
-      client = 1500;
-      await act(async () => watchers.forEach((watch) => watch()));
-      expect(bar.classList.contains("is-compact")).toBe(false);
-      client = 1200;
-      await act(async () => watchers.forEach((watch) => watch()));
-      expect(bar.classList.contains("is-compact")).toBe(true);
+      expect(screen.queryByRole("button", { name: "More tools" })).toBeNull();
+      expect(button("Theme")).toBeTruthy();
+      // Four groups of 150 do not fit in 500, with the room the bar keeps for its own button and the format options.
+      await layout.resize(500);
+      expect(screen.queryByRole("button", { name: "Theme" })).toBeNull();
+      expect(button("Select")).toBeTruthy();
+      expect(button("Format options")).toBeTruthy();
+      click(button("More tools"));
+      const more = screen.getByRole("dialog", { name: "More tools" });
+      expect(within(more).getByRole("button", { name: "Theme" })).toBeTruthy();
+      expect(within(more).queryByRole("button", { name: "Select" })).toBeNull();
+      // A button in the menu works as it does in the bar.
+      click(within(more).getByRole("button", { name: "Background" }));
+      await layout.resize(1000);
+      expect(screen.queryByRole("button", { name: "More tools" })).toBeNull();
+      expect(button("Theme")).toBeTruthy();
     } finally {
-      vi.unstubAllGlobals();
-      if (widths.client) Object.defineProperty(proto, "clientWidth", widths.client);
-      else Reflect.deleteProperty(proto, "clientWidth");
-      if (widths.scroll) Object.defineProperty(proto, "scrollWidth", widths.scroll);
-      else Reflect.deleteProperty(proto, "scrollWidth");
+      layout.restore();
+    }
+  });
+
+  it("keeps the first groups and the format options in the bar however narrow it is, and goes from the last group first", async () => {
+    const layout = withLayout();
+    try {
+      const { session } = await setup();
+      act(() => {
+        const [id] = session.elements.insert([textBox({ x: 40, y: 40, w: 300, h: 60 }, "Words")]) as [string];
+        session.select([id]);
+      });
+      // History, zoom, font, text style, paragraph, shape style and arrange: seven groups of 150.
+      await layout.resize(760);
+      // Room for 760 - 16 - 30 = 714 minus the more button: four groups.
+      expect(screen.queryByRole("button", { name: "Animate" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Fill colour" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Align" })).toBeNull();
+      expect(button("Bold")).toBeTruthy();
+      expect(button("Font")).toBeTruthy();
+      await layout.resize(100);
+      expect(button(/^Undo/)).toBeTruthy();
+      expect(button("Zoom")).toBeTruthy();
+      expect(button("Font")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+      expect(button("Format options")).toBeTruthy();
+    } finally {
+      layout.restore();
     }
   });
 });

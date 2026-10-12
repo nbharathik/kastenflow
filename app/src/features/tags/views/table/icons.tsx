@@ -66,7 +66,7 @@ export type GlyphName = keyof typeof TYPES;
 
 /** A glyph by name; a column's type draws its own, the built-in dates a clock. */
 export function Glyph({ name, className = "" }: { name: string; className?: string }) {
-  const paths = own(TYPES, name) ?? (name === "created" || name === "updated" || name === "modified" ? TYPES.clock : TYPES.text);
+  const paths = own(TYPES, name) ?? (name === "created" || name === "updated" || name === "modified" ? TYPES.clock : name === "tags" ? TYPES.multi_select : name === "project" || name === "type" ? TYPES.select : TYPES.text);
   return (
     <svg
       viewBox="0 0 24 24"

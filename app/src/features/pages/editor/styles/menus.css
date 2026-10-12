@@ -149,6 +149,10 @@
   }
 }
 
+.kasten-handle-fold[hidden] {
+  display: none;
+}
+
 .kasten-handle-grip {
   width: 18px;
   cursor: grab;

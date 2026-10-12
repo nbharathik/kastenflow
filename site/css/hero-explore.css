@@ -1,0 +1,411 @@
+/* The banner's views: a row of tabs above the window, and the view in use
+   inside it. Every view sits in the same cell, so the window keeps one height
+   as views change; on narrow screens one view shows at a time and the tabs
+   scroll sideways. */
+
+.tour-tabs {
+  display: flex;
+  justify-self: center;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  scrollbar-width: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tour-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tour-tabs [role="tab"] {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: 14.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms, color 160ms, border-color 160ms;
+}
+
+.tour-tabs [role="tab"] .i {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.tour-tabs [role="tab"]:hover {
+  background: var(--well);
+  color: var(--ink);
+}
+
+.tour-tabs [role="tab"][aria-selected="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.tour-tabs [role="tab"][aria-selected="true"] .i {
+  color: var(--accent);
+}
+
+.tab-rule {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: var(--line-strong);
+}
+
+.app-stage {
+  display: grid;
+  min-width: 0;
+}
+
+.app-panel {
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 220ms var(--ease), visibility 0s linear 220ms;
+}
+
+.app-panel.is-active {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 220ms var(--ease);
+}
+
+.view-head {
+  display: grid;
+  gap: 6px;
+  padding: 20px clamp(18px, 2.6vw, 32px) 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.view-title .i {
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.view-head p {
+  max-width: 62em;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* The live views fill what the tallest view leaves. */
+
+.app-panel > .demo {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hero-live {
+  display: grid;
+  gap: 16px;
+}
+
+.hero-live > * {
+  min-width: 0;
+}
+
+/* The step text each tab gains where the window scrolls (see below). */
+.tab-copy {
+  display: none;
+}
+
+/* The scroll tour. Where the screen is wide and tall enough, hero.js marks the
+   banner data-scroll: the window stays pinned on the right while the visitor
+   scrolls past a list of steps on the left, and shows one view after another.
+   Each step is a tab, so it can still be clicked or reached by keyboard. The
+   list has the height of the whole track, with a row for each view, so that a
+   step sits level with the window as its view comes up. Each view fits the
+   window's height, instead of the window fitting the tallest view; the page's
+   own panes scroll when they are taller. Elsewhere the tabs are clicked in a
+   row above the window, as before. */
+
+/* The window's height follows its width, at the shape of the pictures of the
+   app (16:10), so they show whole; it stops short of the screen's height and
+   of --stage-max. The banner is the container its width is measured from. */
+.hero[data-scroll] {
+  container-type: inline-size;
+}
+
+/* The page's own width (.wrap), measured here so the window's size can follow
+   from it; the introduction, the steps and the header share one left edge. */
+.hero[data-scroll] :is(.hero-copy, .hero-live) {
+  --live-w: min(var(--wrap), 100cqi - 40px);
+  width: var(--live-w);
+}
+
+.hero[data-scroll] .hero-live {
+  --stage-max: 720px;
+  --gap: clamp(36px, 4.5vw, 96px);
+  --win-w: calc(var(--live-w) - max(300px, var(--live-w) * 0.28) - var(--gap));
+  --stage: max(380px, min(100svh - 176px, var(--stage-max), var(--win-w) / 1.6));
+  --pin-h: calc(var(--stage) + 88px);
+  --at: 0;
+  grid-template-columns: max(300px, 28%) minmax(0, 1fr);
+  column-gap: var(--gap);
+  --track-h: calc(100svh + (var(--views) - 1) * 56svh);
+  /* How far apart the steps are: what the window travels, shared out between
+     the views after the first. */
+  --row: calc((var(--track-h) - var(--pin-h)) / (var(--views) - 1));
+  height: var(--track-h);
+}
+
+/* Pinned in the middle of the screen below the header, or just under the
+   header when the screen is only as tall as the window. */
+.hero[data-scroll] .tour-pin {
+  position: sticky;
+  top: max(76px, (100svh - var(--pin-h)) / 2 + 34px);
+  align-self: start;
+  gap: 10px;
+}
+
+.hero[data-scroll] .window-bar {
+  height: 32px;
+}
+
+.hero[data-scroll] .app-stage {
+  height: var(--stage);
+}
+
+/* The view's own heading and text are the step on the left. */
+.hero[data-scroll] .view-head {
+  display: none;
+}
+
+/* The steps: a rail with a lit line that grows as the visitor scrolls, and a
+   node for each view. The one in use is bright and the rest recede. */
+
+.hero[data-scroll] .tour-tabs {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(var(--views), var(--row));
+  justify-self: stretch;
+  align-self: start;
+  gap: 0;
+  padding: max(0px, var(--pin-h) / 2 - var(--row) / 2) 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.hero[data-scroll] .tour-tabs::before,
+.hero[data-scroll] .tour-tabs::after {
+  position: absolute;
+  left: 18px;
+  width: 1px;
+  content: "";
+  top: calc(var(--pin-h) / 2);
+}
+
+.hero[data-scroll] .tour-tabs::before {
+  bottom: calc(var(--pin-h) / 2);
+  background: var(--line-strong);
+}
+
+.hero[data-scroll] .tour-tabs::after {
+  height: calc(var(--at) * var(--row));
+  background: var(--accent);
+}
+
+.hero[data-scroll] .tab-rule,
+.hero[data-scroll] .tab-label {
+  display: none;
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr);
+  align-items: start;
+  align-self: center;
+  column-gap: clamp(18px, 2vw, 28px);
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--faint);
+  text-align: left;
+  white-space: normal;
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"]:hover {
+  background: none;
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"] > .i {
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+  padding: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--faint);
+  transition: background-color 250ms, color 250ms, border-color 250ms;
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"][aria-selected="true"] > .i {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.hero[data-scroll] .tab-copy {
+  display: grid;
+  gap: 12px;
+  padding-top: 1px;
+}
+
+.hero[data-scroll] .tab-title {
+  color: var(--faint);
+  font: 600 clamp(26px, 2.6vw, 38px) / 1.1 var(--display);
+  letter-spacing: -0.03em;
+  transition: color 250ms;
+}
+
+.hero[data-scroll] .tab-text {
+  color: var(--faint);
+  font-size: clamp(15.5px, 1.2vw, 17.5px);
+  line-height: 1.6;
+  transition: color 250ms;
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"]:hover .tab-title,
+.hero[data-scroll] .tour-tabs [role="tab"]:hover .tab-text {
+  color: var(--ink-2);
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"][aria-selected="true"] .tab-title {
+  color: var(--ink);
+}
+
+.hero[data-scroll] .tour-tabs [role="tab"][aria-selected="true"] .tab-text {
+  color: var(--muted);
+}
+
+.hero[data-scroll] .df-try {
+  padding-block: 8px;
+}
+
+.hero[data-scroll] .df-page {
+  padding-block: 16px 18px;
+}
+
+.hero[data-scroll] .df-icon {
+  font-size: 32px;
+}
+
+.hero[data-scroll] .df-title {
+  margin: 6px 0 8px;
+  font-size: clamp(26px, 2.6vw, 32px);
+}
+
+.hero[data-scroll] .df-props {
+  margin-bottom: 12px;
+}
+
+.hero[data-scroll] .df-h {
+  margin-top: 16px;
+}
+
+.hero[data-scroll] .df-compose {
+  margin-top: 10px;
+}
+
+.hero[data-scroll] .app-panel,
+.hero[data-scroll] .app-panel > .demo {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hero[data-scroll] .view-shot {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hero[data-scroll] .view-shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.hero[data-scroll] .db-canvas {
+  min-height: 0;
+}
+
+.hero[data-scroll] .dh-page,
+.hero[data-scroll] .dh-side {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.hero[data-scroll] .demo-ai {
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .tour-tabs {
+    justify-self: stretch;
+  }
+
+  .app-stage {
+    display: block;
+  }
+
+  .app-panel {
+    display: none;
+    transition: none;
+  }
+
+  .app-panel.is-active {
+    display: flex;
+  }
+}

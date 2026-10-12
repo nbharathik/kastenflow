@@ -1,0 +1,150 @@
+/*
+ * The text controls that open from a toolbar button: the look of a list, spacing and indents, how a box fits its words,
+ * and the card that opens beside a link. Colours, radii, motion and the type of the rest of the editor come from its tokens.
+ */
+.ks-tui {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-width: 232px;
+}
+.ks-tui-heading {
+  color: var(--ks-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 4px;
+}
+.ks-tui-section {
+  display: flex;
+  flex-direction: column;
+}
+.ks-tui-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.ks-tui-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  padding: 6px;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius);
+  background: transparent;
+  color: var(--ks-ink);
+  cursor: pointer;
+  transition: background var(--ks-fast) var(--ks-ease), border-color var(--ks-fast) var(--ks-ease);
+}
+.ks-tui-cell:hover {
+  background: var(--ks-hover);
+}
+.ks-tui-cell:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-tui-cell.is-on {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+}
+.ks-tui-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+.ks-tui-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1;
+}
+.ks-tui-marker {
+  width: 16px;
+  text-align: right;
+  color: var(--ks-ink);
+}
+.ks-tui-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ks-line-strong);
+}
+.ks-tui-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ks-tui-counting {
+  border-top: 1px solid var(--ks-line);
+  padding-top: 8px;
+}
+/* The colour a marker is drawn in, beside the button that opens the palette; a marker in the colour of its words has a struck-through swatch. */
+.ks-tui-marker-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ks-tui-swatch {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--ks-canvas);
+  box-shadow: inset 0 0 0 1px var(--ks-line-strong);
+}
+.ks-tui-swatch.is-none {
+  background: linear-gradient(135deg, transparent 45%, var(--ks-danger) 45%, var(--ks-danger) 55%, transparent 55%), var(--ks-canvas);
+}
+.ks-tui-swatch.is-mixed {
+  background: repeating-conic-gradient(var(--ks-line-strong) 0 25%, transparent 0 50%) 50% / 8px 8px;
+}
+.ks-tui-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px 10px;
+}
+.ks-tui-presets {
+  display: flex;
+  gap: 4px;
+}
+.ks-tui-presets .ks-seg {
+  flex: 1;
+}
+
+/* A text box that resizes to fit its words grows as they are typed, drawn with the outline a selected box has until it is written. */
+.ks-text-layer.is-resizing {
+  outline: 1px solid var(--ks-accent);
+  transition: height var(--ks-fast) var(--ks-ease);
+}
+
+/* The card that opens beside a link: its address, and what can be done with it. */
+.ks-tui-link {
+  min-width: 280px;
+}
+.ks-tui-link .ks-input {
+  width: 100%;
+}
+.ks-tui-link-address {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ks-tui-link-label {
+  color: var(--ks-muted);
+  font-size: 11px;
+}
+.ks-tui-link-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.ks-tui-link-error {
+  color: var(--ks-danger);
+  font-size: 12px;
+}

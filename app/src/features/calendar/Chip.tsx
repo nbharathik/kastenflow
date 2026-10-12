@@ -6,9 +6,11 @@ import { memo, type KeyboardEvent, type MouseEvent } from "react";
 
 import { dayFrom, isDay } from "../../lib/dates";
 import type { TaskRow } from "../../lib/vault/types";
+import type { Swatch } from "../panel/properties/schemas";
 import { iconOf, titleOf } from "../workspace/names";
 import { toneStyle, useCalendarActions, type CalendarActions } from "./actions";
 import type { DateItem } from "./dates";
+import { ExternalChip } from "./external/ExternalChip";
 import { briefRange, chipTone, dayLabel, fullDay, isDone, itemId, nudgeDays, rangeLabel, stretchDays, taskText, type Entry } from "./layout";
 import { rangeDays, rangeId, type DateRange } from "./ranges";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
@@ -47,7 +49,7 @@ export function onRangeKey(event: KeyboardEvent<HTMLElement>, range: DateRange, 
   }
 }
 
-export const NoteChip = memo(function NoteChip({ item, tone, dragging, large }: ChipProps & { item: DateItem; tone: string | null; dragging: boolean }) {
+export const NoteChip = memo(function NoteChip({ item, tone, dragging, large }: ChipProps & { item: DateItem; tone: Swatch | null; dragging: boolean }) {
   const actions = useCalendarActions();
   const title = titleOf(item.note);
   const done = isDone(item.note);
@@ -92,7 +94,7 @@ export const NoteChip = memo(function NoteChip({ item, tone, dragging, large }: 
 
 /** A range in a day's list ("+N more"): dragged from here, it moves as if
  * held by that day. */
-export const RangeChip = memo(function RangeChip({ range, day, tone, dragging }: { range: DateRange; day: string; tone: string | null; dragging: boolean }) {
+export const RangeChip = memo(function RangeChip({ range, day, tone, dragging }: { range: DateRange; day: string; tone: Swatch | null; dragging: boolean }) {
   const actions = useCalendarActions();
   const title = titleOf(range.note);
   return (
@@ -121,6 +123,18 @@ export const RangeChip = memo(function RangeChip({ range, day, tone, dragging }:
   );
 });
 
+/** The time a to-do or mention carries (`[[2026-10-07]] 09:00`), small before its title. */
+function Time({ at }: { at: string | null | undefined }) {
+  return at ? (
+    <time className="kasten-cal-chip-time" dateTime={at}>
+      {at}
+    </time>
+  ) : null;
+}
+
+/** "09:00 " before a label, or nothing. */
+const atLabel = (at: string | null | undefined) => (at ? `${at} ` : "");
+
 export const TaskChip = memo(function TaskChip({ task, large }: ChipProps & { task: TaskRow }) {
   const actions = useCalendarActions();
   return (
@@ -128,8 +142,8 @@ export const TaskChip = memo(function TaskChip({ task, large }: ChipProps & { ta
       role="button"
       tabIndex={0}
       draggable={false}
-      aria-label={taskText(task)}
-      title={`To-do in “${task.title}”: ${task.text}\nOpen the page to change its day; to-dos can’t be dragged.`}
+      aria-label={`${atLabel(task.at)}${taskText(task)}`}
+      title={`${atLabel(task.at)}To-do in “${task.title}”: ${task.text}\nOpen the page to change its day; to-dos can’t be dragged.`}
       className={`kasten-cal-chip is-task${large ? " is-large" : ""}`}
       onClick={(event) => actions.open(task.path, event)}
       onMouseDown={noAutoScroll}
@@ -143,7 +157,10 @@ export const TaskChip = memo(function TaskChip({ task, large }: ChipProps & { ta
       <svg className="kasten-cal-chip-box" viewBox="0 0 16 16" aria-hidden="true">
         <rect x="2.5" y="2.5" width="11" height="11" rx="3" />
       </svg>
-      <span className="kasten-cal-chip-title">{taskText(task)}</span>
+      <span className="kasten-cal-chip-title">
+        <Time at={task.at} />
+        {taskText(task)}
+      </span>
       {large && (
         <span className="kasten-cal-chip-meta">
           <IconOrEmoji icon={iconOf({ icon: task.icon, kind: "page" })} /> {task.title}
@@ -155,7 +172,7 @@ export const TaskChip = memo(function TaskChip({ task, large }: ChipProps & { ta
 
 /** A note that names the day in its text (`[[2026-10-01]]`), or was made
  * on it: it opens, and it does not move (its day is not a property). */
-const LinkChip = memo(function LinkChip({ path, icon, title, why, kind, large }: ChipProps & { path: string; icon: string; title: string; why: string; kind: "mention" | "made" }) {
+const LinkChip = memo(function LinkChip({ path, icon, title, why, kind, large, at }: ChipProps & { path: string; icon: string; title: string; why: string; kind: "mention" | "made"; at?: string | null }) {
   const actions = useCalendarActions();
   const meta = kind === "mention" ? "Mentions this day" : "Made this day";
   return (
@@ -163,8 +180,8 @@ const LinkChip = memo(function LinkChip({ path, icon, title, why, kind, large }:
       role="button"
       tabIndex={0}
       draggable={false}
-      aria-label={`${title}, ${meta.toLowerCase()}`}
-      title={`${title}\n${why}`}
+      aria-label={`${atLabel(at)}${title}, ${meta.toLowerCase()}`}
+      title={`${atLabel(at)}${title}\n${why}`}
       className={`kasten-cal-chip is-${kind}${large ? " is-large" : ""}`}
       onClick={(event) => actions.open(path, event)}
       onMouseDown={noAutoScroll}
@@ -178,7 +195,10 @@ const LinkChip = memo(function LinkChip({ path, icon, title, why, kind, large }:
       <span className="kasten-cal-chip-icon" aria-hidden="true">
         <IconOrEmoji icon={icon} />
       </span>
-      <span className="kasten-cal-chip-title">{title}</span>
+      <span className="kasten-cal-chip-title">
+        <Time at={at} />
+        {title}
+      </span>
       {large && <span className="kasten-cal-chip-meta">{meta}</span>}
     </div>
   );
@@ -188,11 +208,12 @@ const LinkChip = memo(function LinkChip({ path, icon, title, why, kind, large }:
  * listed on (where a range is held when dragged from the list). */
 export function EntryChip({ entry, colors, dragging, large, day }: ChipProps & { entry: Entry; colors: ReadonlyMap<string, string>; dragging: string | null; day: string }) {
   if (entry.kind === "task") return <TaskChip task={entry.task} large={large} />;
+  if (entry.kind === "event") return <ExternalChip part={entry.part} large={large} />;
   if (entry.kind === "mention") {
     const { mention } = entry;
     // A journal page is called by its day: "Journal, October 2".
     const title = mention.kind === "journal" && isDay(mention.title) ? `Journal, ${dayLabel(mention.title, dayFrom(0))}` : mention.title;
-    return <LinkChip kind="mention" path={mention.path} icon={iconOf(mention)} title={title} why={`Mentions this day: “${mention.snippet}”`} large={large} />;
+    return <LinkChip kind="mention" path={mention.path} icon={iconOf(mention)} title={title} why={`Mentions this day: “${mention.snippet}”`} large={large} at={mention.at} />;
   }
   if (entry.kind === "made") return <LinkChip kind="made" path={entry.note.path} icon={iconOf(entry.note)} title={titleOf(entry.note)} why={`Made this day${entry.note.excerpt ? `: “${entry.note.excerpt.slice(0, 120)}”` : ""}`} large={large} />;
   if (entry.kind === "range") return <RangeChip range={entry.range} day={day} tone={chipTone(entry.range, colors)} dragging={dragging === rangeId(entry.range)} />;
@@ -204,5 +225,6 @@ export function entryKey(entry: Entry): string {
   if (entry.kind === "note") return itemId(entry.item);
   if (entry.kind === "range") return rangeId(entry.range);
   if (entry.kind === "task") return `${entry.task.path}:${entry.task.line}`;
+  if (entry.kind === "event") return entry.part.key;
   return `${entry.kind}:${entry.kind === "mention" ? entry.mention.path : entry.note.path}`;
 }

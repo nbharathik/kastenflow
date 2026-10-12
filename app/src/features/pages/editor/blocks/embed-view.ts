@@ -9,7 +9,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { DOMSerializer, Fragment, type Node as DocNode } from "@milkdown/kit/prose/model";
 
 import { sectionOf } from "../../markdown/sections";
-import { linksOf, parseWikiTarget, type EmbeddedPage } from "../links";
+import { isFileTarget, linksOf, parseWikiTarget, type EmbeddedPage } from "../links";
 import { el, withGlyph } from "../ui/dom";
 
 /** Blocks drawn at most; a longer page shows its start. */
@@ -62,7 +62,9 @@ export class EmbedCard {
     const ticket = ++this.ticket;
     const label = target.heading ? `${target.alias || target.title} › ${target.heading}` : target.alias || target.title;
     if (!source) {
-      this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: `No page called “${target.title}” yet. Click to create it.` }));
+      // A file is never a page to make: its name says what it is.
+      const note = isFileTarget(target.title) ? `No file called “${target.title}”.` : `No page called “${target.title}” yet. Click to create it.`;
+      this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: note }));
       return;
     }
     if (!this.dom.querySelector(".kasten-embed-body")) this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: "Loading…" }));

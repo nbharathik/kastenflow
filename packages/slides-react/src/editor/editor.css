@@ -1,9 +1,12 @@
 /* The editor's look. Every colour, size and shadow is a variable on .ks-editor,
    so a host restyles the whole editor by setting them (Kasten maps its own
    design tokens onto these). Light is the default; a dark theme is picked by
-   the host with data-theme="dark", or by the system when the host says nothing. */
+   the host with data-theme="dark", or by the system when the host says nothing.
+   The menus, popovers, dialogs and colour palettes have sheets of their own in ui/. */
 .ks-editor {
   --ks-canvas: #ffffff;
+  /* Menus, popovers and dialogs: the paper's colour in light, a step above it in dark. */
+  --ks-raised: #ffffff;
   --ks-panel: #f7f6f4;
   --ks-well: #ecebe8;
   --ks-ink: #31302e;
@@ -16,8 +19,10 @@
   --ks-danger: #c4403b;
   --ks-success: #1a7f52;
   --ks-warning: #a15c07;
+  --ks-favourite: #e0a100;
   --ks-hover: color-mix(in srgb, var(--ks-ink) 6%, transparent);
   --ks-selected: color-mix(in srgb, var(--ks-ink) 9%, transparent);
+  --ks-pressed: color-mix(in srgb, var(--ks-ink) 12%, transparent);
   --ks-soft: color-mix(in srgb, var(--ks-accent) 11%, transparent);
   --ks-scrim: rgb(15 15 15 / 0.32);
   --ks-shadow-pop: 0 0 0 1px rgb(15 15 15 / 0.06), 0 3px 6px rgb(15 15 15 / 0.06), 0 9px 24px rgb(15 15 15 / 0.12);
@@ -27,15 +32,27 @@
   --ks-radius-lg: 12px;
   --ks-font: "Inter Variable", Inter, ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   --ks-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  /* How long things take: a hover or a menu opening, a panel or a dialog, the largest surfaces. A host maps its own motion tokens here. */
   --ks-fast: 90ms;
+  --ks-base: 140ms;
+  --ks-slow: 200ms;
+  --ks-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* The height of the bars and of a control in them: the compact density takes a little off both. */
   --ks-bar: 40px;
+  --ks-control: 28px;
   color: var(--ks-ink);
   font: 13px/1.4 var(--ks-font);
   color-scheme: light;
 }
 
+.ks-editor[data-density="compact"] {
+  --ks-bar: 32px;
+  --ks-control: 24px;
+}
+
 .ks-editor[data-theme="dark"] {
   --ks-canvas: #252423;
+  --ks-raised: #2d2c2b;
   --ks-panel: #1f1e1d;
   --ks-well: #171716;
   --ks-ink: #e6e4df;
@@ -48,6 +65,7 @@
   --ks-danger: #ef7d78;
   --ks-success: #58c48f;
   --ks-warning: #e0a54c;
+  --ks-favourite: #f5c04a;
   --ks-scrim: rgb(0 0 0 / 0.55);
   --ks-shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 6px 20px rgb(0 0 0 / 0.5);
   --ks-shadow-page: 0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 30px rgb(0 0 0 / 0.5);
@@ -57,6 +75,7 @@
 @media (prefers-color-scheme: dark) {
   .ks-editor:not([data-theme="light"]):not([data-theme="dark"]) {
     --ks-canvas: #252423;
+    --ks-raised: #2d2c2b;
     --ks-panel: #1f1e1d;
     --ks-well: #171716;
     --ks-ink: #e6e4df;
@@ -69,6 +88,7 @@
     --ks-danger: #ef7d78;
     --ks-success: #58c48f;
     --ks-warning: #e0a54c;
+    --ks-favourite: #f5c04a;
     --ks-scrim: rgb(0 0 0 / 0.55);
     --ks-shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.08), 0 6px 20px rgb(0 0 0 / 0.5);
     --ks-shadow-page: 0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 30px rgb(0 0 0 / 0.5);
@@ -109,10 +129,12 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-width: 28px;
-  height: 28px;
+  min-width: var(--ks-control);
+  height: var(--ks-control);
   padding: 0 6px;
-  transition: background var(--ks-fast);
+  transition:
+    background var(--ks-fast) var(--ks-ease),
+    color var(--ks-fast) var(--ks-ease);
 }
 .ks-icon-btn.has-text {
   gap: 6px;
@@ -121,18 +143,27 @@
 .ks-icon-btn:hover:not(:disabled) {
   background: var(--ks-hover);
 }
+.ks-icon-btn:active:not(:disabled) {
+  background: var(--ks-pressed);
+}
 .ks-icon-btn.is-on {
   background: var(--ks-soft);
   color: var(--ks-accent);
 }
 .ks-text-btn {
-  height: 28px;
+  height: var(--ks-control);
   padding: 0 12px;
   border: 1px solid var(--ks-line-strong);
   background: var(--ks-canvas);
+  transition:
+    background var(--ks-fast) var(--ks-ease),
+    filter var(--ks-fast) var(--ks-ease);
 }
 .ks-text-btn:hover:not(:disabled) {
   background: var(--ks-hover);
+}
+.ks-text-btn:active:not(:disabled) {
+  background: var(--ks-pressed);
 }
 .ks-text-btn.is-primary {
   background: var(--ks-accent);
@@ -141,6 +172,10 @@
 }
 .ks-text-btn.is-primary:hover:not(:disabled) {
   filter: brightness(1.08);
+  background: var(--ks-accent);
+}
+.ks-text-btn.is-primary:active:not(:disabled) {
+  filter: brightness(0.94);
   background: var(--ks-accent);
 }
 /* Controls are not text to select: a drag over a toolbar or a menu picks up nothing, and select all in a dialog or a panel leaves them
@@ -187,7 +222,12 @@
   font-size: 11.5px;
   white-space: nowrap;
   pointer-events: none;
-  animation: ks-tip 0s linear 500ms both;
+  animation: ks-tip 0s linear 400ms both;
+}
+/* A control whose menu is open needs no tooltip over it: the menu says it. */
+[data-tip][aria-expanded="true"]:hover::after,
+[data-tip][aria-expanded="true"]:focus-visible::after {
+  content: none;
 }
 @keyframes ks-tip {
   from {
@@ -198,122 +238,10 @@
   }
 }
 
-/* ---- popovers and menus */
-.ks-popover {
-  position: fixed;
-  z-index: 50;
-  background: var(--ks-canvas);
-  color: var(--ks-ink);
-  border-radius: var(--ks-radius-md);
-  box-shadow: var(--ks-shadow-pop);
-  max-height: calc(100vh - 16px);
-  overflow: auto;
-}
-.ks-menu {
-  min-width: 200px;
-  padding: 4px;
-}
-.ks-menu-list {
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.ks-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 28px;
-  padding: 0 8px 0 4px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  border-radius: var(--ks-radius);
-  cursor: pointer;
-  position: relative;
-}
-.ks-menu-item:hover:not(:disabled),
-.ks-menu-item:focus-visible,
-.ks-menu-item.is-open {
-  background: var(--ks-hover);
-  outline: none;
-}
-.ks-menu-item:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.ks-menu-item.is-danger {
-  color: var(--ks-danger);
-}
-.ks-menu-mark {
-  width: 18px;
-  display: inline-flex;
-  justify-content: center;
-  color: var(--ks-muted);
-}
-.ks-menu-label {
-  flex: 1;
-  white-space: nowrap;
-}
-.ks-kbd {
-  font: 11.5px var(--ks-font);
-  color: var(--ks-faint);
-  white-space: nowrap;
-}
-.ks-menu-sep {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--ks-line);
-}
-.ks-menu-heading {
-  padding: 6px 8px 2px 8px;
-  color: var(--ks-faint);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* ---- dialogs */
-.ks-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  background: var(--ks-scrim);
-}
-.ks-dialog {
-  outline: none;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-  background: var(--ks-canvas);
-  border-radius: var(--ks-radius-lg);
-  box-shadow: var(--ks-shadow-pop);
-  padding: 20px;
-}
-.ks-dialog-title {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 600;
-}
-.ks-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.ks-dialog-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
-
 /* ---- fields */
 .ks-input,
 .ks-select {
-  height: 28px;
+  height: var(--ks-control);
   padding: 0 8px;
   border: 1px solid var(--ks-line-strong);
   border-radius: var(--ks-radius);
@@ -335,6 +263,14 @@
   color: var(--ks-muted);
   font-size: 12px;
 }
+/* The label of a number is its handle: drag it sideways to turn the number. */
+.ks-field-label.ks-scrub {
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ks-field-label.ks-scrub:hover {
+  color: var(--ks-ink);
+}
 .ks-segmented {
   display: inline-flex;
   border: 1px solid var(--ks-line-strong);
@@ -354,6 +290,10 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  transition: background var(--ks-fast) var(--ks-ease);
+}
+.ks-seg:hover:not(.is-on) {
+  background: var(--ks-hover);
 }
 .ks-seg + .ks-seg {
   border-left: 1px solid var(--ks-line);
@@ -380,62 +320,4 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--ks-muted);
-}
-
-/* ---- colours */
-.ks-colors {
-  padding: 8px;
-  width: 244px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.ks-color-none {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 26px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  border-radius: var(--ks-radius);
-  padding: 0 4px;
-}
-.ks-color-none:hover {
-  background: var(--ks-hover);
-}
-.ks-swatch-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 20px);
-  gap: 2px;
-}
-.ks-swatch {
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--ks-line);
-  border-radius: 50%;
-  padding: 0;
-  cursor: pointer;
-  position: relative;
-}
-.ks-swatch:hover {
-  transform: scale(1.12);
-}
-.ks-swatch.is-on {
-  box-shadow: 0 0 0 2px var(--ks-canvas), 0 0 0 4px var(--ks-accent);
-}
-.ks-swatch.is-none {
-  display: inline-block;
-  cursor: default;
-  background: linear-gradient(135deg, transparent 45%, var(--ks-danger) 45%, var(--ks-danger) 55%, transparent 55%);
-}
-.ks-color-custom {
-  display: flex;
-  gap: 6px;
-}
-.ks-color-custom .ks-input {
-  flex: 1;
-  min-width: 0;
 }

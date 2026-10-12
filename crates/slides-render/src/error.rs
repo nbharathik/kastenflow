@@ -36,7 +36,7 @@ impl fmt::Display for Error {
                 Ok(())
             }
             Error::NoPage => f.write_str(
-                "This build of Kasten Slides does not carry the page it draws slides with. Build it with `node scripts/build-render-page.mjs` and build again, or set SLIDES_RENDER_PAGE to the folder it was built into.",
+                "This build of KastenFlow Slides does not carry the page it draws slides with. Build it with `node scripts/build-render-page.mjs` and build again, or set SLIDES_RENDER_PAGE to the folder it was built into.",
             ),
             Error::Launch(m) => write!(f, "The browser could not be started: {m}"),
             Error::Browser(m) => write!(f, "The browser failed while drawing: {m}"),

@@ -8,6 +8,7 @@ import { Fragment, type Node } from "@milkdown/kit/prose/model";
 import { loadMarkdown, rebaseSnapshot, saveMarkdown } from "../markdown/lossless";
 import { loadedBlocks, type LoadedBlock } from "../markdown/marked-blocks";
 import { milkdownCodec, topLevel } from "./milkdown-codec";
+import { LOAD_META } from "./sections/key";
 
 export interface OpenNote {
   /** The body as it should be written to disk now. */
@@ -24,7 +25,8 @@ export function openNote(crepe: Crepe, body: string): OpenNote {
   const view = ctx.get(editorViewCtx);
   const loaded = loadMarkdown(codec, body);
   const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, Fragment.from(loaded.nodes));
-  view.dispatch(tr.setMeta("addToHistory", false));
+  // Opening a page: the sections folded last time are folded again.
+  view.dispatch(tr.setMeta("addToHistory", false).setMeta(LOAD_META, true));
   const snapshot = rebaseSnapshot(codec, loaded.snapshot, topLevel(view.state.doc));
   return {
     save: () => saveMarkdown(codec, snapshot, topLevel(ctx.get(editorViewCtx).state.doc)),

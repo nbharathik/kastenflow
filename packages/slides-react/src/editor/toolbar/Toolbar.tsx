@@ -1,17 +1,24 @@
-import { type JSX, type KeyboardEvent, type RefObject, type WheelEvent, useLayoutEffect, useRef, useState } from "react";
+import { type JSX, type KeyboardEvent, useMemo, useRef } from "react";
 
+import { useChromeValue } from "../chrome/chrome.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
-import { Divider } from "../ui/Button.tsx";
-import { useEditor } from "../useEditor.ts";
 import { useElementSize } from "../useElementSize.ts";
+import { ArrangeTools } from "./ArrangeTools.tsx";
+import { DiagramTools } from "./DiagramTools.tsx";
+import { type Shown, ShownContext } from "./Group.tsx";
 import { HistoryTools, ZoomTool } from "./HistoryTools.tsx";
 import { InsertTools } from "./InsertTools.tsx";
+import { MoreMenu } from "./MoreMenu.tsx";
 import { usePaintBrush } from "./paint.ts";
-import { ShapeTools, hasShapeTools } from "./ShapeTools.tsx";
+import { PanelTools } from "./PanelTools.tsx";
+import { ShapeTools } from "./ShapeTools.tsx";
+import { slotsFor } from "./slots.ts";
 import { SlideTools } from "./SlideTools.tsx";
-import { TextTools } from "./TextTools.tsx";
+import { TextGroups } from "./TextTools.tsx";
 import { TipView, useTips } from "./Tips.tsx";
+import { useBarMode } from "./useBarMode.ts";
+import { useOverflow } from "./useOverflow.ts";
 import "./toolbar.css";
 
 /** Buttons and fields the arrow keys can go between: the ones in the bar itself, not in a menu opened from it. */
@@ -20,46 +27,28 @@ function stops(bar: HTMLElement): HTMLElement[] {
 }
 
 /**
- * Whether the buttons at the right have to go without their words: when the
- * row with all the words is wider than the window. The width the words need is
- * learned whenever they are shown, and they come back once the window is that wide.
- */
-function useCompact(bar: RefObject<HTMLDivElement | null>, width: number, shapes: boolean): boolean {
-  const [compact, setCompact] = useState(false);
-  const needs = useRef(0);
-  useLayoutEffect(() => {
-    const element = bar.current;
-    if (!element || width === 0) return;
-    if (!compact) {
-      needs.current = element.scrollWidth;
-      if (element.scrollWidth > element.clientWidth + 1) setCompact(true);
-    } else if (needs.current > 0 && element.clientWidth >= needs.current) setCompact(false);
-  }, [bar, width, shapes, compact]);
-  return compact;
-}
-
-/**
- * The row of tools under the menus: history, paint format, zoom, what to put
- * on the slide, the text controls, the shape controls (only when the selection
- * has a shape, line or text box), and the slide's own at the far right. It is
- * one row, 40 px high, and scrolls sideways when the window is narrow. Nothing
- * in it takes the focus from a text box that is being edited.
+ * The row of tools under the menus: one row, whose groups follow what is selected. With nothing selected it has history, zoom, what to
+ * put on the slide and the slide's own settings; with something selected it swaps to the controls for that thing (the font and the words'
+ * look for text, the fill and border for a shape, the order and animation for anything), and leaves out what does not apply instead of
+ * greying it. A row too narrow for its groups sends the last of them into a "more" menu, and the button for the format options stays at the
+ * right edge. Nothing in it takes the focus from a text box that is being edited.
+ *
+ * The bar follows only the facts that decide its groups; each group follows only what it shows, so a change of selection, a save or a step
+ * of undo draws only the groups it concerns, and a marquee dragged over the slide does not draw the bar again for each pixel.
  */
 export function Toolbar({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
-  useEditor(session);
+  const mode = useBarMode(session, ui);
+  const { selected, text, shape, diagram } = mode;
+  const slots = useMemo(() => slotsFor({ selected, text, shape, diagram }), [selected, text, shape, diagram]);
   const bar = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const pinned = useRef<HTMLDivElement>(null);
   const { w } = useElementSize(bar);
+  const density = useChromeValue(ui, (state) => state.density);
+  const hidden = useOverflow(bar, box, pinned, slots, w, density);
+  const here = useMemo<Shown>(() => ({ shows: (id) => !hidden.has(id) }), [hidden]);
   const { tip, handlers } = useTips();
   usePaintBrush(session, ui);
-  const compact = useCompact(bar, w, hasShapeTools(session));
-
-  // A wheel that only turns up and down scrolls the row sideways.
-  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
-    const element = bar.current;
-    if (!element || event.deltaX !== 0 || element.scrollWidth <= element.clientWidth) return;
-    if (event.target instanceof Element && event.target.closest(".ks-popover")) return;
-    element.scrollLeft += event.deltaY;
-  };
 
   // Left and Right go from button to button.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -76,13 +65,32 @@ export function Toolbar({ session, ui }: { session: EditorSession; ui: EditorUi 
     to.focus();
   };
 
+  const groups = (
+    <>
+      <HistoryTools session={session} ui={ui} />
+      <ZoomTool session={session} ui={ui} />
+      {mode.selected ? (
+        <>
+          {mode.text ? <TextGroups session={session} ui={ui} /> : null}
+          <ShapeTools session={session} ui={ui} />
+          <DiagramTools session={session} ui={ui} />
+          <ArrangeTools session={session} ui={ui} />
+        </>
+      ) : (
+        <>
+          <InsertTools session={session} ui={ui} />
+          <SlideTools session={session} ui={ui} />
+        </>
+      )}
+    </>
+  );
+
   return (
     <div
       ref={bar}
-      className={`ks-toolbar${compact ? " is-compact" : ""}`}
+      className="ks-toolbar"
       role="toolbar"
       aria-label="Toolbar"
-      onWheel={onWheel}
       onKeyDown={onKeyDown}
       onMouseOver={handlers.onMouseOver}
       onMouseLeave={handlers.onMouseLeave}
@@ -90,17 +98,13 @@ export function Toolbar({ session, ui }: { session: EditorSession; ui: EditorUi 
       onFocus={handlers.onFocus}
       onBlur={handlers.onBlur}
     >
-      <HistoryTools session={session} ui={ui} />
-      <Divider />
-      <ZoomTool session={session} ui={ui} />
-      <Divider />
-      <InsertTools session={session} ui={ui} />
-      <Divider />
-      <TextTools session={session} ui={ui} />
-      <ShapeTools session={session} ui={ui} />
-      <span className="ks-tb-spacer" />
-      <Divider />
-      <SlideTools session={session} ui={ui} />
+      <div ref={box} className="ks-tb-groups">
+        <ShownContext value={here}>{groups}</ShownContext>
+        {hidden.size > 0 ? <MoreMenu hidden={hidden}>{groups}</MoreMenu> : null}
+      </div>
+      <div ref={pinned} className="ks-tb-pinned">
+        <PanelTools session={session} ui={ui} />
+      </div>
       {tip ? <TipView tip={tip} /> : null}
     </div>
   );

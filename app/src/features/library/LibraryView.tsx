@@ -4,6 +4,7 @@ import { Icon } from "../../ui/Icon";
 import { useAgentMarked } from "../review/agent-marked";
 import { titleOf } from "../workspace/names";
 import { captureCard } from "../workspace/overlays/commands";
+import { usePrefs } from "../workspace/prefs";
 import { useWorkspace } from "../workspace/store";
 import { projects } from "../workspace/tree";
 import { BulkBar } from "./BulkBar";
@@ -12,8 +13,9 @@ import { CardGrid, type OpenEvent } from "./CardGrid";
 import { CardTable } from "./CardTable";
 import { useLibraryRequests } from "./request";
 import { useFullText, useNoteStats, useTagColors } from "./data";
-import { FilterBar, SortControl } from "./FilterBar";
+import { FilterBar, GroupControl, SortControl } from "./FilterBar";
 import { NO_FILTERS, buildRows, filterRows, firstDir, hasFilters, parseQuery, sortRows, tagCounts, type SortKey } from "./filters";
+import { groupRows, limitGroups, shownRows } from "./groups";
 import { isMac } from "../shortcuts/keymap";
 import { useKeyLabel } from "../shortcuts/store";
 import { Glyph, cards } from "./parts";
@@ -42,7 +44,11 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
   const [anchor, setAnchor] = useState<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
   const content = useRef<HTMLElement>(null);
-  const { filters, sort, mode } = prefs;
+  const { filters, sort, mode, group } = prefs;
+  // "This week" and the week groups start on the day Settings → Calendar says.
+  const weekStart = usePrefs((s) => s.weekStart);
+  // Groups folded away, by key; they keep their heading and count.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
 
   // Typing stays instant; the list catches up a moment later if it must.
   const typed = useDeferredValue(query);
@@ -60,15 +66,20 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
   const filterStats = filters.noBoard || filters.orphans ? stats : null;
   const sorted = useMemo(() => sortRows(rows, sort, sortStats), [rows, sort, sortStats]);
   const parsed = useMemo(() => parseQuery(typed), [typed]);
-  const shown = useMemo(() => filterRows(sorted, filters, { stats: filterStats, query: parsed, hits, now: Date.now() }), [sorted, filters, filterStats, parsed, hits]);
+  const matched = useMemo(() => filterRows(sorted, filters, { stats: filterStats, query: parsed, hits, now: Date.now(), weekStart }), [sorted, filters, filterStats, parsed, hits, weekStart]);
+  // What is on show: the cards of the groups not folded, in the order drawn.
+  const groups = useMemo(() => groupRows(matched, group, { sort, weekStart }, folded), [matched, group, sort, weekStart, folded]);
+  const shown = useMemo(() => shownRows(groups), [groups]);
   const tags = useMemo(() => tagCounts(rows), [rows]);
   const places = useMemo(() => projects(notes).map((p) => ({ folder: p.project!, title: titleOf(p) })), [notes]);
 
   // Back to the first page whenever what is shown changes.
-  const view = `${JSON.stringify(filters)}|${sort.key}|${sort.dir}|${typed}`;
+  const view = `${JSON.stringify(filters)}|${sort.key}|${sort.dir}|${group}|${typed}`;
   const [paging, setPaging] = useState({ view, limit: PAGE });
   const limit = paging.view === view ? paging.limit : PAGE;
-  const visible = useMemo(() => shown.slice(0, limit), [shown, limit]);
+  const drawn = useMemo(() => limitGroups(groups, limit), [groups, limit]);
+  const visible = useMemo(() => shownRows(drawn), [drawn]);
+  const onFold = useCallback((key: string) => setFolded((current) => toggle(current, key)), []);
 
   // Only shown cards count as selected, so an action never touches a hidden one.
   const chosen = useMemo(() => shown.filter((r) => selected.has(r.path)), [shown, selected]);
@@ -160,6 +171,7 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
         </span>
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
           <SortControl sort={sort} onSort={(s) => setPrefs({ sort: s })} />
+          <GroupControl group={group} onGroup={(next) => setPrefs({ group: next })} />
           <div role="group" aria-label="Show as" className="ui-seg is-lg">
             <ModeButton mode="grid" current={mode} onPick={(m) => setPrefs({ mode: m })} />
             <ModeButton mode="table" current={mode} onPick={(m) => setPrefs({ mode: m })} />
@@ -168,9 +180,9 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
       </header>
 
       <div ref={edge} aria-hidden="true" className="h-px" />
-      <div className={`sticky top-0 z-20 border-b bg-panel transition-[border-color,box-shadow] ${stuck ? "border-line shadow-[0_6px_16px_-12px_rgba(15,15,15,0.25)]" : "border-transparent"}`}>
+      <div className={`sticky top-0 z-20 border-b bg-panel transition-[border-color,box-shadow] ${stuck ? "border-line shadow-hover" : "border-transparent"}`}>
         <div className="mx-auto w-full max-w-[1400px] space-y-3 px-6 pb-4 pt-5 sm:px-10">
-          <label className="flex h-12 items-center gap-3 rounded-xl border border-line bg-raised px-4 shadow-[0_1px_3px_rgba(15,15,15,0.05)] transition focus-within:border-accent/60 focus-within:ring-[3px] focus-within:ring-accent/15">
+          <label className="flex h-12 items-center gap-3 rounded-xl border border-line bg-raised px-4 shadow-card transition focus-within:border-accent/60 focus-within:ring-[3px] focus-within:ring-accent/15">
             <Icon name="search" className="size-5 text-muted" />
             <input
               ref={search}
@@ -206,20 +218,22 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
       </div>
 
       <section ref={content} aria-label="Results" className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-12 pt-1 sm:px-10">
-        {filtering && shown.length > 0 && (
+        {filtering && matched.length > 0 && (
           <p className="mb-3 text-13 text-muted" aria-live="polite">
-            {shown.length.toLocaleString()} of {cards(rows.length)}
+            {matched.length.toLocaleString()} of {cards(rows.length)}
           </p>
         )}
         {rows.length === 0 ? (
           <EmptyVault />
-        ) : shown.length === 0 && searching ? (
+        ) : matched.length === 0 && searching ? (
           <p className="mt-16 text-center text-14 text-muted">Searching the full text…</p>
-        ) : shown.length === 0 ? (
+        ) : matched.length === 0 ? (
           <NoMatch onClear={clearAll} />
         ) : mode === "grid" ? (
           <CardGrid
-            rows={visible}
+            groups={drawn}
+            grouped={group !== "none"}
+            onFold={onFold}
             selected={chosenPaths}
             stats={stats}
             hits={hits}
@@ -234,7 +248,9 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
           />
         ) : (
           <CardTable
-            rows={visible}
+            groups={drawn}
+            grouped={group !== "none"}
+            onFold={onFold}
             selected={chosenPaths}
             stats={stats}
             tagColors={tagColors}
@@ -255,7 +271,7 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
             <button
               type="button"
               onClick={() => setPaging({ view, limit: limit + PAGE })}
-              className="h-9 rounded-lg border border-line bg-raised px-4 text-13 font-medium shadow-[0_1px_2px_rgba(15,15,15,0.04)] outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50"
+              className="h-9 rounded-lg border border-line bg-raised px-4 text-13 font-medium shadow-card outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               Show {Math.min(PAGE, shown.length - visible.length)} more
             </button>

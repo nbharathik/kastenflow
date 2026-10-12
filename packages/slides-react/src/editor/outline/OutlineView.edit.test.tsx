@@ -267,7 +267,8 @@ describe.skipIf(!parser)("typing Markdown, once the parser is in", () => {
     await setup({ slides: 3 });
     typeInto(body(2), "* one\n  * two   \n\n\n2) **three**");
     fireEvent.blur(body(2));
-    expect(body(2).value).toBe("- one\n  - two\n1. **three**");
+    // A number typed is the number the list counts from (2), as Markdown says; it is not counted over from 1.
+    expect(body(2).value).toBe("- one\n  - two\n2. **three**");
   });
 
   it("makes the looks of a title from what is typed in it", async () => {

@@ -1,15 +1,19 @@
-/* The board's popovers and menus: a tool's options above its bar, the
-   right-click menu, and the board keys. Loaded right after bars.css
-   (BoardCanvas.tsx), which gives them their shared surface. */
+/* The board's panels and menus: what opens from a bar, the right-click menu,
+   and the board keys. Loaded after bars.css (BoardCanvas.tsx), which gives
+   them their surface, and before chrome.css, which places some of them. */
 
+/* ---- Panels that open from a bar --------------------------------------- */
+
+/* Above the button and centred on it, unless it says otherwise. */
 .kasten-pop {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 8px);
   left: 50%;
   z-index: 40;
-  padding: 6px;
+  padding: 4px;
   border-radius: var(--radius-xl);
   transform: translateX(-50%);
+  animation: kasten-fade var(--motion-base) var(--ease-standard);
 }
 
 .kasten-pop.is-below {
@@ -17,9 +21,65 @@
   bottom: auto;
 }
 
+/* Beside a button on the strip, level with its top. */
+.kasten-pop.kasten-beside,
+.kasten-beside {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  left: calc(100% + 10px);
+  z-index: 41;
+  transform: none;
+}
+
+.kasten-pop.kasten-above-start {
+  left: 0;
+  transform: none;
+}
+
+/* Under a button at the right edge, growing leftwards. */
+.kasten-pop.kasten-below-end {
+  top: calc(100% + 8px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+
 .kasten-pop:has(input[role="combobox"]) {
   width: 320px;
 }
+
+.kasten-mini-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+}
+
+.kasten-add,
+.kasten-more,
+.kasten-zoom-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 272px;
+  font-size: var(--text-13);
+}
+
+.kasten-zoom-menu {
+  min-width: 200px;
+}
+
+.kasten-add-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 9px 4px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* ---- The right-click menu ---------------------------------------------- */
 
 .kasten-board-menu {
   position: fixed;
@@ -41,12 +101,17 @@
   padding: 6px 9px;
   border-radius: var(--radius-lg);
   text-align: left;
+  white-space: nowrap;
 }
 
 .kasten-board-menu-item:hover,
 .kasten-board-menu-item:focus-visible {
   background: var(--color-hover);
   outline: none;
+}
+
+.kasten-board-menu-item[aria-checked="true"] {
+  background: var(--color-selected);
 }
 
 .kasten-board-menu-item.is-danger {
@@ -126,14 +191,13 @@
   background: var(--color-hover);
 }
 
-/* The board keys (BoardHelp): a card at the left, over the board. */
+/* The board keys (BoardHelp): a card in the lower left, over the board. */
 .kasten-board-help {
   position: absolute;
-  bottom: 72px;
-  /* Clear of the tool bar on the left edge. */
-  left: 70px;
+  bottom: 56px;
+  left: 12px;
   z-index: 20;
-  width: min(420px, calc(100% - 82px));
+  width: min(420px, calc(100% - 24px));
   max-height: calc(100% - 96px);
   overflow-y: auto;
   padding: 10px 14px 12px;

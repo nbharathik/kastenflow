@@ -1,4 +1,4 @@
-use slides_core::Paragraph;
+use slides_core::{ListStyle, Paragraph, Script};
 
 use super::*;
 use crate::testing::with_cx;
@@ -30,14 +30,15 @@ fn a_bullet_hangs_in_the_indent_with_the_styles_spacing() {
         list: Some(ListKind::Bullet),
         ..Paragraph::plain("one")
     };
+    // A bullet at 22 pt needs 28 units and its air: it hangs 30 units, in steps of 6.
     assert_eq!(
         written(&para, "body", None),
         format!(
             concat!(
-                r#"<a:p><a:pPr marL="228600" indent="-228600" algn="l">"#,
+                r#"<a:p><a:pPr marL="285750" indent="-285750" algn="l">"#,
                 r#"<a:lnSpc><a:spcPts val="2530"/></a:lnSpc>"#,
                 r#"<a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="600"/></a:spcAft>"#,
-                r#"<a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>"#,
+                r#"<a:buFont typeface="Arial"/><a:buChar char="●"/></a:pPr>"#,
                 r#"<a:r><a:rPr {rpr}</a:rPr><a:t>one</a:t></a:r>"#,
                 r#"<a:endParaRPr {rpr}</a:endParaRPr></a:p>"#
             ),
@@ -47,19 +48,117 @@ fn a_bullet_hangs_in_the_indent_with_the_styles_spacing() {
 }
 
 #[test]
-fn each_level_moves_the_text_one_step_in_and_changes_the_glyph() {
+fn each_level_sits_under_the_words_of_the_one_above_and_changes_the_glyph() {
     let para = |level| Paragraph {
         list: Some(ListKind::Bullet),
         level: Some(level),
         ..Paragraph::plain("x")
     };
+    // Alone, the first level has no list and keeps 24; the third needs 30 for its square.
     let two = written(&para(2), "body", None);
     assert!(
-        two.contains(r#"<a:pPr marL="685800" indent="-228600" lvl="2" algn="l">"#),
+        two.contains(r#"<a:pPr marL="742950" indent="-285750" lvl="2" algn="l">"#),
         "{two}"
     );
-    assert!(two.contains(r#"<a:buChar char="▪"/>"#), "{two}");
-    assert!(written(&para(1), "body", None).contains(r#"<a:buChar char="–"/>"#));
+    assert!(two.contains(r#"<a:buChar char="■"/>"#), "{two}");
+    assert!(written(&para(1), "body", None).contains(r#"<a:buChar char="○"/>"#));
+}
+
+#[test]
+fn a_bullet_style_is_its_glyph_and_a_marker_can_have_a_colour_and_a_size() {
+    let para = |style: ListStyle| Paragraph {
+        list: Some(ListKind::Bullet),
+        list_style: Some(style),
+        ..Paragraph::plain("x")
+    };
+    let arrow = written(&para(ListStyle::Arrow), "body", None);
+    assert!(
+        arrow.contains(r#"<a:buFont typeface="Segoe UI Symbol"/><a:buChar char="➢"/>"#),
+        "{arrow}"
+    );
+    assert!(written(&para(ListStyle::Dash), "body", None).contains(r#"<a:buChar char="–"/>"#));
+    let own = Paragraph {
+        bullet_color: Some("accent2".into()),
+        bullet_size: Some(1.5),
+        ..para(ListStyle::Disc)
+    };
+    let out = written(&own, "body", None);
+    assert!(
+        out.contains(
+            r#"<a:buClr><a:schemeClr val="accent2"/></a:buClr><a:buSzPct val="150000"/><a:buFont"#
+        ),
+        "{out}"
+    );
+    // The marker is bigger, so its room is: 43 units and its air, 48 in steps of 6.
+    assert!(out.contains(r#"marL="457200""#), "{out}");
+}
+
+#[test]
+fn a_paragraph_that_places_its_lines_says_where() {
+    let para = Paragraph {
+        margin_left: Some(40.0),
+        indent: Some(12.0),
+        ..Paragraph::plain("x")
+    };
+    let out = written(&para, "body", None);
+    assert!(
+        out.starts_with(r#"<a:p><a:pPr marL="381000" indent="114300" algn="l">"#),
+        "{out}"
+    );
+}
+
+#[test]
+fn words_can_be_raised_in_capitals_or_set_apart() {
+    let run = |run: Run| {
+        let para = Paragraph {
+            runs: vec![run],
+            ..Paragraph::plain("")
+        };
+        written(&para, "body", None)
+    };
+    let sup = run(Run {
+        script: Some(Script::Super),
+        ..Run::plain("2")
+    });
+    assert!(sup.contains(r#"baseline="30000""#), "{sup}");
+    let sub = run(Run {
+        script: Some(Script::Sub),
+        ..Run::plain("2")
+    });
+    assert!(sub.contains(r#"baseline="-25000""#), "{sub}");
+    assert!(
+        run(Run {
+            small_caps: true,
+            ..Run::plain("a")
+        })
+        .contains(r#"cap="small""#)
+    );
+    assert!(
+        run(Run {
+            all_caps: true,
+            ..Run::plain("a")
+        })
+        .contains(r#"cap="all""#)
+    );
+    assert!(
+        run(Run {
+            spacing: Some(1.5),
+            ..Run::plain("a")
+        })
+        .contains(r#"spc="150""#)
+    );
+    assert!(
+        run(Run {
+            spacing: Some(-0.5),
+            ..Run::plain("a")
+        })
+        .contains(r#"spc="-50""#)
+    );
+    let plain = run(Run::plain("a"));
+    assert!(
+        !plain.contains("baseline") && !plain.contains("cap=") && !plain.contains("spc="),
+        "{plain}"
+    );
 }
 
 #[test]
@@ -101,10 +200,13 @@ fn a_marker_that_needs_more_room_moves_the_text_and_not_the_marker() {
         "body",
         Item {
             number: Some(number),
-            hang: 36.0,
+            geometry: Some(Geometry {
+                margin: 60.0,
+                indent: -36.0,
+            }),
         },
     );
-    // The marker still starts 24 units in, as in the editor; the text is 12 units further on, at 60.
+    // The marker starts 24 units in, as in the editor; the text is 12 units further on, at 60.
     assert!(
         out.contains(r#"<a:pPr marL="571500" indent="-342900" lvl="1" algn="l">"#),
         "{out}"
@@ -130,11 +232,20 @@ fn the_size_of_a_paragraph_is_its_largest_run_or_its_style() {
     );
     assert_eq!(size_of(&theme, &sized(&[None], "x"), "caption"), 14.0);
     assert_eq!(size_of(&theme, &sized(&[], ""), "body"), 22.0);
+    // An empty run shows nothing, so it is the paragraph's mark: it sets the height of a paragraph with no words...
     assert_eq!(
         size_of(&theme, &sized(&[Some(90.0)], ""), "body"),
-        22.0,
-        "an empty run shows nothing"
+        90.0,
+        "the mark of an empty paragraph"
     );
+    assert_eq!(size_of(&theme, &sized(&[None], ""), "body"), 22.0);
+    // ...and not that of one that has words.
+    let mut words = sized(&[Some(10.0)], "x");
+    words.runs.push(Run {
+        size: Some(90.0),
+        ..Run::plain("")
+    });
+    assert_eq!(size_of(&theme, &words, "body"), 10.0);
 }
 
 fn at_step(para: &Paragraph, step: u32) -> String {
@@ -319,6 +430,31 @@ fn an_empty_paragraph_still_has_the_height_of_its_style() {
         out.ends_with(&format!("<a:endParaRPr {RPR}</a:endParaRPr></a:p>")),
         "{out}"
     );
+    assert!(!out.contains("<a:r>"), "{out}");
+}
+
+#[test]
+fn an_empty_paragraph_is_as_tall_as_its_mark_and_its_marker_is_as_large() {
+    let para = Paragraph {
+        list: Some(ListKind::Bullet),
+        runs: vec![Run {
+            size: Some(12.0),
+            ..Run::plain("")
+        }],
+        ..Paragraph::plain("")
+    };
+    let out = written(&para, "body", None);
+    // A line of 12 pt at 1.15 is 13.8 points, not the 25.3 of the style's 22 pt.
+    assert!(
+        out.contains(r#"<a:lnSpc><a:spcPts val="1380"/></a:lnSpc>"#),
+        "{out}"
+    );
+    assert!(
+        out.contains(r#"<a:endParaRPr lang="en-US" sz="1200""#),
+        "{out}"
+    );
+    // The marker hangs by the room a bullet of 12 pt needs, 24 units at the least.
+    assert!(out.contains(r#"marL="228600" indent="-228600""#), "{out}");
     assert!(!out.contains("<a:r>"), "{out}");
 }
 

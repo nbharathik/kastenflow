@@ -109,6 +109,13 @@
         },
         "highlight": {
           "$ref": "#/$defs/Highlight"
+        },
+        "newSlideLayout": {
+          "description": "The layout a new slide starts from when the person asked for \"my default layout\"; the\nblank layout when absent or when the deck has no layout of that name.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -296,6 +303,24 @@
         "hideMaster": {
           "description": "Leave out the master elements on slides of this layout.",
           "type": "boolean"
+        },
+        "elements": {
+          "description": "Shapes, pictures and words drawn on every slide of this layout, under the slide's own\nelements and over the master's: the decoration of a layout a person designed. Not\nselectable on a slide; changing them changes every slide that uses the layout.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Element"
+          }
+        },
+        "background": {
+          "description": "What fills a slide of this layout behind its elements, when the slide has none of its own.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Background"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -619,6 +644,45 @@
           "required": [
             "type"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "chart"
+            }
+          },
+          "$ref": "#/$defs/ChartEl",
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "timer"
+            }
+          },
+          "$ref": "#/$defs/TimerEl",
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "qr"
+            }
+          },
+          "$ref": "#/$defs/QrEl",
+          "required": [
+            "type"
+          ]
         }
       ]
     },
@@ -834,6 +898,94 @@
         }
       ]
     },
+    "PageSource": {
+      "description": "A page of the host that an element was made from or points at.",
+      "type": "object",
+      "properties": {
+        "page": {
+          "description": "The page, as the host names pages (a vault path in Kasten, such as `projects/talk/plan.md`).",
+          "type": "string"
+        },
+        "id": {
+          "description": "How the page is told apart from others when the host has a stable name for it, so a moved page is found again.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "description": "What the page was called when it was read.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "icon": {
+          "description": "The page's icon (a glyph or an emoji) when it was read.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "section": {
+          "description": "The heading whose section it is; the whole page when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "sync": {
+          "description": "Kept in step with the page: \"Update from page\" is on offer, and the host says when the page has changed.",
+          "type": "boolean"
+        },
+        "hash": {
+          "description": "A fingerprint of the Markdown it was made from, to tell whether the page has changed since.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "markdown": {
+          "description": "The Markdown of the page (or of the section) as it was read: what an embedded page is drawn from where the page cannot be read.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "page",
+        "kind"
+      ]
+    },
+    "SourceKind": {
+      "description": "What an element is of the page it came from.",
+      "oneOf": [
+        {
+          "description": "A read-only view of the page, drawn from its Markdown (`markdown`).",
+          "type": "string",
+          "const": "embed"
+        },
+        {
+          "description": "The words and pictures of the whole page, made into elements of the slide.",
+          "type": "string",
+          "const": "contents"
+        },
+        {
+          "description": "The words and pictures of one section of the page (`section`), made into elements.",
+          "type": "string",
+          "const": "section"
+        },
+        {
+          "description": "A link to the page, as words or as a card.",
+          "type": "string",
+          "const": "link"
+        }
+      ]
+    },
     "Text": {
       "description": "The text of a text box, a shape, a table cell or a label.",
       "type": "object",
@@ -862,6 +1014,24 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "fit": {
+          "description": "What the box does when the words do not fit; they run past the edge when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextFit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wrap": {
+          "description": "`false` keeps every paragraph on one line instead of wrapping at the box's edge.",
+          "type": [
+            "boolean",
+            "null"
           ]
         }
       },
@@ -948,6 +1118,57 @@
           ],
           "format": "uint32",
           "minimum": 0
+        },
+        "listStyle": {
+          "description": "How the marker of a list item looks; the level's own when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ListStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start": {
+          "description": "The number a numbered item begins counting at: it starts a run of its own\neven when numbered items come before it (\"restart numbering\", or a run\nthat goes on after something else, \"continue the previous list\").",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "bulletColor": {
+          "description": "The marker's colour, a theme token or `#rrggbb`; the first words' own when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bulletSize": {
+          "description": "The marker's size as a multiple of the words' size, 0.25 to 4 (25% to 400%); 1 when absent.\nAn empty paragraph's words are the one empty run it holds, whose size, colour and other\nsettings are the paragraph's mark: they decide how large its marker and its line are.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "marginLeft": {
+          "description": "Where the lines after the first start, in slide units from the box's inset. The\nlist level decides when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "indent": {
+          "description": "Where the first line starts, in slide units from `margin_left`; negative hangs it\nout to the left, as a list marker does. The marker's room decides when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
         }
       },
       "required": [
@@ -997,7 +1218,7 @@
           ]
         },
         "link": {
-          "description": "A web address, or `slide:<id>` for a link to a slide.",
+          "description": "A web address, `slide:<id>` for a link to a slide, or `page:<path>` (then `#` and a heading) for a link to a page of the host.",
           "type": [
             "string",
             "null"
@@ -1017,10 +1238,103 @@
             "string",
             "null"
           ]
+        },
+        "script": {
+          "description": "Raised (superscript) or lowered (subscript) and set smaller.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Script"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "smallCaps": {
+          "description": "Lower-case letters drawn as small capitals.",
+          "type": "boolean"
+        },
+        "allCaps": {
+          "description": "Every letter drawn as a capital; the words themselves are not changed.",
+          "type": "boolean"
+        },
+        "spacing": {
+          "description": "Extra space between letters, in points; negative tightens.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
         }
       },
       "required": [
         "t"
+      ]
+    },
+    "Script": {
+      "description": "Raised or lowered text, set smaller as in a footnote mark or a power.",
+      "type": "string",
+      "enum": [
+        "super",
+        "sub"
+      ]
+    },
+    "ListStyle": {
+      "description": "How the marker in front of a list item looks: a glyph for a bullet list, a\ncounting scheme for a numbered one. The paragraph's `list` says which kind of\nlist it is; a style of the other kind is ignored and the level's own is used.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "arrow",
+            "check",
+            "dash"
+          ]
+        },
+        {
+          "description": "● (the first level of a bullet list).",
+          "type": "string",
+          "const": "disc"
+        },
+        {
+          "description": "○ (the second level).",
+          "type": "string",
+          "const": "circle"
+        },
+        {
+          "description": "■ (the third level).",
+          "type": "string",
+          "const": "square"
+        },
+        {
+          "description": "1. 2. 3. (the first level of a numbered list).",
+          "type": "string",
+          "const": "decimal"
+        },
+        {
+          "description": "1) 2) 3)",
+          "type": "string",
+          "const": "decimalParen"
+        },
+        {
+          "description": "a. b. c. (the second level).",
+          "type": "string",
+          "const": "lowerAlpha"
+        },
+        {
+          "description": "A. B. C.",
+          "type": "string",
+          "const": "upperAlpha"
+        },
+        {
+          "description": "i. ii. iii. (the third level).",
+          "type": "string",
+          "const": "lowerRoman"
+        },
+        {
+          "description": "I. II. III.",
+          "type": "string",
+          "const": "upperRoman"
+        }
       ]
     },
     "Insets": {
@@ -1049,6 +1363,26 @@
         "top",
         "right",
         "bottom"
+      ]
+    },
+    "TextFit": {
+      "description": "What a text box does when its words do not fit it.",
+      "oneOf": [
+        {
+          "description": "The words run past the edge of the box (the default).",
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "description": "The type is set smaller, to a floor, until the words fit.",
+          "type": "string",
+          "const": "shrink"
+        },
+        {
+          "description": "The box grows or shrinks in height to fit its words.",
+          "type": "string",
+          "const": "resize"
+        }
       ]
     },
     "TextEl": {
@@ -1148,7 +1482,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1159,6 +1493,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "text": {
@@ -1266,7 +1611,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1277,6 +1622,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "shape": {
@@ -1403,7 +1759,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1414,6 +1770,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "route": {
@@ -1550,7 +1917,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1561,6 +1928,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "route": {
@@ -1734,7 +2112,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1745,6 +2123,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "src": {
@@ -1873,7 +2262,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -1884,6 +2273,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "children": {
@@ -2052,7 +2452,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2063,6 +2463,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "columns": {
@@ -2185,7 +2596,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2196,6 +2607,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "original": {
@@ -2324,7 +2746,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2335,6 +2757,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "language": {
@@ -2485,7 +2918,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2496,6 +2929,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "latex": {
@@ -2648,7 +3092,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2659,6 +3103,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "messages": {
@@ -2787,7 +3242,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2798,6 +3253,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "tokens": {
@@ -2942,7 +3408,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -2953,6 +3419,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "cards": {
@@ -3096,7 +3573,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -3107,6 +3584,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "keys": {
@@ -3227,7 +3715,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -3240,6 +3728,17 @@
             "null"
           ]
         },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "format": {
           "description": "`{n}` and `{total}` are replaced; the deck's own wording when absent.",
           "type": [
@@ -3249,8 +3748,46 @@
         }
       }
     },
+    "Viewport": {
+      "description": "The size of the window a page is laid out for, in CSS pixels: what the page sees as the size of the screen.",
+      "type": "object",
+      "properties": {
+        "w": {
+          "type": "number",
+          "format": "double"
+        },
+        "h": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "w",
+        "h"
+      ]
+    },
+    "EmbedFit": {
+      "description": "How an embedded page meets its box when it has no zoom of its own.",
+      "oneOf": [
+        {
+          "description": "The page's width fills the box; the rest of the page is scrolled to (the default).",
+          "type": "string",
+          "const": "width"
+        },
+        {
+          "description": "The whole window is seen, with bars at the sides or the top where the box has another shape.",
+          "type": "string",
+          "const": "page"
+        },
+        {
+          "description": "The window covers the box, and what does not fit is cut off at the right and the bottom.",
+          "type": "string",
+          "const": "fill"
+        }
+      ]
+    },
     "EmbedEl": {
-      "description": "A live web page or local app, shown in present mode; a picture and a link elsewhere.",
+      "description": "A live web page or local app, shown in present mode; a picture and a link elsewhere. A page of the\nhost (a Kasten page) is an embed too: its address is empty and `source` names the page.",
       "type": "object",
       "properties": {
         "id": {
@@ -3346,7 +3883,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -3359,11 +3896,24 @@
             "null"
           ]
         },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "url": {
-          "type": "string"
+          "description": "A web address; empty for a page of the host, which `source` names.",
+          "type": "string",
+          "default": ""
         },
         "poster": {
-          "description": "An image in the host's image store, shown where the page cannot be.",
+          "description": "An image in the host's image store, shown where the page cannot be: the page's snapshot.",
           "type": [
             "string",
             "null"
@@ -3374,11 +3924,42 @@
             "string",
             "null"
           ]
+        },
+        "design": {
+          "description": "The window the page is laid out for, scaled to the box so the page keeps its own layout. Desktop (1280 by 800) when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Viewport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zoom": {
+          "description": "A fixed zoom from 0.25 to 3 (1 is 100%): the page is laid out as a window of the box divided by it. The page fits the box when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "fit": {
+          "description": "How the page meets the box when there is no zoom; `width` when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmbedFit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reader": {
+          "description": "Show the readable text of the page instead of the page itself, where the host can make it.",
+          "type": "boolean"
         }
-      },
-      "required": [
-        "url"
-      ]
+      }
     },
     "VideoEl": {
       "description": "A video file the host holds, with a still to show until it plays.",
@@ -3477,7 +4058,7 @@
           "type": "boolean"
         },
         "link": {
-          "description": "A web address, or `slide:<id>`.",
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
           "type": [
             "string",
             "null"
@@ -3488,6 +4069,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "src": {
@@ -3510,6 +4102,514 @@
       "required": [
         "src"
       ]
+    },
+    "ChartKind": {
+      "oneOf": [
+        {
+          "description": "Vertical bars, grouped by category.",
+          "type": "string",
+          "const": "bar"
+        },
+        {
+          "description": "A line through the points of each series.",
+          "type": "string",
+          "const": "line"
+        },
+        {
+          "description": "The first series as slices of a circle.",
+          "type": "string",
+          "const": "pie"
+        }
+      ]
+    },
+    "ChartSeries": {
+      "description": "One row of a chart's table: a name and a number for each category.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "color": {
+          "description": "A theme colour or #rrggbb; the theme's accent colours in turn when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ]
+    },
+    "ChartEl": {
+      "description": "A bar, line or pie chart of a small table of numbers, drawn from shapes, lines and text.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique on its slide. Two slides may share an id on purpose: that is how Morph pairs elements. Left out when adding an element, it is assigned.",
+          "type": "string",
+          "default": ""
+        },
+        "x": {
+          "description": "Left edge in slide units. Absent when a placeholder supplies the box.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "w": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "h": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "rotation": {
+          "description": "Degrees clockwise, around the centre.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "flipH": {
+          "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean"
+        },
+        "placeholder": {
+          "description": "The layout slot this element fills: `title`, `body`, `image`, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Style"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepStates": {
+          "description": "The state from each step onward.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "name": {
+          "description": "The layer's name in the Steps panel and the selection list.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alt": {
+          "description": "What a person who cannot see the element is told.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "link": {
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "morphId": {
+          "description": "Pairs this element with one of another id in a Morph.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/ChartKind"
+        },
+        "title": {
+          "description": "What the chart is about, set above it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "categories": {
+          "description": "The name of each bar group, point on the line or slice.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "series": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          }
+        },
+        "labels": {
+          "description": "The number written on each bar, point and slice.",
+          "type": "boolean"
+        },
+        "legend": {
+          "description": "Whether the legend is drawn; it is for more than one series, and for a pie, when absent.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "series"
+      ]
+    },
+    "TimerEl": {
+      "description": "A countdown that runs in present mode.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique on its slide. Two slides may share an id on purpose: that is how Morph pairs elements. Left out when adding an element, it is assigned.",
+          "type": "string",
+          "default": ""
+        },
+        "x": {
+          "description": "Left edge in slide units. Absent when a placeholder supplies the box.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "w": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "h": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "rotation": {
+          "description": "Degrees clockwise, around the centre.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "flipH": {
+          "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean"
+        },
+        "placeholder": {
+          "description": "The layout slot this element fills: `title`, `body`, `image`, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Style"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepStates": {
+          "description": "The state from each step onward.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "name": {
+          "description": "The layer's name in the Steps panel and the selection list.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alt": {
+          "description": "What a person who cannot see the element is told.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "link": {
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "morphId": {
+          "description": "Pairs this element with one of another id in a Morph.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seconds": {
+          "description": "How long it counts down from.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "label": {
+          "description": "Words set with the time.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "autostart": {
+          "description": "Starts by itself when the slide shows; otherwise a click starts it.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seconds"
+      ]
+    },
+    "QrEl": {
+      "description": "A QR code of a text or a web address, drawn from squares so it stays sharp at any size.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique on its slide. Two slides may share an id on purpose: that is how Morph pairs elements. Left out when adding an element, it is assigned.",
+          "type": "string",
+          "default": ""
+        },
+        "x": {
+          "description": "Left edge in slide units. Absent when a placeholder supplies the box.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "w": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "h": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "rotation": {
+          "description": "Degrees clockwise, around the centre.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "flipH": {
+          "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean"
+        },
+        "placeholder": {
+          "description": "The layout slot this element fills: `title`, `body`, `image`, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Style"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepStates": {
+          "description": "The state from each step onward.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "name": {
+          "description": "The layer's name in the Steps panel and the selection list.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alt": {
+          "description": "What a person who cannot see the element is told.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "link": {
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "morphId": {
+          "description": "Pairs this element with one of another id in a Morph.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "data": {
+          "description": "What the code holds: a web address, or any words (up to about 200 characters).",
+          "type": "string"
+        },
+        "caption": {
+          "description": "Words set under the code.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "data"
+      ]
+    },
+    "Background": {
+      "description": "What fills a slide behind its elements.",
+      "type": "object",
+      "properties": {
+        "color": {
+          "description": "A colour token or hex value.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "description": "A file in the host's image store, stretched to cover.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     },
     "Highlight": {
       "description": "The outline drawn around a highlighted element.",
@@ -3624,26 +4724,6 @@
         "slide",
         "morph"
       ]
-    },
-    "Background": {
-      "description": "What fills a slide behind its elements.",
-      "type": "object",
-      "properties": {
-        "color": {
-          "description": "A colour token or hex value.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "image": {
-          "description": "A file in the host's image store, stretched to cover.",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
     },
     "Section": {
       "description": "A named stretch of the deck, from one slide to the next section.",

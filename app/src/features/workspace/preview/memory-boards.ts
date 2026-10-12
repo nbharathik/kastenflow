@@ -4,6 +4,7 @@
 
 import type { BoardAdded, BoardApplied, BoardChange, BoardInfo, BoardView, NoteFile, Trashed } from "../../../lib/vault/types";
 import { applyChanges, connect } from "./board-changes";
+import { sourceOf } from "./board-extras";
 import { addFiles, addSticky, boardTitle, findNode, group, readCanvas, viewBoard, writeCanvas } from "./memory-extras";
 import { MemoryNesting } from "./memory-nesting";
 import { slugify } from "./vault-text";
@@ -25,7 +26,8 @@ export class MemoryBoards extends MemoryNesting {
       .map(([path, text]) => {
         const canvas = readCanvas(text);
         const project = path.startsWith("projects/") ? (path.split("/")[1] ?? null) : null;
-        return { path, title: boardTitle(path, canvas), project, nodes: canvas.nodes.length, modified: this.now() };
+        const source = sourceOf(canvas)?.page;
+        return { path, title: boardTitle(path, canvas), project, nodes: canvas.nodes.length, modified: this.now(), ...(source ? { source } : {}) };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
   }

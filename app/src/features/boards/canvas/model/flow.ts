@@ -10,7 +10,7 @@ import type { BoardEdge, BoardNode, BoardSide } from "../../../../lib/vault/type
 import type { BoardDoc } from "./apply";
 import { area, facingSides, shownRect } from "./geometry";
 
-export type FlowKind = "card" | "sticky" | "shape" | "drawing" | "section" | "link" | "image" | "board" | "file";
+export type FlowKind = "card" | "sticky" | "shape" | "drawing" | "section" | "link" | "image" | "diagram" | "board" | "file";
 
 export interface NodeData extends Record<string, unknown> {
   node: BoardNode;
@@ -33,6 +33,8 @@ export function flowKind(node: BoardNode): FlowKind {
   const file = node.file ?? "";
   if (node.kind !== "file" || file.endsWith(".md")) return "card";
   if (file.endsWith(".canvas")) return "board";
+  // A diagram shows the picture kept beside it; a `.drawio.svg` on its own is an ordinary picture.
+  if (file.endsWith(".drawio")) return "diagram";
   return IMAGE.test(file) ? "image" : "file";
 }
 

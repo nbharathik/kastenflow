@@ -1,13 +1,13 @@
 ---
 id: 01K5Y2WE1C0MEPAGE000000001
-title: Welcome to Kasten
+title: Welcome to KastenFlow
 type: page
 created: 2026-09-24T08:00:00Z
 updated: 2026-09-24T08:00:00Z
 icon: 👋
 cover: gradient-dawn
 ---
-Kasten keeps pages, cards, a journal, whiteboards and PDFs as plain files in
+KastenFlow keeps pages, cards, a journal, whiteboards and PDFs as plain files in
 your own folder: Markdown you can open anywhere, with every change kept in its
 history. Type, and let the shortcuts do the formatting.
 

@@ -10,6 +10,10 @@
 //! window cannot tell one from the window's own. While a deck is being
 //! presented, the pages it embeds may load in their frames: the origins the
 //! presenting window named (`allow_embeds`), and no others.
+//!
+//! The browser tab's webviews (`web-*`) are the opposite case: the open web.
+//! They call no command at all, and go only where the browser's policy
+//! allows, never to one of Kasten's own pages.
 
 use std::collections::HashSet;
 use std::sync::Mutex;
@@ -25,8 +29,9 @@ use crate::presenter::PRESENTER;
 /// The port `tauri dev` serves the window from (tauri.conf.json's devUrl).
 const DEV_PORT: u16 = 1420;
 
-/// What the quick capture window needs: the projects to offer, today's
-/// journal, and saving.
+/// What the quick capture window needs: the places to offer, today's
+/// journal, saving, room for its place picker, and, for a web address
+/// pasted into it, the page's article (`clip_url`) or its title (`web_title`).
 const CAPTURE_COMMANDS: &[&str] = &[
     "list_notes",
     "journal_day",
@@ -34,6 +39,9 @@ const CAPTURE_COMMANDS: &[&str] = &[
     "capture_note",
     "capture_hide",
     "capture_done",
+    "capture_resize",
+    "clip_url",
+    "web_title",
 ];
 
 /// What the presenter's window needs: to pass a message to the window that presents, and to close itself.
@@ -119,6 +127,20 @@ fn own_page_on(url: &Url, windows: bool) -> bool {
     }
 }
 
+/// Whether `url` is a page of the optional diagram editor, which Kasten
+/// serves from its own `diagrams` scheme (`diagrams://localhost/…`, or
+/// `http://diagrams.localhost/…` where a web view knows only http and https).
+/// It is not one of Kasten's own pages: a webview showing it can call no
+/// command, and no capability names it.
+fn diagrams_page_on(url: &Url, windows: bool) -> bool {
+    let plain = url.port().is_none() && url.username().is_empty() && url.password().is_none();
+    match url.scheme() {
+        "diagrams" => !windows && plain && url.host_str() == Some("localhost"),
+        "http" => windows && plain && url.host_str() == Some("diagrams.localhost"),
+        _ => false,
+    }
+}
+
 /// Whether the window named `window` may call `command`.
 pub fn may_call(window: &str, command: &str) -> bool {
     match window {
@@ -129,8 +151,19 @@ pub fn may_call(window: &str, command: &str) -> bool {
     }
 }
 
-fn may_navigate(window: &str, url: &Url, embeds: Option<&Embeds>) -> bool {
-    own_page(url) || (window == MAIN && embeds.is_some_and(|embeds| embeds.allows(url)))
+pub(crate) fn may_navigate(window: &str, url: &Url, embeds: Option<&Embeds>) -> bool {
+    // A browser tab's webview is the open web: it goes where the browser's
+    // policy says (never to Kasten's own pages, which `own_page` would allow).
+    if crate::browser::policy::id_of(window).is_some() {
+        return crate::browser::policy::may_visit(url);
+    }
+    // A frame is a navigation, and the window cannot tell one from its own:
+    // the diagram editor's pages may load, in the main window only. Nothing
+    // that shows one is a page of Kasten's, so it can call no command.
+    own_page(url)
+        || (window == MAIN
+            && (diagrams_page_on(url, cfg!(windows))
+                || embeds.is_some_and(|embeds| embeds.allows(url))))
 }
 
 /// The app's commands, each answered only for a window that may call it.
@@ -159,6 +192,10 @@ pub fn commands<R: Runtime>(
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("kasten-guard")
         .on_navigation(|webview, url| {
+            // A browser tab's capture answer is read and always cancelled.
+            if crate::browser::answered(webview, url) {
+                return false;
+            }
             let embeds = webview.try_state::<Embeds>();
             may_navigate(webview.label(), url, embeds.as_deref())
         })
@@ -266,6 +303,74 @@ mod tests {
         // Nothing once the presentation is over.
         embeds.set(&[]);
         assert!(!embeds.allows(&url("http://127.0.0.1:8080/")));
+    }
+
+    #[test]
+    fn the_diagram_editors_frame_loads_in_the_main_window_and_gets_no_commands() {
+        let url = |s: &str| Url::parse(s).unwrap();
+        for (page, windows) in [
+            ("diagrams://localhost/index.html?embed=1", false),
+            ("diagrams://localhost/", false),
+            (
+                "http://diagrams.localhost/index.html?embed=1&proto=json",
+                true,
+            ),
+        ] {
+            assert!(diagrams_page_on(&url(page), windows), "{page}");
+            // Never one of Kasten's own pages: a webview that shows it is refused every command.
+            assert!(!own_page_on(&url(page), windows), "{page}");
+        }
+        for (page, windows) in [
+            // The other system's form, other ports, hosts, schemes and names.
+            ("diagrams://localhost/", true),
+            ("http://diagrams.localhost/", false),
+            ("https://diagrams.localhost/", true),
+            ("http://diagrams.localhost:8080/", true),
+            ("diagrams://localhost:9000/", false),
+            ("diagrams://elsewhere/", false),
+            ("http://user@diagrams.localhost/", true),
+            ("http://evil.example/diagrams.localhost", true),
+            ("http://diagrams.localhost.evil.example/", true),
+            ("tauri://diagrams.localhost/", false),
+        ] {
+            assert!(!diagrams_page_on(&url(page), windows), "{page}");
+        }
+        // The main window's frame may load it; no other window may.
+        let page = if cfg!(windows) {
+            url("http://diagrams.localhost/index.html")
+        } else {
+            url("diagrams://localhost/index.html")
+        };
+        assert!(may_navigate(MAIN, &page, None));
+        for window in [CAPTURE, PRESENTER, "unknown", "diagrams"] {
+            assert!(!may_navigate(window, &page, None), "{window}");
+        }
+    }
+
+    #[test]
+    fn a_window_of_the_diagram_editors_name_calls_nothing() {
+        // The frame has no window of its own; were it to be given one under
+        // this name or any other that is not the main window's, every
+        // command is refused, the editor's own and the vault's alike.
+        for command in [
+            "list_notes",
+            "read_note",
+            "save_note_body",
+            "save_diagram",
+            "read_diagram",
+            "diagram_editor_install",
+            "diagram_editor_remove",
+            "empty_trash",
+            "open_url",
+        ] {
+            for window in ["diagrams", "diagram-editor", "frame", "drawio"] {
+                assert!(!may_call(window, command), "{window} {command}");
+            }
+            assert!(!may_call("capture", command) || CAPTURE_COMMANDS.contains(&command));
+            assert!(!may_call("presenter", command));
+        }
+        assert!(may_call("main", "save_diagram"));
+        assert!(may_call("main", "diagram_editor_install"));
     }
 
     #[test]

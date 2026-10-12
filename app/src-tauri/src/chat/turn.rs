@@ -13,6 +13,7 @@ use kasten_mcp::tools::ToolSpec;
 use serde_json::{Value, json};
 
 use super::model::{Call, Message, Model, Reply, Stop, ToolCall, ToolOutput};
+use super::responses;
 use super::summary::{Described, describe};
 use super::{ChatEvent, EventKind, Events, MAX_CALLS, ToolResultInfo, ToolUse};
 
@@ -46,6 +47,9 @@ fn keep(messages: &mut Vec<Message>, mut reply: Reply, with_calls: bool) {
         reply.calls.clear();
         if let Some(blocks) = &mut reply.blocks {
             blocks.retain(|b| b["type"] != "tool_use");
+        }
+        if let Some(items) = &mut reply.items {
+            responses::without_calls(items);
         }
     }
     if !reply.is_empty() {

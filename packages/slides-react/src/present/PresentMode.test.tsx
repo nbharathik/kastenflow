@@ -37,6 +37,41 @@ async function show(deck: Deck, props: Partial<Parameters<typeof PresentMode>[0]
   return onExit;
 }
 
+describe("presenting a deck of another shape", () => {
+  const stage = () => host.querySelector<HTMLElement>(".ks-show")!;
+
+  it("sets reveal.js to the deck's own size, so the slide is whole and centred whatever the screen is", async () => {
+    const deck = { ...deckOf(slide("a")), size: { w: 960, h: 720 } };
+    await show(deck);
+    expect(host.querySelector<HTMLElement>(".slides")?.style.width).toBe("960px");
+    expect(host.querySelector<HTMLElement>(".slides")?.style.height).toBe("720px");
+    const square = { ...deckOf(slide("a")), size: { w: 720, h: 720 } };
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    await show(square);
+    expect(host.querySelector<HTMLElement>(".slides")?.style.width).toBe("720px");
+    expect(host.querySelector<HTMLElement>(".slides")?.style.height).toBe("720px");
+  });
+
+  it("has black round the slide unless another colour was chosen, and says which", async () => {
+    await show(deckOf(slide("a")));
+    expect(stage().dataset.matte).toBe("black");
+    expect(stage().style.getPropertyValue("--ks-show-matte")).toBe("#000000");
+  });
+
+  it("takes the theme's background or its dark colour as the matte when asked", async () => {
+    const deck = deckOf(slide("a"));
+    const { bg1, text1 } = deck.theme.colors;
+    await show(deck, { matte: "paper" });
+    expect(stage().dataset.matte).toBe("paper");
+    expect(stage().style.getPropertyValue("--ks-show-matte")).toBe(bg1);
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    await show(deck, { matte: "dark" });
+    expect([bg1, text1]).toContain(stage().style.getPropertyValue("--ks-show-matte"));
+  });
+});
+
 describe("presenting in reveal.js", () => {
   it("shows the first slide, and moves through the slides and their steps with the keys", async () => {
     await show(deckOf(slide("a"), slide("b", { steps: 2 }), slide("c")));

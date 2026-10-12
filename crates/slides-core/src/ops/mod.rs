@@ -17,18 +17,25 @@ mod changes;
 mod citations;
 mod collapse;
 mod composites;
+mod create;
 mod diagram;
 mod elements;
 mod engine;
-mod geometry;
+pub(crate) mod geometry;
 mod groups;
 mod incoming;
 mod layout;
+mod layouts;
 mod marks;
+mod page;
+mod pages;
+mod paragraphs;
+mod present;
 mod replace;
 mod sections;
 mod slides;
 mod steps;
+mod templates;
 mod text;
 mod theme;
 mod util;
@@ -38,8 +45,10 @@ mod tests;
 
 pub use changes::{Changes, Meta, Scope, Snapshot};
 pub use collapse::similar_runs;
+pub use create::NewDeck;
 pub use engine::{Applied, Engine};
 pub use steps::{MOST_STEPS, order_of, reading_order, steps_in_use, steps_required};
+pub use templates::template_of;
 
 /// What an operation may touch. Its `run` gets the deck and a source of ids.
 pub struct Cx<'a> {
@@ -134,11 +143,20 @@ use elements::*;
 use groups::*;
 use incoming::{AddSlides, ReplaceDeck};
 use layout::*;
+use layouts::{
+    AddLayout, DeleteLayout, EditLayout, ImportLayouts, MoveLayout, ResetSlides, SaveLayout,
+    SetLayoutDesign,
+};
 use marks::AcceptMarks;
+use page::SetPageSize;
+use pages::{AddPageContents, AddPageSlides, UpdatePageContents};
+use paragraphs::FormatParagraphs;
+use present::SetPresent;
 use replace::*;
 use sections::{AddSection, RemoveSection, RenameSection};
 use slides::*;
 use steps::{BuildSteps, SetSlideSteps, SetStepStates};
+use templates::ApplyTemplate;
 use text::*;
 use theme::*;
 
@@ -147,6 +165,8 @@ registry![
     ApplyTheme,
     EditTheme,
     SetLogo,
+    SetPresent,
+    SetPageSize,
     AddSlide,
     AddSlides,
     ReplaceDeck,
@@ -163,11 +183,23 @@ registry![
     BuildSteps,
     CollapseSlides,
     SetLayout,
+    AddLayout,
+    SaveLayout,
+    EditLayout,
+    SetLayoutDesign,
+    DeleteLayout,
+    MoveLayout,
+    ImportLayouts,
+    ResetSlides,
+    ApplyTemplate,
     SetNotes,
     SetBackground,
     AddElements,
     AddDiagram,
     AddCitation,
+    AddPageContents,
+    UpdatePageContents,
+    AddPageSlides,
     PatchElements,
     TransformElements,
     DeleteElements,
@@ -181,6 +213,7 @@ registry![
     DistributeElements,
     SetText,
     SetRichText,
+    FormatParagraphs,
     ReplaceAll,
     AcceptMarks,
 ];

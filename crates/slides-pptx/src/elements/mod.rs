@@ -62,6 +62,26 @@ pub fn write_all(x: &mut Xml, cx: &mut Cx, elements: &[Element], env: &Env) {
     }
 }
 
+/// Records the shapes a slide's layout draws under it, so that words a step dims on the slide are
+/// mixed toward what is behind them there and not toward the page.
+pub fn remember(cx: &mut Cx, elements: &[Element]) {
+    for el in elements {
+        if let Element::Group(g) = el {
+            remember(cx, &g.children);
+            continue;
+        }
+        let Some(frame) = frame_of(cx, el) else {
+            continue;
+        };
+        let behind = cx.backing.behind(&frame.rect);
+        if let Some(shown) = steps::shows(cx, el, 1.0, &behind)
+            && frame.rotation % 360.0 == 0.0
+        {
+            cx.backing.push(frame.rect, shown);
+        }
+    }
+}
+
 /// Writes one element.
 pub fn write(x: &mut Xml, cx: &mut Cx, el: &Element, env: &Env) {
     cx.element = Some(el.id().to_owned());

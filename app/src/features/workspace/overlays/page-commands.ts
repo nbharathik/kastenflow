@@ -6,6 +6,7 @@
 import { inTauri } from "../../../lib/api";
 import { useShell } from "../../../lib/store";
 import type { NoteMeta } from "../../../lib/vault/types";
+import { presentThisPage, sectionsToDeck, toggleSmartLayout } from "../../pages/present/actions";
 import { linkFor } from "../links";
 import { copyAsMarkdown, showInFolder } from "../page/page-file";
 import { setLocked } from "../page/page-lock";
@@ -99,4 +100,31 @@ export const PAGE_COMMANDS: Command[] = [
     },
   },
   { id: "new-project", label: "New project…", words: "create add project", run: () => useShell.getState().nameProject(true) },
+  {
+    id: "present-page",
+    label: "Present this page",
+    words: "slides talk fullscreen sections show slideshow",
+    run: () => {
+      const note = openNote();
+      if (note) presentThisPage(note);
+    },
+  },
+  {
+    id: "smart-layout",
+    label: "Smart layout for this page",
+    words: "sections cards slides frames outline strip toggle on off",
+    run: () => {
+      const note = openNote();
+      if (note) toggleSmartLayout(note);
+    },
+  },
+  {
+    id: "sections-deck",
+    label: "Turn this page's sections into a deck",
+    words: "slides presentation talk make create from page",
+    run: () => {
+      const note = openNote();
+      if (note) sectionsToDeck(note);
+    },
+  },
 ];

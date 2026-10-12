@@ -1,0 +1,212 @@
+<!doctype html>
+<!--
+  A stand-in for the diagram editor, for development: it speaks the embed
+  protocol (JSON) the way the real editor does, so the frame, the autosave,
+  the pictures and the pages and slides that show them can be built and
+  tried without the real editor. It is served by the dev server only and is
+  never part of a build. It draws boxes with text, nothing more.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stub diagram editor</title>
+    <style>
+      :root { color-scheme: light; --bg: #f6f6f4; --fg: #1d1d1b; --line: #b9b9b2; --box: #ffffff; --accent: #2563eb; }
+      body.dark { color-scheme: dark; --bg: #1f1f1e; --fg: #ecece8; --line: #55554f; --box: #2b2b29; --accent: #7aa2ff; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 14px system-ui, sans-serif; background: var(--bg); color: var(--fg); height: 100vh; display: flex; flex-direction: column; }
+      header { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      header input { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--box); color: var(--fg); }
+      header button { font: inherit; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--box); color: var(--fg); cursor: pointer; }
+      header .note { margin-left: auto; opacity: 0.6; }
+      main { flex: 1; overflow: auto; padding: 16px; }
+      svg { background: var(--box); border: 1px solid var(--line); border-radius: 8px; max-width: 100%; }
+      svg g.box { cursor: pointer; }
+      svg g.box:hover rect { stroke: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Stub editor</strong>
+      <input id="text" placeholder="Text of the box" value="Box" aria-label="Text of the box" />
+      <input id="link" placeholder="Link (optional)" aria-label="Link of the box" />
+      <button id="add" type="button">Add box</button>
+      <button id="clear" type="button">Clear</button>
+      <span class="note" id="note">waiting</span>
+    </header>
+    <main><svg id="canvas" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="Diagram"></svg></main>
+    <script>
+      const query = new URLSearchParams(location.search);
+      const NS = "http://www.w3.org/2000/svg";
+      if (query.get("dark") === "1") document.body.classList.add("dark");
+      let autosave = false;
+      let doc = null; // the XML document being edited
+      const note = (text) => (document.getElementById("note").textContent = text);
+      const send = (message) => parent.postMessage(JSON.stringify(message), "*");
+
+      const BLANK = '<mxfile host="stub"><diagram id="page-1" name="Page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>';
+      const parse = (xml) => {
+        const parsed = new DOMParser().parseFromString(xml, "application/xml");
+        return parsed.getElementsByTagName("parsererror").length ? null : parsed;
+      };
+      const cells = () => (doc ? Array.from(doc.getElementsByTagName("mxCell")).filter((c) => c.getAttribute("vertex") === "1") : []);
+      const geometry = (cell) => {
+        const g = cell.getElementsByTagName("mxGeometry")[0];
+        const n = (name, fallback) => Number(g?.getAttribute(name) ?? fallback);
+        return { x: n("x", 0), y: n("y", 0), w: n("width", 120), h: n("height", 60) };
+      };
+      const xml = () => new XMLSerializer().serializeToString(doc);
+      // The real editor writes the diagram inside an export or a template compressed (whatever `configure` says; only
+      // `autosave` and an export of format `xml` are plain). The stub says the same with a fake that is not XML either way.
+      const FAKE = "stub-compressed:";
+      const compressed = (text) => {
+        const inner = parse(text)?.getElementsByTagName("mxGraphModel")[0];
+        const model = inner ? new XMLSerializer().serializeToString(inner) : text;
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<mxfile><diagram id="stub" name="Page-1">${FAKE}${btoa(unescape(encodeURIComponent(model)))}</diagram></mxfile>`;
+      };
+      /** The plain XML of a diagram the editor was sent, compressed or not. */
+      const plain = (text) => {
+        const parsed = parse(text);
+        const page = parsed?.getElementsByTagName("diagram")[0];
+        if (!page || page.children.length > 0 || !page.textContent.startsWith(FAKE)) return text;
+        const model = decodeURIComponent(escape(atob(page.textContent.slice(FAKE.length))));
+        return `<mxfile host="stub"><diagram id="page-1" name="Page-1">${model}</diagram></mxfile>`;
+      };
+
+      function draw() {
+        const canvas = document.getElementById("canvas");
+        canvas.replaceChildren();
+        for (const cell of cells()) {
+          const { x, y, w, h } = geometry(cell);
+          const g = document.createElementNS(NS, "g");
+          g.setAttribute("class", "box");
+          const rect = document.createElementNS(NS, "rect");
+          for (const [k, v] of Object.entries({ x, y, width: w, height: h, rx: 8, fill: "#ffffff", stroke: "#444444" })) rect.setAttribute(k, String(v));
+          const label = document.createElementNS(NS, "text");
+          for (const [k, v] of Object.entries({ x: x + w / 2, y: y + h / 2 + 5, "text-anchor": "middle", fill: "#111111", "font-family": "sans-serif", "font-size": "14" })) label.setAttribute(k, String(v));
+          label.textContent = cell.getAttribute("value") ?? "";
+          g.append(rect, label);
+          g.addEventListener("dblclick", () => {
+            const href = cell.getAttribute("link");
+            if (href) send({ event: "openLink", href, target: "_blank", allowOpener: false });
+          });
+          canvas.append(g);
+        }
+        note(`${cells().length} box(es)`);
+      }
+
+      function changed() {
+        draw();
+        if (autosave) send({ event: "autosave", xml: xml() });
+      }
+
+      function add() {
+        if (!doc) return;
+        const root = doc.getElementsByTagName("root")[0];
+        const n = cells().length;
+        const cell = doc.createElement("mxCell");
+        cell.setAttribute("id", `box-${Date.now().toString(36)}-${n}`);
+        cell.setAttribute("value", document.getElementById("text").value || "Box");
+        cell.setAttribute("vertex", "1");
+        cell.setAttribute("parent", "1");
+        const link = document.getElementById("link").value.trim();
+        if (link) cell.setAttribute("link", link);
+        const g = doc.createElement("mxGeometry");
+        g.setAttribute("x", String(20 + (n % 4) * 150));
+        g.setAttribute("y", String(20 + Math.floor(n / 4) * 90));
+        g.setAttribute("width", "120");
+        g.setAttribute("height", "60");
+        g.setAttribute("as", "geometry");
+        cell.append(g);
+        root.append(cell);
+        changed();
+      }
+
+      function pictureSvg() {
+        const all = cells().map(geometry);
+        const w = Math.max(80, ...all.map((b) => b.x + b.w)) + 20;
+        const h = Math.max(40, ...all.map((b) => b.y + b.h)) + 20;
+        const shapes = cells()
+          .map((cell) => {
+            const { x, y, w: bw, h: bh } = geometry(cell);
+            const text = (cell.getAttribute("value") ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            return `<g><rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="8" fill="#ffffff" stroke="#444444"/><text x="${x + bw / 2}" y="${y + bh / 2 + 5}" text-anchor="middle" fill="#111111" font-family="sans-serif" font-size="14">${text}</text></g>`;
+          })
+          .join("");
+        const content = xml().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "&#xa;");
+        return `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${w}px" height="${h}px" viewBox="0 0 ${w} ${h}" content="${content}"><defs/><g>${shapes}</g></svg>`;
+      }
+
+      const base64 = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+
+      function exportAs(action) {
+        const svg = pictureSvg();
+        if (action.format === "png") {
+          const image = new Image();
+          image.onload = () => {
+            const scale = action.scale ?? 1;
+            const canvas = document.createElement("canvas");
+            canvas.width = image.width * scale;
+            canvas.height = image.height * scale;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = action.background ?? "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+            ctx.drawImage(image, 0, 0);
+            send({ event: "export", format: "png", data: canvas.toDataURL("image/png"), xml: compressed(xml()) });
+          };
+          image.src = `data:image/svg+xml;base64,${base64(svg)}`;
+          return;
+        }
+        if (action.format === "xml") return send({ event: "export", format: "xml", xml: xml() });
+        // As the real editor answers: an `xmlsvg` request comes back as `svg`.
+        send({ event: "export", format: action.format === "xmlsvg" ? "svg" : action.format, data: `data:image/svg+xml;base64,${base64(svg)}`, xml: compressed(xml()) });
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.source !== parent || typeof event.data !== "string") return;
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        switch (message.action) {
+          case "configure":
+            send({ event: "init" });
+            break;
+          case "load": {
+            const loaded = parse(plain(message.xml || BLANK));
+            if (!loaded) return note("cannot read that diagram");
+            doc = loaded;
+            autosave = message.autosave === 1;
+            if (message.dark === 1) document.body.classList.add("dark");
+            draw();
+            send({ event: "load", bounds: { x: 0, y: 0, width: 640, height: 360 }, scale: 1 });
+            break;
+          }
+          case "export":
+            exportAs(message);
+            break;
+          case "template": {
+            // Like the real dialog, "Create" on a template: its diagram compressed, with the name the dialog gives the file.
+            const sample = '<mxfile><diagram id="s" name="Page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="t1" value="Start" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell><mxCell id="t2" value="End" vertex="1" parent="1"><mxGeometry x="200" y="20" width="120" height="60" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>';
+            send({ event: "template", xml: compressed(sample), blank: false, name: "Untitled Diagram.drawio", libs: "general", builtIn: true });
+            break;
+          }
+          default:
+            break;
+        }
+      });
+
+      document.getElementById("add").addEventListener("click", add);
+      document.getElementById("clear").addEventListener("click", () => {
+        if (!doc) return;
+        for (const cell of cells()) cell.remove();
+        changed();
+      });
+      // Like the real editor with `configure=1`: say so and wait to be told; otherwise go straight to `init`.
+      send({ event: query.get("configure") === "1" ? "configure" : "init" });
+    </script>
+  </body>
+</html>

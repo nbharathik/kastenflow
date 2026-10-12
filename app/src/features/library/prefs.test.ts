@@ -25,9 +25,19 @@ describe("library prefs", () => {
     expect(prefs).toEqual({
       mode: "table",
       sort: { key: "title", dir: "desc" },
-      filters: { kind: "card", place: "photo-organiser", tag: "paper", updated: "any", noBoard: true, orphans: false },
+      filters: { kind: "card", place: "photo-organiser", tag: "paper", updated: "any", created: "any", noBoard: true, orphans: false },
+      group: "none",
     });
     expect(readPrefs(JSON.stringify({ mode: "list", sort: { key: "size" }, filters: { kind: "board", place: 7, tag: "" } }))).toEqual(DEFAULT_PREFS);
+  });
+
+  it("keeps the date filters and the grouping, and what older versions stored", () => {
+    const prefs = readPrefs(JSON.stringify({ filters: { updated: "week", created: "range:2026-09-01..2026-09-15" }, group: "month" }));
+    expect(prefs.filters).toMatchObject({ updated: "week", created: "range:2026-09-01..2026-09-15" });
+    expect(prefs.group).toBe("month");
+    // A month is a value older versions had too.
+    expect(readPrefs(JSON.stringify({ filters: { updated: "month" } })).filters.updated).toBe("month");
+    expect(readPrefs(JSON.stringify({ filters: { created: "month:2026-13" }, group: "colour" }))).toEqual(DEFAULT_PREFS);
   });
 
   it("round-trips through the browser's storage under kasten.library", () => {

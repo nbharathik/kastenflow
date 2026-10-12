@@ -18,9 +18,6 @@ use super::texts::{breaks_anywhere, is_mono, parts, size_of, style_of};
 /// The space between a box's edge and its text when the text names none: across (left and right together), and down (top and bottom).
 const DEFAULT_ACROSS: f64 = 19.2;
 const DEFAULT_DOWN: f64 = 9.6;
-/// A list item starts this far in, and each level this much further.
-const LIST_INDENT: f64 = 24.0;
-const LIST_STEP: f64 = 24.0;
 
 /// A size in points as slide units.
 fn to_units(points: f64) -> f64 {
@@ -74,7 +71,7 @@ struct Laid {
     natural: f64,
 }
 
-fn paragraph(theme: &Theme, base: &str, p: &Paragraph, available: f64) -> Laid {
+fn paragraph(theme: &Theme, base: &str, p: &Paragraph, available: f64, scale: f64) -> Laid {
     let style = style_of(theme, base, p);
     let spacing = p
         .line_spacing
@@ -82,25 +79,28 @@ fn paragraph(theme: &Theme, base: &str, p: &Paragraph, available: f64) -> Laid {
         .unwrap_or(1.0);
     let shown: Vec<&Run> = p.runs.iter().filter(|r| !r.t.trim().is_empty()).collect();
     // The line's own measure is the type size of its style, or when every run names a
-    // size, the smallest of those; a bigger run makes its line taller.
+    // size, the smallest of those; a bigger run makes its line taller. A paragraph with
+    // no words is measured by its mark, the one empty run it holds.
     let strut = if !shown.is_empty() && shown.iter().all(|r| r.size.is_some_and(|s| s > 0.0)) {
         shown
             .iter()
-            .map(|r| to_units(size_of(theme, base, p, r)))
+            .map(|r| to_units(size_of(theme, base, p, r)) * scale)
             .fold(f64::INFINITY, f64::min)
+    } else if let (true, Some(mark)) = (shown.is_empty(), p.runs.first()) {
+        to_units(size_of(theme, base, p, mark)) * scale
     } else {
-        to_units(style.map_or(18.0, |s| s.size))
+        to_units(style.map_or(18.0, |s| s.size)) * scale
     };
     let tallest = shown
         .iter()
-        .map(|r| to_units(size_of(theme, base, p, r)))
+        .map(|r| to_units(size_of(theme, base, p, r)) * scale)
         .fold(strut, f64::max);
     // Each word with the space before it; a line break is a word of no width that ends the line.
     let mut words: Vec<(f64, Option<f64>)> = Vec::new();
     let mut widest: f64 = 0.0;
     let (mut natural, mut line): (f64, f64) = (0.0, 0.0);
     for run in &p.runs {
-        let size = to_units(size_of(theme, base, p, run));
+        let size = to_units(size_of(theme, base, p, run)) * scale;
         let bold = run.bold || style.is_some_and(|s| s.bold);
         let mono = is_mono(style, run);
         for (n, piece) in run.t.split('\n').enumerate() {
@@ -156,8 +156,31 @@ fn paragraph(theme: &Theme, base: &str, p: &Paragraph, available: f64) -> Laid {
     }
 }
 
+/// The size of a paragraph's list marker in points, the first words' size times the marker's own scale.
+fn marker_points(theme: &Theme, base: &str, p: &Paragraph) -> f64 {
+    let first = p
+        .runs
+        .iter()
+        .find(|r| !r.t.is_empty())
+        .or_else(|| p.runs.first());
+    let size = first.map_or_else(
+        || style_of(theme, base, p).map_or(18.0, |s| s.size),
+        |run| size_of(theme, base, p, run),
+    );
+    size * p
+        .bullet_size
+        .filter(|s| s.is_finite() && *s > 0.0)
+        .unwrap_or(1.0)
+}
+
 /// The room `text` needs in a box `box_w` wide, set in the theme text style `base`.
 pub fn text_size(theme: &Theme, base: &str, text: &Text, box_w: f64) -> Size {
+    text_size_scaled(theme, base, text, box_w, 1.0)
+}
+
+/// The room `text` needs when its type, spacing and indents are all `scale` times what they are
+/// written as and the box's insets keep their size: what "shrink text on overflow" does.
+pub fn text_size_scaled(theme: &Theme, base: &str, text: &Text, box_w: f64, scale: f64) -> Size {
     let (across, mut height) = text
         .insets
         .as_ref()
@@ -166,15 +189,16 @@ pub fn text_size(theme: &Theme, base: &str, text: &Text, box_w: f64) -> Size {
         });
     let mut width: f64 = 0.0;
     let mut natural: f64 = 0.0;
-    for p in &text.paragraphs {
-        let level = f64::from(p.level.unwrap_or(0));
-        let indent = if p.list.is_some() {
-            LIST_INDENT + LIST_STEP * level
-        } else {
-            LIST_STEP * level
-        };
+    let points: Vec<f64> = text
+        .paragraphs
+        .iter()
+        .map(|p| marker_points(theme, base, p))
+        .collect();
+    let geometry = crate::list::layout(&text.paragraphs, &points);
+    for (p, place) in text.paragraphs.iter().zip(&geometry) {
+        let indent = place.margin * scale;
         let available = (box_w - across - indent).max(1.0);
-        let laid = paragraph(theme, base, p, available);
+        let laid = paragraph(theme, base, p, available, scale);
         let style = style_of(theme, base, p);
         let before = p
             .space_before
@@ -184,7 +208,7 @@ pub fn text_size(theme: &Theme, base: &str, text: &Text, box_w: f64) -> Size {
             .space_after
             .or(style.and_then(|s| s.space_after))
             .unwrap_or(0.0);
-        height += laid.lines as f64 * laid.line_height + to_units(before + after);
+        height += laid.lines as f64 * laid.line_height + to_units(before + after) * scale;
         width = width.max(laid.widest_word + indent);
         natural = natural.max(laid.natural + indent);
     }
@@ -390,6 +414,34 @@ mod tests {
         let mut list = Text::plain("The quick brown fox jumps over the lazy dog");
         list.paragraphs[0].list = Some(crate::model::ListKind::Bullet);
         assert!(text_size(&t, "body", &list, 300.0).height >= small.height);
+    }
+
+    #[test]
+    fn an_empty_paragraph_is_as_tall_as_its_mark_says() {
+        let t = theme();
+        let empty = |size: Option<f64>| {
+            Text::from_paragraphs(vec![Paragraph {
+                runs: vec![Run {
+                    size,
+                    ..Run::plain("")
+                }],
+                ..Paragraph::plain("")
+            }])
+        };
+        let plain = text_size(&t, "body", &empty(None), 400.0);
+        let small = text_size(&t, "body", &empty(Some(11.0)), 400.0);
+        let large = text_size(&t, "body", &empty(Some(44.0)), 400.0);
+        assert!(small.height < plain.height, "{small:?} {plain:?}");
+        assert!(large.height > plain.height, "{large:?} {plain:?}");
+        // The same as the words that would be typed there.
+        let typed = Text::from_paragraphs(vec![Paragraph {
+            runs: vec![Run {
+                size: Some(11.0),
+                ..Run::plain("x")
+            }],
+            ..Paragraph::plain("")
+        }]);
+        assert!((text_size(&t, "body", &typed, 400.0).height - small.height).abs() < 0.5);
     }
 
     #[test]

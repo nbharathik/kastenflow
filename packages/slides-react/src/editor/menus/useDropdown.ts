@@ -14,6 +14,8 @@ export interface Dropdown {
   /** The keyboard opened it, so the menu takes the focus. */
   keyboard: boolean;
   close(): void;
+  /** Opens it from `element` without a click on the button: a key that asks for it (the keyboard opened it). */
+  openFrom(element: Element): void;
   /** Spread these on the button. */
   trigger: {
     ref: RefObject<HTMLButtonElement | null>;
@@ -64,6 +66,11 @@ export function useDropdown(popup: "menu" | "dialog" = "menu"): Dropdown {
 
   const close = useCallback(() => setOpened(null), []);
 
+  const openFrom = useCallback((element: Element) => {
+    before.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setOpened({ anchor: anchorOf(element), keyboard: true });
+  }, []);
+
   const onClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (closedByPress.current) {
       closedByPress.current = false;
@@ -78,6 +85,7 @@ export function useDropdown(popup: "menu" | "dialog" = "menu"): Dropdown {
     anchor: opened?.anchor ?? null,
     keyboard: opened?.keyboard ?? false,
     close,
+    openFrom,
     trigger: { ref: button, onClick, "aria-haspopup": popup, "aria-expanded": opened !== null },
   };
 }

@@ -45,9 +45,13 @@ interface NewRowProps {
   onAdded(path: string): void;
   /** The foot, where Tab past the table's last cell lands. */
   footRef: RefObject<HTMLDivElement | null>;
+  /** Makes the note for a table that is not one tag's; without it, a note carrying the tag. */
+  add?(title: string): Promise<NoteMeta | null>;
+  /** What the table is called, in place of "#tag". */
+  label?: string;
 }
 
-export function NewRow({ tag, view, schema, count, onAdded, footRef }: NewRowProps) {
+export function NewRow({ tag, view, schema, count, onAdded, footRef, add, label }: NewRowProps) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const home = useNoteHome();
@@ -59,11 +63,12 @@ export function NewRow({ tag, view, schema, count, onAdded, footRef }: NewRowPro
     const text = title.trim();
     if (!text) return;
     setTitle("");
-    const note = await addNote(tag, text, prefill(view.filter, schema), home).catch((err: unknown) => {
+    const made = add ? add(text).then((meta) => meta?.path ?? null) : addNote(tag, text, prefill(view.filter, schema), home).then((note) => note?.meta.path ?? null);
+    const path = await made.catch((err: unknown) => {
       useWorkspace.getState().toast(err instanceof Error ? err.message : String(err));
       return null;
     });
-    if (note) onAdded(note.meta.path);
+    if (path) onAdded(path);
     // The core said why (toasted); what was typed comes back to try again.
     else setTitle((typed) => typed || text);
   };
@@ -82,7 +87,7 @@ export function NewRow({ tag, view, schema, count, onAdded, footRef }: NewRowPro
           </span>
           <input
             autoFocus
-            aria-label={`Title of a new row in #${tag}`}
+            aria-label={label ? `Title of a new page in ${label}` : `Title of a new row in #${tag}`}
             placeholder="Title, then Enter…"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

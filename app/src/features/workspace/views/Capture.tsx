@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { isAddress } from "../../../lib/address";
 import { useWorkspace } from "../store";
 import { captureThought } from "../capture";
-import { clipOrKeep, isAddress } from "./clip";
+import { clipOrKeep } from "./clip";
 import { editorKeys } from "../../shortcuts/catalog";
 import { Icon } from "../../../ui/Icon";
 

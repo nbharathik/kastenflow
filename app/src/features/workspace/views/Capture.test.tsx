@@ -1,11 +1,11 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { isAddress } from "../../../lib/address";
 import type { NoteFile } from "../../../lib/vault/types";
 import { MemoryVault } from "../preview/memory-vault";
 import { useWorkspace } from "../store";
 import { Capture } from "./Capture";
-import { isAddress } from "./clip";
 
 /** The preview vault as the desktop app, clipping pages it is given. */
 class ClippingVault extends MemoryVault {

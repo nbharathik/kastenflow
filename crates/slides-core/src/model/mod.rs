@@ -35,6 +35,7 @@ mod element_access;
 #[cfg(test)]
 mod extras;
 mod fit;
+mod source;
 mod steps;
 mod style;
 mod table;
@@ -44,6 +45,7 @@ mod theme;
 pub use composite::*;
 pub use deck::*;
 pub use element::*;
+pub use source::*;
 pub use steps::*;
 pub use style::*;
 pub use table::*;

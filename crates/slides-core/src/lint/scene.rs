@@ -256,7 +256,7 @@ impl<'a> Scene<'a> {
                 .iter()
                 .any(|l| l.el.base().rotation.unwrap_or(0.0).rem_euclid(360.0) != 0.0);
         }
-        let paper = match &slide.background {
+        let paper = match crate::resolve::background_of(&deck.theme, slide) {
             Some(b) if b.image.as_deref().is_some_and(|i| !i.trim().is_empty()) => None,
             Some(b) => b
                 .color

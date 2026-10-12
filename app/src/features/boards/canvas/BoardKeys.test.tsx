@@ -188,17 +188,25 @@ describe("board keys", () => {
     expect(items.map((i) => i.textContent)).toContain("EditEnter");
     // The keys go through its items, and Esc gives the focus back.
     await waitFor(() => expect(document.activeElement).toBe(items[0]));
-    // Down to the colours, which are one stop, along them, and on.
+    // Down to "Colour…": the colours show only once it is asked for, then
+    // they are one stop, along them, and on.
     fireEvent.keyDown(items[0]!, { key: "ArrowDown" });
+    const colour = document.activeElement as HTMLElement;
+    expect(colour.textContent).toMatch(/^Colour…/);
+    expect(within(menu).queryByRole("group", { name: "Colour" })).toBeNull();
+    fireEvent.click(colour);
+    expect(within(menu).getByRole("group", { name: "Colour" })).toBeTruthy();
+    fireEvent.keyDown(colour, { key: "ArrowDown" });
     expect(document.activeElement!.getAttribute("aria-label")).toBe("No colour");
     fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
     expect(document.activeElement!.getAttribute("aria-label")).not.toBe("No colour");
     fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
-    expect(document.activeElement).toBe(items[1]);
-    fireEvent.keyDown(items[1]!, { key: "End" });
-    expect(document.activeElement).toBe(items.at(-1));
-    fireEvent.keyDown(items.at(-1)!, { key: "ArrowDown" });
-    expect(document.activeElement).toBe(items[0]);
+    const all = within(menu).getAllByRole("menuitem");
+    expect(document.activeElement).toBe(all[all.indexOf(colour) + 1]);
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(document.activeElement).toBe(all.at(-1));
+    fireEvent.keyDown(all.at(-1)!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(all[0]);
     await act(async () => fireEvent.keyDown(items[0]!, { key: "Escape" }));
     expect(screen.queryByRole("menu", { name: "Board menu" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(board));

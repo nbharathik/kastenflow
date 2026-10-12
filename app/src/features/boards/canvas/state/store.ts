@@ -52,6 +52,8 @@ export interface BoardState {
   pen: Pen;
   /** The slide shown while the board is presented (present.ts), else null. */
   presenting: number | null;
+  /** Focus mode: the bars are hidden, leaving the canvas (focus.ts). */
+  focus: boolean;
 }
 
 export type BoardStore = StoreApi<BoardState>;
@@ -77,6 +79,7 @@ export function createBoardStore(doc: BoardDoc): BoardStore {
     tool: "select",
     pen: savedPen(),
     presenting: null,
+    focus: false,
   }));
 }
 

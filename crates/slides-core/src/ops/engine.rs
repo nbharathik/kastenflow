@@ -11,9 +11,8 @@ use super::{Changes, Op, Scope, Snapshot};
 use crate::canonical::{check_slide, check_structure};
 use crate::citations::Refs;
 use crate::error::{Error, Result};
-use crate::ids::{DECK, ELEMENT, IdGen, SLIDE};
-use crate::model::{Deck, Extra, FORMAT_NAME, Present, Size, Slide};
-use crate::themes;
+use crate::ids::IdGen;
+use crate::model::Deck;
 
 /// How many steps can be undone.
 const HISTORY: usize = 500;
@@ -44,55 +43,15 @@ pub struct Applied {
 }
 
 impl Engine {
-    /// A new deck of the named theme, with a title slide.
-    pub fn create(title: &str, theme: &str, seed: u64) -> Result<Engine> {
-        let theme = themes::by_name(theme).ok_or_else(|| {
-            Error::bad_input(
-                "create_deck",
-                format!(
-                    "there is no theme `{theme}`; the themes are: {}",
-                    themes::all()
-                        .iter()
-                        .map(|t| t.name.clone())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            )
-        })?;
-        let mut ids = IdGen::new(seed);
-        let mut slide = Slide::new(ids.fresh(SLIDE, |_| false), "title");
-        if let Some(layout) = theme.layout("title") {
-            for def in &layout.placeholders {
-                let id = ids.fresh(ELEMENT, |c| slide.element(c).is_some());
-                let text = (def.role == "title").then_some(title);
-                slide
-                    .elements
-                    .push(super::layout::placeholder_element(def, id, text));
-            }
-        }
-        let deck = Deck {
-            format: FORMAT_NAME.to_owned(),
-            format_version: crate::canonical::FORMAT_VERSION,
-            id: ids.fresh(DECK, |_| false),
-            title: title.to_owned(),
-            size: Size {
-                w: crate::units::SLIDE_WIDTH,
-                h: crate::units::SLIDE_HEIGHT,
-                extra: Extra::new(),
-            },
-            theme,
-            slides: vec![slide],
-            sections: Vec::new(),
-            present: Present::default(),
-            extra: crate::model::Extra::new(),
-        };
-        Ok(Engine {
+    /// A deck and the generator that made its ids, with nothing to undo.
+    pub(super) fn from_parts(deck: Deck, ids: IdGen) -> Engine {
+        Engine {
             deck,
             ids,
             undo: Vec::new(),
             redo: Vec::new(),
             refs: None,
-        })
+        }
     }
 
     /// Works on `deck`. `seed` starts the ids of everything new; a host gives
@@ -190,6 +149,30 @@ impl Engine {
         let changes = before.changes(&self.deck);
         if !changes.is_empty() {
             self.record(name, before);
+        }
+        Ok(Applied { output, changes })
+    }
+
+    /// Applies an operation as part of the last step when that step already
+    /// holds the slides and details the operation changes, so one undo takes
+    /// both back: a text box and the first words typed into it are one step,
+    /// though the words come later. When the last step does not cover it (or
+    /// there is none) it is a step of its own, as with `apply`. The caller says
+    /// which step it means by calling this only right after making it.
+    pub fn apply_into_last(&mut self, name: &str, input: Value) -> Result<Applied> {
+        let (output, before) = self.dispatch(name, input)?;
+        let changes = before.changes(&self.deck);
+        if !changes.is_empty() {
+            if self
+                .undo
+                .last()
+                .is_some_and(|last| last.state.covers(&before))
+            {
+                // What could have been redone belongs to a deck that is no longer there.
+                self.redo.clear();
+            } else {
+                self.record(name, before);
+            }
         }
         Ok(Applied { output, changes })
     }

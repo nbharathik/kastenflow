@@ -2,7 +2,7 @@ import type { Element } from "@kasten-slides/wasm";
 import { describe, expect, it } from "vitest";
 
 import { newDeck } from "../../test/engine.ts";
-import { COMPOSITES, COMPOSITE_TYPES, newComposite } from "../composite-kinds.ts";
+import { COMPOSITES, COMPOSITE_TYPES, INSERTABLE, newComposite } from "../composite-kinds.ts";
 import { textBox } from "../factory.ts";
 import { insertComposite } from "../insert-composite.ts";
 import { MemoryHost } from "../memory-host.ts";
@@ -22,14 +22,26 @@ const press = (key: string, extra: Partial<KeyboardEventInit> = {}): KeyboardEve
 const composites = (c: CommandContext): Element[] => c.session.slide.elements.filter((e) => COMPOSITE_TYPES.includes(e.type as never));
 
 describe("the kinds of composite", () => {
-  it("are the nine the format has, each with a command, a name and a size that fits the slide", () => {
+  it("are the twelve the format has; the nine the editor can make each have a command, a name and a size that fits the slide", () => {
     expect(COMPOSITES.map((c) => c.kind)).toEqual(COMPOSITE_TYPES);
-    expect(COMPOSITES).toHaveLength(9);
+    expect(COMPOSITES).toHaveLength(12);
+    expect(INSERTABLE).toHaveLength(9);
     for (const spec of COMPOSITES) {
-      expect(COMMANDS.get(`insert.${spec.kind}`)?.label, spec.kind).toBe(spec.label);
       expect(spec.size.w).toBeLessThanOrEqual(960);
       expect(spec.size.h).toBeLessThanOrEqual(540);
     }
+    for (const spec of INSERTABLE) expect(COMMANDS.get(`insert.${spec.kind}`)?.label, spec.kind).toBe(spec.label);
+  });
+
+  it("leave out of the menus what the editor cannot make or change yet: a chart, a timer, a QR code", () => {
+    for (const kind of ["chart", "timer", "qr"]) {
+      expect(INSERTABLE.map((c) => c.kind)).not.toContain(kind);
+      expect(COMMANDS.has(`insert.${kind}`), kind).toBe(false);
+    }
+    // They are still elements a deck may hold, and new ones can be made for what writes decks.
+    expect(newComposite("chart").type).toBe("chart");
+    expect(newComposite("timer").type).toBe("timer");
+    expect(newComposite("qr", { address: "https://example.com" })).toMatchObject({ type: "qr", data: "https://example.com" });
   });
 
   it("start with something to look at: six lines of dark Python, a formula, three messages, five next tokens, three cards", () => {
@@ -150,9 +162,11 @@ describe("inserting a composite", () => {
 });
 
 describe("the insert palette's keys", () => {
-  it("are Ctrl+Shift+P, and the slash", async () => {
-    expect(COMMANDS.get("insert.palette")?.keys).toEqual(["Mod+Shift+P", "/"]);
-    expect(keysOf("insert.palette")).toMatch(/^(Ctrl\+Shift\+P|⌘⇧P)$/);
+  it("are Ctrl+/, Ctrl+Shift+P, and the slash", async () => {
+    expect(COMMANDS.get("insert.palette")?.keys).toEqual(["Mod+/", "Mod+Shift+P", "/"]);
+    expect(keysOf("insert.palette")).toMatch(/^(Ctrl\+\/|⌘\/)$/);
+    // The keyboard shortcuts are one Shift away.
+    expect(COMMANDS.get("help.shortcuts")?.keys).toEqual(["Mod+Shift+?", "Mod+Shift+/"]);
   });
 
   it("open it from the slide, from the filmstrip, and with Ctrl+Shift+P from a text box", async () => {

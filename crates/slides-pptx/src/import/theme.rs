@@ -317,6 +317,8 @@ pub fn build(
             },
             placeholders,
             hide_master: info.hide_master,
+            elements: Vec::new(),
+            background: None,
             extra: Extra::new(),
         });
         names.push(candidate);
@@ -327,6 +329,8 @@ pub fn build(
             label: "Blank".to_owned(),
             placeholders: Vec::new(),
             hide_master: false,
+            elements: Vec::new(),
+            background: None,
             extra: Extra::new(),
         });
         names.push("blank".to_owned());
@@ -354,6 +358,7 @@ pub fn build(
             width: 2.0,
             extra: Extra::new(),
         },
+        new_slide_layout: None,
         extra: slides_core::Extra::new(),
     };
     Built {

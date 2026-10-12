@@ -51,7 +51,7 @@ export default function WhatsNew({ open = openUrl, install = installAndRestart }
           <Icon name="sparkle" className="size-3.5" />
           New version
         </span>
-        <h2 id="kasten-whatsnew-title">{info.name.includes(info.latest) ? info.name : `Kasten ${info.latest}`}</h2>
+        <h2 id="kasten-whatsnew-title">{info.name.includes(info.latest) ? info.name : `KastenFlow ${info.latest}`}</h2>
         <p>
           You have {info.current}
           {released && ` · Released ${released}`}
@@ -73,7 +73,7 @@ export default function WhatsNew({ open = openUrl, install = installAndRestart }
           <p className="kasten-whatsnew-safe">
             <Icon name="check" className="size-3.5" />
             {canInstall
-              ? "Your notes stay in their folder. What you typed is saved first, then Kasten installs and opens again."
+              ? "Your notes stay in their folder. What you typed is saved first, then KastenFlow installs and opens again."
               : "Your notes stay in their folder. Installing replaces only the app."}
           </p>
         )}

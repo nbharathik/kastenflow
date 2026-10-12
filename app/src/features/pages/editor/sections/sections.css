@@ -1,0 +1,223 @@
+/* Folded sections (sections.ts): their blocks are not shown, as a closed
+   toggle's body is not, and one row says what is folded away. A printed page
+   shows everything, folded or not. */
+
+@media screen {
+  .kasten-page-editor .kasten-section-hidden {
+    display: none;
+  }
+}
+
+.kasten-page-editor .kasten-section-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0;
+  padding: 3px 6px;
+  border-radius: var(--radius);
+  color: var(--notion-text-2);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+
+  & .kasten-section-summary-arrow {
+    flex: none;
+    width: 1em;
+    color: var(--notion-text-3);
+  }
+
+  & .kasten-section-summary-title {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--notion-text);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .kasten-section-summary-count {
+    flex: none;
+    font-size: var(--text-13);
+    color: var(--notion-text-3);
+  }
+}
+
+@media print {
+  .kasten-page-editor .kasten-section-summary {
+    display: none;
+  }
+}
+
+/* The sections layout (smart.ts): each section drawn as a card, one after
+   another. Every block of the page that is not a divider or one of the
+   card's own widgets is the inside of a card, so the blocks need no class of
+   their own (a decoration for each would make every keystroke wait on a long
+   page). The blocks keep their own boxes; the card's sides are shadows that
+   reach out into the page's gutter, so they join into one edge (the blocks
+   have no margin between them here, spacing is padding), and the title bar
+   and bottom edge are widgets. The divider is hidden: the bar takes its
+   place. Nothing here changes the Markdown. */
+.kasten-page-editor .milkdown .ProseMirror.kasten-sections-layout:not(.kasten-is-presenting) {
+  --sec-bleed: min(1.75rem, calc(var(--page-gutter, 96px) - 0.5rem));
+  --sec-line: var(--notion-line);
+  --sec-bg: var(--notion-bg);
+  --sec-gap: 1.25rem;
+
+  & > .kasten-divider:not(.is-nested) {
+    display: none;
+  }
+
+  & > :not(.kasten-divider, .kasten-sec-head, .kasten-sec-foot, .kasten-section-summary, .ProseMirror-gapcursor) {
+    margin-block: 0;
+    box-shadow:
+      calc(-1 * var(--sec-bleed)) 0 0 0 var(--sec-bg),
+      var(--sec-bleed) 0 0 0 var(--sec-bg),
+      calc(-1 * var(--sec-bleed) - 1px) 0 0 0 var(--sec-line),
+      calc(var(--sec-bleed) + 1px) 0 0 0 var(--sec-line);
+  }
+
+  /* What was margin above a heading is padding in a card. */
+  & > :is(h1, h2, h3, h4, h5, h6) {
+    padding-top: 0.6em;
+  }
+
+  & > .is-sec-start {
+    padding-top: 0.75rem;
+  }
+
+  & > .is-sec-end {
+    padding-bottom: 0.5rem;
+  }
+
+  /* A folded section is its bar alone. */
+  & .kasten-section-summary {
+    display: none;
+  }
+
+  & .kasten-sec-head,
+  & .kasten-sec-foot {
+    box-sizing: border-box;
+    margin-inline: calc(-1 * (var(--sec-bleed) + 1px));
+    border: 1px solid var(--sec-line);
+    background: var(--sec-bg);
+    user-select: none;
+  }
+
+  & .kasten-sec-head {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: var(--sec-gap);
+    margin-bottom: 0;
+    padding: 0.25rem 0.5rem;
+    border-bottom-color: var(--notion-line-soft);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    background: var(--color-panel);
+    color: var(--notion-text-2);
+    font-size: var(--text-13);
+    line-height: 1.4;
+
+    &.is-folded {
+      border-bottom-color: var(--sec-line);
+      border-radius: var(--radius-xl);
+    }
+
+    & .kasten-sec-number {
+      flex: none;
+      min-width: 1.25rem;
+      color: var(--notion-text-3);
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+
+    & .kasten-sec-title {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      color: var(--notion-text);
+      font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    & button {
+      display: inline-flex;
+      flex: none;
+      height: 1.5rem;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      border-radius: var(--radius);
+      color: var(--notion-text-2);
+      font-size: var(--text-12);
+      cursor: pointer;
+
+      &:hover {
+        background: var(--notion-hover);
+        color: var(--notion-text);
+      }
+
+      & svg {
+        flex: none;
+      }
+    }
+
+    /* Fold: a chevron, down while the section is open and turned right when it is folded. */
+    & .kasten-sec-fold {
+      width: 1.5rem;
+
+      & svg {
+        transition: transform var(--motion-fast) var(--ease-standard);
+      }
+    }
+
+    &.is-folded .kasten-sec-fold svg {
+      transform: rotate(-90deg);
+    }
+
+    /* Present: a presentation screen and its word. */
+    & .kasten-sec-present {
+      padding: 0 0.4375rem 0 0.3125rem;
+    }
+  }
+
+  & .kasten-sec-foot {
+    height: 0.5rem;
+    margin-top: 0;
+    margin-bottom: 0;
+    border-top: 0;
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+
+    &.is-folded {
+      display: none;
+    }
+
+    /* A section with nothing in it yet: a place to click. */
+    &.is-empty {
+      height: 3.5rem;
+      cursor: text;
+    }
+  }
+}
+
+/* Presenting a page (smart.ts): only the slide shown stays, read-only. The
+   page around the editor takes the window (features/pages/present). */
+.kasten-page-editor .milkdown .ProseMirror.kasten-is-presenting {
+  cursor: default;
+
+  &:not(.kasten-slide-whole) > :not(.kasten-slide-now) {
+    display: none;
+  }
+
+  /* A picture fits the screen with room for what is beside it. */
+  & img {
+    width: auto;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+}

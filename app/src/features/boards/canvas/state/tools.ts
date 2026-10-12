@@ -1,11 +1,12 @@
 // What a pointer does on the board: select and move (the
-// default), pan by hand, draw, erase drawings, or place a shape.
+// default), pan by hand, draw, erase drawings, place a shape, or join
+// things with a connection (dragging from a side's dot, nothing moves).
 
 import type { ShapeKind } from "../../../../lib/vault/types";
 import type { BoardController } from "./controller";
 import { select } from "./store";
 
-export type Tool = "select" | "hand" | "draw" | "erase" | `shape:${ShapeKind}`;
+export type Tool = "select" | "hand" | "draw" | "erase" | "connect" | `shape:${ShapeKind}`;
 
 export function setTool(board: BoardController, tool: Tool): void {
   const { nodes, edges } = board.store.getState();

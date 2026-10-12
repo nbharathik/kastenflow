@@ -54,7 +54,7 @@ pub fn problem(payload: &(dyn Any + Send)) -> String {
         format!(" Details are in {}.", p.display())
     });
     format!(
-        "Kasten hit a problem it did not expect: {}.{log}",
+        "KastenFlow hit a problem it did not expect: {}.{log}",
         message(payload)
     )
 }
@@ -92,7 +92,7 @@ fn report(info: &PanicHookInfo<'_>) -> String {
         |at| format!("{}:{}:{}", at.file(), at.line(), at.column()),
     );
     format!(
-        "{} Kasten {} panicked on thread '{}' at {place}: {}\n{}\n\n",
+        "{} KastenFlow {} panicked on thread '{}' at {place}: {}\n{}\n\n",
         Instant::now().rfc3339(),
         env!("CARGO_PKG_VERSION"),
         thread.name().unwrap_or("unnamed"),
@@ -124,7 +124,7 @@ mod tests {
         let err = answer.unwrap_err();
         assert!(
             err.starts_with(
-                "Kasten hit a problem it did not expect: the board's file is not JSON."
+                "KastenFlow hit a problem it did not expect: the board's file is not JSON."
             ),
             "{err}"
         );

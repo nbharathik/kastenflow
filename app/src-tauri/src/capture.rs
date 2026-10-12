@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-    Window, WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, Window, WindowEvent,
 };
 
 use crate::closing::MAIN;
@@ -15,6 +15,18 @@ use crate::closing::MAIN;
 pub const CAPTURE: &str = "capture";
 const WIDTH: f64 = 560.0;
 const HEIGHT: f64 = 200.0;
+/// The tallest the window grows to while its place picker is open.
+const MAX_HEIGHT: f64 = 560.0;
+
+/// The height asked for, kept between the box's own height and the most the
+/// picker may take (a number that is not one means the box's own).
+pub fn clamp_height(asked: f64) -> f64 {
+    if asked.is_nan() {
+        HEIGHT
+    } else {
+        asked.clamp(HEIGHT, MAX_HEIGHT)
+    }
+}
 
 /// Where a window of `size` goes to sit a third of the way down the
 /// monitor at `origin` of `area`, centred across it.
@@ -119,6 +131,16 @@ pub fn capture_hide(app: AppHandle) {
     hide(&app);
 }
 
+/// Gives the capture window room for its place picker (a height in logical
+/// pixels), or takes it back, keeping its top left where it is. Only this
+/// window's height changes, and never beyond what the picker needs.
+#[tauri::command]
+pub fn capture_resize(app: AppHandle, height: f64) {
+    if let Some(window) = app.get_webview_window(CAPTURE) {
+        let _ = window.set_size(LogicalSize::new(WIDTH, clamp_height(height)));
+    }
+}
+
 /// What was captured, for the main window's notice.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,7 +161,18 @@ pub fn capture_done(app: AppHandle, captured: Captured) {
 
 #[cfg(test)]
 mod tests {
-    use super::place;
+    use super::{clamp_height, place};
+
+    #[test]
+    fn the_picker_may_grow_the_window_only_so_far() {
+        assert_eq!(clamp_height(420.0), 420.0);
+        // Never shorter than the box, never taller than the picker needs.
+        assert_eq!(clamp_height(50.0), 200.0);
+        assert_eq!(clamp_height(5000.0), 560.0);
+        assert_eq!(clamp_height(f64::NAN), 200.0);
+        assert_eq!(clamp_height(f64::INFINITY), 560.0);
+        assert_eq!(clamp_height(f64::NEG_INFINITY), 200.0);
+    }
 
     #[test]
     fn sits_a_third_down_the_monitor_it_is_on() {

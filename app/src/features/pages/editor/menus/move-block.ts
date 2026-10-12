@@ -14,15 +14,22 @@ import { insertPoint } from "@milkdown/kit/prose/transform";
 import { isList, type BlockAt } from "./units";
 
 /** The range the block at `pos` leaves, and what fills it so its parent stays valid. */
-function leaving(doc: Node, pos: number, node: Node): { from: number; to: number; fill: Node | null } {
-  const $pos = doc.resolve(pos);
+export function leaving(doc: Node, pos: number, node: Node): { from: number; to: number; fill: Node | null } {
+  return leavingRange(doc, pos, pos + node.nodeSize);
+}
+
+/** The range the sibling blocks from `start` to `end` leave, and what fills it so its parent stays valid. */
+export function leavingRange(doc: Node, start: number, end: number): { from: number; to: number; fill: Node | null } {
+  const $pos = doc.resolve(start);
   const paragraph = doc.type.schema.nodes.paragraph!;
-  let from = pos;
-  let to = pos + node.nodeSize;
+  let from = start;
+  let to = end;
   for (let depth = $pos.depth; ; depth--) {
     const parent = $pos.node(depth);
     const index = $pos.index(depth);
-    if (parent.canReplace(index, index + 1)) return { from, to, fill: null };
+    // The blocks themselves at the first level; a parent that has to go is one child of its own parent.
+    const upTo = depth === $pos.depth ? doc.resolve(end).index(depth) : index + 1;
+    if (parent.canReplace(index, upTo)) return { from, to, fill: null };
     // A list without items goes; a toggle, a callout or the page keeps a line.
     if (depth > 0 && isList(parent)) {
       from = $pos.before(depth);
@@ -36,14 +43,14 @@ function leaving(doc: Node, pos: number, node: Node): { from: number; to: number
 }
 
 /** A list item with the marker of the list it is in, as Milkdown draws it. */
-function asItemOf(item: Node, list: NodeType): Node {
+export function asItemOf(item: Node, list: NodeType): Node {
   if (!("listType" in item.attrs)) return item;
   const ordered = list.name === "ordered_list";
   const attrs = { ...item.attrs, listType: ordered ? "ordered" : "bullet", label: ordered ? "1." : "•" };
   return item.type.create(attrs, item.content, item.marks);
 }
 
-interface Landing {
+export interface Landing {
   /** Where to insert, and what. */
   pos: number;
   node: Node;
@@ -54,7 +61,7 @@ interface Landing {
 }
 
 /** How `node` (a unit from a `from` list, or none) goes in at `at`, or null. */
-function landing(doc: Node, at: number, node: Node, from: NodeType | null): Landing | null {
+export function landing(doc: Node, at: number, node: Node, from: NodeType | null): Landing | null {
   const $at = doc.resolve(at);
   const parent = $at.parent;
   const index = $at.index();

@@ -5,10 +5,12 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { relativeTime } from "../../lib/dates";
 import type { NoteMeta } from "../../lib/vault/types";
 import { IconButton } from "../../ui/Button";
-import { useBoards } from "../boards/store";
+import { showBoardsOf, useBoards } from "../boards/store";
 import { DashCard, DashEmpty, MoreToggle } from "../dashboard/DashCard";
-import { BoardTile, NoteRow } from "../dashboard/NoteTiles";
+import { MiniList, SeeAll } from "../dashboard/Minis";
+import { BoardMini, DeckMini, NoteRow } from "../dashboard/NoteTiles";
 import { TodoList } from "../dashboard/TodoList";
+import { startNewDeck, useDecks } from "../slides/store";
 import { titleOf } from "../workspace/names";
 import { useWorkspace } from "../workspace/store";
 import { Capture } from "../workspace/views/Capture";
@@ -29,7 +31,8 @@ interface SectionProps {
 function useParts(project: NoteMeta): ProjectParts {
   const notes = useWorkspace((s) => s.notes);
   const boards = useBoards((s) => s.list);
-  return useMemo(() => partsOf(notes, boards, project), [notes, boards, project]);
+  const decks = useDecks((s) => s.list);
+  return useMemo(() => partsOf(notes, boards, project, decks), [notes, boards, project, decks]);
 }
 
 export function ProjectSection({ id, project, folder }: SectionProps) {
@@ -49,6 +52,8 @@ export function ProjectSection({ id, project, folder }: SectionProps) {
       return <Cards parts={parts} />;
     case "boards":
       return <Boards parts={parts} folder={folder} title={titleOf(project)} />;
+    case "decks":
+      return <Decks parts={parts} folder={folder} />;
     case "kanban":
       return (
         <Suspense fallback={<DashCard title="Task board" icon="kanban"><DashEmpty>Opening the board…</DashEmpty></DashCard>}>
@@ -143,17 +148,47 @@ function Cards({ parts }: { parts: ProjectParts }) {
   );
 }
 
+/** The project's four newest decks, each with its first slide small; the + starts one here. */
+function Decks({ parts, folder }: { parts: ProjectParts; folder: string }) {
+  return (
+    <DashCard
+      title="Decks"
+      icon="present"
+      count={parts.decks.length}
+      actions={
+        <>
+          {parts.decks.length > 0 && <SeeAll label="All decks" run={() => useWorkspace.getState().go({ view: "slides" })} />}
+          <IconButton icon="plus" label="New deck in this project" size="sm" onClick={() => startNewDeck(folder)} />
+        </>
+      }
+    >
+      {parts.decks.length === 0 ? (
+        <DashEmpty>No decks yet. The + makes one for this project, to present what it holds.</DashEmpty>
+      ) : (
+        <MiniList items={parts.decks} memory={`decks:${folder}`} row={(deck) => <DeckMini deck={deck} />} />
+      )}
+    </DashCard>
+  );
+}
+
+/** The project's four newest whiteboards, a sketch and a line each; "Show all" for the rest, and a link to the Whiteboards view for this project. */
 function Boards({ parts, folder, title }: { parts: ProjectParts; folder: string; title: string }) {
   return (
-    <DashCard title="Whiteboards" icon="board" count={parts.boards.length} actions={<IconButton icon="plus" label="New whiteboard in this project" size="sm" onClick={() => void newBoard(folder, title)} />}>
+    <DashCard
+      title="Whiteboards"
+      icon="board"
+      count={parts.boards.length}
+      actions={
+        <>
+          {parts.boards.length > 0 && <SeeAll label="All whiteboards" run={() => showBoardsOf(folder)} />}
+          <IconButton icon="plus" label="New whiteboard in this project" size="sm" onClick={() => void newBoard(folder, title)} />
+        </>
+      }
+    >
       {parts.boards.length === 0 ? (
         <DashEmpty>No whiteboards yet. The + makes one for this project, to lay out its cards and ideas.</DashEmpty>
       ) : (
-        <div className="kasten-tiles">
-          {parts.boards.slice(0, 8).map((board) => (
-            <BoardTile key={board.path} board={board} />
-          ))}
-        </div>
+        <MiniList items={parts.boards} memory={`boards:${folder}`} row={(board) => <BoardMini board={board} />} />
       )}
     </DashCard>
   );

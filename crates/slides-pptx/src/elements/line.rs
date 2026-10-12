@@ -239,6 +239,7 @@ fn write_label(x: &mut Xml, cx: &mut Cx, el: &ConnectorEl, site: &Site) {
         wrap: false,
         opacity: site.opacity,
         flipped: false,
+        area: None,
     };
     text::write_body(x, cx, "p:txBody", &words, &look);
     x.close();

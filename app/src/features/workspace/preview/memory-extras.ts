@@ -3,7 +3,7 @@
 
 import type { BoardAdded, BoardEdge, BoardNode, BoardView, NoteMeta, TagSchema } from "../../../lib/vault/types";
 import { dashed, drawingOf, lineOf, shapeOf } from "./board-drawing";
-import { cardSizeOf, isCollapsed } from "./board-extras";
+import { cardSizeOf, isCollapsed, sourceOf } from "./board-extras";
 import { readBlock, readFlow, writeFlow, type Flow } from "../../../lib/flow-yaml";
 
 /** Reads `tags/<name>.yaml` as the core does, leniently. */
@@ -191,7 +191,8 @@ export function viewBoard(path: string, canvas: Canvas, notes: NoteMeta[], other
     if (dashed(canvas, edge.id)) edge.dash = true;
     return edge;
   });
-  return { path, title: boardTitle(path, canvas), nodes, edges };
+  const source = sourceOf(canvas);
+  return { path, title: boardTitle(path, canvas), nodes, edges, ...(source ? { source } : {}) };
 }
 
 /** Where content added below a board starts: 80 px under its lowest node,

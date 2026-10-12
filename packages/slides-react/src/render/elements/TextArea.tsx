@@ -2,7 +2,7 @@ import type { Text, VAlign } from "@kasten-slides/wasm";
 import type { JSX } from "react";
 
 import { DEFAULT_INSETS } from "../../text/metrics.ts";
-import { TextBlock } from "../../text/TextBlock.tsx";
+import { FittedTextBlock } from "../../text/FittedTextBlock.tsx";
 import type { RenderCx } from "../context.ts";
 import type { TextBlockExtras } from "../text-props.ts";
 
@@ -28,5 +28,5 @@ export function TextArea({ cx, text, baseStyle, width, height, valign, prompt }:
     step: cx.step,
     emptyPrompt: prompt,
   };
-  return <TextBlock theme={cx.theme} text={text} baseStyle={baseStyle} width={width} height={height} {...extras} />;
+  return <FittedTextBlock theme={cx.theme} text={text} baseStyle={baseStyle} width={width} height={height} {...extras} />;
 }

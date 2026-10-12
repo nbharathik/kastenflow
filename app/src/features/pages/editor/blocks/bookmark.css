@@ -1,0 +1,29 @@
+/* A bookmark card (bookmark-view.ts): a paragraph that is only a titled web
+   link, with the site under its title. A click puts the caret in it, which
+   shows the link as written; Ctrl or Cmd and a click follows it. */
+
+.kasten-page-editor .milkdown .ProseMirror p.kasten-bookmark {
+  margin: 4px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--notion-line-soft);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--notion-line);
+    background: var(--notion-hover);
+  }
+
+  & a {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  &::after {
+    display: block;
+    margin-top: 2px;
+    color: var(--notion-text-3);
+    content: attr(data-domain);
+    font-size: var(--text-12);
+  }
+}

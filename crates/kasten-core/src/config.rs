@@ -97,7 +97,8 @@ pub struct Embeddings {
 #[serde(default)]
 pub struct Provider {
     pub name: String,
-    /// `anthropic` or `openai` (any OpenAI-compatible endpoint, such as vLLM).
+    /// `anthropic`, `openai` (any OpenAI-compatible endpoint, such as vLLM) or `chatgpt`
+    /// (a ChatGPT sign-in: no address and no key, kept by the app).
     pub kind: String,
     pub base_url: String,
     pub model: String,

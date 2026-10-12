@@ -25,8 +25,8 @@ function Notice({ title, children, onClose }: { title: string; children: string;
 
 export function AboutDialog({ onClose }: DialogProps): JSX.Element {
   return (
-    <Notice title="About Kasten Slides" onClose={onClose}>
-      Kasten Slides is a slide editor that keeps every deck as one plain file that belongs to you.
+    <Notice title="About KastenFlow Slides" onClose={onClose}>
+      KastenFlow Slides is a slide editor that keeps every deck as one plain file that belongs to you.
     </Notice>
   );
 }

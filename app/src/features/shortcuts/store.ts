@@ -31,8 +31,6 @@ interface KeysState {
   keymap: Record<string, string[]>;
   /** Which command each key runs. */
   lookup: Map<string, string>;
-  /** Set when Settings should open at the keys. */
-  jump: boolean;
   /** Gives a command one key (taking it from any other), clears its keys
    * (null) or resets them (undefined). Returns the commands that lost it. */
   set(id: string, binding: string | null | undefined): string[];
@@ -46,7 +44,6 @@ function build(overrides: Keymap) {
 
 export const useKeys = create<KeysState>()((set, get) => ({
   ...build(load()),
-  jump: false,
   set(id, binding) {
     const { overrides, took } = assign(get().overrides, id, binding, isMac());
     set(build(overrides));

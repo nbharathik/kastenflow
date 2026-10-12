@@ -25,20 +25,30 @@ async function setup(withContext = false) {
 const rowNames = () => [...(screen.getAllByRole("menu")[0]?.querySelectorAll(":scope > button > .ks-menu-label") ?? [])].map((r) => r.textContent);
 
 describe("the Insert menu", () => {
-  it("lists the nine composites after the basics, and then the palette", async () => {
+  /** What a group of the menu lists, by name. */
+  const itemsOf = (group: RegExp): (string | null | undefined)[] => {
+    fireEvent.click(row(group));
+    const open = screen.getAllByRole("menu").at(-1)!;
+    return [...open.querySelectorAll(":scope > button > .ks-menu-label")].map((r) => r.firstChild?.textContent);
+  };
+
+  it("lists the nine composites under their groups, and then the gallery", async () => {
     await setup();
     click(bar("Insert"));
-    const names = rowNames();
-    const from = names.indexOf("Code block");
-    expect(names.slice(from, from + 9)).toEqual(["Code block", "Formula", "Conversation", "Token probabilities", "Card grid", "Citation…", "Step label", "Embedded page…", "Video…"]);
-    expect(names.indexOf("Table…")).toBeLessThan(from);
-    expect(names.at(-1)).toBe("Insert palette");
-    expect(row(/^Insert palette/).textContent).toMatch(/Ctrl\+Shift\+P|⌘⇧P/);
+    expect(rowNames().at(-2)).toMatch(/^Insert gallery/);
+    expect(row(/^Insert gallery/).textContent).toMatch(/Ctrl\+\/|⌘\//);
+    expect(itemsOf(/^Text & content/)).toEqual(["Text box", "Formula", "Code block", "Citation…"]);
+    expect(itemsOf(/^Media/)).toEqual(["Image from computer…", "Image from the gallery…", "Video…"]);
+    expect(itemsOf(/^Data/)).toEqual(["Table…", "Token probabilities"]);
+    // A page of the vault only where the host has pages.
+    expect(itemsOf(/^Pages & links/)).toEqual(["Web page…", "Insert link…"]);
+    expect(itemsOf(/^Smart parts/)).toEqual(["Conversation", "Card grid", "Step label"]);
   });
 
   it("puts the composite on the slide when its row is picked", async () => {
     const { session } = await setup();
     click(bar("Insert"));
+    fireEvent.click(row(/^Text & content/));
     fireEvent.click(row(/^Formula/));
     expect(session.slide.elements.map((e) => e.type)).toEqual(["math"]);
     expect(session.state.selection).toEqual([session.slide.elements[0]?.id]);
@@ -47,18 +57,20 @@ describe("the Insert menu", () => {
   it("asks for an address for a page and a video, by opening a dialog", async () => {
     const { ui, session } = await setup();
     click(bar("Insert"));
-    fireEvent.click(row(/^Embedded page/));
+    fireEvent.click(row(/^Pages & links/));
+    fireEvent.click(row(/^Web page/));
     expect(ui.state.dialog).toBe("embed");
     click(bar("Insert"));
+    fireEvent.click(row(/^Media/));
     fireEvent.click(row(/^Video/));
     expect(ui.state.dialog).toBe("video");
     expect(session.slide.elements).toHaveLength(0);
   });
 
-  it("opens the palette from its row", async () => {
+  it("opens the gallery from its row", async () => {
     const { ui } = await setup();
     click(bar("Insert"));
-    fireEvent.click(row(/^Insert palette/));
+    fireEvent.click(row(/^Insert gallery/));
     expect(ui.state.dialog).toBe("insert");
   });
 });

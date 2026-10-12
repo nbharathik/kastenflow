@@ -30,7 +30,7 @@ export function assemblePage({ title, css, slides, data, script }: PageParts): s
     "<head>",
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<meta name="generator" content="Kasten Slides">',
+    '<meta name="generator" content="KastenFlow Slides">',
     `<title>${escapeHtml(title)}</title>`,
     `<style>${PAGE_CSS}\n${css.replaceAll(/<\/(style)/gi, "<\\/$1")}</style>`,
     "</head>",

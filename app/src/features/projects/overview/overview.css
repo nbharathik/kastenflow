@@ -1,0 +1,229 @@
+/* The project overview: a header, a row of tabs, and a body that fills the
+   rest of the pane and scrolls on its own. Colours, type and corners come from
+   the theme's tokens (styles.css). */
+
+.kasten-overview {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 24px 32px 0;
+}
+
+.kasten-overview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding-bottom: 14px;
+}
+
+.kasten-overview-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-line);
+  scrollbar-width: none;
+}
+
+.kasten-overview-tab {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-ink);
+  }
+
+  &[aria-selected="true"] {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  &.is-add {
+    margin-left: 6px;
+    font-weight: 400;
+  }
+}
+
+.kasten-overview-tab-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-well);
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+}
+
+.kasten-overview-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 0 32px;
+
+  /* A saved table fills the room, its header in view, and a graph fills it too. */
+  & > .kasten-tagdb {
+    height: 100%;
+    max-width: none;
+    padding: 0;
+  }
+}
+
+.kasten-overview-graph {
+  height: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+}
+
+.kasten-overview-empty {
+  max-width: 34rem;
+  margin: 40px auto 0;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.kasten-overview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kasten-overview-count {
+  margin: 12px 0 8px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
+/* The All tab's table: a plain table of rows, a click on a title opens it. */
+.kasten-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-13);
+
+  & th,
+  & td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-line);
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  & th {
+    color: var(--color-muted);
+    font-weight: 500;
+
+    & button {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: var(--radius-sm);
+      color: inherit;
+
+      &:hover {
+        color: var(--color-ink);
+      }
+    }
+  }
+
+  & td:first-child {
+    width: 40%;
+    max-width: 0;
+  }
+
+  & tbody tr:hover {
+    background: var(--color-hover);
+  }
+}
+
+.kasten-overview-open {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.kasten-overview-icon {
+  display: grid;
+  flex-shrink: 0;
+  width: 20px;
+  place-items: center;
+}
+
+.kasten-overview-tags {
+  max-width: 18rem;
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+}
+
+.kasten-overview-captures {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.kasten-overview-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.kasten-overview-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kasten-overview-capture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+
+  &:hover {
+    background: var(--color-hover);
+  }
+}
+
+.kasten-overview-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+@media (max-width: 640px) {
+  .kasten-overview {
+    padding: 16px 16px 0;
+  }
+}

@@ -2,6 +2,7 @@ import type { Element, Paragraph, Text } from "@kasten-slides/wasm";
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { PLAIN_FORMAT } from "../../../text/handle.ts";
 import { shape, textBox } from "../../factory.ts";
 import type { FormatState } from "../../session/text-commands.ts";
 import type { TextHandle } from "../../text-handle.ts";
@@ -188,7 +189,7 @@ function fakeEditor(state: Partial<FormatState> = {}): TextHandle & { calls: str
     (...args: unknown[]) => {
       calls.push(`${name}(${args.map(String).join(",")})`);
     };
-  const format: FormatState = { bold: false, italic: false, underline: false, strike: false, code: false, color: null, size: null, font: null, align: "left", list: null, level: 0, link: null, lineSpacing: null, ...state };
+  const format: FormatState = { ...PLAIN_FORMAT, ...state };
   return {
     calls,
     focus: vi.fn(),
@@ -211,7 +212,7 @@ function fakeEditor(state: Partial<FormatState> = {}): TextHandle & { calls: str
     setLink: note("link"),
     clearFormatting: note("clear"),
     insertText: note("insert"),
-  } as TextHandle & { calls: string[] };
+  } as unknown as TextHandle & { calls: string[] };
 }
 
 describe("Text: while a text box is open", () => {

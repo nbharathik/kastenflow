@@ -30,7 +30,7 @@ pub struct BundleHeader {
 }
 
 fn not_a_backup(why: &str) -> Error {
-    Error::Invalid(format!("This is not a Kasten backup file: {why}"))
+    Error::Invalid(format!("This is not a KastenFlow backup file: {why}"))
 }
 
 /// One header line, without its line end, or None at the end of the file.
@@ -68,13 +68,13 @@ fn parse_header(reader: &mut impl BufRead) -> Result<BundleHeader> {
         }
         if line.starts_with('-') {
             return Err(not_a_backup(
-                "it needs another file's history too, and Kasten's files hold everything",
+                "it needs another file's history too, and KastenFlow's files hold everything",
             ));
         }
         if let Some(capability) = line.strip_prefix('@') {
             if capability.starts_with("object-format=") && capability != "object-format=sha1" {
                 return Err(not_a_backup(
-                    "its history uses a kind of id Kasten doesn't read",
+                    "its history uses a kind of id KastenFlow doesn't read",
                 ));
             }
             continue;

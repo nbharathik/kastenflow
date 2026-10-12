@@ -45,7 +45,7 @@ fn creates_a_ready_to_use_vault_and_never_overwrites() {
             "{template}"
         );
     }
-    for tag in ["task", "paper", "experiment", "meeting"] {
+    for tag in ["task", "paper", "experiment", "meeting", "capture"] {
         assert!(dir.join(format!("tags/{tag}.yaml")).is_file(), "{tag}");
     }
     assert_eq!(k.config().name, "My notes");
@@ -85,15 +85,20 @@ fn the_tour_page_is_added_only_when_asked() {
     let path = k.add_tour(&Actor::Human, Instant::now()).unwrap();
     assert_eq!(path, "library/welcome-to-kasten.md");
     let tour = k.read(&path).unwrap();
-    assert_eq!(tour.meta.title, "Welcome to Kasten");
+    assert_eq!(tour.meta.title, "Welcome to KastenFlow");
     assert!(
         tour.text.contains("Organise when you are ready"),
         "{}",
         tour.text
     );
+    assert!(
+        tour.text.contains("\nKastenFlow is a quiet place"),
+        "{}",
+        tour.text
+    );
     assert_eq!(
         k.log(None, 1).unwrap()[0].summary,
-        "tour: Welcome to Kasten"
+        "tour: Welcome to KastenFlow"
     );
     assert!(k.dirty().unwrap().is_empty());
 
@@ -129,7 +134,8 @@ fn a_vault_names_its_format_and_a_newer_one_is_left_alone() {
     )
     .unwrap();
     let err = Kasten::open(&dir).expect_err("refused").to_string();
-    assert!(err.contains("newer version of Kasten"), "{err}");
+    assert!(err.contains("newer version of KastenFlow"), "{err}");
+    assert!(err.contains("Update KastenFlow to open it"), "{err}");
     assert!(!dir.join(".kasten/cache").exists(), "nothing written");
 
     // Vaults made before formats were numbered are the first format.

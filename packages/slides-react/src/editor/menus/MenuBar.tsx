@@ -1,5 +1,6 @@
 import { type JSX, type KeyboardEvent as ReactKeyEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { isMac } from "../commands/keys.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { Menu } from "../ui/Menu.tsx";
@@ -10,6 +11,9 @@ import { barMenus } from "./bar-menus.ts";
 import { MENU_FIRST_ROW, MENU_LIST, useFocusWhenShown } from "./focus.ts";
 import { keepsEditorFocus } from "./useDropdown.ts";
 import "./menus.css";
+
+/** The letter after Alt that opens each menu: File, Edit, View, Insert, fOrmat, sliDe, Arrange, Tools, Help. */
+export const MNEMONICS: Readonly<Record<string, string>> = { F: "file", E: "edit", V: "view", I: "insert", O: "format", D: "slide", A: "arrange", T: "tools", H: "help" };
 
 interface Opened {
   index: number;
@@ -76,6 +80,28 @@ export function MenuBar({ session, ui }: { session: EditorSession; ui: EditorUi 
     setActive(index);
     setOpened({ index, anchor: anchorOf(button), keyboard });
   };
+
+  // Alt and a letter opens a menu, as in Google Slides (Alt+F File, Alt+O Format, Alt+D Slide), where the computer does not use Alt to type.
+  const openMenu = useRef<(id: string) => void>(() => {});
+  openMenu.current = (id) => {
+    const index = menus.findIndex((menu) => menu.id === id);
+    if (index >= 0) openAt(index, true);
+  };
+  useEffect(() => {
+    if (isMac()) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !event.code.startsWith("Key")) return;
+      const id = MNEMONICS[event.code.slice(3)];
+      const editor = root.current?.closest(".ks-editor");
+      if (!id || !editor?.contains(document.activeElement)) return;
+      // First of all, so that an open menu (which keeps the keys it is typed to for itself) does not take the letter for a search.
+      event.preventDefault();
+      event.stopPropagation();
+      openMenu.current(id);
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, []);
 
   const focusItem = (index: number): number => {
     const to = (index + menus.length) % menus.length;

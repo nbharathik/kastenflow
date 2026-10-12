@@ -5,7 +5,9 @@ import type { TextStyle, Theme } from "@kasten-slides/wasm";
 import type { Mark, MarkType, Node as PMNode, ResolvedPos } from "prosemirror-model";
 import { type EditorState, Selection, TextSelection } from "prosemirror-state";
 
-import { attrsOf } from "./schema.ts";
+import { marksOfLook } from "./convert.ts";
+import { lookOfMark } from "./paragraph-attrs.ts";
+import { type TextSchema, attrsOf } from "./schema.ts";
 import { textStyleOf } from "./text-style.ts";
 
 /** What the commands need to know about the box being edited. */
@@ -64,8 +66,21 @@ export function selectedParagraphs(state: EditorState): Located[] {
   return found;
 }
 
-/** The marks new text would get at the caret: the ones set aside by a command, else the ones around it. */
-export const caretMarks = (state: EditorState): readonly Mark[] => state.storedMarks ?? state.selection.$from.marks();
+/** The empty paragraphs the selection touches: they have no words to take a change of look, so it goes to their mark. */
+export const selectedEmptyParagraphs = (state: EditorState): Located[] => selectedParagraphs(state).filter(({ node }) => node.content.size === 0);
+
+/** The marks the empty paragraph a position is in gives the words typed there; none where the paragraph has words or no look. */
+export function markOfParagraphAt($pos: ResolvedPos, schema: TextSchema): readonly Mark[] {
+  if ($pos.depth < 1 || $pos.parent.content.size > 0) return [];
+  return marksOfLook(schema, lookOfMark(attrsOf($pos.parent).mark));
+}
+
+/** The marks new text would get at the caret: the ones set aside by a command, else the look of the empty paragraph it is in, else the ones around it. */
+export function caretMarks(state: EditorState): readonly Mark[] {
+  if (state.storedMarks) return state.storedMarks;
+  const { $from } = state.selection;
+  return $from.parent.content.size === 0 ? markOfParagraphAt($from, state.schema as TextSchema) : $from.marks();
+}
 
 /** The marks of the first stretch of text in the selection, or the caret's when there is none. */
 export function marksAtStart(state: EditorState): readonly Mark[] {
@@ -86,6 +101,20 @@ export function markRange($pos: ResolvedPos, type: MarkType): { from: number; to
     else spans.push({ from, to: from + child.nodeSize, mark });
   });
   return spans.find((span) => span.from <= $pos.pos && $pos.pos <= span.to) ?? null;
+}
+
+/** The word a position is in or touches, as a range of the document, or null where there is none. */
+export function wordAt(state: EditorState, pos: number): { from: number; to: number } | null {
+  const $pos = state.doc.resolve(pos);
+  const parent = $pos.parent;
+  if (parent.type.name !== "paragraph") return null;
+  const text = parent.textBetween(0, parent.content.size, undefined, "\u0000");
+  const letter = /[\p{L}\p{N}_'’]/u;
+  let start = $pos.parentOffset;
+  let end = start;
+  while (start > 0 && letter.test(text.charAt(start - 1))) start -= 1;
+  while (end < text.length && letter.test(text.charAt(end))) end += 1;
+  return start === end ? null : { from: $pos.start() + start, to: $pos.start() + end };
 }
 
 /**

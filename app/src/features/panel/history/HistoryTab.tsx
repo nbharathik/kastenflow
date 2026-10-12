@@ -11,7 +11,7 @@ import type { CommitInfo, NoteMeta } from "../../../lib/vault/types";
 import { Icon } from "../../../ui/Icon";
 import { describeChange } from "../../review/change-words";
 import { useVaultStatus } from "../../workspace/status";
-import { useWorkspace } from "../../workspace/store";
+import { openSettingsAt } from "../../workspace/views/settings/jump";
 import { errorText, type PanelPage } from "../page-edit";
 import { authorOf } from "./versions";
 import { VersionView } from "./VersionView";
@@ -69,7 +69,7 @@ export function HistoryTab({ note, body, page }: { note: NoteMeta; body: string;
         <Icon name="history" className="size-6" />
         <p>{off ? "History is off, so earlier versions are not kept." : "No versions yet. Each saved change to this page is kept as a version you can go back to."}</p>
         {off && (
-          <button type="button" className="kasten-panel-button" onClick={() => useWorkspace.getState().go({ view: "settings" })}>
+          <button type="button" className="kasten-panel-button" onClick={() => openSettingsAt({ group: "history", row: "history.history" })}>
             Turn it on in Settings
           </button>
         )}

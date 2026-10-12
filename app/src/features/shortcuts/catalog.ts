@@ -18,9 +18,10 @@ export const KEY_SECTIONS: { title: string; ids: string[] }[] = [
     title: "Anywhere",
     ids: ["palette", "new-page", "new-card", "journal", "prev-day", "next-day", "search", "chat-dock", "back", "forward", "sidebar", "panel", "page-history", "focus", "theme", "zoom-in", "zoom-out", "zoom-reset", "save", "shortcuts"],
   },
-  { title: "Tabs and panes", ids: ["new-tab", "close-tab", "reopen-tab", "pin-tab", "next-tab", "prev-tab", "split", "stack", "stack-page"] },
-  { title: "Go to", ids: ["home", "inbox", "journal-page", "library", "tasks", "calendar", "tags", "boards", "highlights", "chat", "history", "review", "trash", "settings"] },
-  { title: "Make and change", ids: ["templates", "kits", "new-project", "new-board", "import-pdf", "import-notes", "rename-page", "lock-page", "move", "duplicate", "favourite-page", "copy-link", "copy-markdown", "reveal-page", "trash-page", "markdown", "full-width", "print"] },
+  { title: "Tabs and panes", ids: ["new-tab", "close-tab", "reopen-tab", "pin-tab", "next-tab", "prev-tab", "split", "open-right", "stack", "stack-page"] },
+  { title: "Go to", ids: ["home", "inbox", "captures", "journal-page", "library", "tasks", "calendar", "tags", "boards", "slides", "diagrams", "highlights", "graph", "graph-page", "project-overview", "browser", "browser-address", "chat", "history", "review", "trash", "settings"] },
+  { title: "Make and change", ids: ["templates", "kits", "new-project", "new-board", "new-deck", "new-diagram", "browser-capture-page", "browser-capture-selection", "extension-pair", "import-pdf", "import-notes", "rename-page", "lock-page", "move", "duplicate", "favourite-page", "pin-page", "sidebar-cards", "copy-link", "copy-markdown", "reveal-page", "trash-page", "markdown", "full-width", "print", "fold-sections", "unfold-sections", "present-page", "smart-layout", "sections-deck"] },
+  { title: "Boards", ids: ["board-focus", "board-present", "board-outline", "board-minimap", "board-toolbar", "board-double-click"] },
 ];
 
 /** A command's name as the palette shows it. */

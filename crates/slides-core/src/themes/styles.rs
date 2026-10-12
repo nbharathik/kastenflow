@@ -1,6 +1,6 @@
 //! The named looks for text. They hold colour tokens and font roles only
 //! (`text1`, `heading`), never a hex value or a family, so one table serves
-//! all four themes and a deck that changes theme restyles its text with it.
+//! every theme and a deck that changes theme restyles its text with it.
 
 use std::collections::BTreeMap;
 
@@ -21,26 +21,62 @@ fn style(size: f64, color: &str, font: &str) -> TextStyle {
     }
 }
 
-/// The nine styles, sizes in points. The first six are the ones every deck can
-/// rely on; `display`, `big-number` and `quote` are set for the layouts that
-/// carry their names.
+/// What a theme chooses about its type: the sizes in points and which looks are bold or italic.
+/// The other looks (the caption, the code, the citation) are the same in every theme, and so
+/// are the colours and the spacing of lines.
+#[derive(Clone, Copy)]
+pub(super) struct Type {
+    pub title: f64,
+    pub title_bold: bool,
+    pub display: f64,
+    pub display_bold: bool,
+    pub subtitle: f64,
+    pub body: f64,
+    pub big_number: f64,
+    pub big_number_bold: bool,
+    pub quote: f64,
+    pub quote_italic: bool,
+}
+
+/// The type of the first four themes.
+pub(super) const CLASSIC: Type = Type {
+    title: 36.0,
+    title_bold: true,
+    display: 44.0,
+    display_bold: true,
+    subtitle: 20.0,
+    body: 22.0,
+    big_number: 96.0,
+    big_number_bold: true,
+    quote: 32.0,
+    quote_italic: true,
+};
+
+/// The nine styles of the first four themes, sizes in points. The first six are the ones every
+/// deck can rely on; `display`, `big-number` and `quote` are set for the layouts that carry
+/// their names.
 pub(super) fn text_styles() -> BTreeMap<String, TextStyle> {
+    text_styles_of(&CLASSIC)
+}
+
+/// The nine styles, set the way `kind` says.
+pub(super) fn text_styles_of(kind: &Type) -> BTreeMap<String, TextStyle> {
     [
         (
             "title",
             TextStyle {
-                bold: true,
-                ..style(36.0, "text1", "heading")
+                bold: kind.title_bold,
+                ..style(kind.title, "text1", "heading")
             },
         ),
-        ("subtitle", style(20.0, "text2", "body")),
+        ("subtitle", style(kind.subtitle, "text2", "body")),
         // Air between lines and paragraphs keeps a list readable from the back of a room.
         (
             "body",
             TextStyle {
                 line_spacing: Some(1.15),
                 space_after: Some(6.0),
-                ..style(22.0, "text1", "body")
+                ..style(kind.body, "text1", "body")
             },
         ),
         ("caption", style(14.0, "text2", "body")),
@@ -49,22 +85,22 @@ pub(super) fn text_styles() -> BTreeMap<String, TextStyle> {
         (
             "display",
             TextStyle {
-                bold: true,
-                ..style(44.0, "text1", "heading")
+                bold: kind.display_bold,
+                ..style(kind.display, "text1", "heading")
             },
         ),
         (
             "big-number",
             TextStyle {
-                bold: true,
-                ..style(96.0, "accent1", "heading")
+                bold: kind.big_number_bold,
+                ..style(kind.big_number, "accent1", "heading")
             },
         ),
         (
             "quote",
             TextStyle {
-                italic: true,
-                ..style(32.0, "text1", "heading")
+                italic: kind.quote_italic,
+                ..style(kind.quote, "text1", "heading")
             },
         ),
     ]

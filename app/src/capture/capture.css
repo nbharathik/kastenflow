@@ -58,6 +58,85 @@ body.kasten-capture-body #root {
   background: var(--color-hover);
 }
 
+/* The place picker covers the text while it is open; the footer stays. */
+.kasten-capture-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.kasten-capture-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--color-canvas);
+}
+
+.kasten-capture-search {
+  flex: none;
+  margin: 0;
+  padding: 14px 18px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: 400 var(--text-16)/1.4 var(--font-sans, system-ui, sans-serif);
+}
+
+.kasten-capture-search::placeholder {
+  color: var(--color-muted);
+}
+
+.kasten-capture-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.kasten-capture-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-14);
+  cursor: pointer;
+}
+
+.kasten-capture-option.is-active {
+  background: var(--color-selected);
+}
+
+.kasten-capture-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-capture-option-hint {
+  flex: none;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-capture-none {
+  padding: 10px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
 .kasten-capture-hint,
 .kasten-capture-problem {
   margin-left: auto;

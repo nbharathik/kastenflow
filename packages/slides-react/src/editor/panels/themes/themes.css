@@ -1,0 +1,69 @@
+/* The themes and layouts panel: cards in two columns, each a small drawing and a name. */
+.ks-th-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.ks-th-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-canvas);
+  text-align: left;
+  transition:
+    border-color var(--ks-fast) var(--ks-ease),
+    background var(--ks-fast) var(--ks-ease);
+}
+.ks-th-card:hover {
+  border-color: var(--ks-line-strong);
+  background: var(--ks-hover);
+}
+.ks-th-card.is-on {
+  border-color: var(--ks-accent);
+  box-shadow: 0 0 0 1px var(--ks-accent);
+}
+.ks-th-card:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-th-thumb {
+  display: block;
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--ks-line);
+}
+/* Until a theme's slide is drawn the card keeps the room it will take, so nothing moves when it arrives. */
+.ks-th-thumb.is-pending {
+  aspect-ratio: 16 / 9;
+  background: var(--ks-well);
+}
+.ks-th-wire {
+  display: block;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ks-th-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 2px;
+}
+.ks-th-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.ks-th-card .ks-icon {
+  color: var(--ks-accent);
+}
+.ks-th-templates:empty,
+.ks-th-layouts:empty {
+  display: none;
+}

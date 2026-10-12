@@ -13,6 +13,7 @@ import { EntryChip, entryKey } from "./Chip";
 import { weekdayNames, type DateItem } from "./dates";
 import { AddMenu, DayNumber, JournalLink, MorePopover, QuickAdd, dayNumber } from "./DayParts";
 import { barsOver, fitBars, weekBars } from "./lanes";
+import type { EventPart } from "./external/types";
 import { dayEntries, fit, fullDay, itemId, type Entry } from "./layout";
 import type { DateRange } from "./ranges";
 import { usePrefs } from "../workspace/prefs";
@@ -37,6 +38,8 @@ export interface GridProps {
   /** Notes that link a day, and notes made on it, by day (Show chooses). */
   mentions: ReadonlyMap<string, DayMention[]>;
   made: ReadonlyMap<string, NoteMeta[]>;
+  /** Events of the subscribed calendars, by day: read-only. */
+  events: ReadonlyMap<string, EventPart[]>;
   colors: ReadonlyMap<string, string>;
   /** The days a dragged chip or range would cover, dropped where it is. */
   lit: { start: string; end: string } | null;
@@ -116,10 +119,10 @@ export function MonthGrid({ days, month, ...rest }: GridProps & { month: string 
 type RowProps = Omit<GridProps, "days"> & { week: string[]; row: number; lines: number; month: string };
 
 /** One week: its bars in lanes, over cells that leave them room. */
-const MonthRow = memo(function MonthRow({ week, row, lines, month, today, items, tasks, ranges, journals, mentions, made, colors, lit, adding, expanded, dragging, pinned, scopeTag }: RowProps) {
+const MonthRow = memo(function MonthRow({ week, row, lines, month, today, items, tasks, ranges, journals, mentions, made, events, colors, lit, adding, expanded, dragging, pinned, scopeTag }: RowProps) {
   const layout = useMemo(() => weekBars(ranges, week, pinned), [ranges, week, pinned]);
   // Each day's own entries, as a key that only changes when a count does.
-  const counts = week.map((day) => (items.get(day)?.length ?? 0) + (tasks.get(day)?.length ?? 0) + (mentions.get(day)?.length ?? 0) + (made.get(day)?.length ?? 0)).join();
+  const counts = week.map((day) => (items.get(day)?.length ?? 0) + (tasks.get(day)?.length ?? 0) + (mentions.get(day)?.length ?? 0) + (made.get(day)?.length ?? 0) + (events.get(day)?.length ?? 0)).join();
   const fitted = useMemo(() => fitBars(layout, lines, counts.split(",").map(Number)), [layout, lines, counts]);
   const bars = useMemo(() => layout.bars.filter((bar) => bar.lane < fitted.shown), [layout, fitted.shown]);
   return (
@@ -139,6 +142,7 @@ const MonthRow = memo(function MonthRow({ week, row, lines, month, today, items,
           tasks={tasks.get(day)}
           mentions={mentions.get(day)}
           made={made.get(day)}
+          events={events.get(day)}
           ranges={expanded === day ? barsOver(layout, col).map((bar) => bar.range) : undefined}
           journal={journals.get(day)}
           colors={colors}
@@ -162,6 +166,7 @@ export interface CellProps {
   tasks: readonly TaskRow[] | undefined;
   mentions: readonly DayMention[] | undefined;
   made: readonly NoteMeta[] | undefined;
+  events: readonly EventPart[] | undefined;
   journal: NoteMeta | undefined;
   colors: ReadonlyMap<string, string>;
   /** Its classes while a drop would cover it (`litClass`); empty otherwise. */
@@ -189,9 +194,9 @@ type MonthCellProps = CellProps & {
   other: boolean;
 };
 
-const MonthCell = memo(function MonthCell({ day, row, col, lines, lanes, hidden, ranges, other, today, items, tasks, mentions, made, journal, colors, over, adding, expanded, dragging, pinned, scopeTag }: MonthCellProps) {
+const MonthCell = memo(function MonthCell({ day, row, col, lines, lanes, hidden, ranges, other, today, items, tasks, mentions, made, events, journal, colors, over, adding, expanded, dragging, pinned, scopeTag }: MonthCellProps) {
   const actions = useCalendarActions();
-  const entries = useMemo(() => dayEntries(items, tasks, mentions, made), [items, tasks, mentions, made]);
+  const entries = useMemo(() => dayEntries(items, tasks, mentions, made, events), [items, tasks, mentions, made, events]);
   // The lanes take their lines first, and the quick-add field one more.
   const { shown, more } = fit(entries, lines - lanes - (adding ? 1 : 0), pinnedTest(pinned), hidden);
   return (

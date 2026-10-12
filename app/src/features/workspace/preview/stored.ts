@@ -26,6 +26,9 @@ export interface Stored {
   boards?: Record<string, string>;
   /** Slide decks (`.deck` JSON) by path. */
   decks?: Record<string, string>;
+  /** Diagram sources (`.drawio` XML) by path, and the pictures beside them (`.drawio.svg`, stamped) by their own path. */
+  diagrams?: Record<string, string>;
+  drawings?: Record<string, string>;
   tags?: Record<string, string>;
   /** Highlight sidecars (`sources/*.highlights.json`) by path. */
   sidecars?: Record<string, string>;

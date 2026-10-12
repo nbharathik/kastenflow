@@ -2,7 +2,7 @@
 // run every change through kasten-core's ops in the chat's own agent
 // session, or the browser preview's stand-in (preview/fake-chat.ts).
 
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 import { inTauri } from "../../lib/api";
@@ -65,10 +65,17 @@ export function tauriChat(): ChatClient {
     testProvider: (name, model) => invoke<ProviderCheck>("test_chat_provider", { name, model: model ?? null }),
     listProviderModels: (provider, key) => invoke<string[]>("list_provider_models", { provider, key }),
     testProviderDraft: (provider, key) => invoke<ProviderCheck>("test_provider_draft", { provider, key }),
-    write: (request, onText) => {
-      const channel = new Channel<string>();
-      channel.onmessage = onText;
-      return invoke<Written>("ai_write", { request, onText: channel });
+    // The text comes as events to this window, named by the request: the
+    // answer in `Written` is the whole of it, so a late piece costs nothing.
+    write: async (request, onText) => {
+      const stop = await listen<{ id: string; text: string }>("ai-write-text", (e) => {
+        if (e.payload.id === request.id) onText(e.payload.text);
+      });
+      try {
+        return await invoke<Written>("ai_write", { request });
+      } finally {
+        stop();
+      }
     },
     stopWrite: (id) => invoke<void>("ai_write_stop", { id }),
     send: async (request) => {

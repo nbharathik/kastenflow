@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 
 import type { PropDef, TagSchema, TagView, ViewFilter } from "../../lib/vault/types";
 import { Popup } from "../pages/page/Popup";
-import { BUILT_IN } from "./model";
+import { BUILT_IN, ROW_LABELS, keyLabel, spans } from "./model";
 
 type Op = ViewFilter["op"];
 
@@ -20,16 +20,17 @@ const OPS: { op: Op; label: string; needs: boolean }[] = [
   { op: "not_empty", label: "is not empty", needs: false },
 ];
 
-/** The keys a view can filter and sort by: the tag's properties, then built-ins. */
-function keysOf(schema: TagSchema | null): { key: string; label: string; def?: PropDef }[] {
+/** The keys a view can filter and sort by: the tag's properties, then built-ins (a view that spans tags and projects also has project, type and tags). */
+function keysOf(schema: TagSchema | null, view: TagView): { key: string; label: string; def?: PropDef }[] {
   const props = (schema?.properties ?? []).map((def) => ({ key: def.key, label: def.key, def }));
   const own = new Set(props.map((p) => p.key));
-  return [...props, ...Object.entries(BUILT_IN).filter(([key]) => !own.has(key)).map(([key, label]) => ({ key, label }))];
+  const fields = spans(view) ? { ...BUILT_IN, ...ROW_LABELS } : BUILT_IN;
+  return [...props, ...Object.entries(fields).filter(([key]) => !own.has(key)).map(([key, label]) => ({ key, label }))];
 }
 
 const opLabel = (op: Op) => OPS.find((o) => o.op === op)?.label ?? op;
 const valueLabel = (value: unknown) => (value === true ? "ticked" : value === false ? "not ticked" : String(value ?? ""));
-const describe = (f: ViewFilter) => `${BUILT_IN[f.key] ?? f.key} ${opLabel(f.op)}${OPS.find((o) => o.op === f.op)?.needs ? ` ${valueLabel(f.value)}` : ""}`;
+const describe = (view: TagView, f: ViewFilter) => `${keyLabel(view, f.key)} ${opLabel(f.op)}${OPS.find((o) => o.op === f.op)?.needs ? ` ${valueLabel(f.value)}` : ""}`;
 
 interface ViewBarProps {
   view: TagView;
@@ -42,7 +43,7 @@ interface ViewBarProps {
 }
 
 export function ViewBar({ view, schema, shown, total, onChange, find }: ViewBarProps) {
-  const keys = keysOf(schema);
+  const keys = keysOf(schema, view);
   const filters = view.filter ?? [];
   const sorts = view.sort ?? [];
   const selects = (schema?.properties ?? []).filter((p) => p.type === "select");
@@ -73,8 +74,8 @@ export function ViewBar({ view, schema, shown, total, onChange, find }: ViewBarP
       )}
       {filters.map((f, i) => (
         <span key={`f${i}`} className="kasten-tagdb-rule">
-          {describe(f)}
-          <button type="button" aria-label={`Remove the filter ${describe(f)}`} onClick={() => set({ filter: filters.filter((_, j) => j !== i) })}>
+          {describe(view, f)}
+          <button type="button" aria-label={`Remove the filter ${describe(view, f)}`} onClick={() => set({ filter: filters.filter((_, j) => j !== i) })}>
             ×
           </button>
         </span>
@@ -82,10 +83,10 @@ export function ViewBar({ view, schema, shown, total, onChange, find }: ViewBarP
       {view.type !== "calendar" &&
         sorts.map((s, i) => (
           <span key={`s${i}`} className="kasten-tagdb-rule">
-            <button type="button" aria-label={`Sort ${BUILT_IN[s.key] ?? s.key} ${s.dir === "asc" ? "descending" : "ascending"}`} onClick={() => set({ sort: sorts.map((x, j) => (j === i ? { ...x, dir: x.dir === "asc" ? "desc" : "asc" } : x)) })}>
-              {BUILT_IN[s.key] ?? s.key} {s.dir === "asc" ? "↑" : "↓"}
+            <button type="button" aria-label={`Sort ${keyLabel(view, s.key)} ${s.dir === "asc" ? "descending" : "ascending"}`} onClick={() => set({ sort: sorts.map((x, j) => (j === i ? { ...x, dir: x.dir === "asc" ? "desc" : "asc" } : x)) })}>
+              {keyLabel(view, s.key)} {s.dir === "asc" ? "↑" : "↓"}
             </button>
-            <button type="button" aria-label={`Remove the sort by ${BUILT_IN[s.key] ?? s.key}`} onClick={() => set({ sort: sorts.filter((_, j) => j !== i) })}>
+            <button type="button" aria-label={`Remove the sort by ${keyLabel(view, s.key)}`} onClick={() => set({ sort: sorts.filter((_, j) => j !== i) })}>
               ×
             </button>
           </span>

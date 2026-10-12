@@ -94,7 +94,7 @@ pub fn run(args: &Args) -> Result<(), Failure> {
     events::watch(Arc::clone(&folder), Arc::clone(&hub));
     let page = ui::find(args.value("ui"));
     println!(
-        "Kasten Slides: {} ({} decks)",
+        "KastenFlow Slides: {} ({} decks)",
         folder.root().display(),
         folder.decks().len()
     );

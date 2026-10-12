@@ -1,41 +1,11 @@
-/* The hero: the headline over a dotted canvas, the app in a window that
-   tilts flat as the page scrolls, and pieces of the app floating by it. */
+/* The banner: a plain introduction set to the left, in line with the steps
+   below it, then the app in a window. */
 
 .hero {
   position: relative;
-  padding: clamp(56px, 9vw, 104px) 0 clamp(64px, 8vw, 96px);
   isolation: isolate;
-}
-
-.hero-bg {
-  position: absolute;
-  inset: -64px 0 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.hero-dots {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(ellipse 75% 55% at 50% 28%, #000 25%, transparent 78%);
-  -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 28%, #000 25%, transparent 78%);
-}
-
-.hero-glow {
-  position: absolute;
-  top: 44%;
-  left: 50%;
-  width: min(1200px, 120%);
-  height: 640px;
-  translate: -50% 0;
-  background:
-    radial-gradient(38% 50% at 28% 50%, var(--glow-a), transparent 70%),
-    radial-gradient(34% 46% at 72% 42%, var(--glow-b), transparent 70%),
-    radial-gradient(30% 40% at 50% 78%, var(--glow-c), transparent 70%);
-  filter: blur(30px);
+  margin-top: -68px;
+  padding: calc(68px + clamp(56px, 8vw, 112px)) 0 clamp(64px, 8vw, 112px);
 }
 
 .rise {
@@ -52,95 +22,41 @@
 
 .hero-copy {
   display: grid;
-  justify-items: center;
+  justify-items: start;
   gap: 22px;
-  text-align: center;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 12px 5px 5px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(8px);
-  transition: border-color 160ms, transform 160ms var(--ease);
-}
-
-.pill:hover {
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
-}
-
-.pill-tag {
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--btn);
-  color: var(--on-btn);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-@media (max-width: 480px) {
-  .pill-tag {
-    display: none;
-  }
-
-  .pill {
-    padding-left: 12px;
-  }
-}
-
-.pill .i {
-  width: 14px;
-  height: 14px;
-  color: var(--muted);
+  margin-bottom: clamp(56px, 7vw, 96px);
 }
 
 .hero h1 {
-  font-size: clamp(36px, 9.4vw, 92px);
-  font-weight: 750;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
-}
-
-.ink-gradient {
-  background: linear-gradient(100deg, var(--ink) 20%, color-mix(in srgb, var(--accent) 80%, var(--ink)) 60%, #8a7cf8 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  max-width: 14em;
+  font-size: clamp(44px, 5.6vw, 76px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
 }
 
 .hero .lead {
-  max-width: 36em;
+  max-width: 34em;
 }
 
 .hero-note {
   color: var(--muted);
   font-size: 14px;
-  font-weight: 500;
 }
 
 /* The app in a window. */
 
-.hero-stage {
+.tour-pin {
   position: relative;
-  margin-top: clamp(48px, 7vw, 80px);
-  perspective: 1600px;
+  display: grid;
+  gap: 16px;
 }
 
 .window {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
 }
@@ -149,8 +65,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 34px;
-  padding: 0 13px;
+  height: 38px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
@@ -172,74 +88,53 @@
 
 .window-bar span {
   flex: 1;
-  margin-right: 52px;
+  margin-right: 54px;
+  overflow: hidden;
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 500;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hero-window {
-  transform-origin: 50% 0;
+.hero-fine {
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
 }
 
-@supports (animation-timeline: view()) {
-  .hero-window {
-    animation: window-flatten linear both;
-    animation-timeline: view();
-    animation-range: entry 10% cover 45%;
+/* The invitation to scroll is only made where the page does scroll the tour. */
+.fine-scroll {
+  display: none;
+}
+
+.hero[data-scroll] .fine-scroll {
+  display: inline;
+}
+
+/* Shown only where scripts do not run (index.html). */
+.hero-static {
+  display: none;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 640px) {
+  .window-bar span {
+    margin-right: 0;
   }
 
-  @keyframes window-flatten {
-    from {
-      transform: rotateX(16deg) scale(0.93);
-    }
-
-    to {
-      transform: none;
-    }
+  .hero .cta-row,
+  .hero .cta {
+    width: 100%;
   }
-}
-
-/* The formats Kasten keeps notes in. */
-
-.formats {
-  display: grid;
-  justify-items: center;
-  gap: 16px;
-  margin-top: clamp(64px, 8vw, 96px);
-}
-
-.formats p {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.formats ul {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 28px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.formats li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 16px;
-  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise,
-  .hero-window {
+  .rise {
     animation: none;
   }
 }

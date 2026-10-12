@@ -22,7 +22,13 @@ export type ChoiceAction =
   /** Opens the AI panel for this in the page. */
   | { type: "ai"; action: WriteAction }
   /** Opens the template gallery to fill the empty page. */
-  | { type: "template" };
+  | { type: "template" }
+  /** Opens the menu of slide decks to show in the page, and a new one. */
+  | { type: "deck" }
+  /** Opens the menu of diagrams to show in the page, and a new one (its editor opens at once). */
+  | { type: "diagram" }
+  /** Starts two sections and draws the page as slide-like cards (`layout: sections`). */
+  | { type: "smart" };
 
 export interface Choice {
   key: string;
@@ -91,7 +97,11 @@ export const BLOCK_CHOICES: Choice[] = [
   { key: "summarize-ai", label: "Summarize page", icon: "icon:sparkle", description: "AI sums up the page in a few points.", keywords: ["ai", "summary", "summarise", "tldr", "points"], section: AI, action: { type: "ai", action: "summarize" } },
   // Offered only while the page is empty (slash.ts).
   { key: "template", label: "Template…", icon: "icon:template", description: "Start this empty page from a template.", keywords: ["template", "start", "use"], section: TEMPLATES, action: { type: "template" } },
+  // Before the whiteboard, which also answers to "diagram" and "draw": typing either finds the diagram first.
+  { key: "diagram", label: "Diagram", icon: "icon:diagram", description: "Show a diagram in the page, or draw a new one.", keywords: ["diagram", "drawio", "flowchart", "flow", "chart", "architecture", "uml", "sketch", "draw"], section: ADVANCED, action: { type: "diagram" } },
   { key: "board", label: "Whiteboard", icon: "icon:board", description: "Embed a whiteboard to work on in the page.", keywords: ["board", "canvas", "whiteboard", "embed", "diagram", "draw"], section: ADVANCED, action: { type: "link", mode: "board" } },
+  { key: "deck", label: "Deck", icon: "icon:present", description: "Show a slide deck in the page, slide by slide.", keywords: ["deck", "slides", "slideshow", "presentation", "powerpoint", "talk"], section: ADVANCED, action: { type: "deck" } },
+  { key: "smart-page", label: "Smart page", icon: "icon:layout", description: "Cut the page into sections you can present, one slide each.", keywords: ["smart", "sections", "cards", "frames", "layout", "present", "slides", "talk"], section: ADVANCED, action: { type: "smart" } },
 ];
 
 const colourName = (color: string) => color[0]!.toUpperCase() + color.slice(1);

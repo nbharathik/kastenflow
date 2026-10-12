@@ -1,23 +1,28 @@
 // A `[[link]]` as Notion shows a page mention: the page's icon and title,
 // underlined, without brackets. A click opens the page; a link to a page
 // that does not exist yet shows greyed and creates it; a link whose title
-// several pages share, with nothing to pick one, asks which. A
+// several pages share, with nothing to pick one, asks which. A link to a file
+// (a deck, a whiteboard) opens it and never makes a page. A
 // link alone on its line, as /page makes for a sub-page, is a page block: a
 // full-width row with a hint of the page's text. An embed on a line of its
-// own (`![[Title]]`) shows the page itself (embed-view.ts).
+// own (`![[Title]]`) shows the page itself (embed-view.ts), a whiteboard, a
+// database or a deck.
 
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node } from "@milkdown/kit/prose/model";
-import { Plugin } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet, type EditorView, type NodeView } from "@milkdown/kit/prose/view";
-import { $prose, $view } from "@milkdown/kit/utils";
+import type { Decoration, EditorView, NodeView } from "@milkdown/kit/prose/view";
+import { $view } from "@milkdown/kit/utils";
 
-import { findLink, foundPage, isBoardTarget, isDatabaseTarget, linksOf, parseWikiTarget, retarget, type PageLink } from "../links";
+import { findLink, foundPage, isBoardTarget, isDatabaseTarget, isDeckTarget, isDiagramTarget, isFileTarget, linkHowOf, linksOf, parseWikiTarget, retarget, type PageLink } from "../links";
 import type { Popover } from "../ui/popover";
 import { el, withGlyph } from "../ui/dom";
+import { isAlone } from "./alone";
 import { BoardEmbed } from "./board-embed";
 import { DatabaseEmbed } from "./database-embed";
+import { DeckEmbed } from "./deck-embed";
+import { DiagramEmbed } from "./diagram-embed";
 import { EmbedCard } from "./embed-view";
+import { fileMention } from "./file-mention";
 import { chooseLink } from "./link-chooser";
 import { attachPeek, hidePeekOf } from "./mention-preview";
 import { wikiLinkSchema } from "../wikilink";
@@ -34,37 +39,6 @@ export function refreshMentions(): void {
   for (const view of views) view.refresh();
 }
 
-/** Links alone on their line, marked so their views draw them as blocks.
- * A mark that comes or goes redraws the view: ProseMirror keeps the view of
- * an unchanged node without asking it, even when text joins it on its line. */
-function aloneMarks(doc: Node): DecorationSet {
-  const marks: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (!node.isTextblock) return true;
-    const only = node.childCount === 1 ? node.firstChild : null;
-    if (node.type.name === "paragraph" && only?.type.name === "wiki_link") marks.push(Decoration.node(pos + 1, pos + 1 + only.nodeSize, {}, { alone: true }));
-    return false;
-  });
-  return DecorationSet.create(doc, marks);
-}
-
-export const aloneLinks = $prose(
-  () =>
-    new Plugin({
-      state: {
-        init: (_, state) => aloneMarks(state.doc),
-        apply: (tr, marks) => (tr.docChanged ? aloneMarks(tr.doc) : marks),
-      },
-      props: {
-        decorations(state) {
-          return this.getState(state);
-        },
-      },
-    }),
-);
-
-const isAlone = (decorations: readonly Decoration[]) => decorations.some((d) => (d.spec as { alone?: boolean }).alone);
-
 /** Whether an event came from an embedded page's header. */
 const inHead = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".kasten-embed-head"));
 
@@ -73,6 +47,8 @@ class WikiLinkView implements NodeView {
   private card: EmbedCard | null = null;
   private board: BoardEmbed | null = null;
   private database: DatabaseEmbed | null = null;
+  private deck: DeckEmbed | null = null;
+  private diagram: DiagramEmbed | null = null;
   private chooser: Popover | null = null;
 
   constructor(
@@ -84,29 +60,36 @@ class WikiLinkView implements NodeView {
   ) {
     this.dom = el("span", "kasten-mention", { contentEditable: "false" });
     this.dom.addEventListener("mousedown", (event) => {
-      // An embedded whiteboard or database takes its own clicks.
-      if (this.board?.owns(event.target) || this.database?.owns(event.target)) return;
+      // An embedded whiteboard, database, deck or diagram takes its own clicks.
+      if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target)) return;
       // The middle button opens a new tab, as in a browser.
       if (event.button !== 0 && event.button !== 1) return;
-      // A page shown in place acts on a click (below): pressing it to select
-      // its text or to drag its block opens nothing.
-      if (this.card) {
+      // A page, deck or diagram shown in place acts on a click (below): pressing it to
+      // select its text or to drag its block opens nothing.
+      if (this.card || this.deck || this.diagram) {
         if (inHead(event.target)) event.preventDefault();
         return;
       }
       event.preventDefault();
       this.follow(event);
     });
-    // A page shown in place opens from its header; one not written yet is
-    // made from a click anywhere on it, as it says.
+    // A page or deck shown in place opens from its header; a page not written
+    // yet is made from a click anywhere on it, as it says.
     const clicked = (event: MouseEvent) => {
-      if (!this.card || (event.button !== 0 && event.button !== 1)) return;
-      if (!inHead(event.target) && !this.missing()) return;
+      if (!(this.card || this.deck || this.diagram) || (event.button !== 0 && event.button !== 1)) return;
+      if (!inHead(event.target) && !(this.card && this.missing())) return;
       event.preventDefault();
       this.follow(event);
     };
     this.dom.addEventListener("click", clicked);
     this.dom.addEventListener("auxclick", clicked);
+    // A right-click shows the Open menu for the file the link names; on a page
+    // or deck shown in place, from its header only.
+    this.dom.addEventListener("contextmenu", (event) => {
+      if (this.dom.classList.contains("kasten-embed") && !inHead(event.target)) return;
+      const path = this.vaultPath();
+      if (path && linksOf(this.ctx).openMenu?.(event, path)) event.preventDefault();
+    });
     attachPeek(
       this.dom,
       () => parseWikiTarget(String(this.node.attrs.value)).title,
@@ -126,6 +109,8 @@ class WikiLinkView implements NodeView {
     this.chooser?.close();
     this.board?.destroy();
     this.database?.destroy();
+    this.deck?.destroy();
+    this.diagram?.destroy();
   }
 
   update(node: Node, decorations: readonly Decoration[]): boolean {
@@ -137,7 +122,7 @@ class WikiLinkView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
-    if (this.board?.owns(event.target) || this.database?.owns(event.target)) return true;
+    if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target)) return true;
     return event.type === "mousedown" || event.type === "click";
   }
 
@@ -150,9 +135,11 @@ class WikiLinkView implements NodeView {
   private follow(event: MouseEvent): void {
     const links = linksOf(this.ctx);
     const { title, heading } = parseWikiTarget(String(this.node.attrs.value));
-    const how = event.button === 1 || event.ctrlKey || event.metaKey ? "tab" : event.shiftKey ? "stack" : event.altKey ? "split" : "here";
+    const how = linkHowOf(event);
     // `[[#Heading]]` goes to a heading on this page.
     if (!title && heading) return links.open("", how, heading);
+    // A file opens, or does nothing when it is not there; it never makes a page.
+    if (isFileTarget(title)) return void fileMention(links, title)?.open(how);
     const go = (target: string) => (heading ? links.open(target, how, heading) : links.open(target, how));
     const found = findLink(links, title);
     if (found && "choices" in found) {
@@ -166,9 +153,19 @@ class WikiLinkView implements NodeView {
     else void links.create(title, true);
   }
 
-  /** Whether the link goes to no page yet. */
+  /** The vault path of what the link names, when it names one thing. */
+  private vaultPath(): string | null {
+    const links = linksOf(this.ctx);
+    const { title } = parseWikiTarget(String(this.node.attrs.value));
+    if (isFileTarget(title)) return fileMention(links, title)?.path ?? null;
+    return foundPage(findLink(links, title))?.path ?? null;
+  }
+
+  /** Whether the link goes to no page yet, which a click makes. A file is
+   * never a page to make. */
   private missing(): boolean {
-    return findLink(linksOf(this.ctx), parseWikiTarget(String(this.node.attrs.value)).title) === null;
+    const { title } = parseWikiTarget(String(this.node.attrs.value));
+    return !isFileTarget(title) && findLink(linksOf(this.ctx), title) === null;
   }
 
   /** Makes the link name `page`, so it no longer asks. */
@@ -186,11 +183,17 @@ class WikiLinkView implements NodeView {
     return this.aloneOnLine;
   }
 
-  /** What the link shows: a whiteboard, a database or a page in place, or a mention. */
-  private kind(value: string, embed: boolean): "board" | "database" | "page" | "mention" {
+  /** What the link shows: a whiteboard, a database, a deck or a page in
+   * place, or a mention (a file that has no view of its own is one too). */
+  private kind(value: string, embed: boolean): "board" | "database" | "deck" | "diagram" | "page" | "mention" {
     if (!embed || !this.alone()) return "mention";
     const target = parseWikiTarget(value).title;
-    return isBoardTarget(target) ? "board" : isDatabaseTarget(target) ? "database" : "page";
+    if (isBoardTarget(target)) return "board";
+    if (isDatabaseTarget(target)) return "database";
+    if (isDeckTarget(target)) return "deck";
+    // `![[x.drawio]]` is a diagram, never a page: it must not fall into the page embed.
+    if (isDiagramTarget(target)) return "diagram";
+    return isFileTarget(target) ? "mention" : "page";
   }
 
   private render(): void {
@@ -206,12 +209,20 @@ class WikiLinkView implements NodeView {
       this.database.destroy();
       this.database = null;
     }
+    if (kind !== "deck" && this.deck) {
+      this.deck.destroy();
+      this.deck = null;
+    }
+    if (kind !== "diagram" && this.diagram) {
+      this.diagram.destroy();
+      this.diagram = null;
+    }
     if (kind !== "page" && this.card) {
       this.card.reset();
       this.card = null;
     }
     if (kind !== "mention") {
-      this.dom.className = kind === "board" ? "kasten-embed kasten-board-embed" : kind === "database" ? "kasten-embed kasten-db-embed" : "kasten-embed";
+      this.dom.className = `kasten-embed${kind === "board" ? " kasten-board-embed" : kind === "database" ? " kasten-db-embed" : kind === "deck" ? " kasten-deck-embed" : kind === "diagram" ? " kasten-diagram-embed" : ""}`;
       this.dom.title = "";
       this.dom.dataset.wikiLink = value;
     }
@@ -223,21 +234,30 @@ class WikiLinkView implements NodeView {
       this.database ??= new DatabaseEmbed(this.dom, this.ctx);
       return this.database.render(value);
     }
+    if (kind === "deck") {
+      this.deck ??= new DeckEmbed(this.dom, this.ctx);
+      return this.deck.render(value);
+    }
+    if (kind === "diagram") {
+      this.diagram ??= new DiagramEmbed(this.dom, this.ctx);
+      return this.diagram.render(value);
+    }
     if (kind === "page") {
       this.card ??= new EmbedCard(this.dom, this.ctx);
       return this.card.render(value);
     }
     const target = parseWikiTarget(value);
-    const found = findLink(linksOf(this.ctx), target.title);
+    const file = fileMention(linksOf(this.ctx), target.title);
+    const found = file ? (file.found ? { page: { title: file.title, icon: file.icon } } : null) : findLink(linksOf(this.ctx), target.title);
     const page = foundPage(found);
     const choices = found && "choices" in found ? found.choices : null;
-    const shown = page?.title ?? choices?.[0]?.title ?? target.title;
+    const shown = page?.title ?? choices?.[0]?.title ?? (file ? file.title : target.title);
     const label = target.alias || (target.heading ? `${shown} › ${target.heading}` : shown);
-    const block = !embed && this.alone();
+    const block = !embed && !file && this.alone();
     this.dom.className = `kasten-mention${block ? " is-block" : ""}${found ? "" : " is-missing"}${choices ? " is-ambiguous" : ""}${embed ? " is-embed" : ""}`;
-    this.dom.title = page ? `Open ${shown}` : choices ? `${choices.length} pages are called ${shown}: click to choose one` : `Create ${target.title}`;
+    this.dom.title = page ? `Open ${shown}` : choices ? `${choices.length} pages are called ${shown}: click to choose one` : file ? `No file called ${target.title}` : `Create ${target.title}`;
     this.dom.dataset.wikiLink = value;
-    const icon = withGlyph(el("span", "kasten-mention-icon"), embed ? "↪" : (page?.icon ?? "icon:page"), block ? 18 : 15);
+    const icon = withGlyph(el("span", "kasten-mention-icon"), embed ? "↪" : (page?.icon ?? (file ? file.icon : "icon:page")), block ? 18 : 15);
     const title = el("span", "kasten-mention-title", { textContent: label });
     if (!block) return void this.dom.replaceChildren(icon, title);
     const hint = el("span", "kasten-page-block-hint", { textContent: found ? "" : "A new page. Click to start it" });

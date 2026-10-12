@@ -3,6 +3,10 @@ import "./tabs.css";
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from "react";
 
 import { boardTitle, useBoards } from "../features/boards/store";
+import { boxOf } from "../features/browser/bounds";
+import { holdWhile, useOccludes } from "../features/browser/occlusion";
+import { useWebTitles, webTitle } from "../features/browser/titles";
+import { titleOfPath } from "../features/diagrams/names";
 import { deckTitle, useDecks } from "../features/slides/store";
 import { Popup } from "../features/pages/page/Popup";
 import { draftSpec, isDraft } from "../features/workspace/drafts";
@@ -13,11 +17,11 @@ import { noteAt } from "../features/workspace/tree";
 import { whereIfShared } from "../features/workspace/where";
 import type { BoardInfo, DeckInfo, NoteMeta, SourceInfo } from "../lib/vault/types";
 import { sourceTitle, useSources } from "../features/sources/store";
-import { keyTitle } from "../features/shortcuts/store";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
 import { lineIcon } from "../ui/glyph";
 import { Icon } from "../ui/Icon";
 import { GlobalActions } from "./GlobalActions";
+import { NewTabButton } from "./NewTab";
 import { TabSets } from "./TabSets";
 import { findNav } from "./nav";
 import { useScrollEdges } from "./scroll-edges";
@@ -25,7 +29,10 @@ import { useScrollEdges } from "./scroll-edges";
 /** A tab's face: the note's icon and title, a board's or a PDF's title, or
  * the view's name, with the sidebar's line icon for it (ui/glyph.ts). */
 export function tabFace(place: Place, notes: NoteMeta[], boards: readonly BoardInfo[] = [], sources: readonly SourceInfo[] = [], decks: readonly DeckInfo[] = []): { icon: string; title: string; where?: string } {
+  // A browser tab is named by its page, as the page said, else its site.
+  if (place.view === "web") return { icon: lineIcon("globe"), title: webTitle(place.url), ...(place.url ? { where: place.url } : {}) };
   if (place.view === "slides" && place.path) return { icon: lineIcon("present"), title: deckTitle(decks, place.path) };
+  if (place.view === "diagrams" && place.path) return { icon: lineIcon("diagram"), title: titleOfPath(place.path) };
   if (place.view === "boards" && place.path) return { icon: lineIcon("board"), title: boardTitle(boards, place.path) };
   if (place.view === "highlights" && place.path) {
     return { icon: lineIcon("book"), title: sourceTitle(sources, place.path) };
@@ -41,6 +48,15 @@ export function tabFace(place: Place, notes: NoteMeta[], boards: readonly BoardI
   }
   if (place.view === "home") return { icon: lineIcon("home"), title: "Home" };
   if (place.view === "tasks") return { icon: lineIcon("tasks"), title: "Tasks" };
+  // A project's overview and a graph around a page name what they are of.
+  if (place.view === "overview") {
+    const project = place.path ? noteAt(notes, place.path) : undefined;
+    return { icon: lineIcon("dashboard"), title: project ? `${titleOf(project)} overview` : "Project overview" };
+  }
+  if (place.view === "graph" && place.path) {
+    const page = noteAt(notes, place.path);
+    return { icon: lineIcon("graph"), title: page ? `Graph · ${titleOf(page)}` : "Graph" };
+  }
   const nav = findNav(place.view);
   return { icon: lineIcon(nav?.icon ?? "page"), title: nav?.label ?? place.view };
 }
@@ -64,6 +80,8 @@ export function TabStrip({ pane, actions = false }: { pane: Pane; actions?: bool
   const boards = useBoards((s) => s.list);
   const decks = useDecks((s) => s.list);
   const sources = useSources((s) => s.list) ?? NO_SOURCES;
+  // Browser tabs are named by their pages' titles, which arrive as pages load.
+  useWebTitles((s) => s.titles);
   const focused = useWorkspace((s) => s.layout.focus === pane.id);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -119,6 +137,8 @@ export function TabStrip({ pane, actions = false }: { pane: Pane; actions?: bool
               onDragStart={(e) => {
                 e.dataTransfer.setData(TAB_DRAG, JSON.stringify({ paneId: pane.id, tabId: tab.id }));
                 e.dataTransfer.effectAllowed = "move";
+                // A browser tab's native view would take the drag from the panes under it.
+                holdWhile("tab-drag");
               }}
               onDragOver={(e) => {
                 if (!e.dataTransfer.types.includes(TAB_DRAG)) return;
@@ -183,9 +203,7 @@ export function TabStrip({ pane, actions = false }: { pane: Pane; actions?: bool
       </div>
       {/* Outside the scrolling tabs, so it stays in reach however many there are. */}
       <div className="flex shrink-0 items-end pb-[3px] pl-0.5 pt-1.5">
-        <button type="button" aria-label="New tab" title={keyTitle("New tab", "new-tab")} className="kasten-tab-new" onClick={() => ws.openTab({ view: "home" })}>
-          <Icon name="plus" className="size-4" />
-        </button>
+        <NewTabButton />
       </div>
       <div
         aria-hidden="true"
@@ -204,6 +222,9 @@ export function TabStrip({ pane, actions = false }: { pane: Pane; actions?: bool
 
 function TabMenu({ pane, at, onClose }: { pane: Pane; at: MenuAt; onClose: () => void }) {
   const ws = useWorkspace.getState();
+  // Over a browser tab's page, the menu would be behind it.
+  const box = useRef<HTMLDivElement>(null);
+  useOccludes(true, () => (box.current ? boxOf(box.current.getBoundingClientRect()) : null));
   const items: [string, () => void][] = [
     [at.tab.pinned ? "Unpin tab" : "Pin tab", () => ws.togglePin(pane.id, at.tab.id)],
     ["Open in split view", () => ws.splitRight(at.tab.place)],
@@ -213,7 +234,7 @@ function TabMenu({ pane, at, onClose }: { pane: Pane; at: MenuAt; onClose: () =>
     ...(pane.tabs.findIndex((t) => t.id === at.tab.id) < pane.tabs.length - 1 ? [["Close tabs to the right", () => ws.closeRight(pane.id, at.tab.id)] as [string, () => void]] : []),
   ];
   return (
-    <div className="fixed z-50" style={{ left: at.x, top: at.y }}>
+    <div ref={box} className="fixed z-50" style={{ left: at.x, top: at.y }}>
       <Popup label="Tab options" onClose={onClose} className="kasten-shell-menu min-w-48 p-1">
         {items.map(([label, run]) => (
           <button

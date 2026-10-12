@@ -22,7 +22,7 @@ export const KINDS: readonly KindInfo[] = [
     name: "Obsidian",
     icon: lineIcon("gem"),
     brings: "Notes and their folders, daily notes, canvases, attachments and PDFs.",
-    steps: ["Use the vault's own folder: the one with the hidden .obsidian folder in it.", "Nothing in it is changed; Kasten copies what it needs."],
+    steps: ["Use the vault's own folder: the one with the hidden .obsidian folder in it.", "Nothing in it is changed; KastenFlow copies what it needs."],
     example: "~/Documents/My Vault",
   },
   {

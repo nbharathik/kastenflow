@@ -2,7 +2,9 @@ import type { Element } from "@kasten-slides/wasm";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { textBox } from "../factory.ts";
+import { withPages } from "../../pages/fake-pages.ts";
+import { plainText, textBox } from "../factory.ts";
+import { settleFresh } from "../quick-add/fresh.ts";
 import { type Kit, mountDialogs } from "./test-kit.tsx";
 
 afterEach(cleanup);
@@ -11,23 +13,52 @@ const box = () => screen.getByRole("combobox", { name: "Insert or run a command"
 const type = (text: string) => fireEvent.change(box(), { target: { value: text } });
 const key = (name: string) => fireEvent.keyDown(box(), { key: name });
 const options = () => within(screen.getByRole("listbox")).getAllByRole("option");
-const names = () => options().map((o) => o.querySelector(".ks-pl-label")?.textContent);
-const activeName = () => document.getElementById(box().getAttribute("aria-activedescendant") ?? "")?.querySelector(".ks-pl-label")?.textContent;
+// The name is the label's own words; under it, a line says what the thing makes.
+const nameOf = (row: HTMLElement | null | undefined) => row?.querySelector(".ks-pl-label")?.firstChild?.textContent;
+const names = () => options().map(nameOf);
+const activeName = () => nameOf(document.getElementById(box().getAttribute("aria-activedescendant") ?? ""));
 const onSlide = (kit: Kit): Element[] => kit.session.slide.elements;
 
-describe("the insert palette", () => {
-  it("opens with the box focused and everything listed under headings", async () => {
+describe("the insert gallery", () => {
+  it("opens with the box focused and everything listed under the groups of the Insert menu", async () => {
     await mountDialogs({ dialog: "insert" });
-    expect(screen.getByRole("dialog", { name: "Insert" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Insert gallery" })).toBeTruthy();
     expect(document.activeElement).toBe(box());
     expect(box().getAttribute("aria-expanded")).toBe("true");
     const headings = [...document.querySelectorAll(".ks-pl-head")].map((h) => h.textContent);
-    expect(headings).toEqual(["Insert", "Shapes", "Slides", "Commands"]);
+    expect(headings).toEqual(["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Commands"]);
     const all = names();
-    for (const wanted of ["Text box", "Image from computer…", "Table…", "Code block", "Formula", "Conversation", "Token probabilities", "Card grid", "Citation…", "Step label", "Embedded page…", "Video…", "Rectangle", "Oval", "Right arrow", "Line", "Elbow arrow connector", "Zoom in"]) {
+    for (const wanted of ["Text box", "Image from computer…", "Table…", "Code block", "Formula", "Conversation", "Token probabilities", "Card grid", "Citation…", "Step label", "Web page…", "Video…", "Rectangle", "Oval", "Right arrow", "Line", "Elbow arrow connector", "Zoom in"]) {
       expect(all, wanted).toContain(wanted);
     }
     expect(all.some((n) => n?.startsWith("New slide: "))).toBe(true);
+  });
+
+  it("says what each thing to insert makes, in a line under its name, and shows its keys", async () => {
+    await mountDialogs({ dialog: "insert" });
+    const row = options().find((o) => nameOf(o) === "Formula");
+    expect(row?.querySelector(".ks-pl-desc")?.textContent).toMatch(/LaTeX/);
+    expect(options().find((o) => nameOf(o) === "Text box")?.querySelector("kbd")?.textContent).toBe("T");
+  });
+
+  it("lists no chart, timer or QR code, which the editor cannot make or change yet", async () => {
+    await mountDialogs({ dialog: "insert" });
+    for (const name of ["Chart", "Timer", "QR code", "QR code…"]) expect(names()).not.toContain(name);
+    type("chart");
+    expect(names()).not.toContain("Chart");
+  });
+
+  it("lists a page of the vault, and a diagram, only where the host has them", async () => {
+    await mountDialogs({ dialog: "insert" });
+    expect(names()).not.toContain("Page…");
+    expect(names()).not.toContain("Diagram…");
+    cleanup();
+    const kit = await mountDialogs({ dialog: null });
+    withPages(kit.host, []);
+    act(() => kit.ui.openDialog("insert"));
+    expect(names()).toContain("Page…");
+    const page = options().find((o) => nameOf(o) === "Page…");
+    expect(page?.querySelector(".ks-pl-desc")?.textContent).toMatch(/vault/);
   });
 
   it("lists every primitive, every composite, every layout of the theme and no command that inserts (the palette does that itself)", async () => {
@@ -39,7 +70,7 @@ describe("the insert palette", () => {
     expect(commands).not.toContain("Code block");
     expect(commands).not.toContain("Table…");
     expect(commands).not.toContain("Text box");
-    expect(commands).not.toContain("Insert palette");
+    expect(commands).not.toContain("Insert gallery…");
   });
 
   it("lists only the commands that can be done now", async () => {
@@ -150,7 +181,7 @@ describe("the insert palette", () => {
 
   it("asks for an address, for a page or a video, in a dialog of its own", async () => {
     const kit = await mountDialogs({ dialog: "insert" });
-    type("embedded");
+    type("web page");
     key("Enter");
     expect(kit.ui.state.dialog).toBe("embed");
     expect(onSlide(kit)).toHaveLength(0);
@@ -170,6 +201,28 @@ describe("the insert palette", () => {
     const [made] = onSlide(kit);
     expect(made?.type).toBe("text");
     expect(kit.session.state.editing).toBe(made?.id);
+  });
+
+  it("takes that text box away again when it is closed with nothing typed, as the tool and the T key do", async () => {
+    const kit = await mountDialogs({ dialog: "insert" });
+    type("text box");
+    key("Enter");
+    const [made] = onSlide(kit);
+    act(() => kit.session.stopEditing());
+    settleFresh(kit.session, made?.id ?? "");
+    expect(onSlide(kit)).toHaveLength(0);
+    expect(kit.errors).toEqual([]);
+  });
+
+  it("keeps that text box when words were typed in it", async () => {
+    const kit = await mountDialogs({ dialog: "insert" });
+    type("text box");
+    key("Enter");
+    const [made] = onSlide(kit);
+    kit.session.elements.setText(made?.id ?? "", plainText("Hello"));
+    act(() => kit.session.stopEditing());
+    settleFresh(kit.session, made?.id ?? "");
+    expect(onSlide(kit).map((e) => e.id)).toEqual([made?.id]);
   });
 
   it("puts a shape on the slide where there is room, selected", async () => {

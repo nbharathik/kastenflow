@@ -13,10 +13,7 @@ import { shape, textBox } from "../factory.ts";
 import { masterBoxes, occupiedBy } from "../placement.ts";
 import { CLICK_SIZE } from "../shapes.ts";
 import { markFresh } from "./fresh.ts";
-import { freeSpot, spotAt } from "./spot.ts";
-
-/** How near, in screen pixels, a box put at the pointer snaps to a line: as near as a drag's. */
-const SNAP = 6;
+import { SNAP, freeSpot, spotAt } from "./spot.ts";
 
 /** Where a box of this size goes now: at the pointer if it is over the slide, else where there is room. */
 export function boxNow({ session, ui }: CommandContext, size: { w: number; h: number }): Rect {

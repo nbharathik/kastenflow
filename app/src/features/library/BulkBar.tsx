@@ -11,7 +11,7 @@ import { MAX_STACK } from "../workspace/store-layout";
 import { projects } from "../workspace/tree";
 import { addTag, addToBoard, announce, cleanTag, moveTo, removeTag, sharedProject, trashAll, type BulkDeps, type Done } from "./bulk";
 import { PAGES, type Row, type TagCount } from "./filters";
-import { Glyph, cards, tagTone } from "./parts";
+import { Glyph, cards, tagSwatch } from "./parts";
 import { Picker } from "./Picker";
 import { lineIcon } from "../../ui/glyph";
 
@@ -144,7 +144,7 @@ export function BulkBar({ rows, shown, tags, tagColors, onSelectAll, onClear, on
                 key: t.label,
                 label: `#${t.label}`,
                 detail: String(t.count),
-                icon: <span className="block size-2 rounded-full" style={{ background: `var(--notion-${tagTone(tagColors[t.tag])})` }} />,
+                icon: <span className="block size-2 rounded-full" style={{ background: tagSwatch(tagColors[t.tag])?.fg ?? "var(--notion-gray)" }} />,
               }))}
               onPick={(tag) => void run("Tagging", (d) => addTag(d, paths, tag))}
               create={{

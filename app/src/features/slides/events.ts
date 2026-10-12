@@ -42,6 +42,21 @@ export function assetFilesChanged(paths: string[]): void {
   for (const listener of [...assetListeners]) listener(assets);
 }
 
+const pageListeners = new Set<(paths: string[]) => void>();
+
+/** Calls `listener` with the paths of pages (Markdown files) that changed: what decks that embed or are made from a page keep up with; returns how to stop. */
+export function onPageFiles(listener: (paths: string[]) => void): () => void {
+  pageListeners.add(listener);
+  return () => void pageListeners.delete(listener);
+}
+
+/** Called with every batch of changed vault paths. */
+export function pageFilesChanged(paths: string[]): void {
+  const pages = paths.filter((p) => p.toLowerCase().endsWith(".md"));
+  if (pages.length === 0) return;
+  for (const listener of [...pageListeners]) listener(pages);
+}
+
 const bibListeners = new Set<() => void>();
 
 /** Calls `listener` when a `.bib` file in the vault changed (the bibliography decks cite from); returns how to stop. */
