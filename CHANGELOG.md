@@ -4,7 +4,10 @@ Every release of KastenFlow (called Kasten before 1.1.0), newest first.
 Versions follow [Semantic Versioning](https://semver.org); the vault format
 has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 
-## 1.2.0
+## 1.2.1
+
+1.2.0 was tagged, but its release stopped before anything was published: 1.2.1 is
+the first release of everything below.
 
 ### Slides
 
@@ -200,7 +203,7 @@ has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 ## 1.1.0
 
 1.1.0 was tagged, but no installers were published for it: everything below
-first ships in 1.2.0.
+first ships in 1.2.1.
 
 ### A new name
 

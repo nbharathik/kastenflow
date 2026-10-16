@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Send to KastenFlow",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Send the page you are on, a selection, a link or a picture to KastenFlow, the notes app on this computer.",
   "minimum_chrome_version": "103",
   "permissions": ["activeTab", "scripting", "contextMenus", "storage"],

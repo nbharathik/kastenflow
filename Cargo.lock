@@ -2881,7 +2881,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-app"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-cli"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "kasten-core",
  "serde_json",
@@ -2919,7 +2919,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "criterion",
  "fd-lock",
@@ -2936,7 +2936,7 @@ dependencies = [
 
 [[package]]
 name = "kasten-mcp"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "bytes",
  "getrandom 0.4.3",
@@ -5099,7 +5099,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slides-assets"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "image",
  "serde",
@@ -5108,11 +5108,11 @@ dependencies = [
 
 [[package]]
 name = "slides-bib"
-version = "1.2.0"
+version = "1.2.1"
 
 [[package]]
 name = "slides-cli"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "rmcp",
  "schemars 1.2.2",
@@ -5127,7 +5127,7 @@ dependencies = [
 
 [[package]]
 name = "slides-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "proptest",
  "schemars 1.2.2",
@@ -5140,7 +5140,7 @@ dependencies = [
 
 [[package]]
 name = "slides-pptx"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "image",
  "quick-xml",
@@ -5151,7 +5151,7 @@ dependencies = [
 
 [[package]]
 name = "slides-render"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chromiumoxide",
  "futures",
@@ -5164,7 +5164,7 @@ dependencies = [
 
 [[package]]
 name = "slides-wasm"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "serde",
  "serde_json",

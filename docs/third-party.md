@@ -3,11 +3,11 @@
 KastenFlow's own licence is in `LICENSE`. The libraries, icons and typeface that ship inside the app are
 listed, each with its licence text, in the app (Settings, About) and in `app/public/third-party-notices.txt`,
 which is written again for every release build. This page is about software KastenFlow can download after you
-ask for it, and it names the libraries that version 1.2.0 added to the app.
+ask for it, and it names the libraries that version 1.2.1 added to the app.
 
-## Libraries added in 1.2.0: checking the ChatGPT sign-in
+## Libraries added in 1.2.1: checking the ChatGPT sign-in
 
-KastenFlow 1.2.0 checks the signature of the identity token that comes back from "Continue with ChatGPT"
+KastenFlow 1.2.1 checks the signature of the identity token that comes back from "Continue with ChatGPT"
 against OpenAI's published keys, and ties the sign-in to one account. It does this with `jsonwebtoken` 10
 (MIT), which brings in the pure-Rust RustCrypto implementations of the signature algorithms a token may name.
 They are compiled into the app. They add 38 packages in all, listed here by the licence each declares; the

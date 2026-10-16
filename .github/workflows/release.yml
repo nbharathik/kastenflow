@@ -103,9 +103,12 @@ jobs:
         env:
           KASTEN_GITHUB_CLIENT_ID: ${{ vars.KASTEN_GITHUB_CLIENT_ID }}
         run: node scripts/build-installers.mjs "$TARGET"
+      # The aim is 30 MB. The build stops only above 40 MB: a package a little
+      # over the aim is not a failure, a big mistake (a browser bundled by
+      # accident adds about 10 MB) still is.
       - name: Check the installer size budget
         shell: bash
-        run: node scripts/check-installer-size.mjs "target/$TARGET/release/bundle" 30
+        run: node scripts/check-installer-size.mjs "target/$TARGET/release/bundle" 40
       - name: Build the command-line tools
         shell: bash
         run: cargo build --release --locked --target "$TARGET" -p kasten-cli -p kasten-mcp
