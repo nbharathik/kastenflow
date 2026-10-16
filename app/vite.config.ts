@@ -55,5 +55,10 @@ export default defineConfig({
     setupFiles: ["src/test/dom-shims.ts"],
     // The page-editor round trip mounts a real editor per fixture.
     testTimeout: 60_000,
+    // Milkdown gives each of its timers a three-second timeout that it never clears. In a test file that ends
+    // sooner, the timeout fires after the page is gone and finds no removeEventListener; no test is left for it to
+    // touch. Only that error is let through: any other after a file ends still fails the run.
+    onUnhandledError: (error) =>
+      !(error.message === "removeEventListener is not defined" && (error.stack ?? "").includes("@milkdown/ctx")),
   },
 });

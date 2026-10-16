@@ -159,23 +159,13 @@ pub async fn start(config: &Config) -> Result<(Browser, chromiumoxide::Handler, 
             builder = builder.no_sandbox();
         }
         let launch = builder.build().map_err(Error::Launch)?;
-        match Browser::launch(launch).await {
+        let (status, stderr) = match Browser::launch(launch).await {
             Ok((browser, handler)) => return Ok((browser, handler, slot)),
-            Err(CdpError::LaunchExit(status, stderr)) => {
-                let text = String::from_utf8_lossy(stderr.as_slice()).to_lowercase();
-                if text.contains("existing browser session")
-                    || text.contains("profile appears to be in use")
-                    || text.contains("singletonlock")
-                {
-                    // A browser this program started earlier and lost still holds that profile: use another.
-                    skip.push(slot.number);
-                } else {
-                    return Err(launch_failure(
-                        config.sandbox == Sandbox::On,
-                        &status.to_string(),
-                        stderr.as_slice(),
-                    ));
-                }
+            Err(CdpError::LaunchExit(status, stderr)) => (status.to_string(), stderr),
+            // A browser that stops at once can also show as its output ending before it said where to reach it;
+            // it is the same stop, and what it said is answered the same way.
+            Err(CdpError::LaunchIo(error, stderr)) => {
+                (format!("its output ended: {error}"), stderr)
             }
             Err(CdpError::LaunchTimeout(stderr)) => {
                 return Err(Error::Launch(format!(
@@ -184,6 +174,20 @@ pub async fn start(config: &Config) -> Result<(Browser, chromiumoxide::Handler, 
                 )));
             }
             Err(e) => return Err(Error::Launch(cdp_message(&e))),
+        };
+        let text = String::from_utf8_lossy(stderr.as_slice()).to_lowercase();
+        if text.contains("existing browser session")
+            || text.contains("profile appears to be in use")
+            || text.contains("singletonlock")
+        {
+            // A browser this program started earlier and lost still holds that profile: use another.
+            skip.push(slot.number);
+        } else {
+            return Err(launch_failure(
+                config.sandbox == Sandbox::On,
+                &status,
+                stderr.as_slice(),
+            ));
         }
     }
     Err(Error::Launch(

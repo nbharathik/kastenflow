@@ -162,10 +162,16 @@ mod tests {
     use super::*;
 
     fn scratch() -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
+        let dir = std::env::temp_dir().join(format!(
             "kasten-token-{}",
             kasten_core::ulid_at(kasten_core::Instant::now().millis)
-        ))
+        ));
+        if cfg!(unix) {
+            // macOS reaches its temporary folder through a link (/var is /private/var), which the checks on
+            // private files refuse; the token's own folders are resolved the same way.
+            return kasten_core::local_paths::resolve_root(&dir).unwrap();
+        }
+        dir
     }
 
     #[test]

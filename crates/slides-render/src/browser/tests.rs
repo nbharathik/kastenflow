@@ -93,10 +93,12 @@ fn a_setting_that_names_nothing_is_passed_over_and_told_of_when_nothing_is_found
     ]);
     assert_eq!(found(&with_path), on_path, "the browser on PATH is used");
 
-    let without = search(&[
+    let mut without = search(&[
         ("CHROMIUM_PATH", &missing),
         ("PLAYWRIGHT_BROWSERS_PATH", &dir.0.join("none")),
     ]);
+    // The places browsers are installed are looked in too, and this machine may have one there.
+    without.places.clear();
     let Err(Error::NoBrowser { notes }) = without.find() else {
         panic!("nothing should be found");
     };
@@ -144,10 +146,12 @@ fn a_file_that_cannot_be_run_is_not_a_browser() {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o644))
             .unwrap_or_else(|e| panic!("{e}"));
         let path = dir.0.join("bin");
-        let s = search(&[
+        let mut s = search(&[
             ("PATH", &path),
             ("PLAYWRIGHT_BROWSERS_PATH", &dir.0.join("none")),
         ]);
+        // Not the browser this machine may have installed in the usual places.
+        s.places.clear();
         assert!(matches!(s.find(), Err(Error::NoBrowser { .. })));
     }
 }

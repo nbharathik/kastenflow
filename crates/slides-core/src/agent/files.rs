@@ -169,8 +169,12 @@ pub fn render(agent: &mut Agent, store: &mut dyn Store, args: &Value, grid: bool
         }
     };
     let drawn = store.draw(&deck, what).map_err(|e| match e {
-        // Where nothing draws, lint is what is left to see with.
-        StoreError::Unavailable(m) if m.contains("Chrome") || m.contains("not available") => {
+        // Where nothing draws (no browser, or a build without the page it draws with), lint is what is left to see with.
+        StoreError::Unavailable(m)
+            if m.contains("Chrome")
+                || m.contains("not available")
+                || m.contains("does not carry the page") =>
+        {
             ToolError::new(format!(
                 "{m} Use lint_deck to find layout problems (overlaps, text that overflows, contrast), and ask the person to look at the deck in KastenFlow Slides."
             ))

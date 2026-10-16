@@ -47,6 +47,12 @@ fn slides_without_a_browser(args: &[&str]) -> Output {
         .unwrap_or_else(|e| panic!("the slides binary runs: {e}"))
 }
 
+/// Whether this build carries the page slides are drawn with. A release always does; a test build only once the page
+/// was built (CI's Rust job does not build it). Without it, drawing says so before any browser is looked for.
+fn has_page() -> bool {
+    slides_render::bundle::Page::locate().is_some()
+}
+
 fn has_browser() -> bool {
     match (
         slides_render::find_browser(),
@@ -120,6 +126,10 @@ fn without_a_browser_drawing_says_what_is_needed_and_nothing_else_changes() {
             text(&out.stderr)
         );
         let message = text(&out.stderr);
+        if !has_page() {
+            assert!(message.contains("does not carry the page"), "{message}");
+            continue;
+        }
         assert!(
             message.contains("needs Chrome or Chromium") && message.contains("CHROMIUM_PATH"),
             "{message}"
@@ -150,10 +160,12 @@ fn lint_without_a_browser_estimates_the_text_and_says_so() {
         .unwrap_or_else(|e| panic!("{e}: {}", text(&out.stdout)));
     assert_eq!(json["measuredWith"], "estimate");
     let note = json["note"].as_str().unwrap_or_default();
-    assert!(
-        note.contains("estimated") && note.contains("Chrome or Chromium"),
-        "{note}"
-    );
+    let why = if has_page() {
+        "Chrome or Chromium"
+    } else {
+        "does not carry the page"
+    };
+    assert!(note.contains("estimated") && note.contains(why), "{note}");
     let plain = slides_without_a_browser(&["lint", &deck("text-heavy.deck")]);
     assert!(
         text(&plain.stderr).contains("note: Text sizes were estimated"),

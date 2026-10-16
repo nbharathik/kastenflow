@@ -153,8 +153,19 @@ mod tests {
         std::fs::write(dir.join(".git/noise"), "x").unwrap();
         std::fs::write(dir.join("inbox/a.md"), "hello").unwrap();
         std::fs::write(dir.join("inbox/a.md"), "hello again").unwrap();
-        let paths = rx.recv_timeout(Duration::from_secs(5)).expect("a report");
-        assert_eq!(paths, ["inbox/a.md"]);
+        let mut seen: Vec<String> = Vec::new();
+        let until = std::time::Instant::now() + Duration::from_secs(5);
+        while !seen.iter().any(|p| p == "inbox/a.md") {
+            let left = until.saturating_duration_since(std::time::Instant::now());
+            match rx.recv_timeout(left) {
+                Ok(paths) => seen.extend(paths),
+                Err(_) => break,
+            }
+        }
+        // macOS can also report the folder made a moment before watching began; a folder reported is only read
+        // again. The file is reported once, and Git's noise not at all.
+        seen.retain(|p| p != "inbox");
+        assert_eq!(seen, ["inbox/a.md"]);
         drop(watcher);
         let _ = std::fs::remove_dir_all(&dir);
     }

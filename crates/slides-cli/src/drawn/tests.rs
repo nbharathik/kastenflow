@@ -214,12 +214,15 @@ fn the_assets_folder_is_the_decks_own_unless_another_is_named() {
     let here =
         assets_dir(&parse(&["r", "d"]), Path::new("talk.deck")).unwrap_or_else(|e| panic!("{e:?}"));
     assert_eq!(here, Path::new(".").canonicalize().unwrap_or_default());
+    // Another folder, one that is there on every system (Windows has no /tmp).
+    let other = std::env::temp_dir();
+    let other = other.to_str().unwrap_or_default();
     let named = assets_dir(
-        &parse(&["r", "d", "--assets", "/tmp"]),
+        &parse(&["r", "d", "--assets", other]),
         Path::new("talk.deck"),
     )
     .unwrap_or_else(|e| panic!("{e:?}"));
-    assert_eq!(named, Path::new("/tmp").canonicalize().unwrap_or_default());
+    assert_eq!(named, Path::new(other).canonicalize().unwrap_or_default());
     let message = match assets_dir(
         &parse(&["r", "d", "--assets", "/no/such/folder"]),
         Path::new("talk.deck"),
@@ -260,7 +263,13 @@ fn a_deck_is_drawn_with_the_bib_files_beside_it_and_with_none_when_there_are_non
         "the folder's .bib text goes to the page"
     );
     // The pictures may be somewhere else; the bibliography is still the deck's own.
-    let elsewhere = parse(&["render", "d", "--assets", "/tmp"]);
+    let other = std::env::temp_dir();
+    let elsewhere = parse(&[
+        "render",
+        "d",
+        "--assets",
+        other.to_str().unwrap_or_default(),
+    ]);
     let far = options(&elsewhere, &deck).unwrap_or_else(|e| panic!("{e:?}"));
     assert!(far.references.is_some());
 }
