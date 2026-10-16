@@ -75,6 +75,34 @@ fn a_browser_whose_sandbox_would_not_start_is_told_of_in_words_that_name_the_set
 }
 
 #[test]
+fn a_browser_that_stops_without_a_word_with_its_sandbox_on_is_pointed_to_the_setting() {
+    // A browser that stops at once can be gone before what it wrote is read. With the sandbox on, that is the likely
+    // reason, so the setting is named; it is still never used for the person.
+    for silent in [
+        &b""[..],
+        b"\n  \n",
+        b"ERROR:dbus/bus.cc:408] Failed to connect to the bus",
+    ] {
+        let Error::Launch(said) = launch_failure(true, "exit status: 1", silent) else {
+            panic!("a launch error");
+        };
+        for wanted in [
+            "exit status: 1",
+            "sandbox could not start",
+            "SLIDES_RENDER_NO_SANDBOX=1",
+            "does not run the browser without its sandbox",
+        ] {
+            assert!(said.contains(wanted), "{wanted} in: {said}");
+        }
+    }
+    // With the sandbox already off, a silent stop is only a stop.
+    let Error::Launch(said) = launch_failure(false, "exit status: 1", b"") else {
+        panic!("a launch error");
+    };
+    assert!(!said.contains("SLIDES_RENDER_NO_SANDBOX"), "{said}");
+}
+
+#[test]
 fn other_failures_are_told_as_they_are_and_never_blamed_on_the_sandbox() {
     let Error::Launch(said) = launch_failure(
         true,

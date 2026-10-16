@@ -76,13 +76,19 @@ pub fn warn_unsandboxed() {
 }
 
 /// Why a browser that stopped before it was ready did, as an error. A complaint about the sandbox is answered with
-/// the setting that would switch it off, and never by switching it off.
+/// the setting that would switch it off, and never by switching it off. So is a stop without a word with the sandbox
+/// on: a browser that stops at once can be gone before what it wrote is read, and the sandbox is the likely reason.
 pub fn launch_failure(sandbox_on: bool, status: &str, stderr: &[u8]) -> Error {
     let text = String::from_utf8_lossy(stderr).to_lowercase();
     if sandbox_on && (text.contains("sandbox") || text.contains("as root")) {
         return Error::Launch(format!(
             "its sandbox could not start here (it said: {}). KastenFlow Slides does not run the browser without its sandbox unless you say so: in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1.",
             said(stderr)
+        ));
+    }
+    if sandbox_on && said(stderr).is_empty() {
+        return Error::Launch(format!(
+            "it stopped ({status}) before it was ready, without saying why. If its sandbox could not start here: KastenFlow Slides does not run the browser without its sandbox unless you say so; in a container or on a machine that is itself the boundary you trust, set {NO_SANDBOX}=1."
         ));
     }
     Error::Launch(format!(

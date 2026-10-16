@@ -48,9 +48,16 @@ fn slides_without_a_browser(args: &[&str]) -> Output {
 }
 
 /// Whether this build carries the page slides are drawn with. A release always does; a test build only once the page
-/// was built (CI's Rust job does not build it). Without it, drawing says so before any browser is looked for.
+/// was built (CI's Rust job does not build it).
 fn has_page() -> bool {
     slides_render::bundle::Page::locate().is_some()
+}
+
+/// Whether `message` says the page is what is missing, which is right only in a build without it. A browser is looked
+/// for first, and one installed where browsers always are (/opt/google/chrome on Linux) cannot be hidden by clearing
+/// the environment: found, it leaves the page as what is missing.
+fn the_page_is_what_is_missing(message: &str) -> bool {
+    !has_page() && message.contains("does not carry the page")
 }
 
 fn has_browser() -> bool {
@@ -126,8 +133,7 @@ fn without_a_browser_drawing_says_what_is_needed_and_nothing_else_changes() {
             text(&out.stderr)
         );
         let message = text(&out.stderr);
-        if !has_page() {
-            assert!(message.contains("does not carry the page"), "{message}");
+        if the_page_is_what_is_missing(&message) {
             continue;
         }
         assert!(
@@ -160,12 +166,11 @@ fn lint_without_a_browser_estimates_the_text_and_says_so() {
         .unwrap_or_else(|e| panic!("{e}: {}", text(&out.stdout)));
     assert_eq!(json["measuredWith"], "estimate");
     let note = json["note"].as_str().unwrap_or_default();
-    let why = if has_page() {
-        "Chrome or Chromium"
-    } else {
-        "does not carry the page"
-    };
-    assert!(note.contains("estimated") && note.contains(why), "{note}");
+    assert!(
+        note.contains("estimated")
+            && (note.contains("Chrome or Chromium") || the_page_is_what_is_missing(note)),
+        "{note}"
+    );
     let plain = slides_without_a_browser(&["lint", &deck("text-heavy.deck")]);
     assert!(
         text(&plain.stderr).contains("note: Text sizes were estimated"),
