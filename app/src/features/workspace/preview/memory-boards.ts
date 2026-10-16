@@ -22,12 +22,15 @@ export class MemoryBoards extends MemoryNesting {
   }
 
   async boards(): Promise<BoardInfo[]> {
+    // One time for the whole list: a clock that ticks between two boards would make the later one look newer, and
+    // which of a page's maps is its own would then change from one listing to the next.
+    const modified = this.now();
     return Object.entries(this.data.boards ?? {})
       .map(([path, text]) => {
         const canvas = readCanvas(text);
         const project = path.startsWith("projects/") ? (path.split("/")[1] ?? null) : null;
         const source = sourceOf(canvas)?.page;
-        return { path, title: boardTitle(path, canvas), project, nodes: canvas.nodes.length, modified: this.now(), ...(source ? { source } : {}) };
+        return { path, title: boardTitle(path, canvas), project, nodes: canvas.nodes.length, modified, ...(source ? { source } : {}) };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
   }
