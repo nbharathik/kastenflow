@@ -954,6 +954,13 @@
             "string",
             "null"
           ]
+        },
+        "made": {
+          "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -1197,6 +1204,13 @@
         },
         "color": {
           "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "highlight": {
+          "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
           "type": [
             "string",
             "null"
@@ -3612,6 +3626,10 @@
               "type": "null"
             }
           ]
+        },
+        "links": {
+          "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+          "type": "boolean"
         }
       },
       "required": [

@@ -1,6 +1,8 @@
 //! Running one deck tool: slides-core's tool code on the vault's store, and
 //! its answer in the shape every Kasten agent tool answers in.
 
+use std::sync::atomic::AtomicBool;
+
 use kasten_core::Kasten;
 use kasten_core::agent::Session;
 use serde_json::{Value, json};
@@ -8,6 +10,7 @@ use slides_core::agent::{self, Image, ToolOutput};
 
 use super::adapt;
 use super::store::{KastenStore, Request, Review, recorded_as};
+use crate::tools::{STAGED_NOTE, Writes};
 
 /// The most operations named in the words for a batch.
 const OPERATIONS_NAMED: usize = 3;
@@ -80,7 +83,7 @@ fn waiting(review: Review, session: Option<&Session>) -> Reply {
 
 /// A tool's answer. A look answers as it is; a change comes in the envelope
 /// the note tools use, with the session it can be undone with.
-fn answered(out: ToolOutput, read_only: bool, session: Option<&Session>) -> Reply {
+fn answered(out: ToolOutput, read_only: bool, session: Option<&Session>, staged: bool) -> Reply {
     let data = out
         .data
         .clone()
@@ -92,11 +95,14 @@ fn answered(out: ToolOutput, read_only: bool, session: Option<&Session>) -> Repl
             images: out.images,
         };
     }
-    let value = json!({
-        "status": "done",
+    let mut value = json!({
+        "status": if staged { "staged" } else { "done" },
         "result": data,
         "session": session.map(|s| s.id.as_str()),
     });
+    if staged {
+        value["note"] = json!(STAGED_NOTE);
+    }
     Reply {
         text: pretty(&value),
         value,
@@ -106,10 +112,16 @@ fn answered(out: ToolOutput, read_only: bool, session: Option<&Session>) -> Repl
 
 /// Runs the deck tool `name` with `args`, blocking until it is done. Looks
 /// need no session; changes are made in `session`, count against its
-/// guardrails and commit as its agent.
-pub(crate) fn call(
+/// guardrails and commit as its agent. With `Writes::Staged` (a chat that
+/// previews its changes) the deck tools read the chat's staged changes on top
+/// of the vault, and their writes go into its change set, not the vault.
+/// `cancel` is set when the caller no longer wants the answer, so a picture
+/// it asked for is not drawn.
+pub(crate) fn call_in(
     kasten: &Kasten,
     session: Option<&Session>,
+    writes: Writes,
+    cancel: Option<&AtomicBool>,
     name: &str,
     mut args: Value,
 ) -> Result<Reply, String> {
@@ -132,7 +144,10 @@ pub(crate) fn call(
         sent,
         project,
     };
-    let mut store = KastenStore::new(kasten, session, request);
+    let mut store = KastenStore::new(kasten, session, request).cancelled_by(cancel);
+    if let Writes::Staged(set) = writes {
+        store = store.staged(set);
+    }
     let result = match name {
         "deck_from_note" => super::from_note::run(kasten, &mut store, &args),
         _ => agent::call(&mut store, name, args),
@@ -141,7 +156,8 @@ pub(crate) fn call(
         return Ok(waiting(review, session));
     }
     let out = result.map_err(|e| e.message)?;
-    Ok(answered(out, spec.read_only, session))
+    let staged = matches!(writes, Writes::Staged(_));
+    Ok(answered(out, spec.read_only, session, staged))
 }
 
 #[cfg(test)]

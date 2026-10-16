@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { IconButton } from "../../ui/Button";
 import { monthGrid, monthTitle, weekdayNames } from "../calendar/dates";
+import { useEventDrop } from "../calendar/external/use-event-drop";
 import type { DayMark } from "./feed";
 import { usePrefs } from "../workspace/prefs";
 
@@ -41,25 +42,39 @@ export function MiniCalendar({ today, current, marks, onPick }: MiniCalendarProp
         ))}
       </div>
       <div className="mt-1 grid grid-cols-7 gap-y-0.5 text-center">
-        {grid.flat().map((day) => {
-          const mark = marks.get(day);
-          const label = [day, mark?.journal && "journal page", mark?.activity && `${mark.activity} notes`, mark?.due && `${mark.due} due`, mark?.ongoing && `${mark.ongoing} ongoing`].filter(Boolean).join(", ");
-          return (
-            <button
-              key={day}
-              type="button"
-              aria-label={label}
-              aria-current={day === today ? "date" : undefined}
-              data-day={day}
-              onClick={() => onPick(day)}
-              className={`kasten-mini-day${inMonth(day) ? "" : " is-other"}${day === today ? " is-today" : ""}${day === current ? " is-current" : ""}`}
-            >
-              {Number(day.slice(8))}
-              <span className={`kasten-mini-dot${mark?.journal ? " is-journal" : mark && (mark.activity || mark.due || mark.ongoing) ? " is-activity" : ""}`} aria-hidden="true" />
-            </button>
-          );
-        })}
+        {grid.flat().map((day) => (
+          <MiniDay key={day} day={day} mark={marks.get(day)} today={day === today} current={day === current} other={!inMonth(day)} onPick={onPick} />
+        ))}
       </div>
     </section>
+  );
+}
+
+interface MiniDayProps {
+  day: string;
+  mark: DayMark | undefined;
+  today: boolean;
+  current: boolean;
+  other: boolean;
+  onPick: (day: string) => void;
+}
+
+function MiniDay({ day, mark, today, current, other, onPick }: MiniDayProps) {
+  const label = [day, mark?.journal && "journal page", mark?.activity && `${mark.activity} notes`, mark?.due && `${mark.due} due`, mark?.ongoing && `${mark.ongoing} ongoing`].filter(Boolean).join(", ");
+  // An event of a subscribed calendar dropped on the day makes a note for it.
+  const drop = useEventDrop(day);
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={today ? "date" : undefined}
+      data-day={day}
+      onClick={() => onPick(day)}
+      className={`kasten-mini-day${other ? " is-other" : ""}${today ? " is-today" : ""}${current ? " is-current" : ""}${drop.over ? " is-event-over" : ""}`}
+      {...drop.props}
+    >
+      {Number(day.slice(8))}
+      <span className={`kasten-mini-dot${mark?.journal ? " is-journal" : mark && (mark.activity || mark.due || mark.ongoing) ? " is-activity" : ""}`} aria-hidden="true" />
+    </button>
   );
 }

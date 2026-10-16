@@ -106,6 +106,8 @@ export function runCss(theme: Theme, baseStyle: string, paragraph: Paragraph, ru
     css.background = codeBackground(theme);
     css.borderRadius = "3px";
   }
+  // A highlight is drawn instead of the ground inline code has.
+  if (run.highlight && hexOf(theme, run.highlight)) css.background = colorOf(theme, run.highlight);
   if (look.script) {
     css.fontSize = px(ptToPx(look.size * SCRIPT_SIZE));
     css.verticalAlign = "baseline";

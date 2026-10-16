@@ -11,6 +11,8 @@ pub struct Described {
     pub ok: bool,
     pub summary: String,
     pub paths: Vec<String>,
+    /// The change was held in the thread's staged changes, not written.
+    pub staged: bool,
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
@@ -64,6 +66,9 @@ fn clip(words: &str, max: usize) -> String {
 /// What the call set out to do: "create card “X”".
 fn action(name: &str, input: &Value) -> String {
     if let Some(words) = kasten_mcp::decks::words::action(name, input) {
+        return words;
+    }
+    if let Some(words) = kasten_mcp::diagram_words::action(name, input) {
         return words;
     }
     let note = quoted(text(input, "note"));
@@ -120,8 +125,33 @@ fn lower_first(words: &str) -> String {
     }
 }
 
-/// The result of calling `name` with `input`, described.
+/// The result of calling `name` with `input`, described. A change held in
+/// the thread's staged changes reads as the change it is, and says so.
 pub fn describe(
+    kasten: &Kasten,
+    name: &str,
+    input: &Value,
+    result: &Result<Value, String>,
+) -> Described {
+    let mut told = described(kasten, name, input, result);
+    if let Ok(value) = result
+        && value["status"] == "staged"
+    {
+        told.staged = true;
+        // The core says which files the change touched; the tools' own words
+        // look for them in the vault, where a staged note is not yet.
+        if let Some(paths) = value["paths"].as_array() {
+            told.paths = paths
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect();
+        }
+    }
+    told
+}
+
+fn described(
     kasten: &Kasten,
     name: &str,
     input: &Value,
@@ -135,6 +165,7 @@ pub fn describe(
                 ok: false,
                 summary,
                 paths: vec![],
+                staged: false,
             };
         }
     };
@@ -145,6 +176,7 @@ pub fn describe(
             ok: true,
             summary,
             paths: vec![],
+            staged: false,
         };
     }
     // The deck tools are worded beside the tools themselves.
@@ -153,6 +185,16 @@ pub fn describe(
             ok: true,
             summary: told.summary,
             paths: told.paths,
+            staged: false,
+        };
+    }
+    // So are the diagram tools.
+    if let Some(told) = kasten_mcp::diagram_words::told(name, input, value) {
+        return Described {
+            ok: true,
+            summary: told.summary,
+            paths: told.paths,
+            staged: false,
         };
     }
     let done = &value["result"];
@@ -162,8 +204,14 @@ pub fn describe(
     let (summary, paths): (String, Vec<String>) = match name {
         "search" => {
             let query = quoted(text(input, "query"));
+            // A chat with staged changes is told its results leave them out.
+            let hits = if value.is_object() {
+                &value["results"]
+            } else {
+                value
+            };
             (
-                format!("Searched for {query}: {}", count(len(value), "note")),
+                format!("Searched for {query}: {}", count(len(hits), "note")),
                 vec![],
             )
         }
@@ -290,5 +338,6 @@ pub fn describe(
         ok: true,
         summary,
         paths: paths.into_iter().filter(|p| !p.is_empty()).collect(),
+        staged: false,
     }
 }

@@ -9,7 +9,7 @@ use tauri::State;
 use super::notes::OpenVault;
 
 /// Who accepts or rejects: the login name, as the CLI uses.
-fn owner() -> String {
+pub(crate) fn owner() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "you".to_owned())

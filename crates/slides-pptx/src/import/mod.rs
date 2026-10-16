@@ -273,6 +273,14 @@ pub fn import(bytes: &[u8], options: &ImportOptions) -> Result<Imported, ImportE
 
     let mut theme = built.theme;
     theme.master = slide::master_elements(&mut imp, &env);
+    // What a layout draws is the layout's own, once; a slide keeps only its own shapes.
+    for (layout, elements) in theme
+        .layouts
+        .iter_mut()
+        .zip(slide::layout_decorations(&mut imp, &env))
+    {
+        layout.elements = elements;
+    }
 
     let mut slides = Vec::new();
     for part in &slide_parts {

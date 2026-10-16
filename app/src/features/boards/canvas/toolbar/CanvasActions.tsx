@@ -1,4 +1,4 @@
-// Top right of the board: Present, and a "More" menu for what is not needed
+// Top right of the board: Present (an icon), and a "More" menu for what is not needed
 // while working: layout, a mind map, an AI brainstorm, find, focus mode, a
 // copy of the board as an outline, the board's keys and its settings.
 
@@ -52,9 +52,8 @@ export function CanvasActions({ embedded = false, onFind, onHelp, onFocus }: Pro
   return (
     <div ref={root} className="kasten-chrome kasten-actions" role="toolbar" aria-label="Whiteboard actions" onKeyDown={closeOnEscape(panel !== null, close)}>
       {!embedded && (
-        <button type="button" className="kasten-action" aria-label="Present" title="Present the sections as slides (P)" onClick={() => present(board)}>
+        <button type="button" className="kasten-tool" aria-label="Present" title="Present the sections as slides (P)" onClick={() => present(board)}>
           <ToolIcon name="present" className="size-4" />
-          <span>Present</span>
         </button>
       )}
       <span className="relative inline-flex">

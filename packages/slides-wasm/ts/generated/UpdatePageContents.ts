@@ -15,4 +15,8 @@ markdown: string,
 /**
  * What the page is called now, if it changed.
  */
-title?: string | null, sizes?: { [key in string]: [number, number] }, };
+title?: string | null, sizes?: { [key in string]: [number, number] }, 
+/**
+ * Leave the element alone when it has been changed by hand since it was made from the page (its words, pictures or looks are no longer what it was made with; moving it is not a change). Only elements made by a storyboard can tell; any other is updated.
+ */
+keepEdits?: boolean, };

@@ -232,6 +232,45 @@ fn a_run_with_a_ground_in_a_monospace_face_is_code() {
 }
 
 #[test]
+fn a_ground_in_an_ordinary_face_is_a_highlight_and_code_keeps_no_ground_it_already_has() {
+    let t = read(
+        r#"<a:p>
+        <a:r><a:rPr><a:highlight><a:srgbClr val="FFEE00"/></a:highlight></a:rPr><a:t>pen</a:t></a:r>
+        <a:r><a:rPr><a:highlight><a:schemeClr val="accent2"/></a:highlight></a:rPr><a:t>token</a:t></a:r>
+        <a:r><a:rPr><a:highlight><a:srgbClr val="EBEBEB"/></a:highlight><a:latin typeface="Roboto Mono"/></a:rPr><a:t>code</a:t></a:r>
+        <a:r><a:rPr><a:highlight><a:srgbClr val="FFEE00"/></a:highlight><a:latin typeface="Roboto Mono"/></a:rPr><a:t>marked</a:t></a:r>
+        <a:r><a:rPr><a:highlight><a:srgbClr val="ECECEC"/></a:highlight><a:latin typeface="Roboto Mono"/></a:rPr><a:t>near</a:t></a:r>
+        <a:r><a:rPr><a:latin typeface="Roboto Mono"/></a:rPr><a:t>mono</a:t></a:r>
+        </a:p>"#,
+    );
+    let runs = &t.paragraphs[0].runs;
+    let seen: Vec<(&str, Option<&str>, bool, Option<&str>)> = runs
+        .iter()
+        .map(|r| {
+            (
+                r.t.as_str(),
+                r.highlight.as_deref(),
+                r.code,
+                r.font.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        [
+            ("pen", Some("#ffee00"), false, None),
+            ("token", Some("accent2"), false, None),
+            // The ground code is drawn on, to a step in a channel, is the run being code and no more.
+            ("code", None, true, None),
+            ("marked", Some("#ffee00"), true, None),
+            ("near", None, true, None),
+            // A mono face with no ground is the face, not code.
+            ("mono", None, false, Some("Roboto Mono")),
+        ]
+    );
+}
+
+#[test]
 fn a_box_shrunk_to_fit_keeps_the_sizes_it_was_written_in_and_says_it_shrinks() {
     let body = BodyProps {
         font_scale: Some(0.5),

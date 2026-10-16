@@ -32,6 +32,8 @@ export interface Stored {
   tags?: Record<string, string>;
   /** Highlight sidecars (`sources/*.highlights.json`) by path. */
   sidecars?: Record<string, string>;
+  /** Saved collections (`views/*.yaml`) by path. */
+  views?: Record<string, string>;
   config?: VaultConfig;
 }
 

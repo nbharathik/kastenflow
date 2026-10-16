@@ -47,4 +47,12 @@ describe("a meeting note for an event", () => {
   it("has a title even when the event has none", () => {
     expect(meetingDraft(event({ title: "  " }), true).title).toBe("Meeting");
   });
+
+  it("is for another day when the event is dropped there, keeping its hour", () => {
+    const draft = meetingDraft(event(), true, "2026-10-14");
+    expect(draft.date).toBe("2026-10-14T09:00");
+    expect(draft.props).toEqual({ date: "2026-10-14", url: "https://meet.example.com/abc" });
+    // An all-day event has no hour to keep.
+    expect(meetingDraft(event({ allDay: true, start: "2026-10-12", end: "2026-10-12" }), true, "2026-10-14").date).toBe("2026-10-14");
+  });
 });

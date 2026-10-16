@@ -11,6 +11,7 @@
 mod bibtex;
 mod format;
 mod latex;
+mod links;
 mod names;
 mod numbering;
 mod refs;
@@ -20,7 +21,7 @@ mod venues;
 #[cfg(test)]
 mod tests;
 
-pub use format::{full_label, lines, short_label};
+pub use format::{Piece, full_label, lines, pieces, short_label};
 pub use names::{Authors, Person};
 pub use numbering::Numbering;
 pub use refs::{Entry, Refs};

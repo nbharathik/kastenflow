@@ -1,27 +1,42 @@
-//! The ChatGPT account on this computer. The keychain holds one entry,
-//! `chatgpt @ https://auth.openai.com`, with only what a later start needs
-//! to sign back in: the refresh token, the client OpenAI issued for this
-//! installation, and the email to show. The access token and the ID token
-//! stay in memory (the keychain takes little per entry, and an access
-//! token lasts an hour); the access token is renewed when it ends within a
-//! minute, or once after the API refuses it, and every renewed refresh
-//! token is saved back, since each one replaces the last. Renewals take
-//! turns, so two requests never spend one refresh token twice.
+//! The ChatGPT account on this computer. The keychain holds one entry (see
+//! saved.rs) with only what a later start needs to sign back in; the access
+//! token and the ID token stay in memory (hold.rs). The access token is
+//! renewed when it ends within a minute, or once after the API refuses it,
+//! and every renewed refresh token is saved back, since each one replaces the
+//! last.
+//!
+//! A renewal (renew.rs) is one task that runs to its end whatever happens to
+//! the request that asked for it: a request that is stopped or gives up
+//! does not lose the refresh token the server has just rotated. Requests
+//! that need a token while one is being renewed wait for that renewal
+//! instead of starting another.
+//!
+//! The account is the one whose ID token was verified at sign-in (its `sub`
+//! is kept). A renewal that brings a verified ID token for another account
+//! ends the sign-in. An entry from before accounts were verified has no
+//! `sub`: it is kept, but asks to be signed in again before it is used.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use super::authorize::{self, Endpoints};
-use super::oauth::{self, Granted, Refused};
+use super::authorize::Endpoints;
+use super::efforts::{Feature, Tried};
+use super::hold::{Access, Core, locked, owner_of};
+#[cfg(test)]
+use super::hold::{DISCOVERY_RETRY, Found};
+use super::idtoken::Identity;
+use super::jwks::Failed;
+use super::oauth::{self, Granted};
 use super::pkce;
+use super::saved::Saved;
 use crate::chat::responses::Shape;
 use crate::secrets::KeyStore;
 
-/// The keychain account of the sign-in.
-pub const ENTRY: &str = "chatgpt @ https://auth.openai.com";
+pub use super::hold::{Denied, Token};
+
 /// The keychain account of this installation's host id.
 pub(crate) const HOST_ENTRY: &str = "chatgpt host @ https://auth.openai.com";
 /// A token is replaced when it ends within this long.
@@ -29,56 +44,9 @@ const MARGIN: Duration = Duration::from_secs(60);
 
 pub const SIGN_IN_FIRST: &str =
     "Sign in with ChatGPT first: open Settings, AI providers, and choose Continue with ChatGPT";
-
-/// What the keychain keeps.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Saved {
-    pub refresh_token: String,
-    pub client_id: String,
-    pub email: Option<String>,
-}
-
-/// Shown without the refresh token.
-impl std::fmt::Debug for Saved {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Saved")
-            .field("client_id", &self.client_id)
-            .field("email", &self.email)
-            .finish_non_exhaustive()
-    }
-}
-
-fn read_saved(keys: &dyn KeyStore) -> Result<Option<Saved>, String> {
-    Ok(keys
-        .get(ENTRY)?
-        .and_then(|text| serde_json::from_str(&text).ok()))
-}
-
-fn write_saved(keys: &dyn KeyStore, saved: &Saved) -> Result<(), String> {
-    let text = serde_json::to_string(saved).map_err(|e| e.to_string())?;
-    keys.set(ENTRY, &text)
-}
-
-/// Whether the keychain holds a sign-in.
-pub fn signed_in(keys: &dyn KeyStore) -> bool {
-    read_saved(keys).is_ok_and(|saved| saved.is_some())
-}
-
-struct Access {
-    token: String,
-    until: Instant,
-}
-
-#[derive(Default)]
-struct Live {
-    /// `saved` is what the keychain held, or what a sign-in set since.
-    loaded: bool,
-    saved: Option<Saved>,
-    access: Option<Access>,
-    /// The keychain refused the refresh token: the sign-in lasts until
-    /// Kasten quits.
-    session_only: bool,
-}
+/// What an entry from before accounts were verified says until the person
+/// signs in again.
+pub const SIGN_IN_AGAIN: &str = "Sign in with ChatGPT again to confirm the account: open Settings, AI providers, and choose Sign in again";
 
 /// What Settings shows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -88,30 +56,31 @@ pub struct Status {
     pub email: Option<String>,
     /// False when this computer's keychain would not keep the sign-in.
     pub remembered: bool,
-}
-
-fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|p| p.into_inner())
+    /// A sign-in from before accounts were verified: it is kept, but cannot
+    /// be used until the person signs in once more.
+    pub reauth: bool,
+    /// The same as `!remembered` while signed in: the sign-in lasts until
+    /// KastenFlow quits.
+    pub session_only: bool,
+    /// The ID token of the last renewal could not be checked. The access
+    /// token it came with works; the check is made again at the next renewal.
+    pub identity_unverified: bool,
+    /// Words for whichever of the two above is so.
+    pub warning: Option<String>,
+    /// The system keychain could not be read just now, so whether there is a
+    /// sign-in is not known.
+    pub keychain_error: Option<String>,
 }
 
 /// The ChatGPT account, shared by every chat and every AI request.
 pub struct Account {
-    keys: Arc<dyn KeyStore>,
-    live: tokio::sync::Mutex<Live>,
-    endpoints: Mutex<Option<Endpoints>>,
-    shape: Mutex<Shape>,
-    /// The flag that stops the sign-in under way.
-    pending: Mutex<Option<Arc<AtomicBool>>>,
+    pub(super) core: Arc<Core>,
 }
 
 impl Account {
     pub fn new(keys: Arc<dyn KeyStore>) -> Account {
         Account {
-            keys,
-            live: tokio::sync::Mutex::default(),
-            endpoints: Mutex::new(None),
-            shape: Mutex::new(Shape::default()),
-            pending: Mutex::new(None),
+            core: Arc::new(Core::new(keys, super::authorize::DISCOVERY)),
         }
     }
 
@@ -119,176 +88,200 @@ impl Account {
     #[cfg(test)]
     pub(crate) fn at(keys: Arc<dyn KeyStore>, endpoints: Endpoints) -> Account {
         let account = Account::new(keys);
-        *locked(&account.endpoints) = Some(endpoints);
+        *locked(&account.core.endpoints) = Some(Found {
+            endpoints,
+            fell_back_at: None,
+        });
         account
     }
 
-    /// Keychain work off the async threads.
-    async fn keychain<T: Send + 'static>(
-        &self,
-        job: impl FnOnce(&dyn KeyStore) -> T + Send + 'static,
-    ) -> Result<T, String> {
-        let keys = Arc::clone(&self.keys);
-        tokio::task::spawn_blocking(move || job(keys.as_ref()))
-            .await
-            .map_err(|_| "The system keychain stopped unexpectedly".to_owned())
+    /// An account whose discovery document is at `url`, a server of a test.
+    #[cfg(test)]
+    pub(crate) fn discovering_at(keys: Arc<dyn KeyStore>, url: &str) -> Account {
+        Account {
+            core: Arc::new(Core::new(keys, url)),
+        }
     }
 
-    /// Reads the keychain once; a keychain that cannot be read now is
-    /// asked again next time.
-    async fn load(&self, live: &mut Live) {
-        if live.loaded {
-            return;
-        }
-        if let Ok(Ok(saved)) = self.keychain(read_saved).await {
-            live.saved = saved;
-            live.loaded = true;
+    /// Keeps what requests find out in `dir`, not the app's cache folder.
+    #[cfg(test)]
+    pub(crate) fn learn_in(&self, dir: std::path::PathBuf) {
+        self.core.learned.keep_in(dir);
+    }
+
+    /// Makes the documented endpoints, if they stand in for a discovery
+    /// document, old enough to be replaced.
+    #[cfg(test)]
+    pub(crate) fn age_fallback(&self) {
+        if let Some(found) = locked(&self.core.endpoints).as_mut() {
+            found.fell_back_at = Instant::now().checked_sub(DISCOVERY_RETRY * 2);
         }
     }
 
     /// Whether the account is signed in, and as whom.
     pub async fn status(&self) -> Status {
-        let mut live = self.live.lock().await;
-        self.load(&mut live).await;
+        let loaded = self.core.load().await;
+        let live = locked(&self.core.live);
+        let confirmed = live.saved.as_ref().is_some_and(Saved::confirmed);
+        let session_only = confirmed && live.session_only;
+        let identity_unverified = confirmed && live.unverified.is_some();
+        let mut warnings = Vec::new();
+        if let Some(why) = live.unverified.as_ref().filter(|_| confirmed) {
+            warnings.push(format!(
+                "{}. The sign-in works; it is checked again the next time it renews",
+                why.trim_end_matches('.')
+            ));
+        }
+        if session_only {
+            warnings.push(
+                "The system keychain would not keep this sign-in, so it lasts only until KastenFlow closes"
+                    .to_owned(),
+            );
+        }
         Status {
-            signed_in: live.saved.is_some(),
+            signed_in: confirmed,
             email: live.saved.as_ref().and_then(|s| s.email.clone()),
             remembered: !live.session_only,
+            reauth: live.saved.is_some() && !confirmed,
+            session_only,
+            identity_unverified,
+            warning: (!warnings.is_empty()).then(|| warnings.join(". ")),
+            keychain_error: loaded.err().map(|d| d.message),
         }
+    }
+
+    /// A short stand-in for the signed-in account's id, for files that hold
+    /// what was found for one account and must not be believed for another.
+    pub async fn owner(&self) -> Option<String> {
+        let _ = self.core.load().await;
+        locked(&self.core.live).saved.as_ref().and_then(owner_of)
     }
 
     /// What a new sign-in starts from: the client and email of the one
     /// before it, if any.
     pub(super) async fn saved(&self) -> Option<Saved> {
-        let mut live = self.live.lock().await;
-        self.load(&mut live).await;
-        live.saved.clone()
+        let _ = self.core.load().await;
+        locked(&self.core.live).saved.clone()
     }
 
-    /// Where the sign-in endpoints are; asked once, and kept.
-    pub(super) async fn endpoints(&self, http: &reqwest::Client) -> Endpoints {
-        let known = locked(&self.endpoints).clone();
-        if let Some(known) = known {
-            return known;
-        }
-        let found = authorize::discover(http).await;
-        *locked(&self.endpoints) = Some(found.clone());
-        found
+    /// Where the sign-in endpoints are (see `Core::endpoints_for`).
+    pub(crate) async fn endpoints(&self, http: &reqwest::Client) -> Endpoints {
+        self.core.endpoints_for(http).await
     }
 
     /// This installation's host id, made on first use and kept.
     pub(super) async fn host_id(&self) -> Result<String, String> {
-        self.keychain(|keys| -> Result<String, String> {
-            if let Ok(Some(id)) = keys.get(HOST_ENTRY)
-                && id.starts_with("urn:uuid:")
-            {
-                return Ok(id);
-            }
-            let id = pkce::host_id()?;
-            // A keychain that refuses it leaves a new one for each start,
-            // which still works.
-            let _ = keys.set(HOST_ENTRY, &id);
-            Ok(id)
-        })
-        .await?
+        self.core
+            .keychain(|keys| -> Result<String, String> {
+                if let Ok(Some(id)) = keys.get(HOST_ENTRY)
+                    && id.starts_with("urn:uuid:")
+                {
+                    return Ok(id);
+                }
+                let id = pkce::host_id()?;
+                // A keychain that refuses it leaves a new one for each start,
+                // which still works.
+                let _ = keys.set(HOST_ENTRY, &id);
+                Ok(id)
+            })
+            .await?
+    }
+
+    /// Checks an ID token against OpenAI's published keys.
+    pub(super) async fn identity(
+        &self,
+        http: &reqwest::Client,
+        endpoints: &Endpoints,
+        token: &str,
+        client_id: &str,
+        nonce: Option<&str>,
+    ) -> Result<Identity, Failed> {
+        self.core
+            .signing_keys
+            .identity(http, &endpoints.jwks, token, client_id, nonce, oauth::now())
+            .await
     }
 
     /// An access token to send: the one held, unless it ends within a
     /// minute.
-    pub async fn access(&self, http: &reqwest::Client) -> Result<String, String> {
-        let mut live = self.live.lock().await;
-        self.load(&mut live).await;
-        if let Some(access) = &live.access
-            && access.until > Instant::now() + MARGIN
+    pub async fn token(&self, http: &reqwest::Client) -> Result<Token, Denied> {
+        self.core.load().await?;
         {
-            return Ok(access.token.clone());
+            let live = locked(&self.core.live);
+            if let Some(access) = &live.access
+                && access.until > Instant::now() + MARGIN
+            {
+                return Ok(Token {
+                    value: access.token.clone(),
+                    renewed: false,
+                });
+            }
         }
-        self.renew(&mut live, http).await
+        Core::renew(&self.core, http).await
     }
 
     /// An access token after the API refused `rejected`: one renewed since,
     /// if there is one, else a new one.
+    pub async fn token_after(
+        &self,
+        http: &reqwest::Client,
+        rejected: &str,
+    ) -> Result<Token, Denied> {
+        self.core.load().await?;
+        {
+            let live = locked(&self.core.live);
+            if let Some(access) = &live.access
+                && access.token != rejected
+                && access.until > Instant::now() + MARGIN
+            {
+                return Ok(Token {
+                    value: access.token.clone(),
+                    renewed: false,
+                });
+            }
+        }
+        Core::renew(&self.core, http).await
+    }
+
+    /// `token`, with just the words of a refusal.
+    pub async fn access(&self, http: &reqwest::Client) -> Result<String, String> {
+        self.token(http)
+            .await
+            .map(|t| t.value)
+            .map_err(|d| d.message)
+    }
+
+    /// `token_after`, with just the words of a refusal.
     pub async fn after_rejection(
         &self,
         http: &reqwest::Client,
         rejected: &str,
     ) -> Result<String, String> {
-        let mut live = self.live.lock().await;
-        self.load(&mut live).await;
-        if let Some(access) = &live.access
-            && access.token != rejected
-            && access.until > Instant::now() + MARGIN
-        {
-            return Ok(access.token.clone());
-        }
-        self.renew(&mut live, http).await
-    }
-
-    async fn renew(&self, live: &mut Live, http: &reqwest::Client) -> Result<String, String> {
-        let Some(saved) = live.saved.clone() else {
-            return Err(SIGN_IN_FIRST.to_owned());
-        };
-        let endpoints = self.endpoints(http).await;
-        let asked = Instant::now();
-        match oauth::refresh(http, &endpoints, &saved.client_id, &saved.refresh_token).await {
-            Ok(granted) => {
-                // Each refresh token replaces the one before: keep the new one.
-                if let Some(next) = granted
-                    .refresh_token
-                    .clone()
-                    .filter(|n| *n != saved.refresh_token)
-                {
-                    let updated = Saved {
-                        refresh_token: next,
-                        ..saved
-                    };
-                    live.session_only = !self.keep(&updated).await;
-                    live.saved = Some(updated);
-                }
-                live.access = Some(Access {
-                    token: granted.access_token.clone(),
-                    until: asked + granted.expires_in,
-                });
-                Ok(granted.access_token)
-            }
-            Err(Refused::Invalid(words)) => {
-                // The sign-in is over: forget it, so Settings says so.
-                self.forget(live).await;
-                Err(format!("{words} in Settings, AI providers"))
-            }
-            Err(Refused::Unavailable(words)) => Err(words),
-        }
-    }
-
-    /// Saves to the keychain; whether it took.
-    async fn keep(&self, saved: &Saved) -> bool {
-        let saved = saved.clone();
-        matches!(
-            self.keychain(move |keys| write_saved(keys, &saved)).await,
-            Ok(Ok(()))
-        )
-    }
-
-    async fn forget(&self, live: &mut Live) {
-        live.saved = None;
-        live.access = None;
-        live.session_only = false;
-        live.loaded = true;
-        let _ = self.keychain(|keys| keys.delete(ENTRY)).await;
+        self.token_after(http, rejected)
+            .await
+            .map(|t| t.value)
+            .map_err(|d| d.message)
     }
 
     /// A sign-in just finished: keeps it in the keychain, and the access
     /// token in memory. Whether the keychain took it.
-    pub(super) async fn adopt(&self, saved: Saved, granted: &Granted) -> bool {
-        let mut live = self.live.lock().await;
-        let remembered = self.keep(&saved).await;
-        live.loaded = true;
-        live.saved = Some(saved);
-        live.session_only = !remembered;
-        live.access = Some(Access {
-            token: granted.access_token.clone(),
-            until: Instant::now() + granted.expires_in,
-        });
+    pub(crate) async fn adopt(&self, saved: Saved, granted: &Granted) -> bool {
+        let _turn = self.core.gate.lock().await;
+        let remembered = self.core.keep(&saved).await;
+        {
+            let mut live = locked(&self.core.live);
+            live.epoch += 1;
+            live.loaded = true;
+            live.keychain = None;
+            live.unverified = None;
+            live.session_only = !remembered;
+            live.access = Some(Access {
+                token: granted.access_token.clone(),
+                until: Instant::now() + granted.expires_in,
+            });
+            live.saved = Some(saved.clone());
+        }
+        self.core.learned.for_owner(owner_of(&saved));
         remembered
     }
 
@@ -297,13 +290,9 @@ impl Account {
     /// person's ChatGPT settings until they remove it there.
     pub async fn sign_out(&self, http: &reqwest::Client) -> bool {
         self.cancel();
-        let saved = {
-            let mut live = self.live.lock().await;
-            self.load(&mut live).await;
-            let saved = live.saved.clone();
-            self.forget(&mut live).await;
-            saved
-        };
+        let _ = self.core.load().await;
+        let saved = locked(&self.core.live).saved.clone();
+        self.core.forget(None).await;
         let Some(saved) = saved else {
             return false;
         };
@@ -311,20 +300,41 @@ impl Account {
         oauth::revoke(http, &endpoints, &saved.client_id, &saved.refresh_token).await
     }
 
-    /// The request shape the API has been found to take.
-    pub fn shape(&self) -> Shape {
-        *locked(&self.shape)
+    /// The request shape to start with for `model`.
+    pub fn shape_for(&self, model: &str) -> Shape {
+        self.core.learned.shape_for(model)
     }
 
-    pub fn learn(&self, shape: Shape) {
-        *locked(&self.shape) = shape;
+    /// Whether a request found that `model` refuses `feature`.
+    pub fn refused(&self, model: &str, feature: Feature) -> bool {
+        self.core.learned.refused(model, feature)
+    }
+
+    /// Remembers what a request found out about `feature` of `model`.
+    pub fn learn(&self, model: &str, feature: Feature, found: Tried) {
+        self.core.learned.tried(model, feature, found);
+    }
+
+    /// Whether a request found that `model` refuses a reasoning effort.
+    pub fn effort_refused(&self, model: &str) -> bool {
+        self.refused(model, Feature::Effort)
+    }
+
+    /// Whether a request found that `model` takes a reasoning effort.
+    pub fn effort_works(&self, model: &str) -> bool {
+        self.core.learned.works(model, Feature::Effort)
+    }
+
+    /// Remembers what a request found out about `model` and a reasoning effort.
+    pub fn tried_effort(&self, model: &str, found: Tried) {
+        self.learn(model, Feature::Effort, found);
     }
 
     /// Starts a sign-in: stops the one under way, and gives the flag that
     /// stops this one.
     pub fn begin(&self) -> Arc<AtomicBool> {
         let next = Arc::new(AtomicBool::new(false));
-        if let Some(old) = locked(&self.pending).replace(Arc::clone(&next)) {
+        if let Some(old) = locked(&self.core.pending).replace(Arc::clone(&next)) {
             old.store(true, Ordering::SeqCst);
         }
         next
@@ -332,14 +342,14 @@ impl Account {
 
     /// Stops the sign-in under way.
     pub fn cancel(&self) {
-        if let Some(old) = locked(&self.pending).take() {
+        if let Some(old) = locked(&self.core.pending).take() {
             old.store(true, Ordering::SeqCst);
         }
     }
 
     /// The sign-in `flag` stopped is over.
     pub fn end(&self, flag: &Arc<AtomicBool>) {
-        let mut pending = locked(&self.pending);
+        let mut pending = locked(&self.core.pending);
         if pending.as_ref().is_some_and(|p| Arc::ptr_eq(p, flag)) {
             *pending = None;
         }

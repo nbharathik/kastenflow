@@ -51,6 +51,19 @@ describe("the project overview", () => {
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["All3", "Captures2", "Tasks", "Graph"]);
   });
 
+  it("shows the project's status and health in its header and changes them from a menu, through the core", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Project status: Active" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Status: Paused" }));
+    await screen.findByRole("button", { name: "Project status: Paused" });
+    expect(await projectText()).toContain("status: Paused");
+    fireEvent.click(screen.getByRole("button", { name: "Project status: Paused" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Health: Blocked" }));
+    await screen.findByRole("button", { name: "Project status: Paused, Blocked" });
+    expect(screen.getByText("Blocked")).toBeTruthy();
+    expect(await projectText()).toContain("health: Blocked");
+  });
+
   it("narrows the All tab by type and by what is typed", async () => {
     await open();
     const panel = screen.getByRole("tabpanel");
@@ -102,6 +115,21 @@ describe("the project overview", () => {
   it("says when the project is not there", async () => {
     render(<ProjectOverview path="projects/gone/_project.md" />);
     expect(await screen.findByText(/could not be found/)).toBeTruthy();
+  });
+});
+
+describe("the header", () => {
+  it("has icons with a name and a tooltip, not words, for New, the project page and New table", async () => {
+    await open();
+    for (const [name, title] of [
+      ["New in this project", "New page, card, whiteboard or deck"],
+      ["Project page", "Open the project page"],
+      ["New table", "New table: a saved view of this project's notes"],
+    ] as const) {
+      const button = screen.getByRole("button", { name });
+      expect(button.textContent, name).toBe("");
+      expect(button.title, name).toBe(title);
+    }
   });
 });
 

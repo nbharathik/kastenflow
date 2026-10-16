@@ -1,0 +1,138 @@
+/* The daily and weekly review: a calm column of cards. Colours, sizes and
+   radii come from the theme's tokens; the cards themselves are the
+   dashboard's. */
+
+.kasten-review {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+@media (min-width: 640px) {
+  .kasten-review {
+    padding-inline: 48px;
+  }
+}
+
+.kasten-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.kasten-review-head h1 {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-28);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.kasten-review-sub {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+  line-height: 1.5;
+}
+.kasten-review-last {
+  color: var(--color-ink);
+}
+
+.kasten-review-remind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+}
+.kasten-review-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-13);
+}
+
+.kasten-review-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+.kasten-review-cards .kasten-dash-card {
+  height: auto;
+}
+
+.kasten-review-quiet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 24px;
+  padding: 40px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  text-align: center;
+}
+
+.kasten-review-more {
+  padding: 4px 6px 0;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-review-project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kasten-review-project > .kasten-dash-row {
+  min-width: 0;
+  flex: 1;
+}
+
+.kasten-dash-row-detail.is-late {
+  color: var(--color-danger);
+}
+
+.kasten-review-link {
+  margin-top: 12px;
+  color: var(--color-accent);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+.kasten-review-link:hover {
+  text-decoration: underline;
+}
+
+.kasten-review-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+.kasten-review-foot-note {
+  min-width: 12rem;
+  flex: 1;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+/* Home's banner for the weekly review. */
+.kasten-review-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-xl);
+  background: var(--color-soft);
+  font-size: var(--text-13);
+}
+.kasten-review-banner p {
+  min-width: 10rem;
+  flex: 1;
+}

@@ -26,6 +26,12 @@
   }
 }
 
+.kasten-hls-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* The numbers: small chips under the title. */
 .kasten-hls-stats {
   display: flex;

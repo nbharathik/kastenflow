@@ -25,6 +25,7 @@ import { EventPopoverProvider } from "./external/EventPopoverProvider";
 import { partsByDay } from "./external/external";
 import { HourWeek } from "./external/HourWeek";
 import { useHoursPref } from "./external/hours-pref";
+import { makeEventNote } from "./external/meeting-note";
 import { STALE_MINUTES, useExternalEvents, useFeeds } from "./external/store";
 import { EmptyState, Header } from "./Header";
 import { calendarKey, clampEnd, itemId, landing, periodDays, periodTitle, shiftAnchor, withMoves, withRangeMoves, type Mode } from "./layout";
@@ -187,6 +188,11 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
       if (dragged.kind === "item") return latest.current.move(itemTarget(dragged.item), [day]);
       const { start, end } = landing(dragged, day);
       latest.current.move(rangeTarget(dragged.range), [start, end]);
+    },
+    // An event of a subscribed calendar makes a note for the day; the calendar is never written.
+    event: (dropped, day) => {
+      setExpanded(null);
+      void makeEventNote(dropped, day);
     },
     turn: nav.turn,
   });

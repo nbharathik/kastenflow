@@ -136,7 +136,7 @@ impl Index {
         let mut out = Vec::new();
         for row in rows {
             let (hit, kind) = row?;
-            if kind != "template" {
+            if kind != "template" && kind != crate::note::AI_ACTION {
                 out.push(hit);
             }
         }

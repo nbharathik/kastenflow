@@ -110,6 +110,7 @@
 }
 
 .kasten-set-row.is-flash,
+.kasten-set-key.is-flash,
 .kasten-set-block.is-flash {
   animation: kasten-set-flash 1600ms var(--ease-standard);
 }

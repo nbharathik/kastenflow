@@ -32,6 +32,8 @@ export interface TextEditorHandle {
   setLetterSpacing(points: number | null): void;
   /** A theme colour (`accent2`) or `#rrggbb`; null takes the colour off, so the text style's own applies. */
   setColor(color: string | null): void;
+  /** A colour behind the words, like a marker pen: a theme colour or `#rrggbb`; null takes it off. */
+  setHighlight(color: string | null): void;
   /** A size in points; null takes it off. */
   setSize(points: number | null): void;
   /** The next size along the usual list (8, 9, 10 ... 96) up for a positive number, down for a negative one. */
@@ -91,6 +93,7 @@ export const PLAIN_FORMAT: FormatState = {
   strike: false,
   code: false,
   color: null,
+  highlight: null,
   size: null,
   font: null,
   align: "left",
@@ -170,6 +173,12 @@ export function createHandle(current: () => MountedEditor | null, fallback: () =
       if (!editor) return;
       if (color === null) run(setValueMark("color", null));
       else if (hexOf(editor.ctx.theme, color) !== null) run(setValueMark("color", color));
+    },
+    setHighlight(color) {
+      const editor = current();
+      if (!editor) return;
+      if (color === null) run(setValueMark("highlight", null));
+      else if (hexOf(editor.ctx.theme, color) !== null) run(setValueMark("highlight", color));
     },
     setSize(points) {
       if (points === null) run(setValueMark("size", null));

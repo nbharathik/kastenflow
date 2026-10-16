@@ -6,14 +6,11 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use serde_json::Value;
 
-use super::authorize::{Endpoints, ISSUER, PLAN_SCOPE, RESOURCE, WAIT};
-use super::pkce;
+use super::authorize::{Endpoints, PLAN_SCOPE, RESOURCE, WAIT};
 
 /// What the token endpoint granted.
 #[derive(Clone, PartialEq, Eq)]
@@ -53,8 +50,24 @@ pub enum Refused {
     /// The code or refresh token is no good any more: only signing in
     /// again helps, and what was kept can go.
     Invalid(String),
-    /// Not answered, or not now: nothing is lost by trying later.
+    /// Answered, but not with a verdict on the token (a busy server, a
+    /// page in the way, an answer that cannot be read): nothing is lost by
+    /// trying later.
     Unavailable(String),
+    /// Not answered at all: the connection failed or timed out. Nothing is
+    /// lost either, and the connection is the suspect.
+    Unreachable(String),
+}
+
+impl Refused {
+    /// The words, whichever way it was refused.
+    pub fn words(&self) -> &str {
+        match self {
+            Refused::Invalid(words) | Refused::Unavailable(words) | Refused::Unreachable(words) => {
+                words
+            }
+        }
+    }
 }
 
 /// Reads a token response.
@@ -118,27 +131,62 @@ fn error_of(body: &str) -> (String, String) {
 }
 
 /// Codes after which a refresh token is never good again.
-const GONE: [&str; 7] = [
+const GONE: [&str; 10] = [
     "invalid_grant",
     "invalid_refresh_token",
     "token_expired",
     "refresh_token_expired",
     "refresh_token_invalidated",
     "refresh_token_reused",
+    "refresh_token_revoked",
+    "token_revoked",
     "invalid_client",
+    "unauthorized_client",
 ];
 
+/// Whether an answer with no code of the list still says, in words, that
+/// the refresh token itself is spent.
+fn says_spent(said: &str) -> bool {
+    let said = said.to_lowercase();
+    said.contains("refresh token")
+        && [
+            "expired",
+            "revoked",
+            "invalidated",
+            "already been used",
+            "reused",
+            "no longer valid",
+        ]
+        .iter()
+        .any(|w| said.contains(w))
+}
+
+/// The token endpoint's answer to a code or refresh token. Only a verdict
+/// on the token itself ends the sign-in: a client error that names it
+/// (by code, or in words). A busy server, a page of a firewall or
+/// Cloudflare's, a rate limit, or an error about the request, says nothing
+/// about the token, and signing out because of one would lose a sign-in
+/// that works.
 fn refusal(status: u16, body: &str) -> Refused {
     let (code, said) = error_of(body);
+    let spent = (400..500).contains(&status)
+        && status != 408
+        && status != 429
+        && (GONE.contains(&code.as_str()) || says_spent(&said));
     let said = said.trim().trim_end_matches('.');
     let said = if said.is_empty() {
         String::new()
     } else {
         format!(": {said}")
     };
-    if GONE.contains(&code.as_str()) {
+    if spent {
+        let code = if code.is_empty() {
+            String::new()
+        } else {
+            format!(" ({code})")
+        };
         Refused::Invalid(format!(
-            "ChatGPT no longer accepts this sign-in ({code}){said}. Sign in again"
+            "ChatGPT no longer accepts this sign-in{code}{said}. Sign in again"
         ))
     } else {
         Refused::Unavailable(format!(
@@ -189,7 +237,7 @@ async fn grant(
 ) -> Result<Granted, Refused> {
     let (status, body) = post(http, &endpoints.token, pairs)
         .await
-        .map_err(Refused::Unavailable)?;
+        .map_err(Refused::Unreachable)?;
     if status == 200 {
         return read_grant(&body).map_err(Refused::Unavailable);
     }
@@ -261,68 +309,11 @@ pub async fn revoke(
         .is_ok_and(|(status, _)| status == 200)
 }
 
-/// Who signed in, from the ID token.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Identity {
-    pub email: Option<String>,
-}
-
 /// Seconds since 1970.
 pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
-}
-
-/// Reads the ID token's claims and checks them: OpenAI's issuer, this
-/// client as the audience, not expired, and (when asked) this sign-in's
-/// nonce. The token comes straight from OpenAI's token endpoint over TLS,
-/// so its signature is not checked (OpenID Connect Core, 3.1.3.7); it only
-/// says whose email to show, and grants nothing.
-pub fn identity(
-    id_token: &str,
-    client_id: &str,
-    nonce: Option<&str>,
-    now: u64,
-) -> Result<Identity, String> {
-    let bad = |why: &str| format!("ChatGPT's answer did not say who signed in ({why})");
-    let payload = id_token.split('.').nth(1).ok_or_else(|| bad("no claims"))?;
-    let bytes = URL_SAFE_NO_PAD
-        .decode(payload.trim_end_matches('='))
-        .map_err(|_| bad("unreadable"))?;
-    let claims: Value = serde_json::from_slice(&bytes).map_err(|_| bad("unreadable"))?;
-    if claims["iss"].as_str() != Some(ISSUER) {
-        return Err(bad("another issuer"));
-    }
-    let audience = match &claims["aud"] {
-        Value::String(one) => one == client_id,
-        Value::Array(list) => list.iter().any(|a| a.as_str() == Some(client_id)),
-        _ => false,
-    };
-    if !audience {
-        return Err(bad("another client"));
-    }
-    // A minute of slack for clocks that differ.
-    if claims["exp"].as_u64().is_none_or(|exp| exp + 60 < now) {
-        return Err(bad("expired"));
-    }
-    if let Some(expected) = nonce
-        && !claims["nonce"]
-            .as_str()
-            .is_some_and(|got| pkce::same(got, expected))
-    {
-        return Err(bad("another sign-in"));
-    }
-    if claims["sub"].as_str().is_none_or(str::is_empty) {
-        return Err(bad("no account"));
-    }
-    Ok(Identity {
-        email: claims["email"]
-            .as_str()
-            .map(str::trim)
-            .filter(|e| !e.is_empty())
-            .map(str::to_owned),
-    })
 }
 
 #[cfg(test)]

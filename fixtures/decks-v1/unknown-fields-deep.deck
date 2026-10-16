@@ -1,0 +1,1327 @@
+{
+  "format": "kasten-deck",
+  "formatVersion": 1,
+  "id": "d-zsl4h7ur",
+  "present": {
+    "futurePresentField": {
+      "kept": [
+        "as it was",
+        1
+      ]
+    },
+    "slideNumbers": true,
+    "stepLabel": "Step {n} / {total}"
+  },
+  "sections": [
+    {
+      "futureSectionField": {
+        "kept": [
+          "as it was",
+          1
+        ]
+      },
+      "startsAt": "s-oc44rn4m",
+      "title": "Opening"
+    },
+    {
+      "futureSectionField": {
+        "kept": [
+          "as it was",
+          1
+        ]
+      },
+      "startsAt": "s-bafskdiw",
+      "title": "Body"
+    }
+  ],
+  "size": {
+    "futureSizeField": {
+      "kept": [
+        "as it was",
+        1
+      ]
+    },
+    "h": 540,
+    "w": 960
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "id": "e-llw133lj",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Unknown fields deep in the objects"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-s8yc78ku",
+          "placeholder": "subtitle",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-oc44rn4m",
+      "layout": "title"
+    },
+    {
+      "background": {
+        "color": "bg2",
+        "futureBackgroundField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        }
+      },
+      "elements": [
+        {
+          "h": 100,
+          "id": "shape-a",
+          "shape": "roundRect",
+          "style": {
+            "fill": {
+              "alpha": 0.5,
+              "color": "accent1",
+              "futureFillField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              }
+            },
+            "radius": 8,
+            "shadow": {
+              "alpha": 0.3,
+              "blur": 6,
+              "color": "text1",
+              "dx": 2,
+              "dy": 2,
+              "futureShadowField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              }
+            },
+            "stroke": {
+              "color": "accent2",
+              "dash": "dash",
+              "futureStrokeField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "width": 2
+            }
+          },
+          "text": {
+            "insets": {
+              "bottom": 4,
+              "futureInsetsField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "left": 6,
+              "right": 6,
+              "top": 4
+            },
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "A shape"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "shape",
+          "w": 200,
+          "x": 40,
+          "y": 40
+        },
+        {
+          "h": 100,
+          "id": "shape-b",
+          "shape": "ellipse",
+          "type": "shape",
+          "w": 100,
+          "x": 300,
+          "y": 40
+        },
+        {
+          "from": {
+            "el": "shape-a",
+            "futureFromField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "side": "right"
+          },
+          "h": 0,
+          "id": "link-1",
+          "route": "elbow",
+          "to": {
+            "el": "shape-b",
+            "futureToField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "side": "left"
+          },
+          "type": "connector",
+          "w": 60,
+          "x": 240,
+          "y": 90
+        },
+        {
+          "crop": {
+            "bottom": 0,
+            "futureCropField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "left": 0.1,
+            "right": 0.1,
+            "top": 0
+          },
+          "h": 120,
+          "id": "image-1",
+          "src": "assets/figure.png",
+          "type": "image",
+          "w": 200,
+          "x": 460,
+          "y": 40
+        },
+        {
+          "columns": [
+            200,
+            200
+          ],
+          "h": 90,
+          "headerRow": true,
+          "id": "table-1",
+          "rows": [
+            {
+              "cells": [
+                {
+                  "futureCellField": {
+                    "kept": [
+                      "as it was",
+                      1
+                    ]
+                  },
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "a"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "futureCellField": {
+                    "kept": [
+                      "as it was",
+                      1
+                    ]
+                  },
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "b"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "futureRowField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              }
+            },
+            {
+              "cells": [
+                {
+                  "futureCellField": {
+                    "kept": [
+                      "as it was",
+                      1
+                    ]
+                  },
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "c"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "futureCellField": {
+                    "kept": [
+                      "as it was",
+                      1
+                    ]
+                  },
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "d"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "futureRowField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              }
+            }
+          ],
+          "type": "table",
+          "w": 400,
+          "x": 40,
+          "y": 180
+        },
+        {
+          "cards": [
+            {
+              "body": "First",
+              "futureCardField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "title": "One"
+            },
+            {
+              "futureCardField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "title": "Two"
+            }
+          ],
+          "h": 200,
+          "id": "cards-1",
+          "type": "card-grid",
+          "w": 440,
+          "x": 480,
+          "y": 290
+        }
+      ],
+      "id": "s-bafskdiw",
+      "layout": "blank",
+      "transition": {
+        "duration": 0.4,
+        "easing": "ease",
+        "futureTransitionField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "kind": "fade"
+      }
+    },
+    {
+      "elements": [
+        {
+          "h": 344,
+          "id": "chat-1",
+          "messages": [
+            {
+              "futureMessageField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "role": "system",
+              "text": "You are a helpful assistant with a weather tool."
+            },
+            {
+              "futureMessageField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "role": "user",
+              "text": "Do I need an umbrella in Oslo today?"
+            },
+            {
+              "futureMessageField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "role": "toolCall",
+              "text": "get_weather(city=\"Oslo\", day=\"today\")"
+            },
+            {
+              "futureMessageField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "role": "toolResult",
+              "text": "{\"temp_c\": 4, \"sky\": \"rain\", \"chance\": 0.9}"
+            },
+            {
+              "futureMessageField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "role": "assistant",
+              "text": "Yes: it is 4 degrees with a 90% chance of rain."
+            }
+          ],
+          "type": "chat",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-myeu3wfq",
+      "layout": "blank"
+    },
+    {
+      "elements": [
+        {
+          "chosen": 0,
+          "h": 344,
+          "id": "probs-1",
+          "next": [
+            {
+              "futureNextTokenField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "p": 0.42,
+              "token": " mat"
+            },
+            {
+              "futureNextTokenField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "p": 0.3,
+              "token": " floor"
+            },
+            {
+              "futureNextTokenField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "p": 0.14,
+              "token": " sofa"
+            },
+            {
+              "futureNextTokenField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "p": 0.09,
+              "token": " bed"
+            },
+            {
+              "futureNextTokenField": {
+                "kept": [
+                  "as it was",
+                  1
+                ]
+              },
+              "p": 0.05,
+              "token": " roof"
+            }
+          ],
+          "tokens": [
+            "The",
+            " cat",
+            " sat",
+            " on",
+            " the"
+          ],
+          "type": "token-probs",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-yun2rh4k",
+      "layout": "blank"
+    }
+  ],
+  "theme": {
+    "colors": {
+      "accent1": "#1a73e8",
+      "accent2": "#ea4335",
+      "accent3": "#fbbc04",
+      "accent4": "#34a853",
+      "accent5": "#ff6d01",
+      "accent6": "#46bdc6",
+      "bg1": "#ffffff",
+      "bg2": "#f1f3f4",
+      "futureColorsField": {
+        "kept": [
+          "as it was",
+          1
+        ]
+      },
+      "text1": "#202124",
+      "text2": "#5f6368"
+    },
+    "dimmedOpacity": 0.25,
+    "fonts": {
+      "body": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter",
+        "futureFontSpecField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        }
+      },
+      "code": {
+        "fallback": [
+          "Consolas",
+          "monospace"
+        ],
+        "family": "Roboto Mono",
+        "futureFontSpecField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        }
+      },
+      "futureFontsField": {
+        "kept": [
+          "as it was",
+          1
+        ]
+      },
+      "heading": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter",
+        "futureFontSpecField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        }
+      }
+    },
+    "highlight": {
+      "color": "accent1",
+      "futureHighlightField": {
+        "kept": [
+          "as it was",
+          1
+        ]
+      },
+      "width": 2
+    },
+    "layouts": [
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Title",
+        "name": "title",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 148,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 140
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 304
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Section",
+        "name": "section",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 108,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 172
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 296
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Title + body",
+        "name": "title-body",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Title only",
+        "name": "title-only",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Two columns",
+        "name": "two-columns",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Title + image",
+        "name": "title-image",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Image + caption",
+        "name": "image-caption",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 400,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add caption",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 448
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Code",
+        "name": "code",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 344,
+            "kind": "text",
+            "prompt": "Click to add code",
+            "role": "code",
+            "style": "code",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Comparison",
+        "name": "comparison",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label2",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 200
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 200
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Big number",
+        "name": "big-number",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 176,
+            "kind": "text",
+            "prompt": "Click to add number",
+            "role": "number",
+            "style": "big-number",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 144
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 328
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Quote",
+        "name": "quote",
+        "placeholders": [
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 232,
+            "kind": "text",
+            "prompt": "Click to add quote",
+            "role": "quote",
+            "style": "quote",
+            "valign": "bottom",
+            "w": 768,
+            "x": 96,
+            "y": 124
+          },
+          {
+            "futurePlaceholderField": {
+              "kept": [
+                "as it was",
+                1
+              ]
+            },
+            "h": 48,
+            "kind": "text",
+            "prompt": "Click to add attribution",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 768,
+            "x": 96,
+            "y": 372
+          }
+        ]
+      },
+      {
+        "futureLayoutField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "label": "Blank",
+        "name": "blank",
+        "placeholders": []
+      }
+    ],
+    "master": [
+      {
+        "h": 24,
+        "id": "master-number",
+        "text": {
+          "paragraphs": [
+            {
+              "align": "right",
+              "runs": [
+                {
+                  "field": "slideNumber",
+                  "t": "‹#›"
+                }
+              ],
+              "style": "caption"
+            }
+          ]
+        },
+        "type": "text",
+        "w": 80,
+        "x": 860,
+        "y": 500
+      }
+    ],
+    "name": "Light",
+    "textStyles": {
+      "big-number": {
+        "bold": true,
+        "color": "accent1",
+        "font": "heading",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 96
+      },
+      "body": {
+        "color": "text1",
+        "font": "body",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "lineSpacing": 1.15,
+        "size": 22,
+        "spaceAfter": 6
+      },
+      "caption": {
+        "color": "text2",
+        "font": "body",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 14
+      },
+      "citation": {
+        "color": "text2",
+        "font": "body",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 10
+      },
+      "code": {
+        "color": "text1",
+        "font": "code",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 16
+      },
+      "display": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 44
+      },
+      "quote": {
+        "color": "text1",
+        "font": "heading",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "italic": true,
+        "size": 32
+      },
+      "subtitle": {
+        "color": "text2",
+        "font": "body",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 20
+      },
+      "title": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "futureTextStyleField": {
+          "kept": [
+            "as it was",
+            1
+          ]
+        },
+        "size": 36
+      }
+    }
+  },
+  "title": "Unknown fields deep in the objects"
+}

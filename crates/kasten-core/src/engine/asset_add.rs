@@ -166,6 +166,57 @@ pub(super) fn prepare<'a>(
     })
 }
 
+impl Prepared<'_> {
+    /// The path of a file in `assets/` that already holds these bytes.
+    pub(super) fn already_in(&self, vault: &Vault) -> Option<String> {
+        find_same(vault, &self.ext, self.bytes)
+    }
+
+    /// The path `keep` would give the picture, passing over `besides`: names a
+    /// staged change means to use. Nothing is written.
+    pub(super) fn planned_path(
+        &self,
+        vault: &Vault,
+        besides: &std::collections::HashSet<String>,
+    ) -> Result<String> {
+        let suffix = format!(".{}", self.ext);
+        for n in 1.. {
+            let file = if n == 1 {
+                format!("{}.{}", self.stem, self.ext)
+            } else {
+                format!("{}-{n}.{}", self.stem, self.ext)
+            };
+            let rel = format!("{ASSETS}/{file}");
+            let path = vault.file_of(&rel, &[&suffix])?;
+            let card_rel = sidecar_path(&rel).ok_or_else(|| Error::InvalidPath(rel.clone()))?;
+            let card_file = vault.file_of(&card_rel, &[".json"])?;
+            if besides.contains(&rel)
+                || fs::symlink_metadata(&path).is_ok()
+                || fs::symlink_metadata(&card_file).is_ok()
+            {
+                continue;
+            }
+            return Ok(rel);
+        }
+        unreachable!("names run out only after usize::MAX files")
+    }
+
+    /// The picture's hash.
+    pub(super) fn sha256(&self) -> &str {
+        &self.sha
+    }
+
+    /// The name the picture came with, trimmed.
+    pub(super) fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Its extension, as `keep` will write it.
+    pub(super) fn extension(&self) -> &str {
+        &self.ext
+    }
+}
+
 /// What keeping a picture did.
 pub(super) struct Kept {
     pub added: AddedAsset,

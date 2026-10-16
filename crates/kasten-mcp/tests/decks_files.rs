@@ -68,6 +68,67 @@ fn a_picture_is_kept_with_the_session_as_its_source_and_placed_on_a_slide() {
 }
 
 #[test]
+fn an_svg_picture_is_cleaned_before_it_is_kept_and_a_file_that_is_not_one_is_refused() {
+    let (v, k, s) = open();
+    let dirty = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script><rect width="10" height="10" onclick="steal()"/></svg>"#;
+    let added = call(
+        &k,
+        &s,
+        "add_asset",
+        json!({"name": "mark.svg", "base64": slides_core::agent::base64_encode(dirty.as_bytes())}),
+    )
+    .unwrap();
+    assert_eq!(added["status"], json!("done"), "{added}");
+    let stored = fs::read_to_string(v.0.join(added["result"]["path"].as_str().unwrap())).unwrap();
+    assert!(
+        !stored.contains("script") && !stored.contains("onclick") && !stored.contains("steal"),
+        "{stored}"
+    );
+    assert!(
+        stored.contains("<rect"),
+        "the drawing itself is kept: {stored}"
+    );
+
+    // A page with a drawing inside looks like an SVG to the tool's first check, but its root
+    // is not `svg`: the cleaning refuses it.
+    let fake = slides_core::agent::base64_encode(
+        b"<html><body><svg width=\"1\" height=\"1\"></svg></body></html>",
+    );
+    let err = call(
+        &k,
+        &s,
+        "add_asset",
+        json!({"name": "fake.svg", "base64": fake}),
+    )
+    .unwrap_err();
+    assert!(err.contains("not an SVG"), "{err}");
+    assert!(!v.0.join("assets/fake.svg").exists());
+    // Words with no drawing in them never get that far.
+    let words = slides_core::agent::base64_encode(b"just some words");
+    let err = call(
+        &k,
+        &s,
+        "add_asset",
+        json!({"name": "words.svg", "base64": words}),
+    )
+    .unwrap_err();
+    assert!(err.contains("not a picture"), "{err}");
+
+    // Other pictures are kept as they are.
+    let png =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/assets/wide.png"))
+            .unwrap();
+    let kept = call(
+        &k,
+        &s,
+        "add_asset",
+        json!({"name": "wide.png", "base64": slides_core::agent::base64_encode(&png)}),
+    )
+    .unwrap();
+    assert_eq!(kept["status"], json!("done"), "{kept}");
+}
+
+#[test]
 fn a_deck_is_exported_as_powerpoint_into_assets_and_read_back_in_as_a_new_deck() {
     let (v, k, s) = open();
     let (path, _) = deck_of_eight(&k, &s);

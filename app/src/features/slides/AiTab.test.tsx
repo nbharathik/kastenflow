@@ -80,6 +80,12 @@ describe("the assistant tab", () => {
     expect(chat.requests[0]!.context).toEqual([{ kind: "slide", label: "Slide 2: The loop · 1 selected", ref: [DECK, "s2", "e7"] }]);
   });
 
+  it("has no Follow active page switch: it follows the slide, not a page", async () => {
+    render(<AiTab {...props()} />);
+    await screen.findByRole("textbox", { name: "Message" });
+    expect(screen.queryByRole("switch", { name: "Follow active page" })).toBeNull();
+  });
+
   it("follows the slide and the selection: the chip is replaced, never piled up", async () => {
     const view = render(<AiTab {...props()} />);
     await screen.findByRole("textbox", { name: "Message" });
@@ -139,6 +145,51 @@ describe("the assistant tab", () => {
     expect(acceptAll).toHaveBeenCalledOnce();
     view.rerender(<AiTab {...props({ pending: 0, acceptAll })} />);
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("brings back a deck's chat from an earlier run, and makes a new one when it is gone", async () => {
+    localStorage.setItem("kasten.chat.decks", JSON.stringify({ [DECK]: "old", "library/lost.deck": "lost" }));
+    const ui = {
+      v: 1,
+      id: "old",
+      created: 1,
+      provider: "Claude",
+      model: "model-small",
+      context: [],
+      messages: [
+        { id: "m1", role: "user", text: "Earlier question", context: [] },
+        { id: "m2", role: "assistant", turn: "t1", provider: "Claude", model: "model-small", parts: [{ kind: "text", text: "Earlier answer" }], status: "done", error: null, pinned: null },
+      ],
+      session: "s",
+      changed: false,
+      undone: false,
+      seq: 2,
+    };
+    chat.loads["old"] = { ui, status: "idle", seq: 2, plan: [], title: "Earlier question", provider: "Claude", model: "model-small", queued: [] };
+    const view = render(<AiTab {...props()} />);
+    await within(await screen.findByRole("log", { name: "Messages" })).findByText("Earlier question");
+    expect(useChat.getState().active).toBeNull();
+    expect(useChat.getState().order).toEqual(["old"]);
+    // A chat that is not there any more is a new thread.
+    view.rerender(<AiTab {...props({ deckPath: "library/lost.deck" })} />);
+    await screen.findByRole("heading", { name: "Ask for a change to the deck" });
+    expect(useChat.getState().order).toHaveLength(2);
+    expect(JSON.parse(localStorage.getItem("kasten.chat.decks")!)["library/lost.deck"]).not.toBe("lost");
+  });
+
+  it("says what the assistant is doing, and not what it has finished", async () => {
+    render(<AiTab {...props()} />);
+    await ask("Tidy the deck");
+    const id = useChat.getState().order[0]!;
+    const says = (word: string) => screen.queryAllByRole("status").some((n) => n.textContent?.includes(word));
+    expect(says("Working")).toBe(true);
+    act(() => chat.emit({ chat: id, turn: "turn-1", kind: "paused", reason: "rounds", detail: "Paused after 80 steps" }));
+    expect(says("Paused")).toBe(true);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Continue" })));
+    expect(chat.continues).toEqual([id]);
+    act(() => chat.emit({ chat: id, turn: "turn-2", kind: "done" }));
+    expect(says("Working")).toBe(false);
+    expect(says("Done")).toBe(false);
   });
 
   it("works on decks kept in the vault only", () => {

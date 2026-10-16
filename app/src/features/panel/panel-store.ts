@@ -7,13 +7,14 @@ import { create } from "zustand";
 import { useShell } from "../../lib/store";
 import { useWorkspace } from "../workspace/store";
 
-/** Two tabs: the page's details (properties, outline and links, one under
- * the other) and its history. */
-export type PanelTab = "details" | "history";
+/** Three tabs: the page's details (properties, outline and links, one under
+ * the other), its history and its comments. */
+export type PanelTab = "details" | "history" | "comments";
 
 export const PANEL_TABS: { id: PanelTab; label: string }[] = [
   { id: "details", label: "Details" },
   { id: "history", label: "History" },
+  { id: "comments", label: "Comments" },
 ];
 
 export const PANEL_WIDTH = { min: 240, max: 520, initial: 320 } as const;
@@ -103,5 +104,12 @@ export const usePanelWidth = (pane: string) => usePanel((s) => s.widths[pane] ??
 export function openHistory(): void {
   const pane = useWorkspace.getState().layout.focus;
   usePanel.getState().setTab(pane, "history");
+  useShell.getState().openPanel(pane);
+}
+
+/** The panel, open on the page's comments. */
+export function openComments(): void {
+  const pane = useWorkspace.getState().layout.focus;
+  usePanel.getState().setTab(pane, "comments");
   useShell.getState().openPanel(pane);
 }

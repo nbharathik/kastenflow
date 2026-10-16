@@ -8,6 +8,7 @@ import { Modal } from "../../ui/Modal";
 import { projectTitle } from "../boards/store";
 import { useWorkspace } from "../workspace/store";
 import { DiagramImage } from "./DiagramImage";
+import { drawForSlide } from "./ai/actions";
 import { useDiagramEditor } from "./editor";
 import { useDiagramHost } from "./host-store";
 import { diagramChanged, useDiagrams } from "./store";
@@ -23,6 +24,7 @@ export function DiagramPicker() {
   const installed = useDiagramEditor((s) => s.info?.installed ?? false);
   const [query, setQuery] = useState("");
   const [making, setMaking] = useState(false);
+  const deck = useDiagramHost((s) => s.pickFor);
   const words = query.trim().toLowerCase();
   const shown = useMemo(() => list.filter((d) => matches(d.title, words)), [list, words]);
 
@@ -80,6 +82,17 @@ export function DiagramPicker() {
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="min-w-0 text-12 text-muted">{installed ? "A new diagram opens in the editor first." : "The editor is not installed: a new diagram stays empty until it is."}</p>
         <div className="flex shrink-0 gap-2">
+          {/* The chat draws it (the slide's words go to it); insert it from here again once it is applied. */}
+          <Button
+            icon="sparkle"
+            title="Ask AI to draw a diagram of this slide. It opens in the chat, and you insert it once you have applied it."
+            onClick={() => {
+              answer(null);
+              void drawForSlide(deck ?? undefined);
+            }}
+          >
+            Draw with AI
+          </Button>
           <Button onClick={() => answer(null)}>Cancel</Button>
           <Button icon="plus" tone="primary" disabled={making} onClick={() => void make()}>
             {words ? `New diagram “${query.trim()}”` : "New diagram"}

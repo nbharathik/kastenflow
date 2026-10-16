@@ -1,6 +1,7 @@
 //! Diagrams on disk: made where boards go, read with the hash a save must
 //! bring back, and written together with their picture or not at all.
 
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -9,10 +10,10 @@ use std::time::UNIX_EPOCH;
 use serde::Serialize;
 
 use super::format::{
-    EXT, MAX_BYTES, SIDECAR_EXT, blank_xml, check_svg, check_xml, sidecar_of, stamp_in_tail,
-    stamped,
+    EXT, MAX_BYTES, SIDECAR_EXT, blank_xml, check_svg, check_xml, draft_in_tail, sidecar_of,
+    stamp_in_tail, stamped,
 };
-use super::names::{checked_title, free_pair, stem_of_title};
+use super::names::{checked_title, free_pair_besides, stem_of_title};
 use crate::atomic::{create_atomic, read_if_there, write_atomic};
 use crate::error::{Error, Result};
 use crate::note::content_hash;
@@ -34,6 +35,10 @@ pub enum Preview {
     Stale,
     /// There is no picture.
     Missing,
+    /// The picture was drawn from this very source by the program, not the
+    /// editor: boxes, arrows and words in their places, icons as labelled
+    /// boxes. The editor draws the exact picture and replaces it.
+    Draft,
 }
 
 /// A diagram as it is on disk.
@@ -114,7 +119,9 @@ pub(crate) fn preview_of(vault: &Vault, path: &str, hash: &str) -> Preview {
     if handle.seek(SeekFrom::Start(from)).is_err() || handle.read_to_end(&mut tail).is_err() {
         return Preview::Stale;
     }
-    match stamp_in_tail(&String::from_utf8_lossy(&tail)) {
+    let tail = String::from_utf8_lossy(&tail);
+    match stamp_in_tail(&tail) {
+        Some(stamp) if stamp == hash && draft_in_tail(&tail) => Preview::Draft,
         Some(stamp) if stamp == hash => Preview::Fresh,
         _ => Preview::Stale,
     }
@@ -193,10 +200,25 @@ pub fn create_diagram(
     project: Option<&str>,
     xml: Option<&str>,
 ) -> Result<String> {
-    let (title, folder, xml) = checked_new(vault, title, project, xml)?;
-    let path = free_pair(vault, &folder, &stem_of_title(&title));
+    let (path, xml) = plan_diagram(vault, title, project, xml, &HashSet::new())?;
     create_atomic(&source_file(vault, &path)?, xml.as_bytes())?;
     Ok(path)
+}
+
+/// Where `create_diagram` would put the diagram (passing over `taken`, paths a
+/// staged change means to use) and its source, with nothing written. The pure
+/// step of `create_diagram`, which a staged change shares.
+pub fn plan_diagram(
+    vault: &Vault,
+    title: &str,
+    project: Option<&str>,
+    xml: Option<&str>,
+    taken: &HashSet<String>,
+) -> Result<(String, String)> {
+    let (title, folder, xml) = checked_new(vault, title, project, xml)?;
+    let path = free_pair_besides(vault, &folder, &stem_of_title(&title), taken);
+    source_file(vault, &path)?;
+    Ok((path, xml))
 }
 
 /// Writes `xml` over the diagram at `path`, and with it `svg` as its picture,
@@ -258,6 +280,47 @@ pub fn write_diagram(
             Err(err)
         }
     }
+}
+
+/// Writes the source an agent's edit made over `current` (read under the
+/// same lock, so it is the file as it is), and with it a draft picture where
+/// one can be drawn. The paths written, and whether the source changed.
+pub fn write_edited(
+    vault: &Vault,
+    path: &str,
+    current: &DiagramFile,
+    xml: &str,
+    now: Instant,
+) -> Result<(Vec<String>, bool)> {
+    if xml == current.xml {
+        return Ok((vec![path.to_owned()], false));
+    }
+    let svg = draft_for(xml);
+    let mut paths = vec![path.to_owned()];
+    if svg.is_some() {
+        paths.push(sidecar_of(path));
+    }
+    write_diagram(vault, path, xml, svg.as_deref(), &current.hash, now)?;
+    Ok((paths, true))
+}
+
+/// The draft picture of `xml`, when the built-in renderer can draw it.
+pub fn draft_for(xml: &str) -> Option<String> {
+    super::draw::draft(xml, None).ok().map(|d| d.svg)
+}
+
+/// Writes `svg` as the draft picture of the diagram at `path`, for the
+/// source it has now, unless the editor already drew a picture for exactly
+/// this source (that one is better). Whether it was written.
+pub fn write_draft(vault: &Vault, path: &str, svg: &str) -> Result<bool> {
+    check_svg(svg)?;
+    let (xml, _) = read_source(vault, path)?;
+    let hash = content_hash(&xml);
+    if preview_of(vault, path, &hash) == Preview::Fresh {
+        return Ok(false);
+    }
+    write_atomic(&picture_file(vault, path)?, stamped(svg, &hash).as_bytes())?;
+    Ok(true)
 }
 
 /// Writes `svg` as the picture of the diagram at `path`, only if the source

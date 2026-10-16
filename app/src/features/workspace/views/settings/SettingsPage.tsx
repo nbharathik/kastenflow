@@ -62,7 +62,11 @@ export function Results({ found, query, words, flash, open, onSwitchVault, onCle
   // Groups named by the words come first, the rest in the navigation's order.
   const named = (g: GroupInfo) => hasWords(words, g.title);
   const groups = GROUPS.filter((g) => (found.byGroup.get(g.id) ?? 0) > 0).sort((a, b) => Number(named(b)) - Number(named(a)));
-  const blurb = found.total === 0 ? "Nothing found" : `${found.total} ${found.total === 1 ? "setting" : "settings"} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`;
+  // Settings, and shortcut commands found by name.
+  const keys = found.commands?.length ?? 0;
+  const settings = found.total - keys;
+  const counted = [settings > 0 ? `${settings} ${settings === 1 ? "setting" : "settings"}` : "", keys > 0 ? `${keys} ${keys === 1 ? "shortcut" : "shortcuts"}` : ""].filter(Boolean).join(" and ");
+  const blurb = found.total === 0 ? "Nothing found" : `${counted} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`;
   return (
     <div className="kasten-set-page" data-group="results">
       <Header icon="search" title="Search results" blurb={blurb} />

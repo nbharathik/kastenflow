@@ -1,22 +1,28 @@
 //! The model over HTTP: a provider from the vault's config, its key from
 //! the keychain (or, for ChatGPT, the signed-in account), and one streamed
 //! request per answer. Every wait looks at the stop flag several times a
-//! second and gives up after a long silence.
+//! second and gives up after a long silence. A request that fails for a
+//! reason that passes is sent again (reply.rs), and every request leaves a
+//! line in the connection report (run.rs).
 
-use std::future::Future;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use kasten_core::config::Provider;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 
-use super::chatgpt::{self, Account};
-use super::errors::chain;
+use super::capabilities::Applied;
+use super::chatgpt::Account;
+use super::clients::Shared;
+use super::diagnostics::{self, Diagnostics, RequestOutcome};
 pub use super::errors::{http_error, unreachable};
-use super::model::{Call, Failure, Model, Reply};
-use super::sse::{SseEvent, SseParser};
+use super::model::Call;
+use super::retry::Policy;
 use super::{anthropic, openai, responses};
+
+mod open;
+mod reply;
+mod run;
 
 /// Output tokens per answer from OpenAI-compatible servers, whose local
 /// models may have small context windows.
@@ -26,8 +32,6 @@ pub const MAX_TOKENS: u32 = 4096;
 pub const ANTHROPIC_MAX_TOKENS: u32 = 16_000;
 /// How long a provider may send nothing before the answer is given up.
 pub const IDLE: Duration = Duration::from_secs(180);
-/// How often a wait looks at the stop flag.
-const TICK: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -49,12 +53,24 @@ impl Kind {
             )),
         }
     }
+
+    /// The word the connection report uses for it.
+    pub fn word(self) -> &'static str {
+        match self {
+            Kind::Anthropic => "anthropic",
+            Kind::OpenAi => "openai",
+            Kind::ChatGpt => "chatgpt",
+        }
+    }
 }
 
 /// One provider's model, ready to answer.
 #[derive(Clone)]
 pub struct HttpModel {
     http: reqwest::Client,
+    /// Where the client comes from, so it can be made again after a
+    /// connection failed (without it, the one given is used throughout).
+    link: Option<Arc<Shared>>,
     kind: Kind,
     name: String,
     url: String,
@@ -62,6 +78,18 @@ pub struct HttpModel {
     key: Option<String>,
     /// The ChatGPT sign-in, which gives the token of each request.
     account: Option<Arc<Account>>,
+    /// What the person's settings come to for this model: none unless set.
+    applied: Applied,
+    /// Things to tell the person about the last request, given once.
+    notices: Arc<Mutex<Vec<String>>>,
+    /// Tries that are about to be repeated, for the turn to say as they happen.
+    retries: Arc<Mutex<Vec<String>>>,
+    /// How often and how fast a request is tried again.
+    policy: Policy,
+    /// Where each request's outcome is written.
+    report: Arc<Diagnostics>,
+    /// The outcome of this model's latest request.
+    last: Arc<Mutex<Option<RequestOutcome>>>,
 }
 
 /// Shown without the key.
@@ -111,12 +139,19 @@ impl HttpModel {
         };
         Ok(HttpModel {
             http,
+            link: None,
             kind,
             name: provider.name.clone(),
             url,
             model: model.to_owned(),
             key: key.filter(|_| kind != Kind::ChatGpt),
             account: None,
+            applied: Applied::default(),
+            notices: Arc::default(),
+            retries: Arc::default(),
+            policy: Policy::default(),
+            report: diagnostics::shared(),
+            last: Arc::default(),
         })
     }
 
@@ -124,6 +159,57 @@ impl HttpModel {
     pub fn with_account(mut self, account: Arc<Account>) -> HttpModel {
         self.account = Some(account);
         self
+    }
+
+    /// Asks with the person's settings, already checked against what the
+    /// model takes (capabilities::resolve).
+    pub fn with_settings(mut self, applied: Applied) -> HttpModel {
+        self.applied = applied;
+        self
+    }
+
+    /// Takes its client from `clients`, which makes a new one after a
+    /// connection failed in a way that says the old one should not be trusted.
+    pub fn with_clients(mut self, clients: Arc<Shared>) -> HttpModel {
+        self.link = Some(clients);
+        self
+    }
+
+    /// Writes each request's outcome to `report`, not the app's own.
+    #[cfg(test)]
+    pub fn with_report(mut self, report: Arc<Diagnostics>) -> HttpModel {
+        self.report = report;
+        self
+    }
+
+    pub fn kind(&self) -> Kind {
+        self.kind
+    }
+
+    /// The address the requests go to.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    /// The outcome of the latest request this model made.
+    pub fn last_outcome(&self) -> Option<RequestOutcome> {
+        self.last.lock().ok()?.clone()
+    }
+
+    /// The ChatGPT account this model asks as, if it is one.
+    pub fn account(&self) -> Option<&Arc<Account>> {
+        self.account.as_ref()
+    }
+
+    /// The client its requests start with.
+    pub fn client(&self) -> reqwest::Client {
+        self.http.clone()
+    }
+
+    fn say(&self, notice: &str) {
+        if let Ok(mut notices) = self.notices.lock() {
+            notices.push(notice.to_owned());
+        }
     }
 
     /// Sends the requests to `url` instead, a server of a test.
@@ -140,6 +226,7 @@ impl HttpModel {
 
     fn request(
         &self,
+        http: &reqwest::Client,
         call: &Call<'_>,
         bearer: &str,
         shape: responses::Shape,
@@ -147,27 +234,24 @@ impl HttpModel {
         let key = self.key.as_deref().unwrap_or_default();
         let (request, body) = match self.kind {
             Kind::Anthropic => (
-                self.http
-                    .post(&self.url)
+                http.post(&self.url)
                     .header("x-api-key", key)
                     .header("anthropic-version", anthropic::VERSION),
-                anthropic::body(&self.model, ANTHROPIC_MAX_TOKENS, call),
+                anthropic::body(&self.model, ANTHROPIC_MAX_TOKENS, call, &self.applied),
             ),
             Kind::OpenAi if key.is_empty() => (
-                self.http.post(&self.url),
-                openai::body(&self.url, &self.model, MAX_TOKENS, call),
+                http.post(&self.url),
+                openai::body(&self.url, &self.model, MAX_TOKENS, call, &self.applied),
             ),
             Kind::OpenAi => (
-                self.http
-                    .post(&self.url)
+                http.post(&self.url)
                     .header(AUTHORIZATION, format!("Bearer {key}")),
-                openai::body(&self.url, &self.model, MAX_TOKENS, call),
+                openai::body(&self.url, &self.model, MAX_TOKENS, call, &self.applied),
             ),
             Kind::ChatGpt => (
-                self.http
-                    .post(&self.url)
+                http.post(&self.url)
                     .header(AUTHORIZATION, format!("Bearer {bearer}")),
-                responses::body(&self.model, call, shape),
+                responses::body(&self.model, call, shape, &self.applied),
             ),
         };
         request
@@ -176,214 +260,11 @@ impl HttpModel {
             .body(body.to_string())
     }
 
-    fn silent(&self) -> String {
+    fn silent_words(&self) -> String {
         format!(
             "{} sent nothing for {} minutes, so the answer was given up",
             self.name,
             IDLE.as_secs() / 60
         )
-    }
-
-    /// Sends the request until a server accepts it; None when the person
-    /// stopped the turn first. A ChatGPT request is tried again with a
-    /// fresh token after a 401, and without a feature the server named as
-    /// unsupported.
-    async fn open(
-        &self,
-        call: &Call<'_>,
-        cancel: &AtomicBool,
-    ) -> Result<Option<reqwest::Response>, String> {
-        let account = self.account.as_deref();
-        let mut token = String::new();
-        let mut shape = responses::Shape::default();
-        if self.kind == Kind::ChatGpt {
-            let Some(account) = account else {
-                return Err(chatgpt::SIGN_IN_FIRST.to_owned());
-            };
-            token = match wait(account.access(&self.http), cancel).await {
-                Waited::Done(token) => token?,
-                Waited::Cancelled => return Ok(None),
-                Waited::TimedOut => return Err(self.silent()),
-            };
-            shape = account.shape();
-        }
-        let (mut refreshed, mut adapted) = (false, 0);
-        loop {
-            let response = match wait(self.request(call, &token, shape).send(), cancel).await {
-                Waited::Done(Ok(response)) => response,
-                Waited::Done(Err(err)) => {
-                    return Err(unreachable(&self.name, &self.url, &err));
-                }
-                Waited::Cancelled => return Ok(None),
-                Waited::TimedOut => return Err(self.silent()),
-            };
-            let status = response.status().as_u16();
-            if response.status().is_success() {
-                return Ok(Some(response));
-            }
-            let body = match wait(response.text(), cancel).await {
-                Waited::Done(Ok(body)) => body,
-                _ => String::new(),
-            };
-            if let Some(account) = account.filter(|_| self.kind == Kind::ChatGpt) {
-                if status == 401 && !refreshed {
-                    refreshed = true;
-                    token = match wait(account.after_rejection(&self.http, &token), cancel).await {
-                        Waited::Done(token) => token?,
-                        Waited::Cancelled => return Ok(None),
-                        Waited::TimedOut => return Err(self.silent()),
-                    };
-                    continue;
-                }
-                if status == 400
-                    && adapted < 2
-                    && let Some(next) = shape.adapted(&body)
-                {
-                    adapted += 1;
-                    shape = next;
-                    account.learn(shape);
-                    continue;
-                }
-                return Err(chatgpt::words::refused(&self.name, status, &body));
-            }
-            return Err(http_error(&self.name, status, &body));
-        }
-    }
-}
-
-enum Decoder {
-    Anthropic(anthropic::Stream),
-    OpenAi(openai::Stream),
-    Responses(responses::Stream),
-}
-
-impl Decoder {
-    fn of(kind: Kind) -> Decoder {
-        match kind {
-            Kind::Anthropic => Decoder::Anthropic(anthropic::Stream::default()),
-            Kind::OpenAi => Decoder::OpenAi(openai::Stream::default()),
-            Kind::ChatGpt => Decoder::Responses(responses::Stream::default()),
-        }
-    }
-
-    fn event(&mut self, event: &SseEvent) -> Result<Option<String>, String> {
-        match self {
-            Decoder::Anthropic(s) => s.event(event),
-            Decoder::OpenAi(s) => s.event(event),
-            Decoder::Responses(s) => s.event(event),
-        }
-    }
-
-    fn ended(&self) -> bool {
-        match self {
-            Decoder::Anthropic(s) => s.ended(),
-            Decoder::OpenAi(s) => s.ended(),
-            Decoder::Responses(s) => s.ended(),
-        }
-    }
-
-    fn complete(&self) -> bool {
-        match self {
-            Decoder::Anthropic(s) => s.complete(),
-            Decoder::OpenAi(s) => s.complete(),
-            Decoder::Responses(s) => s.complete(),
-        }
-    }
-
-    fn reply(self, cancelled: bool) -> Reply {
-        match self {
-            Decoder::Anthropic(s) => s.reply(cancelled),
-            Decoder::OpenAi(s) => s.reply(cancelled),
-            Decoder::Responses(s) => s.reply(cancelled),
-        }
-    }
-
-    /// A failure that keeps the text said so far.
-    fn failed(self, message: String) -> Failure {
-        let partial = self.reply(true);
-        Failure {
-            message,
-            partial: (!partial.text.trim().is_empty()).then_some(partial),
-        }
-    }
-}
-
-enum Waited<T> {
-    Done(T),
-    Cancelled,
-    TimedOut,
-}
-
-/// Awaits `future` unless the person stops the turn or nothing happens
-/// for `IDLE`.
-async fn wait<F: Future>(future: F, cancel: &AtomicBool) -> Waited<F::Output> {
-    let mut future = std::pin::pin!(future);
-    let mut quiet = Duration::ZERO;
-    loop {
-        if cancel.load(Ordering::SeqCst) {
-            return Waited::Cancelled;
-        }
-        match tokio::time::timeout(TICK, future.as_mut()).await {
-            Ok(output) => return Waited::Done(output),
-            Err(_) => {
-                quiet += TICK;
-                if quiet >= IDLE {
-                    return Waited::TimedOut;
-                }
-            }
-        }
-    }
-}
-
-impl Model for HttpModel {
-    async fn reply(
-        &self,
-        call: &Call<'_>,
-        text: &(dyn Fn(&str) + Sync),
-        cancel: &AtomicBool,
-    ) -> Result<Reply, Failure> {
-        let mut decoder = Decoder::of(self.kind);
-        let Some(mut response) = self.open(call, cancel).await.map_err(Failure::new)? else {
-            return Ok(decoder.reply(true));
-        };
-        let mut sse = SseParser::default();
-        loop {
-            let (events, end) = match wait(response.chunk(), cancel).await {
-                Waited::Done(Ok(Some(chunk))) => (sse.push(&chunk), false),
-                Waited::Done(Ok(None)) => (sse.finish(), true),
-                Waited::Done(Err(err)) => {
-                    let why = chain(&err);
-                    let message = format!("The connection to {} broke: {why}", self.name);
-                    return Err(decoder.failed(message));
-                }
-                Waited::Cancelled => return Ok(decoder.reply(true)),
-                Waited::TimedOut => return Err(decoder.failed(self.silent())),
-            };
-            if sse.overflowed() {
-                let message = format!("{} sent more in one piece than KastenFlow reads", self.name);
-                return Err(decoder.failed(message));
-            }
-            for event in &events {
-                match decoder.event(event) {
-                    Ok(Some(piece)) => text(&piece),
-                    Ok(None) => {}
-                    Err(why) => {
-                        let message = format!("{} stopped with an error: {why}", self.name);
-                        return Err(decoder.failed(message));
-                    }
-                }
-            }
-            if end || decoder.ended() {
-                break;
-            }
-        }
-        if !decoder.complete() {
-            let message = format!(
-                "The connection to {} closed before the answer was complete",
-                self.name
-            );
-            return Err(decoder.failed(message));
-        }
-        Ok(decoder.reply(false))
     }
 }

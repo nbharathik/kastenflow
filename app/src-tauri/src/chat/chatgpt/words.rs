@@ -24,10 +24,17 @@ fn parts(body: &str) -> (String, String, String) {
 /// What a code means, when it is one ChatGPT documents.
 fn explain(code: &str, param: &str) -> Option<String> {
     Some(match code {
-        "subscription_sharing_usage_limit_exceeded" => format!(
-            "Your ChatGPT plan's usage limit is reached. Review it in {USAGE_PAGE}; KastenFlow can ask again once it resets"
-        ),
-        "subscription_sharing_user_not_eligible" => {
+        "subscription_sharing_usage_limit_exceeded"
+        | "usage_limit_reached"
+        | "insufficient_quota" => {
+            format!(
+                "Your ChatGPT plan's usage limit is reached. Review it in {USAGE_PAGE}; KastenFlow can ask again once it resets"
+            )
+        }
+        "rate_limit_exceeded" => {
+            "ChatGPT is limiting how fast requests come in. Try again in a moment".to_owned()
+        }
+        "subscription_sharing_user_not_eligible" | "usage_not_included" => {
             "Your ChatGPT plan cannot be used here: this account or workspace is not eligible"
                 .to_owned()
         }

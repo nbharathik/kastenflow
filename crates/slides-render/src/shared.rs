@@ -91,6 +91,20 @@ pub fn draw(deck: &Deck, assets: &Path, what: Draw) -> Result<Png> {
     )
 }
 
+/// The same for a deck whose pictures are read from `media` and whose citations are written from `references` (BibTeX
+/// text; none measures them as their keys), such as a vault's.
+pub fn measure_with(
+    deck: &Deck,
+    media: Arc<dyn Media>,
+    references: Option<Arc<str>>,
+) -> Result<Measures> {
+    let renderer = shared()?;
+    let _drawing = DRAWING.lock().unwrap_or_else(PoisonError::into_inner);
+    renderer.set_media(media);
+    renderer.set_references(references.map(|r| r.to_string()));
+    renderer.measure(deck)
+}
+
 /// How big the words of every element of the deck come out (see [`Renderer::measure`]), with the shared host, for a
 /// deck whose pictures and `.bib` files are in the folder `assets`: the citations are as long as they will be drawn.
 pub fn measure(deck: &Deck, assets: &Path) -> Result<Measures> {

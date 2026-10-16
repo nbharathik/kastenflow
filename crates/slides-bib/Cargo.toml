@@ -1,0 +1,11 @@
+[package]
+name = "slides-bib"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+publish.workspace = true
+description = "KastenFlow Slides: a tolerant BibTeX reader and span scanner, with DOI and arXiv keys"
+
+[lints]
+workspace = true

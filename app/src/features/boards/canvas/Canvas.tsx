@@ -20,6 +20,7 @@ import { useBoardMarks } from "./hooks/useBoardMarks";
 import { useBoardSync } from "./hooks/useBoardSync";
 import { useFocusPeek } from "./hooks/useFocusPeek";
 import { useKeepInView } from "./hooks/useKeepInView";
+import { useLinkedNode } from "./hooks/useLinkedNode";
 import { openFromClick, useFlowHandlers } from "./hooks/useFlowHandlers";
 import { useNoteDrop } from "./hooks/useNoteDrop";
 import { usePointerTools } from "./hooks/usePointerTools";
@@ -82,6 +83,7 @@ export function Canvas({ embedded = false }: { embedded?: boolean }) {
   useMapSync(board, !embedded);
   useBoardMarks(board);
   useKeepInView(board, wrapper);
+  useLinkedNode(board);
   useFocusPeek(wrapper, focus && !presenting);
   // The palette acts on the whiteboard in front (a board inside a page is worked on from its own bars).
   useEffect(() => {

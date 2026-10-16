@@ -4,6 +4,7 @@
 
 import { iconElement } from "../../../../ui/icon-dom";
 import type { IconName } from "../../../../ui/icons";
+import { occludeElement } from "../../../browser/occlusion";
 import { el, type Rect } from "./dom";
 
 export interface MenuItem {
@@ -68,6 +69,8 @@ export class Popover {
   private childIndex = -1;
   private hoverTimer: ReturnType<typeof setTimeout> | undefined;
   private closed = false;
+  /** Lets go of the area this menu covers: a browser tab's page beside it steps aside while the menu is open. */
+  private uncover: () => void = () => {};
 
   constructor(
     sections: MenuSection[],
@@ -82,6 +85,7 @@ export class Popover {
     this.el.addEventListener("mousedown", (event) => event.preventDefault());
     document.body.append(this.el);
     this.setSections(sections);
+    this.uncover = occludeElement(this.el);
     if (options.ownKeys) window.addEventListener("keydown", this.onKey, true);
     if (!parent) document.addEventListener("pointerdown", this.onOutside, true);
   }
@@ -190,6 +194,7 @@ export class Popover {
     this.closed = true;
     clearTimeout(this.hoverTimer);
     this.closeChild();
+    this.uncover();
     this.el.remove();
     window.removeEventListener("keydown", this.onKey, true);
     document.removeEventListener("pointerdown", this.onOutside, true);

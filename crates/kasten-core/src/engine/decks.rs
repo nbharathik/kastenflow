@@ -2,14 +2,48 @@
 //! person's saves are written at once and committed after a pause, like
 //! typing; an agent's are committed at once.
 
-use serde::Serialize;
+use std::collections::HashSet;
+
+use serde::{Deserialize, Serialize};
 
 use super::boards::project_of;
 use super::{Change, Kasten};
 use crate::deck::{self, DeckFile, DeckSaved};
 use crate::error::{Error, Result};
 use crate::history::Actor;
+use crate::rollback::Rollback;
 use crate::time::Instant;
+
+/// Decks one `save_decks` may change.
+pub const MAX_SAVE_DECKS: usize = 500;
+
+/// One deck of a save of several: the text it is to hold, and the hash of the text the person looked at.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckEdit {
+    pub path: String,
+    /// The hash `deck` gave for the file when the new text was worked out.
+    pub base_hash: String,
+    pub text: String,
+}
+
+/// Several decks to save together, with the one line that says why in the history.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveDecksRequest {
+    pub message: String,
+    pub edits: Vec<DeckEdit>,
+}
+
+/// What a save of several decks did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecksSaved {
+    /// The commit it made, to undo it with; None if nothing changed or the vault keeps no history.
+    pub commit: Option<String>,
+    /// The decks that were written (the ones whose text was already as asked are not among them).
+    pub paths: Vec<String>,
+}
 
 /// A deck in lists.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -27,11 +61,6 @@ pub struct DeckInfo {
     pub problem: Option<String>,
 }
 
-fn stem_of(path: &str) -> String {
-    let name = path.rsplit('/').next().unwrap_or(path);
-    name.trim_end_matches(".deck").to_owned()
-}
-
 impl Kasten {
     /// Every deck, by title. The slide templates in `templates/slides/` are not among them
     /// (`deck_templates` lists those): they are not the person's decks to open, count or present.
@@ -46,31 +75,18 @@ impl Kasten {
 
     fn decks_where(&self, wanted: impl Fn(&str) -> bool) -> Result<Vec<DeckInfo>> {
         let mut out = Vec::new();
-        for file in self.vault.files(".deck")? {
+        for (file, facts) in self.deck_facts()? {
             if !wanted(&file.path) {
                 continue;
             }
-            let read =
-                deck::read_deck(&self.vault, &file.path).and_then(|deck| deck::head_of(&deck.text));
-            let (title, slides, problem) = match read {
-                Ok(head) => {
-                    let title = head.title.filter(|t| !t.trim().is_empty());
-                    (
-                        title.unwrap_or_else(|| stem_of(&file.path)),
-                        head.slides,
-                        None,
-                    )
-                }
-                Err(err) => (stem_of(&file.path), 0, Some(err.to_string())),
-            };
             out.push(DeckInfo {
                 project: project_of(&file.path),
                 modified: file.modified,
                 size: file.size,
                 path: file.path,
-                title,
-                slides,
-                problem,
+                title: facts.title.clone(),
+                slides: facts.slides,
+                problem: facts.problem.clone(),
             });
         }
         out.sort_by_cached_key(|d| (d.title.to_lowercase(), d.path.clone()));
@@ -173,6 +189,82 @@ impl Kasten {
                 value: saved,
             })
         })
+    }
+
+    /// Saves several decks together, in one commit, so one undo takes them all back. For a person only. Every deck must
+    /// be exactly as it was when the new texts were worked out (same hash) and every new text must be a deck: if
+    /// any is not, nothing is written and the person is asked to look again. A deck that already holds the text it
+    /// is given is left alone. Nothing is rewritten on the person's behalf: the texts are the editor's own.
+    pub fn save_decks(
+        &self,
+        actor: &Actor,
+        req: &SaveDecksRequest,
+        now: Instant,
+    ) -> Result<DecksSaved> {
+        if actor.is_agent() {
+            return Err(Error::Invalid(
+                "Saving several decks at once is for a person, not an agent".to_owned(),
+            ));
+        }
+        let message = req.message.trim();
+        if message.is_empty() || message.contains(['\n', '\r']) || message.chars().count() > 200 {
+            return Err(Error::Invalid(
+                "A save of several decks needs a message of one line, up to 200 characters"
+                    .to_owned(),
+            ));
+        }
+        if req.edits.is_empty() {
+            return Err(Error::Invalid(
+                "Nothing to save: no deck was given".to_owned(),
+            ));
+        }
+        if req.edits.len() > MAX_SAVE_DECKS {
+            return Err(Error::Invalid(format!(
+                "At most {MAX_SAVE_DECKS} decks can be saved at once"
+            )));
+        }
+        let mut seen = HashSet::new();
+        for edit in &req.edits {
+            if !seen.insert(edit.path.as_str()) {
+                return Err(Error::Invalid(format!("{} is listed twice", edit.path)));
+            }
+        }
+        let (mut saved, commit) =
+            self.apply_committing(actor, "save_decks", false, now.millis, &[], |vault| {
+                // Every deck is read and every text checked before the first write.
+                let mut work = Vec::with_capacity(req.edits.len());
+                for edit in &req.edits {
+                    let current = deck::read_deck(vault, &edit.path)?;
+                    if current.hash != edit.base_hash {
+                        return Err(Error::Invalid(
+                            "Some decks changed since you looked, so nothing was saved. Look again."
+                                .to_owned(),
+                        ));
+                    }
+                    deck::head_of(&edit.text)?;
+                    work.push((vault.file_of(&edit.path, &[".deck"])?, current.text, edit));
+                }
+                let mut done = Rollback::default();
+                let mut paths = Vec::new();
+                for (file, old, edit) in work.iter().filter(|(_, old, edit)| *old != edit.text) {
+                    let before = Some(old.clone().into_bytes());
+                    if let Err(err) = done.write(file, edit.text.as_bytes(), before) {
+                        done.put_back();
+                        return Err(err.into());
+                    }
+                    paths.push(edit.path.clone());
+                }
+                Ok(Change {
+                    message: message.to_owned(),
+                    paths: paths.clone(),
+                    value: DecksSaved {
+                        commit: None,
+                        paths,
+                    },
+                })
+            })?;
+        saved.commit = commit;
+        Ok(saved)
     }
 
     /// Puts a trashed deck back; returns its path.

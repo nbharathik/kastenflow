@@ -1,19 +1,29 @@
 // The window's chats: every thread this session, the one the Chat view and
 // the dock show, and the AI providers.
 // Events from the backend fold into threads (thread.ts); streamed text
-// waits for the next frame (stream.ts). Threads live in memory: a chat
-// worth keeping is saved to chats/.
+// waits for the next frame (stream.ts). A thread with something in it is
+// kept on the backend between runs (store-persist.ts): it is listed when the
+// chat starts and brought back when opened, and a chat that works while the
+// window is away is picked up again where it is.
 
 import { create } from "zustand";
 
-import { boardFilesChanged } from "../boards/events";
-import { deckFilesChanged } from "../slides/events";
 import { useWorkspace } from "../workspace/store";
+import type { ThreadSummary } from "./agent-types";
+import { forgetCapabilities } from "./capabilities";
 import { connectChat, type ChatClient } from "./client";
-import { keepModel, modelFor } from "./prefs";
+import { keepModel, keepSettings, modelFor } from "./prefs";
+import { outcomeOf, touched } from "./store-events";
+import { redoActions } from "./store-redo";
+import { learnFromTrial, trials } from "./store-learn";
+import { persistence, setActive } from "./store-persist";
+import { sendActions } from "./store-send";
 import { FrameQueue } from "./stream";
-import { applyEvent, bare, chipKey, endTurn, newThread, startTurn, turnStarted, type Answer, type Chip, type Thread } from "./thread";
-import type { ChatEvent, ChatProvider, ProviderDraft } from "./types";
+import { applyEvent, chipKey, endTurn, followChips, newThread, type Answer, type Chip, type SentAttachment, type Thread } from "./thread";
+import type { ChangesInfo, ChatEvent, ChatProvider, GenerationSettings, ProviderDraft } from "./types";
+import { useUnread, workingCount } from "./unread";
+
+export { flushSaves } from "./store-persist";
 
 export interface ChatState {
   client: ChatClient | null;
@@ -26,28 +36,70 @@ export interface ChatState {
   order: string[];
   /** The thread the Chat view and the dock show. */
   active: string | null;
+  /** Counts what turns have found out about a model (a reasoning effort it
+   * took or refused), so the pickers read what was kept again. */
+  learned: number;
+  /** The vault's saved threads that are not (or not yet) in this window, by id. */
+  saved: Record<string, ThreadSummary>;
+  /** Whether the saved threads have been read. */
+  savedLoaded: boolean;
 
   /** The backend, connected on first use. */
   ensure(): ChatClient;
   connect(client: ChatClient | null): void;
   loadProviders(): Promise<void>;
+  /** Reads the vault's saved threads; those still working are picked up at once. */
+  loadSaved(): Promise<void>;
   /** Rejects with the backend's reason. */
   saveProvider(provider: ProviderDraft, key: string | null): Promise<void>;
   removeProvider(name: string): Promise<void>;
   confirmProvider(name: string): Promise<void>;
-  /** A new thread, shown at once with `open`. */
-  start(options?: { context?: Chip[]; open?: boolean }): string;
+  /** A new thread, shown at once with `open`. Its page chip follows the page
+   * being looked at unless `follow` is false (a thread about one page). */
+  start(options?: { context?: Chip[]; open?: boolean; follow?: boolean }): string;
+  /** Shows a thread; a saved one is brought in first. */
   open(id: string): void;
-  /** Whether the message went: not while answering, nor without a provider. */
-  send(id: string, text: string): Promise<boolean>;
+  /** Brings a saved thread into the window. Whether it is there. */
+  adopt(id: string): Promise<boolean>;
+  /** Whether the message went. While the model works it is queued for its next
+   * step; not without a provider, text, or while Stop is waited for. */
+  send(id: string, text: string, attachments?: SentAttachment[]): Promise<boolean>;
+  /** Carries a paused turn on in place with a fresh budget. Whether it did. */
+  continueThread(id: string): Promise<boolean>;
   stop(id: string): Promise<void>;
-  /** Forgets a thread here and on the backend. */
-  discard(id: string): Promise<void>;
+  /** Forgets a thread here and on the backend; whether it did. A thread with
+   * staged changes waiting is kept: the person applies or discards them first. */
+  discard(id: string): Promise<boolean>;
+  /** Removes a saved thread that was never opened here. Whether it went. */
+  removeSaved(id: string): Promise<boolean>;
   choose(id: string, provider: string, model: string | null): void;
+  /** What the thread's model answers with; remembered for that model. */
+  setSettings(id: string, settings: GenerationSettings): void;
+  /** Lets pictures go to the thread's model although it is not known to read them. */
+  setAllowImages(id: string, allow: boolean): void;
+  /** Asks the last question again after a failed answer. Whether it went. */
+  retry(id: string): Promise<boolean>;
+  /** Asks the last question again, in place of its answer. Whether it went. */
+  regenerate(id: string): Promise<boolean>;
+  /** Asks `text` in place of the last question and its answer. Whether it went. */
+  resend(id: string, text: string): Promise<boolean>;
   addChip(id: string, chip: Chip): void;
   removeChip(id: string, key: string): void;
+  /** The page chip becomes the page being looked at (none leaves it as it is); not while the thread does not follow. */
+  followPage(id: string, chip: Chip | null): void;
+  setFollow(id: string, follow: boolean): void;
+  /** Keeps a followed chip through page changes, or lets it follow again. */
+  pinChip(id: string, key: string, pinned: boolean): void;
+  /** Names the thread; an empty name goes back to its first question. */
+  rename(id: string, title: string): void;
   pinned(id: string, message: string, path: string): void;
   undone(id: string): void;
+  /** Whether the thread's writes are made at once ("Apply directly") or wait as staged changes. */
+  setDirect(id: string, direct: boolean): void;
+  /** What the thread has staged, as the backend last said; none when nothing waits. */
+  setChanges(id: string, changes: ChangesInfo | undefined): void;
+  /** The thread's staged changes were written: it changed the vault, and nothing waits. */
+  applied(id: string): void;
   receive(event: ChatEvent): void;
 }
 
@@ -66,16 +118,7 @@ export const flushStream = () => queue?.flush();
 
 const lastId = (thread: Thread) => thread.messages[thread.messages.length - 1]?.id;
 
-/** Notes and boards a tool wrote, so lists and open boards show them. */
-function touched(paths: string[]): void {
-  const notes = paths.filter((p) => p.endsWith(".md"));
-  if (notes.length > 0) void useWorkspace.getState().filesChanged(notes);
-  boardFilesChanged(paths);
-  // An open deck takes in what a tool changed in it.
-  deckFilesChanged(paths);
-}
-
-export const useChat = create<ChatState>()((set, get) => {
+export const useChat = create<ChatState>()((set, get, api) => {
   const update = (id: string, change: (thread: Thread) => Thread) =>
     set((s) => {
       const thread = s.threads[id];
@@ -99,6 +142,13 @@ export const useChat = create<ChatState>()((set, get) => {
 
   const toFront = (id: string) => set((s) => (s.order[0] === id ? s : { order: [id, ...s.order.filter((o) => o !== id)] }));
 
+  const kept = persistence(api, fold);
+  setActive(kept);
+  // The window's chat button shows that a thread works without loading the chat.
+  api.subscribe((s, before) => {
+    if (s.threads !== before.threads) useUnread.getState().setWorking(workingCount(s));
+  });
+
   return {
     client: null,
     providers: null,
@@ -106,6 +156,9 @@ export const useChat = create<ChatState>()((set, get) => {
     threads: {},
     order: [],
     active: null,
+    learned: 0,
+    saved: {},
+    savedLoaded: false,
 
     ensure() {
       const { client } = get();
@@ -117,8 +170,11 @@ export const useChat = create<ChatState>()((set, get) => {
 
     connect(client) {
       unlisten?.();
+      forgetCapabilities();
+      trials.clear();
       unlisten = client ? client.onEvent((event) => get().receive(event)) : null;
-      set({ client, providers: null, providersError: null });
+      set({ client, providers: null, providersError: null, saved: {}, savedLoaded: false });
+      kept.watch(client);
     },
 
     async loadProviders() {
@@ -130,6 +186,11 @@ export const useChat = create<ChatState>()((set, get) => {
       } catch (err) {
         if (read === reads) set((s) => ({ providers: s.providers ?? [], providersError: message(err) }));
       }
+    },
+
+    loadSaved() {
+      get().ensure();
+      return kept.loadSaved();
     },
 
     async saveProvider(provider, key) {
@@ -150,8 +211,9 @@ export const useChat = create<ChatState>()((set, get) => {
       set({ providers, providersError: null });
     },
 
-    start({ context = [], open = false } = {}) {
-      const thread = newThread({ context });
+    start({ context = [], open = false, follow } = {}) {
+      // Chips a thread starts with were chosen, not followed.
+      const thread = newThread({ context: context.map((chip) => ({ ...chip, origin: chip.origin ?? "added" })), follow });
       set((s) => ({
         threads: { ...s.threads, [thread.id]: thread },
         order: [thread.id, ...s.order],
@@ -161,29 +223,24 @@ export const useChat = create<ChatState>()((set, get) => {
     },
 
     open(id) {
-      if (get().threads[id]) set({ active: id });
+      if (get().threads[id]) return set({ active: id });
+      if (get().saved[id]) void kept.adopt(id).then((there) => there && set({ active: id }));
     },
 
-    async send(id, text) {
-      const client = get().ensure();
+    adopt: (id) => kept.adopt(id),
+
+    ...sendActions(get, update, { flush: () => queue?.flush(), toFront, catchUp: kept.catchUp, save: (id) => void kept.flush(id) }),
+
+    async retry(id) {
       const thread = get().threads[id];
-      const words = text.trim();
-      if (!thread || thread.streaming || !words) return false;
-      const choice = modelFor(thread, get().providers);
-      if (!choice) return false;
-      update(id, (t) => startTurn(t, words, choice.provider, choice.model));
-      keepModel(choice);
-      toFront(id);
-      try {
-        const turn = await client.send({ chat: id, provider: choice.provider, model: choice.model, text: words, context: thread.context.map(bare) });
-        update(id, (t) => turnStarted(t, turn));
-        // Stop pressed before the turn began reached nothing: ask again now.
-        if (get().threads[id]?.stopping) await client.stop(id).catch(() => {});
-      } catch (err) {
-        queue?.flush();
-        update(id, (t) => endTurn(t, "error", message(err)));
-      }
-      return true;
+      const count = thread?.messages.length ?? 0;
+      const failed = thread?.messages[count - 1];
+      const asked = thread?.messages[count - 2];
+      if (!thread || thread.streaming || failed?.role !== "assistant" || failed.status !== "error" || asked?.role !== "user") return false;
+      // An answer that said nothing left no trace in the backend's thread, so
+      // the question takes its place instead of standing twice.
+      if (failed.parts.length === 0) update(id, (t) => ({ ...t, messages: t.messages.slice(0, -2) }));
+      return get().send(id, asked.text, asked.attachments);
     },
 
     async stop(id) {
@@ -204,32 +261,83 @@ export const useChat = create<ChatState>()((set, get) => {
     },
 
     async discard(id) {
-      if (!get().threads[id]) return;
+      const thread = get().threads[id];
+      if (!thread) return false;
+      // What it staged would go with it, unread: the person decides that first.
+      if (thread.changes) {
+        useWorkspace.getState().toast("Apply or discard this chat's staged changes first");
+        return false;
+      }
+      kept.gone(id);
+      useUnread.getState().forget(id);
       set((s) => {
         const threads = { ...s.threads };
         delete threads[id];
-        return { threads, order: s.order.filter((o) => o !== id), active: s.active === id ? null : s.active };
+        const saved = { ...s.saved };
+        delete saved[id];
+        return { threads, saved, order: s.order.filter((o) => o !== id), active: s.active === id ? null : s.active };
       });
+      // The backend forgets it too, and its saved copy.
       await get()
         .ensure()
         .reset(id)
         .catch(() => {});
+      return true;
     },
+
+    removeSaved: (id) => kept.removeSaved(id),
 
     choose(id, provider, model) {
       const clean = model?.trim() || null;
-      update(id, (t) => (t.provider === provider && t.model === clean ? t : { ...t, provider, model: clean }));
+      // Another model takes what was last used with it, not this one's settings.
+      update(id, (t) => (t.provider === provider && t.model === clean ? t : { ...t, provider, model: clean, settings: undefined }));
       const known = get().providers?.find((p) => p.name === provider);
       if (known) keepModel({ provider, model: clean ?? known.model });
     },
 
+    setSettings(id, settings) {
+      const thread = get().threads[id];
+      const choice = thread && modelFor(thread, get().providers);
+      if (!thread || !choice) return;
+      update(id, (t) => ({ ...t, settings }));
+      keepSettings(choice.provider, choice.model, settings);
+    },
+
+    setAllowImages(id, allow) {
+      update(id, (t) => ((t.allowImages ?? false) === allow ? t : { ...t, allowImages: allow }));
+    },
+
+    ...redoActions(get, update),
+
     addChip(id, chip) {
       const key = chipKey(chip);
-      update(id, (t) => (t.context.some((c) => chipKey(c) === key) ? t : { ...t, context: [...t.context, chip] }));
+      // A chip the person adds stays; one that is followed says so.
+      update(id, (t) => (t.context.some((c) => chipKey(c) === key) ? t : { ...t, context: [...t.context, { ...chip, origin: chip.origin ?? "added" }] }));
     },
 
     removeChip(id, key) {
       update(id, (t) => ({ ...t, context: t.context.filter((c) => chipKey(c) !== key) }));
+    },
+
+    followPage(id, chip) {
+      update(id, (t) => {
+        if (t.follow === false) return t;
+        const context = followChips(t.context, chip);
+        return context === t.context ? t : { ...t, context };
+      });
+    },
+
+    setFollow(id, follow) {
+      update(id, (t) => (t.follow === follow || (follow && t.follow === undefined) ? t : { ...t, follow }));
+    },
+
+    pinChip(id, key, pinned) {
+      update(id, (t) => ({ ...t, context: t.context.map((c) => (chipKey(c) === key && (c.origin ?? "added") !== "added" ? { ...c, origin: pinned ? "pinned" : "auto" } : c)) }));
+    },
+
+    rename(id, title) {
+      const name = title.trim().slice(0, 120);
+      update(id, (t) => (name ? { ...t, title: name } : { ...t, title: undefined }));
     },
 
     pinned(id, messageId, path) {
@@ -240,15 +348,44 @@ export const useChat = create<ChatState>()((set, get) => {
       update(id, (t) => ({ ...t, undone: true }));
     },
 
+    setDirect(id, direct) {
+      update(id, (t) => ((t.direct ?? false) === direct ? t : { ...t, direct }));
+    },
+
+    setChanges(id, changes) {
+      update(id, (t) => (t.changes?.id === changes?.id && t.changes?.count === changes?.count ? t : { ...t, changes }));
+    },
+
+    applied(id) {
+      update(id, (t) => ({ ...t, changes: undefined, changed: true, undone: false }));
+    },
+
     receive(raw) {
-      if (!get().threads[raw.chat]) return;
+      // A chat this window does not have: it is loaded, and the event waits for it.
+      if (!get().threads[raw.chat]) return kept.unknown(raw);
       // A result without its paths touched none.
       const event = raw.kind === "toolResult" && raw.result && !Array.isArray(raw.result.paths) ? { ...raw, result: { ...raw.result, paths: [] } } : raw;
       if (event.kind === "text") return queue?.push(event);
       // Text that came first goes in first.
       queue?.flush();
+      const was = get().threads[event.chat]?.streaming;
       fold([event]);
-      if (event.kind === "toolResult" && event.result?.ok && event.result.paths.length) touched(event.result.paths);
+      // A staged change wrote nothing: there is nothing for lists and open pages to take in yet.
+      if (event.kind === "toolResult" && event.result?.ok && !event.result.staged && event.result.paths.length) touched(event.result.paths);
+      const outcome = outcomeOf(event);
+      if (outcome) {
+        // The turn ended: if someone was not looking, the thread says so; its copy is written now.
+        if (was && !get().threads[event.chat]?.streaming) useUnread.getState().note(event.chat, outcome);
+        void kept.flush(event.chat);
+      }
+      if (event.kind === "done" || event.kind === "error") {
+        const client = get().client;
+        if (client) {
+          void learnFromTrial(client, event.chat, event.kind === "done" && !event.stopped).then((found) => {
+            if (found) set((s) => ({ learned: s.learned + 1 }));
+          });
+        }
+      }
     },
   };
 });

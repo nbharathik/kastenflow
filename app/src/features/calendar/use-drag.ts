@@ -7,6 +7,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DATE_DRAG, type CalendarActions, type Dragged } from "./actions";
+import { carriesEvent, droppedEvent } from "./external/event-drag";
+import type { ExternalEvent } from "./external/types";
 import { itemId, landing } from "./layout";
 import { rangeId } from "./ranges";
 
@@ -19,6 +21,8 @@ export interface DragCallbacks {
   /** What a drag from another calendar carries, by its id and kind. */
   find(carried: Carried): Dragged | undefined;
   drop(dragged: Dragged, day: string): void;
+  /** An event of a subscribed calendar dropped on a day: a note is made for that day; the event stays as it is. */
+  event(dropped: ExternalEvent, day: string): void;
   turn(step: 1 | -1): void;
 }
 
@@ -45,7 +49,10 @@ export const draggedId = (dragged: Dragged) => (dragged.kind === "item" ? itemId
 /** The day a drop there changes nothing. */
 const homeDay = (dragged: Dragged) => (dragged.kind === "item" ? dragged.item.day : dragged.kind === "range" ? dragged.from : dragged.range.end);
 
-const ours = (event: { dataTransfer: DataTransfer }) => Array.from(event.dataTransfer.types).includes(DATE_DRAG);
+const ours = (event: { dataTransfer: DataTransfer }) => Array.from(event.dataTransfer.types).includes(DATE_DRAG) || carriesEvent(event);
+
+/** What a drop here does to what is carried: an event is copied to the day, a note or range moved. */
+const effectOf = (event: { dataTransfer: DataTransfer }) => (carriesEvent(event) ? "copy" : "move");
 
 function carried(event: { dataTransfer: DataTransfer }): Carried | null {
   try {
@@ -99,7 +106,7 @@ export function useDrag(callbacks: DragCallbacks): Drag {
       dragOver: (day, event) => {
         if (!current.current && !ours(event)) return;
         event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
+        event.dataTransfer.dropEffect = effectOf(event);
         const what = current.current;
         setOver((now) => (now?.day === day && now.what === what ? now : { day, what }));
       },
@@ -109,9 +116,16 @@ export function useDrag(callbacks: DragCallbacks): Drag {
         setOver((now) => (now?.day === day ? null : now));
       },
       drop: (day, event) => {
+        const dropped = carriesEvent(event) ? droppedEvent(event) : null;
+        if (dropped) {
+          event.preventDefault();
+          end();
+          latest.current.event(dropped, day);
+          return;
+        }
         const found = carried(event);
         const what = current.current ?? (found ? latest.current.find(found) : undefined);
-        if (!what) return;
+        if (!what) return end();
         event.preventDefault();
         end();
         if (homeDay(what) !== day) latest.current.drop(what, day);
@@ -119,7 +133,7 @@ export function useDrag(callbacks: DragCallbacks): Drag {
       dragStep: (step, event) => {
         if (!current.current && !ours(event)) return;
         event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
+        event.dataTransfer.dropEffect = effectOf(event);
         setOver(null);
         if (turning.current?.step === step) return;
         stopTurning();

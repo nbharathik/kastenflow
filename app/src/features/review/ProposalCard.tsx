@@ -8,6 +8,7 @@ import { Suspense, lazy, useMemo, type KeyboardEvent, type Ref } from "react";
 import { relativeTime } from "../../lib/dates";
 import type { NoteMeta, Proposal } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
+import { DiagramProposalChange, isDiagramProposal } from "../diagrams/ai/ProposalChange";
 import { iconOf, titleOf } from "../workspace/names";
 import type { CardState, Verb } from "./decide";
 import { isDeckProposal } from "./deck/deck-changes";
@@ -140,8 +141,9 @@ function Target({ proposal: p, note, onOpen }: { proposal: Proposal; note: NoteM
   );
 }
 
-/** The change: slides for a deck, else a diff when there is text after it, else the core's words. */
+/** The change: slides for a deck, two pictures for a diagram, else a diff when there is text after it, else the core's words. */
 function Change({ proposal: p, mode }: { proposal: Proposal; mode: DiffMode }) {
+  if (isDiagramProposal(p)) return <DiagramProposalChange proposal={p} />;
   if (!isDeckProposal(p)) return <TextChange proposal={p} mode={mode} />;
   return (
     <Suspense fallback={<p aria-busy="true" className="rounded-md border border-line bg-panel px-3 py-2 text-13 text-muted">{descriptionOf(p.diff) || "Reading the slides…"}</p>}>

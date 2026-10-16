@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { dayFrom } from "../../lib/dates";
 import type { NoteMeta } from "../../lib/vault/types";
 import { IconButton } from "../../ui/Button";
+import { useEventDrop } from "../calendar/external/use-event-drop";
 import { Popup } from "../pages/page/Popup";
 import { howFrom, useWorkspace, type OpenHow } from "../workspace/store";
 import { daysBack, relativeDay, type DayMark } from "./feed";
@@ -107,13 +108,16 @@ interface DayRowProps {
 
 function DayRow({ day, note, current, relative, onPick }: DayRowProps) {
   const text = note?.excerpt.trim();
+  // An event of a subscribed calendar dropped on the day makes a note for it.
+  const drop = useEventDrop(day);
   return (
     <button
       type="button"
       data-day={day}
       aria-current={current ? "date" : undefined}
-      className={`kasten-journal-row${text ? "" : " is-empty"}${current ? " is-current" : ""}`}
+      className={`kasten-journal-row${text ? "" : " is-empty"}${current ? " is-current" : ""}${drop.over ? " is-event-over" : ""}`}
       onClick={(e: MouseEvent) => onPick(day, howFrom(e))}
+      {...drop.props}
     >
       <span className="kasten-journal-row-date">
         <span className="kasten-journal-row-day">{relative ?? date(day, { weekday: "short" })}</span>

@@ -3,11 +3,11 @@
 // own tabs and its own back and forward. Pure functions over the layout,
 // so the store stays small and this stays easy to test.
 
-export type ViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "diagrams" | "tags" | "highlights" | "chat" | "history" | "review" | "import" | "graph" | "overview" | "web";
+export type ViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "diagrams" | "tags" | "highlights" | "chat" | "history" | "review" | "import" | "graph" | "overview" | "web" | "collections" | "projects" | "references" | "reviews";
 
 export interface Place {
   view: ViewId;
-  /** The open note, for `page`. */
+  /** The open note, for `page`; the open collection's file, for `collections`. */
   path?: string;
   /** The address a browser tab shows, for `web`; none is its start page. */
   url?: string;

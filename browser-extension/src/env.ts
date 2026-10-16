@@ -3,6 +3,8 @@
 // objects to these; everything else is written against them, so it runs with a
 // stand-in for the browser in tests.
 
+import type { PaperTags } from "./model.js";
+
 /** `chrome.storage.local`: only this extension's own keys. */
 export interface StorageArea {
   get(keys: string[]): Promise<Record<string, unknown>>;
@@ -29,6 +31,8 @@ export interface PageRead {
   selectionText: string;
   html: string;
   text: string;
+  /** The tags the page describes itself by, for "Save as paper". */
+  paper?: PaperTags;
 }
 
 /** Runs `readPage` in a tab (the person's own gesture lets it); null when the page cannot be read (the browser's own pages, the web store). */

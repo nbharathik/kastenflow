@@ -5,8 +5,8 @@
 
 use std::time::{Duration, Instant};
 
-use kasten_core::NoteFile;
-use kasten_core::clip::{Target, WebCapture};
+use kasten_core::clip::{Existing, Target, WebCapture};
+use kasten_core::{NoteFile, NoteMeta};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State, Url, Webview, Wry};
 use tokio::sync::oneshot;
@@ -111,6 +111,7 @@ async fn fetched(chat: &ChatState, url: &Url) -> Result<WebCapture, String> {
         text: None,
         via: "browser".to_owned(),
         tags: Vec::new(),
+        snapshot_of: None,
     })
 }
 
@@ -126,6 +127,23 @@ pub struct Previewed {
     pub site: String,
     pub excerpt: String,
     pub bytes: usize,
+    /// The notes already kept from this page, the first saved first; empty
+    /// for a page not saved before.
+    pub existing: Vec<Existing>,
+}
+
+/// What a person is told when a card would be a second copy of a page.
+fn already_saved(found: &[NoteMeta]) -> String {
+    let first = found.first().map(Existing::from);
+    let when = first
+        .as_ref()
+        .and_then(|e| e.captured.as_deref())
+        .map(|day| format!(" on {day}"))
+        .unwrap_or_default();
+    let title = first
+        .map(|e| format!(" as “{}”", e.title))
+        .unwrap_or_default();
+    format!("Already saved{when}{title}. Choose “Save another snapshot” to keep this one too")
 }
 
 /// Reads the selection (`selection`) or the page (`page`) of tab `id`, and
@@ -137,6 +155,7 @@ pub async fn browser_capture(
     app: AppHandle,
     browser: State<'_, Browser>,
     chat: State<'_, ChatState>,
+    vault: State<'_, OpenVault>,
     id: String,
     kind: String,
 ) -> Result<Previewed, String> {
@@ -160,6 +179,7 @@ pub async fn browser_capture(
                 text,
                 via: "browser".to_owned(),
                 tags: Vec::new(),
+                snapshot_of: None,
             };
             (capture, "selection")
         }
@@ -177,6 +197,7 @@ pub async fn browser_capture(
                         text: None,
                         via: "browser".to_owned(),
                         tags: Vec::new(),
+                        snapshot_of: None,
                     }
                 }
             };
@@ -185,6 +206,22 @@ pub async fn browser_capture(
         _ => return Err("Capture the page or the selection".to_owned()),
     };
     let preview = capture.preview().map_err(|e| e.to_string())?;
+    // Is this page already saved? Looked up in the index; with no vault open
+    // there is nothing saved to find.
+    let address = capture.url.clone();
+    let existing: Vec<Existing> = match vault.require() {
+        Ok(kasten) => tauri::async_runtime::spawn_blocking(move || {
+            crate::crash::caught(|| {
+                kasten
+                    .captured(&address)
+                    .map(|found| found.iter().map(Existing::from).collect())
+                    .map_err(|e| e.to_string())
+            })
+        })
+        .await
+        .map_err(crate::crash::joined)??,
+        Err(_) => Vec::new(),
+    };
     let token = new_nonce()?;
     let shown = Previewed {
         token: token.clone(),
@@ -194,6 +231,7 @@ pub async fn browser_capture(
         site: preview.site,
         excerpt: preview.excerpt,
         bytes: preview.bytes,
+        existing,
     };
     held(&browser.previews).put(token, capture, Instant::now());
     Ok(shown)
@@ -238,7 +276,9 @@ pub struct Saved {
 
 /// Keeps the capture held under `token`, once, as a card or a quote. A title
 /// given replaces the page's. A refusal leaves the capture held, so the person
-/// can pick another place.
+/// can pick another place. A card for a page that is already saved is refused
+/// unless `again` is true, which keeps it as a snapshot pointing back at the
+/// first card (a quote added to a page is never held back).
 #[tauri::command]
 pub async fn browser_capture_confirm(
     browser: State<'_, Browser>,
@@ -246,6 +286,7 @@ pub async fn browser_capture_confirm(
     token: String,
     place: Where,
     title: Option<String>,
+    again: Option<bool>,
 ) -> Result<Saved, String> {
     browser.require_on()?;
     let mut capture = held(&browser.previews)
@@ -256,9 +297,19 @@ pub async fn browser_capture_confirm(
     }
     let kasten = vault.require()?;
     let target = Target::from(&place);
-    let keep = capture.clone();
+    let mut keep = capture.clone();
+    let again = again.unwrap_or(false);
     let written: Result<NoteFile, String> = tauri::async_runtime::spawn_blocking(move || {
         crate::crash::caught(|| {
+            if !matches!(target, Target::Page { .. }) {
+                let found = kasten.captured(&keep.url).map_err(|e| e.to_string())?;
+                if let Some(first) = found.first() {
+                    if !again {
+                        return Err(already_saved(&found));
+                    }
+                    keep.snapshot_of = Some(first.path.clone());
+                }
+            }
             kasten
                 .capture_web(&HUMAN, &keep, &target, kasten_core::Instant::now())
                 .map_err(|e| e.to_string())
@@ -287,4 +338,38 @@ pub async fn browser_capture_confirm(
 #[tauri::command]
 pub fn browser_capture_discard(browser: State<'_, Browser>, token: String) {
     held(&browser.previews).discard(&token);
+}
+
+/// What a page says about itself in its tags, for "Save as paper".
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageMeta {
+    /// The address Kasten saw the tab go to, never the one the page reports.
+    pub url: String,
+    pub title: String,
+    /// `{ "meta": [[name, content]], "ld": [text] }` as JSON text. The page wrote
+    /// it, so the window reads it as data and checks every part.
+    pub meta: String,
+}
+
+/// Reads the `<meta>` tags and JSON-LD of the page tab `id` shows. Nothing is
+/// fetched and nothing is kept: the window shows what was read for the person
+/// to check before a reference is made of it.
+#[tauri::command]
+pub async fn browser_page_meta(
+    app: AppHandle,
+    browser: State<'_, Browser>,
+    id: String,
+) -> Result<PageMeta, String> {
+    let view = live(&app, &browser, &id)?;
+    let url = view.url().map_err(|e| e.to_string())?;
+    if !policy::may_visit(&url) || url.as_str() == "about:blank" {
+        return Err("Open a web page first".to_owned());
+    }
+    let answer = ask(&browser, &view, Kind::Meta).await?;
+    Ok(PageMeta {
+        url: url.to_string(),
+        title: answer.title,
+        meta: answer.html,
+    })
 }

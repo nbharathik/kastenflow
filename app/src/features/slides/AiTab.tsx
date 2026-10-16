@@ -13,14 +13,16 @@ import type { AiPanelProps } from "@kasten-slides/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
+import { ChangeSetBar } from "../chat/changes/ChangeSetBar";
 import { useChat } from "../chat/store";
-import { threadTitle } from "../chat/thread";
+import { threadStatus, threadTitle } from "../chat/thread";
+import { STATUS_WORDS, useViewing } from "../chat/unread";
 import { Composer } from "../chat/view/Composer";
 import { useChatSetup } from "../chat/view/Conversation";
 import { NoProvider } from "../chat/view/Empty";
 import { LinksContext, linksFor } from "../chat/view/links";
 import { MessageList } from "../chat/view/MessageList";
-import { followSlide, leaveSlide, slideChip, threadOfDeck } from "./ai-thread";
+import { followSlide, leaveSlide, restoreDeckThread, slideChip, threadOfDeck } from "./ai-thread";
 
 const ASKS = ["Tighten the words on this slide", "Suggest a diagram that shows this", "Check the deck and fix what lint reports"];
 
@@ -29,7 +31,7 @@ function Welcome({ onPick }: { onPick: (text: string) => void }) {
   return (
     <div className="kasten-chat-empty">
       <h2>Ask for a change to the deck</h2>
-      <p>The assistant sees the slide you are on and the elements you select. What it changes is marked with a star until you accept it or change it yourself; “Undo this chat’s changes” takes it all back.</p>
+      <p>The assistant sees the slide you are on and the elements you select. What it changes waits above the message box for you to review and apply, and “Undo this chat’s changes” takes applied changes back. With “Apply directly” on, changes are made at once and marked with a star until you accept them or change them yourself.</p>
       <div className="kasten-chat-suggestions" role="group" aria-label="Start with">
         {ASKS.map((text) => (
           <button key={text} type="button" onClick={() => onPick(text)}>
@@ -57,9 +59,19 @@ export function AiTab(props: AiPanelProps) {
   const active = useChat((s) => (thread ? s.threads[thread] : undefined));
   const composer = useRef<{ fill(text: string): void }>(null);
 
+  // The deck's thread; one kept from an earlier run is brought back first.
   useEffect(() => {
-    setThread(deck ? threadOfDeck(deck) : null);
+    let live = true;
+    const found = deck ? restoreDeckThread(deck) : null;
+    // Usually there at once; a thread kept from an earlier run has to be read first.
+    if (typeof found === "string" || found === null) setThread(found);
+    else void found.then((id) => live && setThread(id));
+    return () => {
+      live = false;
+    };
   }, [deck]);
+  // While the tab shows it, what it finished or stopped for is seen.
+  useViewing(thread);
 
   useEffect(() => {
     if (!thread) return;
@@ -79,6 +91,9 @@ export function AiTab(props: AiPanelProps) {
   if (!deck) return <p className="ks-ai-note">The assistant works on decks kept in the vault.</p>;
   if (!thread || !active) return null;
   const none = providers !== null && providers.length === 0;
+  // What the assistant is doing here, said when it is not simply at rest.
+  const status = threadStatus(active);
+  const word = status === "done" ? "" : STATUS_WORDS[status];
   return (
     <LinksContext.Provider value={linksFor("dock")}>
       <section className="kasten-chat ks-ai" data-variant="dock" aria-label="Assistant">
@@ -86,6 +101,11 @@ export function AiTab(props: AiPanelProps) {
           <span className="kasten-chat-title" title={threadTitle(active)}>
             {active.messages.length ? threadTitle(active) : "Assistant"}
           </span>
+          {word && (
+            <span className="kasten-chat-meta" data-status={status} role="status">
+              {active.streaming && <span className="kasten-chat-live" aria-hidden="true" />} {word}
+            </span>
+          )}
           <button
             type="button"
             className="kasten-chat-icon-button"
@@ -113,7 +133,8 @@ export function AiTab(props: AiPanelProps) {
           </div>
         )}
         <div className="kasten-chat-foot">
-          <Composer key={active.id} ref={composer} thread={active} page={null} ask="Ask for a change to the deck…" />
+          <ChangeSetBar thread={active} />
+          <Composer key={active.id} ref={composer} thread={active} page={null} ask="Ask for a change to the deck…" showFollow={false} />
         </div>
       </section>
     </LinksContext.Provider>

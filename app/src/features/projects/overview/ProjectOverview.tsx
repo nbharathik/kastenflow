@@ -17,11 +17,15 @@ import { Button, IconButton } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
 import { startNewBoard, useBoards } from "../../boards/store";
+import { PinnedSlot } from "../../collections/PinnedSlot";
 import { useFullScreen } from "../../graph/use-full-screen";
 import { startNewDeck, useDecks } from "../../slides/store";
 import { iconOf, titleOf } from "../../workspace/names";
+import { ResumeWorkspace } from "../../workspace/ResumeWorkspace";
 import { useWorkspace } from "../../workspace/store";
 import { noteAt } from "../../workspace/tree";
+import { ProjectReviewMenu } from "../../review-screens/project/ProjectReviewMenu";
+import { ProjectStateMenu } from "../state/StateChips";
 import { AllTab } from "./AllTab";
 import { CapturesTab } from "./CapturesTab";
 import { capturesOf, itemsOf } from "./items";
@@ -149,13 +153,13 @@ function Loaded({ path }: { path: string }) {
           <span className="truncate">{title}</span>
           <span className="shrink-0 text-16 font-normal text-muted">overview</span>
         </h1>
+        <ProjectStateMenu project={project} />
+        <ProjectReviewMenu project={project} />
         <span className="flex-1" />
-        <Button ref={newButton} icon="plus" aria-haspopup="menu" aria-expanded={menu?.kind === "new"} onClick={() => toggleMenu(newButton.current, "new")}>
-          New
-        </Button>
-        <Button icon="page" onClick={() => useWorkspace.getState().openPath(project.path)}>
-          Project page
-        </Button>
+        {/* Icons with tooltips: the words are their names. */}
+        <IconButton ref={newButton} icon="plus" label="New in this project" title="New page, card, whiteboard or deck" aria-haspopup="menu" aria-expanded={menu?.kind === "new"} onClick={() => toggleMenu(newButton.current, "new")} />
+        <ResumeWorkspace folder={folder} />
+        <IconButton icon="page" label="Project page" title="Open the project page" onClick={() => useWorkspace.getState().openPath(project.path)} />
         <IconButton icon={full.on ? "shrink" : "expand"} label={full.on ? "Leave full window" : "Full window"} active={full.on} onClick={full.toggle} />
       </header>
 
@@ -166,13 +170,13 @@ function Loaded({ path }: { path: string }) {
             {tab.count !== undefined && tab.count > 0 && <span className="kasten-overview-tab-count">{tab.count}</span>}
           </button>
         ))}
-        <button ref={tableButton} type="button" aria-haspopup="menu" aria-expanded={menu?.kind === "table"} className="kasten-overview-tab is-add" onClick={() => toggleMenu(tableButton.current, "table")}>
+        <button ref={tableButton} type="button" aria-label="New table" title="New table: a saved view of this project's notes" aria-haspopup="menu" aria-expanded={menu?.kind === "table"} className="kasten-overview-tab is-add" onClick={() => toggleMenu(tableButton.current, "table")}>
           <Icon name="plus" className="size-3.5" />
-          New table
         </button>
       </div>
 
       <section id="overview-panel" role="tabpanel" aria-labelledby={`overview-tab-${tabs.findIndex((t) => t.id === current)}`} className="kasten-overview-body">
+        {current === "all" && <PinnedSlot scope={{ kind: "project", folder }} />}
         {current === "all" && <AllTab folder={folder} notes={notes} boards={boards} decks={decks} />}
         {current === "captures" && <CapturesTab folder={folder} projectTitle={title} notes={notes} />}
         {current === "tasks" && (

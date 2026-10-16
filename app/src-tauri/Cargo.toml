@@ -16,6 +16,11 @@ tauri-build.workspace = true
 
 [dependencies]
 kasten-core.workspace = true
+# Without kasten-mcp's `render` feature the app does not draw slides for agents (render_slide, render_grid,
+# exact text sizes for lint_deck): the render page is 10.3 MiB and the browser driver adds about 7 MiB of
+# code, which would bring the installer to about 26.7 MiB of its 30 MiB budget. The command-line
+# `kasten-mcp` draws them. To turn it on here: `kasten-mcp = { workspace = true, features = ["render"] }`,
+# and build the render page first (`just render-page`).
 kasten-mcp.workspace = true
 # API keys in the OS keychain: Keychain on macOS, Credential Manager on
 # Windows, the Secret Service on Linux.
@@ -41,6 +46,10 @@ tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "time", "net"
 getrandom = "0.4.3"
 sha2 = "0.10.9"
 base64 = "0.22.1"
+# Sign in with ChatGPT checks the signature of the ID token it is given against
+# OpenAI's published keys (RS256 only). Pure Rust crypto, no C library, and no
+# PEM loaders: the keys come as JWK numbers.
+jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
 # Calendar subscriptions: time zones and their daylight-saving rules. The
 # database is bundled, so no computer needs one installed. The feeds' own
 # parser and recurrence code are in this crate.

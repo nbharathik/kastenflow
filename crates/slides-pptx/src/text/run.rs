@@ -4,7 +4,7 @@
 
 use slides_core::{Run, Script, Theme};
 
-use super::metrics::{SCRIPT_LOWER, SCRIPT_RAISE};
+use super::metrics::{CODE_GROUND, SCRIPT_LOWER, SCRIPT_RAISE};
 use super::resolve::Style;
 use crate::color::Color;
 use crate::cx::{Cx, Link};
@@ -14,9 +14,6 @@ use crate::xml::Xml;
 
 /// The language text is marked with, which decides spelling and hyphenation in PowerPoint.
 const LANG: &str = "en-US";
-
-/// How much of the text colour is in the ground behind inline code.
-const CODE_GROUND: f64 = 0.08;
 
 /// The look of a run, ready to write.
 #[derive(Clone, Debug, PartialEq)]
@@ -112,6 +109,25 @@ pub fn props(cx: &mut Cx, style: &Style, run: &Run, opacity: f64) -> Props {
         },
     };
     let (color, alpha) = faded(cx, color, &source, opacity);
+    // The run's own highlight, else the ground inline code has.
+    let highlight = match run
+        .highlight
+        .as_deref()
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+    {
+        Some(value) => {
+            let ground = Color::parse(value);
+            if ground.is_none() {
+                cx.warn(format!(
+                    "`{value}` is not a colour; the highlight is left out"
+                ));
+            }
+            ground
+        }
+        None if run.code => code_ground(&cx.deck.theme),
+        None => None,
+    };
     Props {
         size: run_size(run, style),
         bold: style.bold || run.bold,
@@ -121,11 +137,7 @@ pub fn props(cx: &mut Cx, style: &Style, run: &Run, opacity: f64) -> Props {
         color,
         alpha,
         wash: (opacity < 1.0).then_some(opacity),
-        highlight: if run.code {
-            code_ground(&cx.deck.theme)
-        } else {
-            None
-        },
+        highlight,
         face: fonts::face(&cx.deck.theme, font),
         script: run.script.clone(),
         small_caps: run.small_caps,

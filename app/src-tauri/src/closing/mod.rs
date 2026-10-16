@@ -63,6 +63,10 @@ fn ask_page(app: &AppHandle, round: u32) {
 }
 
 fn carry_out(app: &AppHandle, then: Then) {
+    // Chats that are working are saved as interrupted before the app goes.
+    if matches!(then, Then::Quit | Then::Restart) {
+        crate::chat::commands::interrupt_chats(app);
+    }
     match then {
         Then::Hide => {
             if let Some(window) = app.get_webview_window(MAIN) {

@@ -1,23 +1,66 @@
 //! Chat threads: each chat's conversation, its agent session and system
-//! prompt, kept while the app runs, and the turn running in it, if any. One
-//! thread is one session, from its first turn until it is reset.
+//! prompt, kept while the app runs (and saved: persist.rs), and the turn
+//! running in it, if any. One thread is one session, from its first turn until
+//! it is deleted. A message sent while a turn works waits in the thread's queue
+//! (queue.rs); `send.rs` starts turns.
 
-use std::collections::HashMap;
-use std::future::Future;
+mod launch;
+mod persist;
+mod queue;
+mod saved;
+mod send;
+
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use kasten_core::agent::Session;
-use kasten_core::{Instant, Kasten, ulid_at};
+use kasten_core::agent::{ChangeSet, Session};
+use kasten_core::{Instant, ulid_at};
+use serde_json::Value;
 
-use super::model::{Message, Model};
-use super::turn::{Ending, Turn};
-use super::{CLIENT, ChatEvent, ChatRequest, ChatTurn, EventKind, Events, context, prompt};
+use super::attach::Attachments;
+use super::budget::ChatBudgets;
+use super::capabilities::GenerationSettings;
+use super::event::Log;
+use super::model::{Message, ToolOutput};
+use super::plan::PlanItem;
+use super::store::{Status, Store};
+use super::{CLIENT, WriteMode};
+
+pub use persist::Loaded;
+pub use queue::{Queued, Settled};
+pub use saved::{ChatUsage, StateOf};
+#[cfg(test)]
+pub use send::send;
+pub use send::{Profile, resume_with, send_with};
+
+/// A thread's staged changes, shared by its turns and the commands that
+/// show, apply and discard them.
+pub type Changes = Arc<Mutex<ChangeSet>>;
 
 struct Thread {
     session: Session,
     system: String,
+    /// The day the system prompt names; the prompt is written again when the day changes.
+    day: String,
     messages: Vec<Message>,
+    /// What the chat has staged for the person to review.
+    changes: Changes,
+    plan: Vec<PlanItem>,
+    status: Status,
+    created: u64,
+    updated: u64,
+    title: String,
+    provider: String,
+    model: String,
+    settings: Option<GenerationSettings>,
+    writes: WriteMode,
+    /// What the window sent with `chat_save_ui`.
+    ui: Option<Value>,
+    /// Attachments the conversation refers to.
+    attachments: BTreeSet<String>,
+    /// Messages sent while a turn worked, in the order they came.
+    queue: VecDeque<Queued>,
 }
 
 struct Running {
@@ -29,6 +72,16 @@ struct Running {
 struct Inner {
     threads: HashMap<String, Thread>,
     running: HashMap<String, Running>,
+    /// Event numbers and the last events of each chat, kept after a reset
+    /// so numbers never go back.
+    logs: HashMap<String, Log>,
+    store: Option<Arc<Store>>,
+    files: Option<Arc<Attachments>>,
+    budgets: ChatBudgets,
+    /// The app is closing: nothing running goes back to idle.
+    closing: bool,
+    /// Counts snapshots, so an older one never replaces a newer one on disk.
+    rev: u64,
 }
 
 /// Every thread, shared by the commands and the turns they start.
@@ -44,7 +97,75 @@ pub struct Begun {
     pub session: Session,
     pub system: String,
     pub messages: Vec<Message>,
+    pub plan: Vec<PlanItem>,
     pub cancel: Arc<AtomicBool>,
+    pub changes: Changes,
+}
+
+fn now_ms() -> u64 {
+    Instant::now().millis
+}
+
+fn new_thread(now: Instant, day: &str, system: String) -> Thread {
+    let session = Session::start(CLIENT, now);
+    let changes = ChangeSet::new(
+        ulid_at(now.millis),
+        &session.id,
+        &session.client,
+        now.millis,
+    );
+    Thread {
+        session,
+        system,
+        day: day.to_owned(),
+        messages: Vec::new(),
+        changes: Arc::new(Mutex::new(changes)),
+        plan: Vec::new(),
+        status: Status::Idle,
+        created: now.millis,
+        updated: now.millis,
+        title: String::new(),
+        provider: String::new(),
+        model: String::new(),
+        settings: None,
+        writes: WriteMode::default(),
+        ui: None,
+        attachments: BTreeSet::new(),
+        queue: VecDeque::new(),
+    }
+}
+
+/// Gives every tool call that has no result one that says it did not run, so
+/// a thread the app closed on, or that was damaged, can be sent again.
+pub fn repair(messages: &mut Vec<Message>) {
+    let mut at = 0;
+    while at < messages.len() {
+        let wanted: Vec<String> = match &messages[at] {
+            Message::Assistant(reply) => reply.calls.iter().map(|c| c.id.clone()).collect(),
+            _ => Vec::new(),
+        };
+        if !wanted.is_empty() {
+            let missing = |have: &[ToolOutput]| -> Vec<ToolOutput> {
+                wanted
+                    .iter()
+                    .filter(|id| !have.iter().any(|r| &r.id == *id))
+                    .map(|id| ToolOutput {
+                        id: id.clone(),
+                        content: "Not run: the app closed before this call ran.".to_owned(),
+                        is_error: true,
+                    })
+                    .collect()
+            };
+            match messages.get_mut(at + 1) {
+                Some(Message::Results(have)) => {
+                    let more = missing(have);
+                    have.extend(more);
+                }
+                _ => messages.insert(at + 1, Message::Results(missing(&[]))),
+            }
+        }
+        at += 1;
+    }
 }
 
 impl Chats {
@@ -52,13 +173,39 @@ impl Chats {
         self.inner.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// The limits a turn runs within.
+    pub fn set_budgets(&self, budgets: ChatBudgets) {
+        self.lock().budgets = budgets;
+    }
+
+    pub fn budgets(&self) -> ChatBudgets {
+        self.lock().budgets
+    }
+
     /// Starts a turn in `chat`, and the thread with its session and
     /// prompt if this is its first. One turn at a time per thread.
+    #[cfg(test)]
     pub fn begin(
         &self,
         chat: &str,
         now: Instant,
         system: impl FnOnce() -> String,
+    ) -> Result<Begun, String> {
+        let mut system = Some(system);
+        self.begin_on(chat, now, "", |_| {
+            system.take().map(|f| f()).unwrap_or_default()
+        })
+    }
+
+    /// `begin`, on the day `today`: a thread whose prompt names another day
+    /// gets the prompt written again, so a chat kept for days is not told it is
+    /// still the day it began. An empty `today` leaves the prompt as it is.
+    pub fn begin_on(
+        &self,
+        chat: &str,
+        now: Instant,
+        today: &str,
+        mut system_for: impl FnMut(&str) -> String,
     ) -> Result<Begun, String> {
         let mut inner = self.lock();
         if inner.running.contains_key(chat) {
@@ -67,17 +214,21 @@ impl Chats {
         let thread = inner
             .threads
             .entry(chat.to_owned())
-            .or_insert_with(|| Thread {
-                session: Session::start(CLIENT, now),
-                system: system(),
-                messages: Vec::new(),
-            });
+            .or_insert_with(|| new_thread(now, today, system_for(today)));
+        if !today.is_empty() && thread.day != today {
+            thread.system = system_for(today);
+            thread.day = today.to_owned();
+        }
+        thread.status = Status::Running;
+        thread.updated = now.millis;
         let begun = Begun {
             turn: ulid_at(now.millis),
             session: thread.session.clone(),
             system: thread.system.clone(),
             messages: thread.messages.clone(),
+            plan: thread.plan.clone(),
             cancel: Arc::new(AtomicBool::new(false)),
+            changes: Arc::clone(&thread.changes),
         };
         let running = Running {
             turn: begun.turn.clone(),
@@ -85,21 +236,6 @@ impl Chats {
         };
         inner.running.insert(chat.to_owned(), running);
         Ok(begun)
-    }
-
-    /// Ends a turn. Its conversation is kept, unless the thread was reset
-    /// while it ran.
-    pub fn finish(&self, chat: &str, turn: &str, kept: Option<(&Session, Vec<Message>)>) {
-        let mut inner = self.lock();
-        if inner.running.get(chat).is_some_and(|r| r.turn == turn) {
-            inner.running.remove(chat);
-        }
-        if let Some((session, messages)) = kept
-            && let Some(thread) = inner.threads.get_mut(chat)
-            && thread.session.id == session.id
-        {
-            thread.messages = messages;
-        }
     }
 
     /// Stops the running turn, if there is one.
@@ -113,15 +249,68 @@ impl Chats {
         }
     }
 
-    /// Forgets the thread: its next turn starts a new conversation and a
-    /// new session, at once. A turn still running is stopped, and what it
-    /// had is not kept.
-    pub fn reset(&self, chat: &str) {
+    /// Takes the thread out of memory: its next turn starts a new conversation
+    /// and a new session. A turn still running is stopped, and what it had is
+    /// not kept. The thread's staged changes come back, for the caller to throw
+    /// away with it.
+    pub fn drop_thread(&self, chat: &str) -> Option<Changes> {
         let mut inner = self.lock();
         if let Some(running) = inner.running.remove(chat) {
             running.cancel.store(true, Ordering::SeqCst);
         }
-        inner.threads.remove(chat);
+        inner.threads.remove(chat).map(|thread| thread.changes)
+    }
+
+    /// Forgets the thread: its next turn starts a new conversation and a
+    /// new session, at once. A turn still running is stopped, and what it
+    /// had is not kept. The thread's staged changes come back, for the caller
+    /// to throw away with it.
+    pub fn reset(&self, chat: &str) -> Option<Changes> {
+        self.drop_thread(chat)
+    }
+
+    /// The thread's staged changes, if it has a thread.
+    pub fn changes(&self, chat: &str) -> Option<Changes> {
+        self.lock()
+            .threads
+            .get(chat)
+            .map(|thread| Arc::clone(&thread.changes))
+    }
+
+    /// Whether a turn is running in the thread.
+    pub fn running(&self, chat: &str) -> bool {
+        self.lock().running.contains_key(chat)
+    }
+
+    /// Takes the conversation back to its first `keep` questions: the
+    /// question after them and everything after it is forgotten, so the
+    /// model is asked it again, or asked another, as if the first had not
+    /// been. The thread's agent session, and what it changed, stay. A
+    /// conversation with no more than `keep` questions is left as it is.
+    /// Refused while a turn is running. Returns how many questions it has now.
+    pub fn rewind(&self, chat: &str, keep: usize) -> Result<usize, String> {
+        let mut inner = self.lock();
+        if inner.running.contains_key(chat) {
+            return Err("This chat is still answering; stop it first".to_owned());
+        }
+        let Some(thread) = inner.threads.get_mut(chat) else {
+            return Ok(0);
+        };
+        let questions = |messages: &[Message]| messages.iter().filter(|m| is_question(m)).count();
+        let cut = thread
+            .messages
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| is_question(m))
+            .nth(keep)
+            .map(|(at, _)| at);
+        if let Some(at) = cut {
+            thread.messages.truncate(at);
+        }
+        let left = questions(&thread.messages);
+        drop(inner);
+        self.persist(chat);
+        Ok(left)
     }
 
     /// The thread's conversation, for tests.
@@ -129,6 +318,11 @@ impl Chats {
     pub fn messages(&self, chat: &str) -> Option<Vec<Message>> {
         self.lock().threads.get(chat).map(|t| t.messages.clone())
     }
+}
+
+/// A message the person wrote, not one of the harness's own nudges.
+fn is_question(message: &Message) -> bool {
+    super::compact::asked_by_person(message)
 }
 
 /// The person's day as YYYY-MM-DD, when given well; else today in UTC.
@@ -144,105 +338,4 @@ pub fn day(given: Option<&str>) -> String {
     } else {
         Instant::now().rfc3339()[..10].to_owned()
     }
-}
-
-/// Ends a turn that was dropped half way (a panic, the app closing): the
-/// thread is free again and the window hears why.
-struct Guard {
-    chats: Chats,
-    events: Arc<dyn Events>,
-    chat: String,
-    turn: String,
-    armed: bool,
-}
-
-impl Drop for Guard {
-    fn drop(&mut self) {
-        if self.armed {
-            self.chats.finish(&self.chat, &self.turn, None);
-            let mut event = ChatEvent::new(&self.chat, &self.turn, EventKind::Error);
-            event.error = Some("The chat stopped unexpectedly".to_owned());
-            self.events.emit(event);
-        }
-    }
-}
-
-/// Starts a turn of `request` with `model`: its ids at once, and the work
-/// that answers it as events, for the caller to spawn.
-pub fn send<M: Model + 'static>(
-    chats: &Chats,
-    kasten: Arc<Kasten>,
-    events: Arc<dyn Events>,
-    model: M,
-    request: ChatRequest,
-) -> Result<(ChatTurn, impl Future<Output = ()> + Send + 'static), String> {
-    let chat = request.chat.trim().to_owned();
-    if chat.is_empty() {
-        return Err("A chat needs an id".to_owned());
-    }
-    if request.text.trim().is_empty() && request.context.is_empty() {
-        return Err("There is nothing to send".to_owned());
-    }
-    // As with MCP: without history, the chat's changes could not be undone.
-    if !kasten.has_history() {
-        return Err("This vault keeps no history, so the chat's changes could not be undone. Turn on history in Settings first.".to_owned());
-    }
-    let today = day(request.date.as_deref());
-    let begun = chats.begin(&chat, Instant::now(), || prompt::system(&today))?;
-    let answer = ChatTurn {
-        chat: chat.clone(),
-        session: begun.session.id.clone(),
-        turn: begun.turn.clone(),
-    };
-    let chats = chats.clone();
-    // Made before the work is first run, so dropping it unrun frees the thread too.
-    let guard = Guard {
-        chats: chats.clone(),
-        events: Arc::clone(&events),
-        chat: chat.clone(),
-        turn: begun.turn.clone(),
-        armed: true,
-    };
-    let work = async move {
-        // The whole guard, not just the field set below, lives in the work.
-        let mut guard = guard;
-        let (reader, session) = (Arc::clone(&kasten), begun.session.clone());
-        let (chips, text) = (request.context, request.text);
-        let message =
-            tokio::task::spawn_blocking(move || context::message(&reader, &session, &chips, &text))
-                .await
-                .unwrap_or_else(|err| format!("(The attached context could not be read: {err})"));
-        let tools = kasten_mcp::tools::specs();
-        let mut messages = begun.messages;
-        let before = messages.len();
-        messages.push(Message::User(message));
-        let turn = Turn {
-            kasten: &kasten,
-            session: &begun.session,
-            system: &begun.system,
-            tools: &tools,
-            events: events.as_ref(),
-            chat: &chat,
-            turn: &begun.turn,
-            cancel: &begun.cancel,
-        };
-        let ending = turn.run(&model, &mut messages).await;
-        // A turn that got no answer leaves no trace, so the message can be
-        // sent again.
-        if messages.len() == before + 1 {
-            messages.truncate(before);
-        }
-        chats.finish(&chat, &begun.turn, Some((&begun.session, messages)));
-        guard.armed = false;
-        let mut event = ChatEvent::new(&chat, &begun.turn, EventKind::Done);
-        match ending {
-            Ending::Done { stopped } => event.stopped = Some(stopped),
-            Ending::Error(message) => {
-                event.kind = EventKind::Error;
-                event.error = Some(message);
-            }
-        }
-        events.emit(event);
-    };
-    Ok((answer, work))
 }

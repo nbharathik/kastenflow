@@ -1,10 +1,13 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useShell } from "../../../lib/store";
+import { useChat } from "../../chat/store";
+import { resetChat, scriptedChat } from "../../chat/test-kit";
 import { useWorkspace } from "../../workspace/store";
 import { showSpot } from "../highlight-request";
 import { useSources } from "../store";
-import { FIRST, PRIMER, sampleVault, THIRD } from "../test-kit";
+import { FIRST, PRIMER, SECOND, sampleVault, THIRD } from "../test-kit";
 import PdfReader from "./PdfReader";
 
 // pdf.js stands in: two A4 pages whose text layer is one line each.
@@ -145,6 +148,37 @@ describe("the PDF reader", () => {
     await act(async () => fireEvent.click(within(pop).getByRole("button", { name: "Remove" })));
     expect(marks(FIRST)).toHaveLength(0);
     expect((await vault.highlights(PRIMER)).map((h) => h.id)).not.toContain(FIRST);
+  });
+
+  it("asks AI about the pages in view from the bar, in a chat that holds just those pages", async () => {
+    resetChat(scriptedChat());
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Ask AI about these pages…" }));
+    const form = screen.getByRole("dialog", { name: "Ask AI about these pages" });
+    expect((within(form).getByRole("textbox", { name: "Pages" }) as HTMLInputElement).value).toBe("1");
+    fireEvent.change(within(form).getByRole("textbox", { name: "Pages" }), { target: { value: "1-2" } });
+    act(() => fireEvent.click(within(form).getByRole("button", { name: "Ask in chat" })));
+    const thread = useChat.getState().threads[useChat.getState().active!]!;
+    expect(thread.context).toEqual([
+      { kind: "pdf", label: "A Zettelkasten primer · pp. 1-2 + 3 highlights", ref: [PRIMER, "pages:1-2", `highlights:${FIRST},${SECOND},${THIRD}`], origin: "added" },
+    ]);
+    expect(useShell.getState().chatOpen).toBe(true);
+  });
+
+  it("explains a highlight in the chat from its popover", async () => {
+    const chat = scriptedChat();
+    resetChat(chat);
+    const { page } = await open();
+    fireEvent.pointerUp(page(1), { button: 0, clientX: 100, clientY: 240 });
+    const pop = await screen.findByRole("dialog", { name: "Highlight" });
+    await act(async () => fireEvent.click(within(pop).getByRole("button", { name: "Explain" })));
+    expect(screen.queryByRole("dialog", { name: "Highlight" })).toBeNull();
+    await vi.waitFor(() => expect(chat.requests).toHaveLength(1));
+    // The Explain action, about that highlight on its page.
+    expect(chat.requests[0]).toMatchObject({
+      text: expect.stringContaining("Explain the selected text in plain language"),
+      context: [{ kind: "pdf", label: "A Zettelkasten primer · p. 1 + 1 highlight", ref: [PRIMER, "pages:1", `highlights:${FIRST}`] }],
+    });
   });
 
   it("scrolls to a spot asked for and flashes its highlight", async () => {

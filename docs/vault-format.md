@@ -67,7 +67,9 @@ My notes/
   sources/                       PDFs and their highlight files
   chats/                         saved chats
   templates/                     page templates (placeholders below)
+    ai/                          AI actions: Markdown prompts the chat and the editor run
   tags/                          one YAML schema per tag
+  views/                         one YAML file per saved collection (a saved search)
   assets/                        pasted and dropped images and files
   .trash/                        deleted notes, under their old paths
   .git/                          history of every change
@@ -82,6 +84,8 @@ My notes/
 A project is one folder: its page, its pages and cards, and its boards stay together, so it can be moved, shared or archived whole.
 
 A template in `templates/` fills these placeholders when a page starts from it: `{{title}}`, `{{project}}`, `{{date}}` (`2026-09-28`), `{{time}}` (`14:05`, the person's own time), `{{weekday}}` (`Monday`), `{{week}}` (`2026-W40`, the ISO week), `{{month}}` (`September`) and `{{year}}`. A page made without the person's time, as from the command line, gets the time in UTC, written `14:05 UTC`. `templates/journal.md` starts each journal day.
+
+A file in `templates/ai/` is an **AI action**, not a page template: Markdown whose frontmatter has `type: ai-action`, a `title`, an `icon`, `needs` and `optional` (what the action reads: `selection`, `page`, `nearby`, `sources`, `pdf`, `highlights`, `project` or `journal`), `writes` (`none`, `insert` or `propose`), `where` (`editor`, `chat`, `pdf`) and `version`, and whose body is the instruction. KastenFlow ships five; a file named like one of them (`Compare sources.md` is `compare-sources`) replaces it, and any other is added. They are left out of lists, search, backlinks, the graph and the template gallery, and an agent can only propose changes to them.
 
 ## Notes
 
@@ -137,6 +141,8 @@ Any other key, and any Markdown KastenFlow does not draw itself, is kept byte fo
 | `<details><summary>Title</summary> … </details>` | A toggle |
 | `<span style="color: red">…</span>` | Coloured text (`background-color` for highlighted text) |
 | `$x^2$`, `$$ … $$` | Maths, read as Pandoc reads it |
+| `[text](kasten:note/<id>#Heading)`, `kasten:note/<id>?section=Title&n=2`, `kasten:pdf/sources/paper.pdf?page=12&highlight=<id>`, `kasten:board/boards/plan.canvas?node=<id>`, `kasten:deck/library/talk.deck` | A link to a place: a page by its id (so a rename or a move does not break it) at a heading, a PDF at a page and highlight, a whiteboard at a card or section, a deck. Following one only opens it; one whose target is gone says so. "Copy link to this location" in a heading's, a highlight's or a section's menu writes one |
+| `[@vaswani2017attention]`, `[@key, p. 4]`, `[see @a; @b]`, `[-@key]` | A citation of a work in the bibliography, written as Pandoc writes it: inside square brackets, an `@` after the bracket, a space, a `;` or a `-`. An address (`a@b.com`), a link's text, a `[[wiki link]]`, code and the frontmatter hold none. See [The bibliography](#the-bibliography) |
 | `![](../assets/photo.png)` | An image or file in `assets/`, linked relatively |
 | `![1.50](../assets/photo.png)` | A picture with no alt text, shown at 1.5 times its size |
 
@@ -158,6 +164,80 @@ views:
 ```
 
 Property types: `text`, `number`, `select`, `multi_select`, `date`, `checkbox`, `url` and `relation` (note ids). View types: `table`, `kanban`, `list`, `calendar` and `gallery`. Comments and unknown keys in the file are kept.
+
+## Collections
+
+`views/<name>.yaml` is a saved search. It keeps the search, never the notes it finds: the app looks them up each time the collection opens.
+
+```yaml
+format: 1
+name: Recently changed research
+icon: book
+query: "#paper"
+when: {updated: last-30-days}
+filter:
+  - {key: status, op: is, value: Analysed}
+sort: [{key: updated, dir: desc}]
+display: {type: list, limit: 200}
+```
+
+- `query` is what the search box reads (words, `#tag`, `project:`, `under:`, `type:`). `when` names a day field (`updated`, `created` or `on`) and a span (`today`, `yesterday`, `this-week`, `last-7-days`, `last-30-days`, `this-month`, `last-month`, `this-year` or `next-7-days`), so it stays relative. `filter` and `sort` are a tag view's. `display` is a view `type` (a collection is drawn as a table, a list or a gallery), `columns` and a `limit`.
+- A change rewrites only the lines of the key it changes; comments and keys KastenFlow does not know stay. A file made by a newer version, or one that cannot be read, is listed with the reason and left as it is.
+- A person saves collections; an agent can read them. A collection moves to the trash and comes back like a page does.
+
+## Projects
+
+A project is a folder, `projects/<name>/`, with its page `_project.md` (type `project`). The Projects view reads these properties from the page's `props:`:
+
+```yaml
+props:
+  summary: One line on what the project is
+  archived: true            # hides it from the sidebar's list
+  status: Active            # Active, Paused or Done; no status reads as Active
+  health: At risk           # On track, At risk or Blocked
+  next_action: 01K5Y2N0...  # the id of a note tagged #task
+  last_review: 2026-10-01   # a day, YYYY-MM-DD
+  review_after: 2026-10-15  # the day the next review is due
+```
+
+KastenFlow writes `status`, `health`, `next_action`, `last_review` and `review_after` in one change that checks them first: the status and health are from their lists, the days are real days, the next action is a task note (the note is given an id if it has none, in the same commit) and a tag on the page may not define `status` or `health` with other options. A status written by hand that is not one of the three reads as "Other" and is left as it is. A project's tasks are its notes tagged `task`, counted by their `status` (Done or not) and their `due` day; its to-dos are the `- [ ]` lines in its notes.
+
+A **project update** is an ordinary page tagged `project-update` with a `date` property, made from the `project-update` template (Progress, Decisions, Blockers, Next action). The newest one, by its `date`, is the project's last update.
+
+**Triage and reviews** use ordinary properties and pages. A card put off in triage carries `review_after: 2026-10-15` in its `props:` (the same name a project uses for its review day): it is left out of the triage queue until that day and is otherwise untouched. A capture that was dealt with has `status: Filed` and may carry `reading: Unread`, `Reading` or `Finished` (the `capture` tag's own properties). A review saved as a note is an ordinary page tagged `review` with `props: {review: weekly, date: 2026-10-11}`; which days a review was marked done is not kept in the vault.
+
+A **project setup** (Research, Writing or Presentation) adds a few pages, a whiteboard and sometimes a deck to a project in one commit. Its files go under the project's folder (`pages/`, `boards/`, `decks/`); a tag schema it brings (`tags/reading.yaml`) goes in `tags/`. A file that is there already is never replaced, and an existing project page only gains the properties it lacks.
+
+### Project bundles
+
+A project can be exported to a **bundle**, a folder outside the vault that holds the project and what it uses, and imported into any vault. A bundle is plain files:
+
+```
+trip-bundle/
+  kastenflow-bundle.json      the manifest
+  projects/trip/              the project's folder, with its sidecars
+  assets/                     the pictures and files it uses, each with its .meta sidecar
+  sources/                    the PDFs it refers to, with their highlights
+  tags/                       the schemas of the tags its notes use
+  references.bib              the works it cites, as written, with the @string macros they use
+```
+
+The manifest lists every other file with its size and SHA-256:
+
+```json
+{
+  "format": "kastenflow-bundle",
+  "version": 1,
+  "made": "2026-10-11T09:00:00Z",
+  "app": "KastenFlow 1.2.0",
+  "project": {"folder": "trip", "title": "Trip", "id": "01K5Z000000000000000000001"},
+  "files": [{"path": "projects/trip/_project.md", "bytes": 61, "sha256": "…"}],
+  "references": ["vaswani2017attention"],
+  "outside": ["3 links lead to notes outside the project"]
+}
+```
+
+Nothing of the vault's history, `.kasten/`, trash, chats or settings goes in, nor other projects or files the project does not use. Exporting writes only into a new or empty folder outside the vault. Importing refuses a bundle with a file missing or changed, a path that is not plain or that is not the project's, `assets/`, `sources/`, `tags/` or `references.bib`, and a version newer than the program knows. What the vault already has is settled in the open: the project goes to a free folder name; notes with ids the vault has get new ones; a picture or PDF with the same name and the same bytes is used as it is, one with other bytes comes in under a free name; a tag schema the vault has is kept; a work with a key the vault has for another work comes in under a new key and the project's citations follow. The whole import is one change that undo takes back.
 
 ## Whiteboards
 
@@ -193,17 +273,41 @@ A diagram is two files side by side:
 
 - `name.drawio` is the source: the uncompressed `mxfile` XML that the diagram editor (draw.io) writes, kept as the editor wrote it (one element to a line, so a change shows in git as a few lines). Any draw.io app opens it. A diagram another program saved compressed is kept as it is until the editor saves it again, and the editor writes it uncompressed.
 - `name.drawio.svg` is its picture, an ordinary SVG that pages, slides and whiteboards show, so no editor is needed to see a diagram. Its last line is a comment, `<!-- kasten-source: 3f9a… -->`, naming the source it was drawn from: a picture whose comment does not match the source is out of date, and one that is missing is drawn again the next time the editor is at hand. The picture is derived: it can be deleted and drawn again.
+- A diagram an agent made or changed gets a **draft picture** from KastenFlow itself, so it shows at once without the editor: plain `<text>` and shapes, no scripts, and the source in the SVG's `content` attribute, so it is still a valid `.drawio.svg`. A comment, `<!-- kasten-draft -->`, just before the `kasten-source` line marks it. A draft is approximate (a library icon is drawn as a labelled box); the editor draws the exact picture the next time the diagram is open and replaces the draft, and a draft is never written over a picture the editor drew for the same source.
 
 The file name is the title with its case kept (`OAuth-flow.drawio` reads "OAuth flow"); a name already taken is numbered (`-2`). A diagram made without a project goes in `library/`; one made in a project goes in that project's `diagrams/`; one can sit anywhere else too.
 
 - The two files are written together or not at all, and they move, rename, duplicate, go to the trash and come back together. Links (`![[name.drawio]]`) and whiteboard cards that name a diagram follow it when it is renamed or moved.
 - A save never replaces a diagram that changed since it was read: the save goes to a copy beside it (`flow (conflict 2026-10-06 14-05).drawio`), and nothing is lost.
-- The source must be a well-formed `mxfile` (or `mxGraphModel`) with no entity declarations, at most 5 MB; the picture must be a well-formed SVG with no scripts. KastenFlow refuses what is not, and the check is run again when two computers' histories are merged.
-- An agent writes only the source (see the diagram tools in the user guide); it never writes the picture.
+- The source must be a well-formed `mxfile` (or `mxGraphModel`) with no entity declarations, at most 5 MB; the picture must be a well-formed SVG with no scripts, event handlers, external references or embedded pages (the editor's own HTML labels are allowed). KastenFlow refuses what is not, and the check is run again when two computers' histories are merged. An SVG exported by an agent has what is not allowed taken out first.
+- An agent changes the source with typed steps (see the diagram tools in the user guide), which keep every cell the steps did not touch byte for byte; KastenFlow draws the draft picture. An agent never writes the picture itself.
 
 ## Highlights and sources
 
 A PDF such as `sources/attention.pdf` has a sidecar, `sources/attention.highlights.json`. Each highlight has an id, a page, rectangles, the quoted text, a colour and, when it became a card, the card's id. That card has `type: highlight` and a `source` key.
+
+**Comments and web highlights** are sidecars that sit beside their page and go with it:
+
+- `name.comments.json` holds a page's comments (its `format` is `kasten-comments`): a `comments` array of `{id, anchor, text, author, created, resolved}`, one comment to a line. The `anchor` is `{section, nth, quote, prefix, suffix}`: the section it belongs to, which occurrence of the quoted words, and the words with a little text before and after. `resolved` is `{at, by}` once someone resolved it. There is no delete; a comment is resolved.
+- `name.highlights.json` beside a page kept from the web (a note with a `url`) holds highlights of its text (its `format` is `kasten-text-highlights`): a `highlights` array of `{id, anchor, color, comment, created}` with the same kind of anchor and the PDF reader's colours. A note under `sources/` that is named like a PDF never takes that PDF's own `.highlights.json`.
+- An anchor is re-found conservatively: one exact match of the quote places it, several are told apart by the exact text before and after, and otherwise the comment or highlight is shown as detached and nothing is guessed. Keys a version does not know are kept when the file is written again.
+- The page and its sidecars are one thing: renaming, moving, nesting, converting, duplicating (the sidecar is copied), trashing (with sub-pages) and restoring a page do the same to them in the same commit, so Undo carries them too. `verify` reports a sidecar whose page is gone, or one that cannot be read.
+
+## The bibliography
+
+The works a page or a deck cites are the entries of the vault's `.bib` files, read as BibTeX is read: odd spacing, a missing comma or an entry that never closes costs the entries around it nothing. A key in two files is the first file's.
+
+`sources/references.bib` is the **managed** file, the one KastenFlow writes; it may not exist until a reference is first added. Every other `.bib` file is **read only**: it is listed and cited from, and a copy of its entries (as written, with the `@string` macros they use) can be made into the managed file. An edit changes only the bytes it means to: a value inside its braces or quotes, a new field as a line after the last one, a field taken out with its line, a key; comments, macros, fields KastenFlow does not know, spacing and line endings stay. A new entry is written two-space indented, one field to a line, each value in braces, with a trailing comma:
+
+```bibtex
+@article{vaswani2017attention,
+  author = {Vaswani, Ashish and Shazeer, Noam},
+  title = {Attention is all you need},
+  year = {2017},
+}
+```
+
+A new key is letters, digits and `_ - : . / + ? < > ~ & $`, starting and ending with a letter, digit or `_`, so it can be written as `[@key]` in a page. A reference whose key, DOI or arXiv number is in the bibliography already is refused unless it is said to be another work. Renaming a key is one change to the managed file, the `[@key]` citations of pages, the `citationKey` of pictures' sidecars and the citations on decks' slides; citations in a deck's master or layouts are left.
 
 ## Images and attachments
 

@@ -2,6 +2,7 @@
 //! them in house style, and keeping their cards on notes that move: a
 //! move rewrites every board reference.
 
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -31,8 +32,9 @@ fn board_file(vault: &Vault, rel: &str) -> Result<PathBuf> {
     vault.file_of(rel, &[".canvas"])
 }
 
-/// The first free `folder/name.canvas`, `folder/name-2.canvas`, …
-fn free_path(vault: &Vault, folder: &str, name: &str) -> String {
+/// The first free `folder/name.canvas`, `folder/name-2.canvas`, …, passing
+/// over `taken`, paths a staged change means to use.
+fn free_path(vault: &Vault, folder: &str, name: &str, taken: &HashSet<String>) -> String {
     let mut n = 1;
     loop {
         let path = if n == 1 {
@@ -41,7 +43,7 @@ fn free_path(vault: &Vault, folder: &str, name: &str) -> String {
             format!("{folder}/{name}-{n}.canvas")
         };
         // Anything already there, even a broken link, takes the name.
-        if fs::symlink_metadata(vault.root().join(&path)).is_err() {
+        if !taken.contains(&path) && fs::symlink_metadata(vault.root().join(&path)).is_err() {
             return path;
         }
         n += 1;
@@ -53,6 +55,20 @@ fn free_path(vault: &Vault, folder: &str, name: &str) -> String {
 /// returns its path. The file is named by the title's slug, numbered when
 /// taken; no existing file is ever replaced.
 pub fn create_board(vault: &Vault, title: &str, project: Option<&str>) -> Result<String> {
+    let (path, text) = plan_board(vault, title, project, &HashSet::new())?;
+    create_atomic(&board_file(vault, &path)?, text.as_bytes())?;
+    Ok(path)
+}
+
+/// Where `create_board` would put the board and what it would hold, with
+/// nothing written; `taken` are paths a staged change means to use. The pure
+/// step of `create_board`, which a staged change shares.
+pub fn plan_board(
+    vault: &Vault,
+    title: &str,
+    project: Option<&str>,
+    taken: &HashSet<String>,
+) -> Result<(String, String)> {
     let title = title.trim();
     if title.is_empty() || title.contains(['[', ']', '|', '\n', '\r']) {
         return Err(Error::Invalid(
@@ -63,23 +79,25 @@ pub fn create_board(vault: &Vault, title: &str, project: Option<&str>) -> Result
         vault,
         &kind_folder(vault, project, "boards")?,
         &slugify(title),
+        taken,
     );
-    create_atomic(
-        &board_file(vault, &path)?,
-        Canvas::new(title).to_text().as_bytes(),
-    )?;
-    Ok(path)
+    board_file(vault, &path)?;
+    Ok((path, Canvas::new(title).to_text()))
+}
+
+/// The text of the board at `path`.
+pub fn board_text(vault: &Vault, path: &str) -> Result<String> {
+    let file = board_file(vault, path)?;
+    fs::read_to_string(&file).map_err(|err| match err.kind() {
+        io::ErrorKind::NotFound => Error::NotFound(path.to_owned()),
+        io::ErrorKind::InvalidData => invalid("not UTF-8 text"),
+        _ => Error::Io(err),
+    })
 }
 
 /// The board at `path`.
 pub fn read_board(vault: &Vault, path: &str) -> Result<Canvas> {
-    let file = board_file(vault, path)?;
-    let text = fs::read_to_string(&file).map_err(|err| match err.kind() {
-        io::ErrorKind::NotFound => Error::NotFound(path.to_owned()),
-        io::ErrorKind::InvalidData => invalid("not UTF-8 text"),
-        _ => Error::Io(err),
-    })?;
-    Canvas::parse(&text)
+    Canvas::parse(&board_text(vault, path)?)
 }
 
 /// Writes `canvas` to `path` in house style, atomically, replacing the

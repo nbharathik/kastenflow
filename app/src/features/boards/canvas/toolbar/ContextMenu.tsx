@@ -6,6 +6,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { boardLink } from "../../../../lib/kasten-links";
 import { motionMs } from "../../../../lib/motion";
 import { boxOf } from "../../../browser/bounds";
 import { useOccludes } from "../../../browser/occlusion";
@@ -267,6 +268,7 @@ function MenuItems({ menu, close, view }: { menu: Menu; close: () => void; view:
       {single?.file?.endsWith(".canvas") && !single.missing && <Item label="Open this board" hint="Double-click" onSelect={run(() => board.deps.enter(single.file!))} />}
       {single?.kind === "file" && single.file?.endsWith(".drawio") && !single.missing && <Item label="Edit diagram" hint="Double-click" onSelect={run(() => openFile(board, single.file!, "here"))} />}
       {single && ((single.kind === "text" && !single.draw) || single.kind === "group" || single.kind === "link") && <Item label={single.kind === "group" ? "Rename section" : "Edit"} hint="Enter" onSelect={run(() => board.store.setState({ editing: single.id }))} />}
+      {single?.kind === "group" && <Item label="Copy link to this location" onSelect={run(() => navigator.clipboard?.writeText(boardLink(board.path, single.id)))} />}
       {cards.length > 0 && (
         <>
           <Divider />

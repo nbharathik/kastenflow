@@ -1,9 +1,12 @@
 //! What the server tells an agent about decks when it connects: how a vault
-//! keeps them and what Kasten does with an agent's changes, then the deck
-//! conventions, the elements, the lint rules and the order of work, which are
-//! slides-core's and the same in every place decks are served.
+//! keeps them and what Kasten does with an agent's changes, whether it can
+//! see the slides, then the deck conventions, the elements, the lint rules
+//! and the order of work, which are slides-core's and the same in every place
+//! decks are served.
 
-use slides_core::agent;
+use slides_core::agent::{self, Facts};
+
+use super::render;
 
 /// What is different about decks in a vault.
 const IN_A_VAULT: &str = "SLIDE DECKS
@@ -15,9 +18,16 @@ The vault also holds slide decks: .deck files in library/ or in a project's deck
 - Citation keys are checked against the .bib files in the vault; with none, they are not checked.
 - deck_from_note makes a deck from a note of the vault: each heading becomes a slide with the note's list on it and the note's prose as the speaker notes, its pictures become picture slides, and the citation keys the .bib files know become the slides' footers with a references slide at the end. `include_linked` also turns the notes it links to into sections. Use it to start a talk from what the person has written, then refine slide by slide and run lint_deck after every batch.
 - What you make or change in a deck is marked for the person, with a small star on each element and on the slide in the filmstrip, until they accept it or change it themselves. You cannot accept marks or take them off, so do not try; say which slides you changed so the person knows where to look.
-- render_slide and render_grid are not available yet: you cannot see the slides. Lint is your eyes; tell the person what it could not check.
-
 ";
+
+/// Whether the agent can see the slides it builds, in this program.
+fn seeing(facts: &Facts) -> &'static str {
+    if facts.render {
+        "- render_slide and render_grid draw slides as pictures where Chrome, Chromium or Edge is installed; draw one picture at a time. When a drawing fails (no browser, or too many at once) you cannot see the slides just then: lint is your eyes, so trust it, and tell the person what you could not check. server_status says whether slides can be drawn here.\n"
+    } else {
+        "- This program does not draw slides, so you cannot see them. Lint is your eyes; tell the person what it could not check.\n"
+    }
+}
 
 /// The deck conventions from slides-core's instructions: everything from the
 /// description of a deck to the order of work. What it says of a folder, of
@@ -29,21 +39,34 @@ fn conventions(all: &str) -> &str {
     }
 }
 
-/// The deck part of the server's instructions.
+/// The deck part of the server's instructions for a program with these facts.
+pub(crate) fn instructions_for(facts: &Facts) -> String {
+    format!(
+        "{IN_A_VAULT}{}\n{}",
+        seeing(facts),
+        conventions(&agent::instructions_for(facts))
+    )
+}
+
+/// The deck part of the server's instructions for this program: what it can do
+/// is worked out once per process, without starting a browser.
 pub(crate) fn instructions() -> String {
-    format!("{IN_A_VAULT}{}", conventions(&agent::instructions()))
+    instructions_for(&render::facts())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const SEEING: Facts = Facts { render: true };
+    const BLIND: Facts = Facts { render: false };
+
     #[test]
     fn the_conventions_come_from_slides_core_and_the_vault_notes_come_first() {
-        let text = instructions();
+        let text = instructions_for(&SEEING);
         assert!(text.starts_with("SLIDE DECKS\n"));
         for phrase in [
-            "960 by 540",
+            "16:9 960x540",
             "lint_deck",
             "create_deck",
             "HOW TO WORK",
@@ -63,16 +86,65 @@ mod tests {
     }
 
     #[test]
+    fn every_page_size_and_theme_is_named_and_the_tables_operations() {
+        let text = instructions_for(&SEEING);
+        for (name, w, h) in slides_core::resize::PAGE_SIZES {
+            assert!(text.contains(&format!("{name} {w}x{h}")), "{name}");
+        }
+        for theme in slides_core::themes::all() {
+            assert!(text.contains(&theme.name), "{}", theme.name);
+        }
+        for op in ["set_cells", "insert_rows", "merge_cells", "unmerge_cells"] {
+            assert!(text.contains(op), "{op}");
+        }
+    }
+
+    #[test]
     fn nothing_about_a_folder_of_decks_or_copies_beside_a_deck_is_left() {
-        let text = instructions();
+        for facts in [SEEING, BLIND] {
+            let text = instructions_for(&facts);
+            assert!(
+                !text.contains("saved as a copy beside"),
+                "the hash paragraph is for folders"
+            );
+            assert!(
+                !text.contains("LIMITS"),
+                "slides mcp's limits are not this server's"
+            );
+            assert!(!text.contains("not available yet"), "{text}");
+            assert!(!text.contains("not built yet"), "{text}");
+        }
+    }
+
+    #[test]
+    fn the_words_about_seeing_slides_follow_what_the_program_can_do() {
+        let seeing = instructions_for(&SEEING);
         assert!(
-            !text.contains("saved as a copy beside"),
-            "the hash paragraph is for folders"
+            seeing.contains("render_slide and render_grid draw slides")
+                && seeing.contains("Then look: render_slide")
+                && seeing.contains("server_status"),
+            "{seeing}"
         );
-        assert!(
-            !text.contains("LIMITS"),
-            "slides mcp's limits are not this server's"
+        let blind = instructions_for(&BLIND);
+        assert!(!blind.contains("render_slide"), "{blind}");
+        assert!(!blind.contains("render_grid"), "{blind}");
+        assert!(blind.contains("does not draw slides"), "{blind}");
+        assert!(blind.contains("lint_deck"));
+    }
+
+    #[test]
+    fn this_program_is_told_what_it_was_built_to_do() {
+        assert_eq!(
+            instructions(),
+            instructions_for(&Facts {
+                render: render::built()
+            })
         );
-        assert!(!text.contains("not built yet"), "{text}");
+        assert_eq!(
+            render::facts(),
+            Facts {
+                render: render::built()
+            }
+        );
     }
 }

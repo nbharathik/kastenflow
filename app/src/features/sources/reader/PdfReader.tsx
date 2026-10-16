@@ -15,6 +15,7 @@ import { useSpotRequests, type Spot } from "../highlight-request";
 import { hits, lineBoxes, pdfRects, viewBox, type Transform } from "../pdf/geometry";
 import { openPdf } from "../pdf/load";
 import { useSources, useSourceTitle } from "../store";
+import { AskAboutPages } from "./AskAboutPages";
 import { HighlightList } from "./HighlightList";
 import { HighlightPop } from "./HighlightPop";
 import { PdfFind } from "./PdfFind";
@@ -269,6 +270,7 @@ export default function PdfReader({ path }: { path: string }) {
         onGo={go}
         outline={outline}
         onFind={() => setFinding(true)}
+        ask={doc ? <AskAboutPages source={path} title={title} current={current} pages={doc.numPages} highlights={highlights} /> : null}
         clipping={clipping}
         onClip={() => {
           setClipping((on) => !on);

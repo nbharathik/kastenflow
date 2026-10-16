@@ -40,6 +40,8 @@ export interface SlidesClip {
   sections: { title: string; startsAt: string }[];
   /** Where the elements that take their place from a layout were (by slide id, then element id), for a deck that has no such layout. */
   pins: Record<string, Record<string, Box>>;
+  /** The size of the slides of the deck they were copied from: a deck of another size has them refitted when they are pasted. Absent in a copy made before sizes were kept. */
+  size?: { w: number; h: number };
   cut: boolean;
 }
 
@@ -69,14 +71,14 @@ export const newStamp = (): string => `c-${Date.now().toString(36)}${Math.random
 
 // ---- the JSON, as text that can sit in an attribute
 
-function toBase64(text: string): string {
+export function toBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
 }
 
-function fromBase64(text: string): string {
+export function fromBase64(text: string): string {
   const binary = atob(text);
   return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
 }
@@ -91,7 +93,12 @@ export function decode(json: string | undefined | null): Clip | null {
     const found = JSON.parse(json) as { v?: number; kind?: string; stamp?: unknown; elements?: unknown; slides?: unknown; sections?: unknown; pins?: unknown } | null;
     if (!found || found.v !== 2 || typeof found.stamp !== "string") return null;
     if (found.kind === "elements" && Array.isArray(found.elements) && found.elements.length > 0) return found as unknown as ElementsClip;
-    if (found.kind === "slides" && Array.isArray(found.slides) && found.slides.length > 0) return { ...found, sections: found.sections ?? [], pins: found.pins ?? {} } as unknown as SlidesClip;
+    if (found.kind === "slides" && Array.isArray(found.slides) && found.slides.length > 0) {
+      // A size that is not two positive numbers is not a size.
+      const { size, ...rest } = found as typeof found & { size?: { w?: unknown; h?: unknown } };
+      const sized = size && typeof size.w === "number" && typeof size.h === "number" && size.w > 0 && size.h > 0 ? { size: { w: size.w, h: size.h } } : {};
+      return { ...rest, sections: found.sections ?? [], pins: found.pins ?? {}, ...sized } as unknown as SlidesClip;
+    }
     return null;
   } catch {
     return null;

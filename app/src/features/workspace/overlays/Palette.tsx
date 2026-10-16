@@ -13,6 +13,7 @@ import { Modal } from "../../../ui/Modal";
 import { isArchived } from "../project-order";
 import { whereIfShared } from "../where";
 import { howFrom, useWorkspace, type OpenHow } from "../store";
+import { newCollectionFromQuery } from "../../collections/requests";
 import { searchLibrary } from "../../library/request";
 import { tagPlace } from "../../tags/place";
 import { findByTitle, noteAt, tagCounts } from "../tree";
@@ -286,9 +287,11 @@ function buildRows(notes: NoteMeta[], boards: readonly BoardInfo[], recent: stri
       ? []
       : [{ key: "create", icon: lineIcon("page-plus"), label: `New page “${q}”`, run: () => void create({ kind: "page", title: q }) }];
   const everything: Row = { key: "search", icon: lineIcon("search"), label: `Search everything for “${q}”`, hint: keyLabel(keymap, "search") || undefined, run: () => searchLibrary(q) };
-  if (q.startsWith("#")) return [...tags, everything];
+  // The search kept under a name, asked for from the same box.
+  const keep: Row = { key: "collection", icon: lineIcon("filter"), label: `Save “${q}” as a collection…`, run: () => newCollectionFromQuery(q) };
+  if (q.startsWith("#")) return [...tags, everything, keep];
   // A board named just so comes first; others follow the pages.
   const exact = boardRows.filter((r) => r.label.toLowerCase() === q.toLowerCase());
   const others = boardRows.filter((r) => !exact.includes(r));
-  return [...exact, ...byTitle, ...others, ...pdfRows(sources, q), ...tags, ...settingsRows(q), ...strong.slice(0, 5), ...inText, ...weak.slice(0, Math.max(0, 5 - strong.length)), ...extra, everything];
+  return [...exact, ...byTitle, ...others, ...pdfRows(sources, q), ...tags, ...settingsRows(q), ...strong.slice(0, 5), ...inText, ...weak.slice(0, Math.max(0, 5 - strong.length)), ...extra, everything, keep];
 }

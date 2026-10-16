@@ -3,13 +3,14 @@
 // operating system's Edit send as well. Anything that has a clipboard of its own (a field, the text box being written, the outline, the
 // images drawer, a dialog) keeps it: the event is left alone there.
 
-import { type ClipboardEvent, type RefObject, useEffect } from "react";
+import { type ClipboardEvent as ReactClipboardEvent, type RefObject, useEffect } from "react";
 
 import type { CommandContext } from "../commands/types.ts";
 import { contentsOf, writeTo } from "./format.ts";
 import { pasteContents } from "./paste.ts";
 import { placeOf } from "./place.ts";
 import { latest, recall, takeInPlace } from "./store.ts";
+import { writeCells } from "./table.ts";
 import { wordsOf } from "./words.ts";
 
 /**
@@ -23,7 +24,7 @@ export function useNativeClipboard(root: RefObject<HTMLElement | null>, context:
     const element = root.current;
     if (!element) return;
     const enabling = (kind: "copy" | "cut" | "paste") => (event: Event) => {
-      const place = placeOf(event.target, context.ui);
+      const place = placeOf(event.target, context.ui, context.session);
       if (place === "own") return;
       if (kind !== "paste" && place === "elements" && context.session.state.selection.length === 0) return;
       event.preventDefault();
@@ -36,12 +37,13 @@ export function useNativeClipboard(root: RefObject<HTMLElement | null>, context:
   }, [root, context]);
 }
 
-/** A copy or a cut of the blocks or the slides, put on the event. Anything it does not take is left to the browser. */
-export function copyEvent(event: ClipboardEvent<HTMLElement>, context: CommandContext, cut: boolean): void {
+/** A copy or a cut of the blocks, the slides or the cells picked in a table, put on the event. Anything it does not take is left to the browser. */
+export function copyEvent(event: ReactClipboardEvent<HTMLElement>, context: CommandContext, cut: boolean): void {
   if (event.defaultPrevented) return;
-  const place = placeOf(event.target, context.ui);
+  const place = placeOf(event.target, context.ui, context.session);
   if (place === "own") return;
   const { session } = context;
+  if (place === "cells") return copyCells(event, context, cut);
   const clip = place === "slides" ? (cut ? session.slideClipboard.cut() : session.slideClipboard.copy()) : cut ? session.clipboard.cut() : session.clipboard.copy();
   // Nothing selected: nothing to put there, and the browser may copy the words that are picked in a panel.
   if (!clip || !event.clipboardData) return;
@@ -49,10 +51,22 @@ export function copyEvent(event: ClipboardEvent<HTMLElement>, context: CommandCo
   event.preventDefault();
 }
 
-/** A paste: what Kasten copied, a picture, or words, where the pointer is. */
-export function pasteEvent(event: ClipboardEvent<HTMLElement>, context: CommandContext): void {
+/**
+ * A copy or a cut of the cells picked in a table: their words as tab separated text, and as a table in HTML that carries their own words and
+ * looks. It is no copy of blocks, so the blocks this window last copied are left as they were. A cut empties the cells once they are on the event.
+ */
+function copyCells(event: ReactClipboardEvent<HTMLElement>, context: CommandContext, cut: boolean): void {
+  const texts = context.session.tables.copy();
+  if (!texts || !event.clipboardData) return;
+  writeCells(event.clipboardData, texts);
+  event.preventDefault();
+  if (cut) context.session.tables.clear();
+}
+
+/** A paste: what Kasten copied, a picture, or words, where the pointer is; cells, when cells of a table are picked. */
+export function pasteEvent(event: ReactClipboardEvent<HTMLElement>, context: CommandContext): void {
   if (event.defaultPrevented) return;
-  if (placeOf(event.target, context.ui) === "own") return;
+  if (placeOf(event.target, context.ui, context.session) === "own") return;
   const read = contentsOf(event.clipboardData);
   // A webview that keeps only the words: what this window last copied, when the words are the same.
   let contents = read.clip ? read : { ...read, clip: recall(read.text) };
@@ -61,4 +75,21 @@ export function pasteEvent(event: ClipboardEvent<HTMLElement>, context: CommandC
   event.preventDefault();
   const inPlace = takeInPlace();
   void pasteContents(context, contents, { inPlace });
+}
+
+/**
+ * A browser event of the clipboard that did not come through React (a listener on the window, for keys that fall on the page), shaped as
+ * `copyEvent` and `pasteEvent` read it. `target` is the place it is meant for, where the event's own is the page.
+ */
+const reactOf = (event: ClipboardEvent, target: HTMLElement | null): ReactClipboardEvent<HTMLElement> =>
+  ({ defaultPrevented: event.defaultPrevented, target: target ?? event.target, clipboardData: event.clipboardData, preventDefault: () => event.preventDefault() }) as unknown as ReactClipboardEvent<HTMLElement>;
+
+/** `copyEvent` for a browser event of the clipboard: a copy (or a cut) on `target`. */
+export function copyNative(event: ClipboardEvent, context: CommandContext, cut: boolean, target: HTMLElement | null = null): void {
+  copyEvent(reactOf(event, target), context, cut);
+}
+
+/** `pasteEvent` for a browser event of the clipboard: a paste on `target`. */
+export function pasteNative(event: ClipboardEvent, context: CommandContext, target: HTMLElement | null = null): void {
+  pasteEvent(reactOf(event, target), context);
 }

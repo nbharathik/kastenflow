@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { MAX_BYTES, MENU_ITEMS, build, fit, parseTags, requestFromMenu } from "../../../../../browser-extension/src/capture";
+import { MAX_BYTES, MENU_ITEMS, build, buildPaper, fit, parseTags, requestFromMenu } from "../../../../../browser-extension/src/capture";
 import type { PageRead } from "../../../../../browser-extension/src/env";
 import { isWebPage } from "../../../../../browser-extension/src/page";
 import { READ, TAB } from "./kit";
@@ -91,6 +91,23 @@ describe("a capture", () => {
     const plain = build({ ...base, read: { ...READ, selectionHtml: "" }, what: "selection", title: "T".repeat(500) });
     expect([plain.kept, plain.request.text, plain.request.html]).toEqual(["selection", "One idea per note.", undefined]);
     expect(plain.request.title).toHaveLength(300);
+  });
+});
+
+describe("a paper", () => {
+  const tags = { meta: [["citation_title", "Attention is all you need"], ["citation_author", "Vaswani, Ashish"]] as [string, string][], ld: ['{"@type":"ScholarlyArticle"}'] };
+
+  it("is the page's address and title with its tags, and nothing of its text", () => {
+    expect(buildPaper({ url: "https://example.com/a", title: "  A page  ", tags })).toEqual({ url: "https://example.com/a", title: "A page", paper: tags });
+  });
+
+  it("drops tags from the end, never the request, when the page has more than fit", () => {
+    const many = { meta: Array.from({ length: 400 }, (_, i): [string, string] => [`n${i}`, "x".repeat(6000)]), ld: [] };
+    const request = buildPaper({ url: "https://example.com/a", title: "A page", tags: many });
+    expect(size(request)).toBeLessThanOrEqual(MAX_BYTES);
+    expect(request.paper!.meta.length).toBeGreaterThan(0);
+    expect(request.paper!.meta.length).toBeLessThan(400);
+    expect(request.paper!.meta[0]).toEqual(["n0", "x".repeat(6000)]);
   });
 });
 

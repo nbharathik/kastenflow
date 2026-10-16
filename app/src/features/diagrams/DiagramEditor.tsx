@@ -7,6 +7,8 @@ import { useWorkspace } from "../workspace/store";
 import { DiagramImage } from "./DiagramImage";
 import { DrawioFrame } from "./DrawioFrame";
 import { InstallNotice } from "./InstallNotice";
+import { DiagramAiTools } from "./ai/AiTools";
+import { useReloadOnChange } from "./ai/reload";
 import { useDiagramEditor } from "./editor";
 import { copyPng, downloadPng, downloadSvg } from "./exports";
 import { titleOfPath } from "./names";
@@ -97,6 +99,14 @@ export function DiagramEditor({ path, onMoved, onClose, onOpenInTab, ui }: Edito
   const title = titleOfPath(shown);
   const installed = info?.installed ?? false;
 
+  // A change applied from the chat while this editor is open: loaded when nothing here is unsaved, else the person is told.
+  useReloadOnChange({
+    client,
+    session,
+    onLoaded: () => useWorkspace.getState().toast(`“${title}” changed, and the editor now shows it.`),
+    onKept: () => useWorkspace.getState().toast(`“${title}” changed elsewhere. Your unsaved edits are kept, and saving puts them in a copy beside it.`),
+  });
+
   return (
     <div className="kasten-diagram-editor">
       <div className="flex min-h-11 items-center gap-2 border-b border-line px-3 py-1.5">
@@ -106,6 +116,7 @@ export function DiagramEditor({ path, onMoved, onClose, onOpenInTab, ui }: Edito
           {statusWords(status)}
         </span>
         <div className="ml-auto flex items-center gap-1">
+          {!problem && <DiagramAiTools diagram={{ path: shown, title }} session={session} canTidy={installed && status !== null && status.kind !== "loading"} />}
           <Menu
             label={`Export or copy ${title}`}
             buttonClass="ui-icon-btn"

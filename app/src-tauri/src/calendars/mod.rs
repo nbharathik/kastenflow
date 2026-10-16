@@ -5,18 +5,23 @@
 //! back to the calendar, and nothing is written to the vault.
 //!
 //! - `ics` reads feeds, with its own parser and recurrence code;
-//! - `fetch` gets a feed over the web (conditional, limited);
+//! - `fetch` gets a feed over the web (conditional, limited) with the clients
+//!   of `client` (the computer's proxy settings apply);
 //! - `store` keeps the list, the addresses (in the keychain) and the copies;
-//! - `service` and `refresh` are what the commands do, and `commands` the
-//!   Tauri side.
+//! - `service`, `refresh` and `jobs` are what the commands do, and `commands`
+//!   the Tauri side.
 
+mod client;
 pub mod commands;
 mod fetch;
 pub mod ics;
+mod jobs;
 mod refresh;
 mod service;
 mod store;
 
+#[cfg(test)]
+mod jobs_tests;
 #[cfg(test)]
 mod service_tests;
 #[cfg(test)]

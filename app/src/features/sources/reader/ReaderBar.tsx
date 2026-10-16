@@ -3,7 +3,7 @@
 // goes back to fitting the width), the clip tool's switch, and the highlights
 // list.
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { Popup } from "../../pages/page/Popup";
 import { Icon } from "../../../ui/Icon";
@@ -28,6 +28,8 @@ interface Props {
   /** Whether the clip tool is on. */
   clipping: boolean;
   onClip(): void;
+  /** The button that asks AI about pages of this PDF (AskAboutPages). */
+  ask?: ReactNode;
 }
 
 /** "Page 3 of 12", which becomes a field to type another page into. */
@@ -99,7 +101,7 @@ function Outline({ items, onGo }: { items: readonly OutlineItem[]; onGo(page: nu
   );
 }
 
-export function ReaderBar({ title, page, pages, scale, fitted, onZoom, count, listOpen, onList, onGo, outline, onFind, clipping, onClip }: Props) {
+export function ReaderBar({ title, page, pages, scale, fitted, onZoom, count, listOpen, onList, onGo, outline, onFind, clipping, onClip, ask }: Props) {
   const step = (dir: 1 | -1) => {
     const next = dir > 0 ? ZOOMS.find((z) => z > scale + 0.001) : [...ZOOMS].reverse().find((z) => z < scale - 0.001);
     if (next) onZoom(next);
@@ -128,6 +130,7 @@ export function ReaderBar({ title, page, pages, scale, fitted, onZoom, count, li
           <Icon name="plus" className="size-4" />
         </button>
       </div>
+      {ask}
       <button type="button" className="kasten-reader-toggle" aria-pressed={clipping} disabled={pages === 0} title="Clip a figure to the gallery: drag a box around it" onClick={onClip}>
         Clip
       </button>

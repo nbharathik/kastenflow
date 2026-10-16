@@ -1,0 +1,80 @@
+{
+  "about": "How an agent is pointed at a vault: what `kasten-mcp --setup` prints and what Settings shows. The program (crates/kasten-mcp, src/setup.rs) and the app (app/src/features/workspace/views/settings/connect.ts) are both tested against this file, so the two cannot drift apart.",
+  "url": "http://127.0.0.1:7433/mcp",
+  "urlConfig": {
+    "mcpServers": {
+      "kasten": {
+        "type": "http",
+        "url": "http://127.0.0.1:7433/mcp",
+        "headers": { "Authorization": "Bearer <token>" }
+      }
+    }
+  },
+  "tokenPaths": [
+    ["/home/me/Notes/", "/home/me/Notes/.kasten/cache/mcp-token"],
+    ["C:\\Users\\me\\Notes", "C:\\Users\\me\\Notes\\.kasten\\cache\\mcp-token"]
+  ],
+  "cases": [
+    {
+      "name": "the program on the PATH, a vault with a space in its name",
+      "command": "kasten-mcp",
+      "args": [],
+      "vault": "/home/me/My Notes",
+      "claudeCode": "claude mcp add --scope user kasten -- kasten-mcp --vault \"/home/me/My Notes\"",
+      "mcpConfig": {
+        "mcpServers": {
+          "kasten": { "command": "kasten-mcp", "args": ["--vault", "/home/me/My Notes"] }
+        }
+      },
+      "httpCommand": "kasten-mcp --vault \"/home/me/My Notes\" --http"
+    },
+    {
+      "name": "the program installed on Windows",
+      "command": "C:\\Program Files\\KastenFlow\\kasten-mcp.exe",
+      "args": [],
+      "vault": "C:\\Users\\me\\Notes",
+      "claudeCode": "claude mcp add --scope user kasten -- \"C:\\Program Files\\KastenFlow\\kasten-mcp.exe\" --vault \"C:\\Users\\me\\Notes\"",
+      "mcpConfig": {
+        "mcpServers": {
+          "kasten": {
+            "command": "C:\\Program Files\\KastenFlow\\kasten-mcp.exe",
+            "args": ["--vault", "C:\\Users\\me\\Notes"]
+          }
+        }
+      },
+      "httpCommand": "\"C:\\Program Files\\KastenFlow\\kasten-mcp.exe\" --vault \"C:\\Users\\me\\Notes\" --http"
+    },
+    {
+      "name": "the desktop app as the server, a quote in the vault's name",
+      "command": "/usr/bin/kasten-app",
+      "args": ["--mcp"],
+      "vault": "/home/me/Say \"hi\"",
+      "claudeCode": "claude mcp add --scope user kasten -- /usr/bin/kasten-app --mcp --vault \"/home/me/Say \\\"hi\\\"\"",
+      "mcpConfig": {
+        "mcpServers": {
+          "kasten": {
+            "command": "/usr/bin/kasten-app",
+            "args": ["--mcp", "--vault", "/home/me/Say \"hi\""]
+          }
+        }
+      },
+      "httpCommand": "/usr/bin/kasten-app --mcp --vault \"/home/me/Say \\\"hi\\\"\" --http"
+    },
+    {
+      "name": "the desktop app installed on Windows",
+      "command": "C:\\Program Files\\Kasten\\kasten-app.exe",
+      "args": ["--mcp"],
+      "vault": "C:\\Notes",
+      "claudeCode": "claude mcp add --scope user kasten -- \"C:\\Program Files\\Kasten\\kasten-app.exe\" --mcp --vault \"C:\\Notes\"",
+      "mcpConfig": {
+        "mcpServers": {
+          "kasten": {
+            "command": "C:\\Program Files\\Kasten\\kasten-app.exe",
+            "args": ["--mcp", "--vault", "C:\\Notes"]
+          }
+        }
+      },
+      "httpCommand": "\"C:\\Program Files\\Kasten\\kasten-app.exe\" --mcp --vault \"C:\\Notes\" --http"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import "./blank-day.css";
 
 import { longDay } from "../../lib/dates";
 import { Button } from "../../ui/Button";
+import { usePrefs } from "../workspace/prefs";
 import { useWorkspace } from "../workspace/store";
 
 /** The day a journal page's path names (`journal/2026/2026-10-02.md`). */
@@ -13,8 +14,10 @@ export const journalDayOf = (path: string) => /^journal\/\d{4}\/(\d{4}-\d{2}-\d{
 
 /** `onMade` hears where the page was made, once it is. */
 export function BlankDay({ day, onMade }: { day: string; onMade?: (path: string) => void }) {
+  // Laid out like the page it will become: the width preference decides the column.
+  const full = usePrefs((s) => s.fullWidth);
   return (
-    <div className="kasten-journal-blank">
+    <div className={`kasten-journal-blank${full ? " is-full-width" : ""}`}>
       <div className="kasten-page-column">
         <h1>{longDay(day)}</h1>
         <p>Nothing was written on this day.</p>

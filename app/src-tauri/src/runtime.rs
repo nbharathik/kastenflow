@@ -16,6 +16,12 @@ use crate::crash;
 
 /// Starts the watcher and the clock; the watcher stops when dropped.
 pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
+    // Every change to the vault's files, whoever made it, moves a counter the
+    // window's views watch. The core calls this once its write lock is free.
+    let counted = app.clone();
+    kasten.on_revision(move |revision| {
+        let _ = counted.emit_to(MAIN, "vault-revision", &revision);
+    });
     let events = app.clone();
     let for_watch = Arc::clone(&kasten);
     let watcher = watch(kasten.root(), move |paths| {

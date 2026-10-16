@@ -3,7 +3,18 @@
 
 import type { Undone } from "./types";
 
-export type ImportKind = "obsidian" | "markdown" | "notion" | "heptabase";
+export type ImportKind = "obsidian" | "markdown" | "notion" | "heptabase" | "bundle";
+
+/** What a bundle's import had to settle because the vault has the same thing already. */
+export type ImportConflictKind = "project" | "id" | "asset" | "source" | "tag" | "key";
+
+export interface ImportConflict {
+  kind: ImportConflictKind;
+  /** The thing, such as a folder, a file name, a tag or a citation key. */
+  what: string;
+  /** What the import does about it, in a sentence. */
+  resolution: string;
+}
 
 export interface ImportOptions {
   /** What the folder is; found from its files when left out. */
@@ -29,6 +40,8 @@ export interface ImportSummary {
   tags: number;
   /** What did not come across as it was, in sentences. */
   warnings: string[];
+  /** What the import settled because the vault had the same thing already (bundles only). */
+  conflicts?: ImportConflict[];
 }
 
 export interface Imported {

@@ -40,6 +40,15 @@ impl Grid {
             line[col..col + across].fill(true);
         }
     }
+
+    /// Whether a cell covers the place; a place outside the grid is not covered.
+    fn covered(&self, r: usize, col: usize) -> bool {
+        self.taken
+            .get(r)
+            .and_then(|line| line.get(col))
+            .copied()
+            .unwrap_or(false)
+    }
 }
 
 fn span_of(value: Option<u32>) -> usize {
@@ -185,5 +194,15 @@ impl TableEl {
     }
 }
 
+mod grid;
+mod grid_edit;
+
+pub use grid::{CellRect, Matrix, Owners, Place, Placed, empty_cell};
+pub use grid_edit::Along;
+
+#[cfg(test)]
+mod grid_props;
+#[cfg(test)]
+mod grid_tests;
 #[cfg(test)]
 mod tests;

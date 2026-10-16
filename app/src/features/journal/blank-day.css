@@ -1,8 +1,14 @@
 /* A journal day nobody wrote in (BlankDay.tsx), in the journal and in a peek. */
 
 .kasten-journal-blank {
-  --page-width: 708px;
+  /* The page's own column, in rem like the page's, and the whole width when pages are set to use it. */
+  --page-width: 44.25rem;
   --page-gutter: 96px;
+
+  &.is-full-width {
+    --page-width: 100%;
+  }
+
   height: 100%;
   overflow-y: auto;
   padding-top: 96px;

@@ -1,0 +1,48 @@
+/* "Diagram changed — Refresh" over a picture of a diagram that changed after the picture was drawn (DiagramBadges.tsx).
+   Drawn over the slide, never in it, in the editor's own colours so it reads on any slide. */
+.ks-diagram-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+.ks-diagram-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 3px 2px 8px;
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-canvas);
+  color: var(--ks-ink);
+  box-shadow: var(--ks-shadow-pop);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+}
+.ks-diagram-badge-text {
+  padding-right: 4px;
+  color: var(--ks-muted);
+}
+.ks-diagram-badge button {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--ks-radius);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--ks-fast) var(--ks-ease);
+}
+.ks-diagram-badge button:hover:not(:disabled) {
+  background: var(--ks-hover);
+}
+.ks-diagram-badge button:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-diagram-badge button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

@@ -6,27 +6,23 @@
 //! `pending_review` in place of the tool's own answer.
 
 use std::collections::BTreeMap;
-use std::fs;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use kasten_core::agent::{AgentOp, Session};
+use kasten_core::agent::{AgentOp, ChangeSet, Session};
 use kasten_core::assets::NewAsset;
 use kasten_core::deck::REPLACES_DECK;
-use kasten_core::{Error, Instant, Kasten, Outcome};
+use kasten_core::{Error, Instant, Kasten};
 use serde_json::Value;
 use slides_core::Deck;
 use slides_core::agent::{
-    AssetInfo, DeckInfo, DeckText, Imported, Saved, Store, StoreError, StoreResult, Written,
+    AssetInfo, DeckInfo, DeckText, Draw, Drawn, Imported, Saved, Store, StoreError, StoreResult,
+    Written,
 };
-use slides_core::lint::Refs;
+use slides_core::lint::{Measures, Refs};
 
-use super::{marks, pptx};
-
-/// The largest file `read_file` reads: a PowerPoint file with pictures in it.
-const MOST_BYTES: u64 = 64 * 1024 * 1024;
-
-/// The kinds of file an agent may name by path: pictures to keep, and PowerPoint files to import.
-const READABLE: [&str; 7] = ["png", "jpg", "jpeg", "gif", "webp", "svg", "pptx"];
+use super::render::{self, Ask};
+use super::{marks, pptx, store_files};
 
 /// A write that waits for a person to decide.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +32,7 @@ pub(super) struct Review {
 }
 
 /// What a write came to.
-enum Ran {
+pub(super) enum Ran {
     Done(Value),
     Waiting,
 }
@@ -55,13 +51,20 @@ pub(super) struct Request {
 }
 
 pub(super) struct KastenStore<'a> {
-    kasten: &'a Kasten,
+    pub(super) kasten: &'a Kasten,
     session: Option<&'a Session>,
-    request: Request,
+    pub(super) request: Request,
     /// The decks the tool has read, by path: the versions its changes are made to.
     reads: BTreeMap<String, DeckText>,
     /// Set when a write went to review.
     pub review: Option<Review>,
+    /// A chat that previews its changes: the set its writes go into and its
+    /// reads see (store_stage.rs).
+    pub(super) stage: Option<&'a Mutex<ChangeSet>>,
+    /// Set when whoever asked no longer wants the answer (the MCP client
+    /// withdrew the request, the person pressed Stop): a picture not yet
+    /// started is never drawn, and one that was is thrown away.
+    cancel: Option<&'a AtomicBool>,
 }
 
 /// A core error as the tools' store reports it.
@@ -90,19 +93,8 @@ pub(super) fn recorded_as(tool: &str, args: &Value) -> String {
     if replaces { REPLACES_DECK } else { tool }.to_owned()
 }
 
-/// A file's name without its folders or its `.deck`.
-fn stem_of(path: &str) -> &str {
-    let name = path.rsplit('/').next().unwrap_or(path);
-    name.strip_suffix(".deck").unwrap_or(name)
-}
-
-fn waiting() -> StoreError {
+pub(super) fn waiting() -> StoreError {
     StoreError::Unavailable("This change waits for the person's review.".to_owned())
-}
-
-/// Whether a core error says several decks share a title.
-fn ambiguous(error: &Error) -> bool {
-    matches!(error, Error::Invalid(why) if why.starts_with("Several decks"))
 }
 
 impl<'a> KastenStore<'a> {
@@ -113,75 +105,29 @@ impl<'a> KastenStore<'a> {
             request,
             reads: BTreeMap::new(),
             review: None,
+            stage: None,
+            cancel: None,
         }
     }
 
-    fn session(&self) -> StoreResult<&'a Session> {
+    /// The store of a call that can be withdrawn while it waits to draw.
+    pub(super) fn cancelled_by(mut self, flag: Option<&'a AtomicBool>) -> Self {
+        self.cancel = flag;
+        self
+    }
+
+    fn ask(&self) -> Ask<'a> {
+        Ask {
+            kasten: self.kasten,
+            stage: self.stage,
+            cancel: self.cancel,
+        }
+    }
+
+    pub(super) fn session(&self) -> StoreResult<&'a Session> {
         self.session.ok_or_else(|| {
             StoreError::Unavailable("A change needs a session, and this call has none.".to_owned())
         })
-    }
-
-    /// The path of the deck a tool names: a vault path as `list_decks` shows
-    /// it, or the deck's title, or its file's name. The tools add `.deck` to
-    /// what they are given, so a title arrives with it.
-    fn resolve(&self, name: &str) -> StoreResult<String> {
-        let name = name.trim();
-        match self.kasten.resolve_deck(name) {
-            Ok(path) => return Ok(path),
-            Err(error) if ambiguous(&error) => return Err(failed(error)),
-            Err(_) => {}
-        }
-        if let Some(stem) = name.strip_suffix(".deck") {
-            match self.kasten.resolve_deck(stem) {
-                Ok(path) => return Ok(path),
-                Err(error) if ambiguous(&error) => return Err(failed(error)),
-                Err(_) => {}
-            }
-            let decks = self.kasten.decks().map_err(failed)?;
-            let same: Vec<&str> = decks
-                .iter()
-                .filter(|d| stem_of(&d.path) == stem)
-                .map(|d| d.path.as_str())
-                .collect();
-            match same.as_slice() {
-                [one] => return Ok((*one).to_owned()),
-                [] => {}
-                many => {
-                    return Err(StoreError::Invalid(format!(
-                        "Several decks have that file name; name one by path: {}.",
-                        many.join(", ")
-                    )));
-                }
-            }
-        }
-        Err(StoreError::NotFound(format!(
-            "There is no deck called “{}”. list_decks shows the decks there are.",
-            name.trim_end_matches(".deck")
-        )))
-    }
-
-    /// The deck at `path` as it is now.
-    fn fetch(&self, path: &str) -> StoreResult<DeckText> {
-        let file = self.kasten.deck(path).map_err(failed)?;
-        Ok(DeckText {
-            name: file.path,
-            text: file.text,
-            hash: file.hash,
-        })
-    }
-
-    /// Runs an op in the session; a review is kept.
-    fn run(&mut self, op: &AgentOp) -> StoreResult<Ran> {
-        let session = self.session()?;
-        match self.kasten.agent_run(session, op, Instant::now()) {
-            Ok(Outcome::Done { result }) => Ok(Ran::Done(result)),
-            Ok(Outcome::PendingReview { proposal, reason }) => {
-                self.review = Some(Review { proposal, reason });
-                Ok(Ran::Waiting)
-            }
-            Err(error) => Err(failed(error)),
-        }
     }
 }
 
@@ -197,6 +143,7 @@ fn entropy_now() -> u64 {
 impl Store for KastenStore<'_> {
     fn decks(&mut self) -> StoreResult<Vec<DeckInfo>> {
         let mut decks = self.kasten.decks().map_err(failed)?;
+        decks.extend(self.staged_decks());
         decks.sort_by(|a, b| b.modified.cmp(&a.modified).then(a.path.cmp(&b.path)));
         Ok(decks
             .into_iter()
@@ -284,7 +231,7 @@ impl Store for KastenStore<'_> {
     }
 
     fn assets(&mut self) -> StoreResult<Vec<AssetInfo>> {
-        Ok(self
+        let mut assets: Vec<AssetInfo> = self
             .kasten
             .assets()
             .map_err(failed)?
@@ -293,19 +240,27 @@ impl Store for KastenStore<'_> {
                 path: a.path,
                 bytes: a.bytes,
             })
-            .collect())
+            .collect();
+        assets.extend(self.staged_assets());
+        Ok(assets)
     }
 
     /// A picture goes to `assets/` with a note of who added it. Adding one is
     /// not a change that needs review: nothing existing is touched, and the
-    /// session's undo takes it out again.
+    /// session's undo takes it out again. A chat that previews its changes
+    /// holds the picture with them instead.
     fn add_asset(&mut self, name: &str, bytes: &[u8]) -> StoreResult<String> {
         let session = self.session()?;
+        // An SVG is cleaned of scripts and outside links; anything else is kept as it is.
+        let bytes = store_files::clean_picture(name, bytes)?;
+        if self.stage.is_some() {
+            return self.stage_picture(name, &bytes);
+        }
         self.kasten
             .add_asset(
                 &session.actor(),
                 name,
-                bytes,
+                &bytes,
                 &NewAsset::default(),
                 Instant::now(),
             )
@@ -314,12 +269,10 @@ impl Store for KastenStore<'_> {
     }
 
     fn read_asset(&mut self, path: &str) -> StoreResult<Vec<u8>> {
-        self.kasten.read_asset(path).map_err(|error| match error {
-            Error::NotFound(_) => StoreError::NotFound(format!(
-                "There is no picture `{path}`. search_assets lists the pictures."
-            )),
-            other => failed(other),
-        })
+        if let Some(bytes) = self.staged_asset(path)? {
+            return Ok(bytes);
+        }
+        store_files::read_asset(self.kasten, path)
     }
 
     fn entropy(&mut self) -> u64 {
@@ -334,12 +287,15 @@ impl Store for KastenStore<'_> {
 
     fn make_pptx(&mut self, deck: &Deck) -> StoreResult<(Vec<u8>, Vec<String>)> {
         let refs = self.references();
-        pptx::export(self.kasten, deck, refs.as_ref())
+        pptx::export(self.kasten, self.stage, deck, refs.as_ref())
     }
 
     /// A PowerPoint file goes to `assets/`, kept as the session's; nothing is written over.
     fn write_export(&mut self, deck: &str, extension: &str, bytes: &[u8]) -> StoreResult<Written> {
         let session = self.session()?;
+        if self.stage.is_some() {
+            return self.stage_export(deck, extension, bytes);
+        }
         pptx::keep_export(self.kasten, &session.actor(), deck, extension, bytes)
     }
 
@@ -350,6 +306,9 @@ impl Store for KastenStore<'_> {
     fn import_pptx(&mut self, path: &str, title: Option<&str>) -> StoreResult<Imported> {
         let bytes = self.read_file(path)?;
         let seed = self.entropy();
+        if self.stage.is_some() {
+            return self.stage_import(path, &bytes, title, seed);
+        }
         let (made, read) = pptx::import_deck(
             self.kasten,
             self.session()?,
@@ -368,27 +327,18 @@ impl Store for KastenStore<'_> {
 
     /// A picture or a PowerPoint file of the vault, by its path.
     fn read_file(&mut self, path: &str) -> StoreResult<Vec<u8>> {
-        let lower = path.to_ascii_lowercase();
-        if !READABLE.iter().any(|e| lower.ends_with(&format!(".{e}"))) {
-            return Err(StoreError::Invalid(format!(
-                "`{path}` is not a picture or a PowerPoint file. PNG, JPEG, GIF, WebP and SVG pictures and .pptx files can be read from the vault."
-            )));
-        }
-        let file = self.kasten.vault().file_of(path, &[""]).map_err(|_| {
-            StoreError::Invalid(format!("`{path}` is not a path inside the vault."))
-        })?;
-        let meta = fs::metadata(&file)
-            .ok()
-            .filter(fs::Metadata::is_file)
-            .ok_or_else(|| {
-                StoreError::NotFound(format!("There is no file `{path}` in the vault."))
-            })?;
-        if meta.len() > MOST_BYTES {
-            return Err(StoreError::Invalid(format!(
-                "`{path}` is larger than {} MB.",
-                MOST_BYTES / 1024 / 1024
-            )));
-        }
-        fs::read(file).map_err(|e| StoreError::Io(e.to_string()))
+        store_files::read_file(self.kasten, path)
+    }
+
+    /// A slide, or all of them, drawn with the vault's pictures where this
+    /// program can draw (see `render`).
+    fn draw(&mut self, deck: &Deck, what: Draw) -> StoreResult<Drawn> {
+        render::draw(&self.ask(), deck, what)
+    }
+
+    /// The text laid out by a browser when this program has one, else `None`
+    /// and lint estimates.
+    fn measure(&mut self, deck: &Deck) -> Option<Measures> {
+        render::measure(&self.ask(), deck)
     }
 }

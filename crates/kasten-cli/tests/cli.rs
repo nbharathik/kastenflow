@@ -293,6 +293,46 @@ fn imports_a_folder_of_notes_and_undoes_it() {
 }
 
 #[test]
+fn import_names_bundle_among_its_kinds() {
+    let dir = temp("import-kinds");
+    let vault = dir.0.join("vault");
+    assert!(kasten(&["init", s(&vault)]).status.success());
+    let plain = dir.0.join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    std::fs::write(plain.join("a.md"), "A note\n").unwrap();
+
+    // `bundle` is a kind that can be asked for; a folder without the manifest says what is missing.
+    let asked = kasten(&[
+        "import",
+        s(&plain),
+        "--kind",
+        "bundle",
+        "--vault",
+        s(&vault),
+    ]);
+    assert!(!asked.status.success());
+    assert!(
+        text(&asked).contains("not a KastenFlow bundle"),
+        "{}",
+        text(&asked)
+    );
+    // A kind that does not exist lists the ones that do, bundle among them.
+    let wrong = kasten(&[
+        "import",
+        s(&plain),
+        "--kind",
+        "evernote",
+        "--vault",
+        s(&vault),
+    ]);
+    assert!(!wrong.status.success());
+    assert!(text(&wrong).contains("bundle"), "{}", text(&wrong));
+    // The usage line names it too.
+    let nothing = kasten(&["import", "--vault", s(&vault)]);
+    assert!(text(&nothing).contains("bundle"), "{}", text(&nothing));
+}
+
+#[test]
 fn verify_reaches_the_backup_remote_only_when_asked() {
     let dir = temp("remote");
     let vault = s(&dir.0);

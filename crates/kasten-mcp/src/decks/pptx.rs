@@ -3,7 +3,9 @@
 //! gives it the vault's pictures to read and takes the pictures it finds to
 //! `assets/`, where every picture of a vault lives.
 
-use kasten_core::agent::{DeckImport, Session};
+use std::sync::Mutex;
+
+use kasten_core::agent::{ChangeSet, DeckImport, Session};
 use kasten_core::assets::NewAsset;
 use kasten_core::history::Actor;
 use kasten_core::{Instant, Kasten};
@@ -15,12 +17,19 @@ use slides_pptx::{Media, Options, export_with};
 
 use super::marks;
 use super::store::{Request, failed};
+use crate::tools::locked;
 
-/// The pictures of a deck, read from the vault's `assets/`.
-struct Pictures<'a>(&'a Kasten);
+/// The pictures of a deck, read from the vault's `assets/`, and from the
+/// pictures a chat has staged and not yet applied.
+struct Pictures<'a>(&'a Kasten, Option<&'a Mutex<ChangeSet>>);
 
 impl Media for Pictures<'_> {
     fn read(&self, path: &str) -> Option<Vec<u8>> {
+        if let Some(set) = self.1
+            && let Ok(Some(bytes)) = self.0.staged_asset_bytes(&locked(set), path)
+        {
+            return Some(bytes);
+        }
         self.0.read_asset(path).ok()
     }
 }
@@ -41,10 +50,11 @@ fn describe(slide: &Option<String>, element: &Option<String>, message: &str) -> 
 /// the editor shows them when the vault has a bibliography.
 pub(super) fn export(
     kasten: &Kasten,
+    staged: Option<&Mutex<ChangeSet>>,
     deck: &Deck,
     refs: Option<&Refs>,
 ) -> StoreResult<(Vec<u8>, Vec<String>)> {
-    let made = export_with(deck, &Pictures(kasten), &Options::default(), refs)
+    let made = export_with(deck, &Pictures(kasten, staged), &Options::default(), refs)
         .map_err(|e| StoreError::Invalid(e.to_string()))?;
     let warnings = made
         .warnings

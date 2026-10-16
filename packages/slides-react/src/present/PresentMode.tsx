@@ -24,6 +24,7 @@ import { animateMorph, matchSlides } from "./runtime/morph.js";
 import { ScrollView } from "./ScrollView.tsx";
 import { PresentStore } from "./store.ts";
 import type { PresentSync } from "./sync.ts";
+import { WebPreviewPanel } from "./WebPreviewPanel.tsx";
 import "./present.css";
 
 export interface PresentModeProps {
@@ -38,6 +39,8 @@ export interface PresentModeProps {
   sync?: PresentSync | null;
   /** What the S key does. */
   onPresenter?: () => void;
+  /** The talk is a rehearsal: the presenter's window is told, with the deck, to start timing it. This window shows nothing of it. */
+  rehearse?: boolean;
   /** What the F key does, where the host has a better full screen than the page's own. */
   fullscreen?: () => void;
   /** The slides one at a time (the default), or the deck as one page that scrolls, with its notes. */
@@ -69,7 +72,7 @@ function locator(plan: Plan): (number: number) => [number, number] | null {
   return (number) => bySlide.get(Math.min(Math.max(Math.trunc(number) || 1, 1), plan.count)) ?? null;
 }
 
-function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscreen, matte = "black", pages }: PresentModeProps): JSX.Element {
+function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", pages }: PresentModeProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const store = useMemo(() => new PresentStore(startPosition(plan, start)), [plan, start]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -88,8 +91,11 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
 
   useLayoutEffect(() => installRevealCss(), []);
 
-  // The links of the slides: to another slide, to a page of the host (a calm panel at the side, which Esc puts away), or out to the web.
+  // The links of the slides: to another slide, to a page of the host (a calm panel at the side, which Esc puts away), or out to the web
+  // (a peek the host draws at the side, which Esc steps back out of; or the person's own browser where the host has no peek).
   const [panel, setPanel] = useState<{ path: string; section: string | null } | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const openOutside = useCallback((address: string) => (pages?.openUrl ? pages.openUrl(address) : openInWindow(address)), [pages]);
   const ways = useMemo<LinkWays>(
     () => ({
       slide: (id) => {
@@ -97,10 +103,22 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
         const at = number === undefined ? null : locator(plan)(number);
         if (at && reveal) reveal.slide(at[0], at[1]);
       },
-      ...(pages?.pagePanel ? { page: (path: string, section: string | null) => setPanel({ path, section }) } : {}),
-      web: (address) => (pages?.openUrl ? pages.openUrl(address) : openInWindow(address)),
+      ...(pages?.pagePanel
+        ? {
+            page: (path: string, section: string | null) => {
+              setPreview(null);
+              setPanel({ path, section });
+            },
+          }
+        : {}),
+      web: (address) => {
+        // One thing at the side at a time: the page panel gives way to the peek.
+        if (!pages?.webPreview) return openOutside(address);
+        setPanel(null);
+        setPreview(address);
+      },
     }),
-    [plan, reveal, pages],
+    [plan, reveal, pages, openOutside],
   );
   const follow = useCallback((href: string) => followLink(href, ways), [ways]);
   const context = useMemo(() => ({ pages, onLink: follow }), [pages, follow]);
@@ -172,7 +190,11 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
   // The presenter's window: it gets the deck when it asks, and the two follow each other.
   useEffect(() => {
     if (!reveal || !sync) return;
-    const introduce = () => sync.post({ type: "deck", deck, images: imagesOf(deck, imageUrl), state: reveal.getState(), since: since.current });
+    const introduce = () => {
+      sync.post({ type: "deck", deck, images: imagesOf(deck, imageUrl), state: reveal.getState(), since: since.current });
+      // Said with every deck: the presenter's window may open after the talk began, and hears it when it asks.
+      if (rehearse) sync.post({ type: "rehearse" });
+    };
     const stop = sync.subscribe((message) => {
       if (message.type === "hello") introduce();
       else if (message.type === "state") {
@@ -187,7 +209,7 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
     });
     introduce();
     return stop;
-  }, [reveal, sync, deck, imageUrl]);
+  }, [reveal, sync, deck, imageUrl, rehearse]);
 
   // The slide is whole and centred at its own proportions whatever the screen is; what is left round it is the matte.
   const bars = useMemo(() => matteColor(deck, matte), [deck.theme, matte]);
@@ -234,6 +256,9 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, fullscree
             stage.current?.focus({ preventScroll: true });
           }}
         />
+      ) : null}
+      {preview && pages?.webPreview ? (
+        <WebPreviewPanel host={pages.webPreview} url={preview} surface="show" onClose={() => setPreview(null)} openExternally={openOutside} returnTo={() => stage.current} />
       ) : null}
     </div>
   );

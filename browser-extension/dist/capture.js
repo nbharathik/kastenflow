@@ -69,6 +69,15 @@ export function build({ url, title, read, what, target, tags }) {
     }
     return { request: base, kept: "link", cut: false };
 }
+/** The request "Save as paper" sends: the page's address and title with its tags and nothing of its text. Tags are dropped from the end, never the request refused, if the page has so many that it would not fit. */
+export function buildPaper({ url, title, tags }) {
+    const base = { url, title: title.trim().slice(0, 300) };
+    let meta = tags.meta;
+    const request = () => ({ ...base, paper: { meta, ld: tags.ld } });
+    while (size(request()) > MAX_BYTES && meta.length > 0)
+        meta = meta.slice(0, Math.floor(meta.length / 2));
+    return request();
+}
 /** What a picture's capture holds: its address, as a picture, in the page it is on. */
 const pictureHtml = (src) => `<p><img src="${src.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}" alt=""></p>`;
 /** Right-click menu entries: an id, what it says and where it shows. */

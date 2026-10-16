@@ -1,10 +1,11 @@
 // A thread's messages, the latest at the bottom. While an answer streams the
 // list keeps to the bottom, unless you scrolled up to read.
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, type ReactNode } from "react";
 
 import { chipKey, type Message, type Thread } from "../thread";
 import { MessageRow } from "./Message";
+import { PlanList } from "./PlanList";
 import { SessionBar } from "./SessionBar";
 
 /** Within this many pixels of the bottom counts as at the bottom. */
@@ -42,6 +43,7 @@ export function MessageList({ thread, empty }: { thread: Thread; empty: ReactNod
 
   // A question shows its context where it starts or changes.
   let before: string | null = "";
+  const last = thread.messages[thread.messages.length - 1];
   return (
     <div
       ref={scroller}
@@ -61,8 +63,20 @@ export function MessageList({ thread, empty }: { thread: Thread; empty: ReactNod
               const context = contextOf(message);
               const shown = context !== null && context !== before;
               if (context !== null) before = context;
-              return <MessageRow key={message.id} message={message} thread={thread.id} contextShown={shown} />;
+              return (
+                <Fragment key={message.id}>
+                  {/* The plan sits above the answer it belongs to: the newest. */}
+                  {message === last && message.role === "assistant" && thread.plan && thread.plan.length > 0 && <PlanList plan={thread.plan} />}
+                  <MessageRow message={message} thread={thread.id} contextShown={shown} />
+                </Fragment>
+              );
             })}
+            {thread.queued?.map((text, i) => (
+              <div key={`${i}:${text}`} className="kasten-chat-question is-pending" aria-label="Waiting to be sent">
+                <p className="kasten-chat-bubble">{text}</p>
+                <p className="kasten-chat-pending">Will be sent at the next step</p>
+              </div>
+            ))}
           </div>
         )}
         <SessionBar thread={thread} />

@@ -2,10 +2,14 @@
 // clipboard (the words of a text box being written, a field, the outline, the images drawer, a dialog), which is left to the browser.
 
 import type { CommandContext } from "../commands/types.ts";
+import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 
-/** What copying and pasting is about here. `own`: the thing under the focus does it itself. */
-export type Place = "slides" | "elements" | "own";
+/** What copying and pasting is about here. `cells`: the cells picked in a table. `own`: the thing under the focus does it itself. */
+export type Place = "slides" | "elements" | "cells" | "own";
+
+/** Whether cells are picked in a table and no cell is open for writing: then copying, cutting and pasting are about the cells. */
+const cellsPicked = (session: Pick<EditorSession, "state"> | undefined): boolean => session !== undefined && session.state.cells !== null && session.state.editing === null;
 
 /** What takes its own copy and paste: a field, the editor of a text box, a dialog, a menu, the images drawer. */
 const OWN = "input, textarea, select, [contenteditable]:not([contenteditable='false']), .ks-dialog, .ks-gallery, .ks-popover, [role='menu']";
@@ -19,8 +23,11 @@ const hasWordsSelected = (): boolean => {
   return picked !== null && !picked.isCollapsed && picked.toString().trim() !== "";
 };
 
-/** Where an event whose target is `target` is meant, or a key's, a menu's: the place the focus is in. */
-export function placeOf(target: EventTarget | null, ui: EditorUi): Place {
+/**
+ * Where an event whose target is `target` is meant, or a key's, a menu's: the place the focus is in. Given the `session`, cells picked in a
+ * table make it `cells`; without it, a caller that only asks whether the thing under the focus is `own` gets the same answer as before.
+ */
+export function placeOf(target: EventTarget | null, ui: EditorUi, session?: Pick<EditorSession, "state">): Place {
   const element = target instanceof Element ? target : null;
   if (element?.closest(OWN)) return "own";
   // A text box open for writing is the text editor's, even with the focus on a button beside it.
@@ -28,10 +35,11 @@ export function placeOf(target: EventTarget | null, ui: EditorUi): Place {
   if (ui.state.view === "outline") return "own";
   if (element?.closest(WORDS) && hasWordsSelected()) return "own";
   if (ui.state.view === "grid" || element?.closest(SLIDES)) return "slides";
-  return "elements";
+  return cellsPicked(session) ? "cells" : "elements";
 }
 
 /** Where a menu's Copy, Cut or Paste is meant: where the focus last was in the editor (the menu itself has the focus now). */
-export function placeFor({ ui }: Pick<CommandContext, "ui">): Exclude<Place, "own"> {
-  return ui.state.view === "grid" || ui.areas.focused?.closest(SLIDES) ? "slides" : "elements";
+export function placeFor({ ui, session }: Pick<CommandContext, "ui" | "session">): Exclude<Place, "own"> {
+  if (ui.state.view === "grid" || ui.areas.focused?.closest(SLIDES)) return "slides";
+  return cellsPicked(session) ? "cells" : "elements";
 }

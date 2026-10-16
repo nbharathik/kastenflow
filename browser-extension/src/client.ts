@@ -2,7 +2,7 @@
 // words a person can act on. No cookies, no referrer, never to any other address.
 
 import type { Fetch } from "./env.js";
-import type { CaptureRequest, Paired, Saved, Targets } from "./model.js";
+import type { CaptureRequest, Existing, Paired, Saved, Targets } from "./model.js";
 
 /** What kind of trouble a request ran into. */
 export type Trouble =
@@ -20,6 +20,8 @@ export type Trouble =
   | "too-big"
   /** Too many requests in a minute. */
   | "busy"
+  /** The page is saved already; nothing was written. `existing` names the cards. */
+  | "saved"
   | "other";
 
 export class KastenError extends Error {
@@ -27,6 +29,7 @@ export class KastenError extends Error {
     readonly trouble: Trouble,
     message: string,
     readonly status = 0,
+    readonly existing: readonly Existing[] = [],
   ) {
     super(message);
     this.name = "KastenError";
@@ -59,6 +62,19 @@ function troubleOf(status: number): Trouble {
     default:
       return "other";
   }
+}
+
+/** The cards a 409 answer names; none when it names any it cannot read. */
+function savedCards(answer: unknown): Existing[] {
+  const list = answer && typeof answer === "object" && "existing" in answer && Array.isArray(answer.existing) ? (answer.existing as unknown[]) : [];
+  const cards: Existing[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") return [];
+    const { path, title, captured } = item as Record<string, unknown>;
+    if (typeof path !== "string" || typeof title !== "string") return [];
+    cards.push({ path, title, captured: typeof captured === "string" ? captured : null });
+  }
+  return cards;
 }
 
 export class Kasten {
@@ -94,8 +110,10 @@ export class Kasten {
     }
     if (!response.ok) {
       const said = answer && typeof answer === "object" && "error" in answer && typeof answer.error === "string" ? answer.error : "";
-      const trouble = troubleOf(response.status);
-      throw new KastenError(trouble, said || `KastenFlow refused that (${response.status}).`, response.status);
+      // A 409 that names cards says the page is saved; any other 409 is a refusal like the rest.
+      const saved = response.status === 409 ? savedCards(answer) : [];
+      const trouble = saved.length > 0 ? "saved" : troubleOf(response.status);
+      throw new KastenError(trouble, said || `KastenFlow refused that (${response.status}).`, response.status, saved);
     }
     if (!answer || typeof answer !== "object") throw new KastenError("other", "That did not look like an answer from KastenFlow.", response.status);
     return answer as T;

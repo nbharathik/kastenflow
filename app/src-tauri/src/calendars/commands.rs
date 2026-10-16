@@ -2,12 +2,13 @@
 //! copies fresh. Fetching and reading run off the window's thread; the
 //! window is told with `calendars-changed` when something it shows changed.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::fetch::{self, Answer, Validators};
-use super::service::{self, CalendarEvents, Calendars, Change, Claim, Info, Refresh};
+use super::jobs::{blocking, now, refresh_ids};
+use super::service::{self, CalendarEvents, Calendars, Change, Info, Refresh};
 use super::store::Store;
 use crate::chat::commands::ChatState;
 use crate::closing::MAIN;
@@ -31,72 +32,8 @@ fn store(app: &AppHandle, chat: &ChatState) -> Result<Store, String> {
     Ok(Store::new(config, cache, chat.keys()))
 }
 
-fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs() as i64)
-}
-
-/// The client that suits an address: the web's, or the local network's when
-/// the person typed such an address.
-fn client_for(chat: &ChatState, url: &str) -> Result<reqwest::Client, String> {
-    if fetch::is_local(url) {
-        chat.local_web()
-    } else {
-        chat.web()
-    }
-}
-
-/// Runs work that touches the keychain or the disk off the async threads, and
-/// answers with an error instead of a panic.
-async fn blocking<T: Send + 'static>(
-    work: impl FnOnce() -> Result<T, String> + Send + 'static,
-) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(move || crate::crash::caught(work))
-        .await
-        .map_err(crate::crash::joined)?
-}
-
 fn changed(app: &AppHandle) {
     let _ = app.emit_to(MAIN, CHANGED, ());
-}
-
-/// Refreshes these calendars side by side. True when the window has
-/// something new to show.
-async fn refresh_ids(store: &Store, cal: &Calendars, chat: &ChatState, ids: Vec<String>) -> bool {
-    let mut jobs = Vec::new();
-    for id in ids {
-        let Some(claim) = cal.claim(&id) else {
-            continue;
-        };
-        let planned = {
-            let (store, id) = (store.clone(), id.clone());
-            blocking(move || service::plan_refresh(&store, &id)).await
-        };
-        let job = match planned {
-            Ok(plan) => match client_for(chat, &plan.url) {
-                Ok(client) => tauri::async_runtime::spawn(async move {
-                    fetch::get(&client, &plan.url, &plan.have).await
-                }),
-                Err(err) => tauri::async_runtime::spawn(async move { Err(err) }),
-            },
-            Err(err) => tauri::async_runtime::spawn(async move { Err(err) }),
-        };
-        jobs.push((id, job, claim));
-    }
-    let mut news = false;
-    for (id, job, claim) in jobs {
-        let answer = job.await.unwrap_or_else(|e| Err(crate::crash::joined(e)));
-        let (store, cal) = (store.clone(), cal.clone());
-        // The claim is given back once the answer is written.
-        let done = blocking(move || {
-            let _claim: Claim = claim;
-            service::finish_refresh(&store, &cal, &id, answer, now())
-        })
-        .await;
-        news |= done.unwrap_or(false);
-    }
-    news
 }
 
 /// The subscriptions, without their addresses.
@@ -127,7 +64,7 @@ pub async fn calendar_add(
         blocking(move || service::check_new(&store, &name, &url, color.as_deref().unwrap_or("")))
             .await?
     };
-    let client = client_for(&chat, &new.url)?;
+    let client = cal.client_for(&new.url)?;
     let Answer::Fresh { text, validators } =
         fetch::get(&client, &new.url, &Validators::default()).await?
     else {
@@ -153,7 +90,7 @@ pub async fn calendar_edit(
     let cal = cal.inner().clone();
     if let Some(typed) = change.url.clone().filter(|u| !u.trim().is_empty()) {
         let url = fetch::address(&typed)?;
-        let client = client_for(&chat, &url)?;
+        let client = cal.client_for(&url)?;
         let Answer::Fresh { text, validators } =
             fetch::get(&client, &url, &Validators::default()).await?
         else {
@@ -208,7 +145,7 @@ pub async fn calendar_refresh(
             blocking(move || service::to_refresh(&store, now(), which)).await?
         }
     };
-    if refresh_ids(&store, &cal, &chat, ids).await {
+    if refresh_ids(&store, &cal, ids, now).await {
         changed(&app);
     }
     blocking(move || service::infos(&store)).await
@@ -244,7 +181,7 @@ async fn tick(app: &AppHandle) {
             .await
             .unwrap_or_default()
     };
-    if !ids.is_empty() && refresh_ids(&store, &cal, &chat, ids).await {
+    if !ids.is_empty() && refresh_ids(&store, &cal, ids, now).await {
         changed(app);
     }
 }
@@ -287,10 +224,10 @@ mod tests {
 
     #[test]
     fn the_commands_are_registered_and_none_is_missing() {
-        let lib = include_str!("../lib.rs");
+        let handlers = include_str!("../handlers.rs");
         for command in COMMANDS {
             assert!(
-                lib.contains(&format!("calendars::commands::{command},")),
+                handlers.contains(&format!("calendars::commands::{command},")),
                 "{command}"
             );
         }

@@ -17,128 +17,13 @@ use super::util::{
 };
 use super::{Cx, Op, Scope, op_types};
 use crate::error::{Error, Result};
-use crate::model::{Deck, Element, Paragraph, Style, Text, is_color};
+use crate::model::{Deck, Element};
 use crate::resolve::{Rect, box_in};
 
-fn color_ok(c: &str) -> std::result::Result<(), String> {
-    if is_color(c) {
-        Ok(())
-    } else {
-        Err(format!(
-            "`{c}` is not a theme colour (text1, bg2, accent3, ...) or a #rrggbb value"
-        ))
-    }
-}
-
-fn unit(v: Option<f64>, what: &str) -> std::result::Result<(), String> {
-    match v {
-        Some(v) if !(0.0..=1.0).contains(&v) => Err(format!("{what} is between 0 and 1, not {v}")),
-        _ => Ok(()),
-    }
-}
-
-fn check_style(s: &Style) -> std::result::Result<(), String> {
-    if let Some(f) = &s.fill {
-        color_ok(&f.color)?;
-        unit(f.alpha, "fill alpha")?;
-    }
-    if let Some(l) = &s.stroke {
-        color_ok(&l.color)?;
-        unit(l.alpha, "stroke alpha")?;
-        if l.width.is_some_and(|w| w < 0.0) {
-            return Err("a stroke width cannot be negative".to_owned());
-        }
-    }
-    if let Some(sh) = &s.shadow {
-        color_ok(&sh.color)?;
-    }
-    unit(s.opacity, "opacity")
-}
-
-/// The farthest a paragraph may be moved in from its box's edge, in slide units.
-const MOST_INDENT: f64 = 5000.0;
-
-/// Whether a paragraph and its runs follow the format's rules.
-pub(super) fn check_paragraph(p: &Paragraph) -> std::result::Result<(), String> {
-    for r in &p.runs {
-        if let Some(c) = &r.color {
-            color_ok(c)?;
-        }
-        if r.size.is_some_and(|s| s <= 0.0) {
-            return Err("a run's size is above 0 points".to_owned());
-        }
-        if r.spacing
-            .is_some_and(|s| !s.is_finite() || s.abs() > 1000.0)
-        {
-            return Err(
-                "the space between letters is a number of points, between -1000 and 1000"
-                    .to_owned(),
-            );
-        }
-    }
-    if let Some(c) = &p.bullet_color {
-        color_ok(c)?;
-    }
-    if p.bullet_size
-        .is_some_and(|s| !s.is_finite() || !(0.25..=4.0).contains(&s))
-    {
-        return Err(
-            "a marker's size is a multiple of the words' size, from 0.25 to 4 (25% to 400%)"
-                .to_owned(),
-        );
-    }
-    if p.start.is_some_and(|n| n > 99_999) {
-        return Err("a numbered item cannot start at a number above 99999".to_owned());
-    }
-    for (name, v) in [("marginLeft", p.margin_left), ("indent", p.indent)] {
-        if v.is_some_and(|v| !v.is_finite() || v.abs() > MOST_INDENT) {
-            return Err(format!(
-                "`{name}` is a number of slide units, within {MOST_INDENT} of the edge"
-            ));
-        }
-    }
-    if p.margin_left.is_some_and(|v| v < 0.0) {
-        return Err("`marginLeft` cannot be negative".to_owned());
-    }
-    Ok(())
-}
-
-fn check_text(t: &Text) -> std::result::Result<(), String> {
-    t.paragraphs.iter().try_for_each(check_paragraph)
-}
-
-/// Whether an element, and what it holds, follows the format's rules.
-pub fn validate(e: &Element) -> std::result::Result<(), String> {
-    let b = e.base();
-    for (name, v) in [("w", b.w), ("h", b.h)] {
-        if v.is_some_and(|v| v < 0.0) {
-            return Err(format!("`{name}` cannot be negative"));
-        }
-    }
-    if let Some(s) = &b.style {
-        check_style(s)?;
-    }
-    if let Some(t) = e.text() {
-        check_text(t)?;
-    }
-    match e {
-        Element::Shape(s) if s.shape.is_empty() => {
-            return Err(
-                "a shape needs a `shape` name such as rect, roundRect or ellipse".to_owned(),
-            );
-        }
-        Element::Table(t) => {
-            if let Some(problem) = t.problem() {
-                return Err(problem);
-            }
-            for c in t.rows.iter().flat_map(|r| &r.cells) {
-                check_text(&c.text)?;
-            }
-        }
-        _ => {}
-    }
-    e.children().iter().try_for_each(validate)
-}
+// The rules an element is checked against live in `validate.rs`; the operations on elements, and
+// the ones on tables and text, reach them from here.
+pub use super::validate::validate;
+pub(super) use super::validate::{check_paragraph, color_ok, unit};
 
 op_types! {
     /// Adds elements to a slide, on top of what is there.
@@ -159,7 +44,7 @@ op_types! {
 impl Op for AddElements {
     type Output = AddedElements;
     const NAME: &'static str = "add_elements";
-    const ABOUT: &'static str = "Add elements (text, shape, line, connector, image, group, table) to a slide. Give each a type and a box in slide units (the slide is 960 by 540), or a placeholder to fill; colours are theme tokens (text1, bg2, accent1 ...) or #rrggbb. A connector may name the two elements it joins (`from` and `to`, each an element id and a side) instead of a box. Returns the ids.";
+    const ABOUT: &'static str = "Add elements (text, shape, line, connector, image, group, table) to a slide. Give each a type and a box in slide units (`get_deck` gives the deck's size), or a placeholder to fill; colours are theme tokens (text1, bg2, accent1 ...) or #rrggbb. A connector may name the two elements it joins (`from` and `to`, each an element id and a side) instead of a box. Returns the ids.";
 
     fn scope(&self, _: &Deck) -> Scope {
         Scope::slide(&self.slide)

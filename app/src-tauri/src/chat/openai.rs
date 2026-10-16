@@ -6,6 +6,8 @@
 use kasten_core::{Instant, ulid_at};
 use serde_json::{Value, json};
 
+use super::capabilities::Applied;
+use super::errors::StreamError;
 use super::model::{Call, Message, Reply, Stop, ToolCall, tool_schema};
 use super::sse::SseEvent;
 
@@ -25,7 +27,16 @@ pub fn url(base: &str) -> Result<String, String> {
     Ok(format!("{base}/chat/completions"))
 }
 
-pub fn body(url: &str, model: &str, max_tokens: u32, call: &Call<'_>) -> Value {
+/// Whether `url` is OpenAI's own API, which takes `max_completion_tokens`
+/// and refuses a temperature from its reasoning models.
+pub fn is_official(url: &str) -> bool {
+    url.starts_with("https://api.openai.com/")
+}
+
+/// The request. `applied` is what the person's settings come to for this
+/// model (none, unless they set some): its longest answer replaces
+/// `max_tokens`, and a temperature and a reasoning effort are added.
+pub fn body(url: &str, model: &str, max_tokens: u32, call: &Call<'_>, applied: &Applied) -> Value {
     let mut body = json!({
         "model": model,
         "messages": messages(call.system, call.messages),
@@ -33,12 +44,18 @@ pub fn body(url: &str, model: &str, max_tokens: u32, call: &Call<'_>) -> Value {
     });
     // OpenAI's reasoning models refuse the older `max_tokens`; servers such
     // as vLLM and Ollama take it.
-    let limit = if url.starts_with("https://api.openai.com/") {
+    let limit = if is_official(url) {
         "max_completion_tokens"
     } else {
         "max_tokens"
     };
-    body[limit] = json!(max_tokens);
+    body[limit] = json!(applied.max_output.unwrap_or(max_tokens));
+    if let Some(temperature) = applied.temperature {
+        body["temperature"] = json!(temperature);
+    }
+    if let Some(effort) = applied.effort {
+        body["reasoning_effort"] = json!(effort.as_str());
+    }
     if !call.tools.is_empty() {
         let tools: Vec<Value> = call
             .tools
@@ -73,6 +90,9 @@ pub fn messages(system: &str, thread: &[Message]) -> Vec<Value> {
     for message in thread {
         match message {
             Message::User(text) => out.push(json!({"role": "user", "content": text})),
+            Message::UserImages { text, images } => out.push(
+                json!({"role": "user", "content": super::parts::chat_completions(text, images)}),
+            ),
             Message::Assistant(reply) => {
                 let mut message = json!({"role": "assistant", "content": reply.text});
                 if !reply.calls.is_empty() {
@@ -124,6 +144,8 @@ pub struct Stream {
     calls: Vec<Partial>,
     stop: Option<String>,
     done: bool,
+    /// What the last error chunk meant.
+    error: Option<StreamError>,
 }
 
 impl Stream {
@@ -139,6 +161,17 @@ impl Stream {
         };
         if let Some(error) = chunk.get("error").filter(|e| !e.is_null()) {
             let message = error["message"].as_str().or(error.as_str());
+            // The code may be a word or a number.
+            let code = error["code"]
+                .as_str()
+                .map(str::to_owned)
+                .or_else(|| error["code"].as_u64().map(|n| n.to_string()))
+                .unwrap_or_default();
+            self.error = Some(StreamError::of(
+                &code,
+                error["type"].as_str().unwrap_or_default(),
+                message.unwrap_or_default(),
+            ));
             return Err(message.unwrap_or("the stream failed").to_owned());
         }
         // A chunk with usage alone has no choices.
@@ -195,6 +228,17 @@ impl Stream {
             // A few servers send the arguments as an object.
             whole => call.arguments.push_str(&whole.to_string()),
         }
+    }
+
+    /// What the error chunk that ended the stream meant.
+    pub fn error(&self) -> Option<StreamError> {
+        self.error.clone()
+    }
+
+    /// Whether a tool call came whole. Chat completions do not say so when
+    /// one ends; a call is whole once the next one has begun.
+    pub fn call_done(&self) -> bool {
+        self.calls.len() > 1
     }
 
     /// Whether the server said the answer is complete.

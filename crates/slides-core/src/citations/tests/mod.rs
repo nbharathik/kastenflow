@@ -7,6 +7,7 @@ mod latex;
 mod names;
 mod numbering;
 mod refs;
+mod web_link;
 
 /// Six real-looking entries: a conference paper with many authors, one with an
 /// acronym in its venue, an arXiv preprint, a book, a journal article and a report.

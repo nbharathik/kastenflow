@@ -53,6 +53,29 @@ describe("the preview's chat", () => {
     expect((await vault.list()).map((n) => n.path)).not.toContain("inbox/hotel-ideas.md");
   });
 
+  it("queues a message sent while it answers, and takes it up at the next piece", async () => {
+    const chat = previewChat(() => null, { pace: 1 });
+    const events: ChatEvent[] = [];
+    let ended!: () => void;
+    const done = new Promise<void>((resolve) => (ended = resolve));
+    chat.onEvent((event) => {
+      events.push(event);
+      if (event.kind === "done") ended();
+    });
+    const first = await chat.send({ chat: "c1", provider: PREVIEW_PROVIDER.name, model: "canned-replies", text: "Hello", context: [] });
+    const second = await chat.send({ chat: "c1", provider: PREVIEW_PROVIDER.name, model: "canned-replies", text: "Also this", context: [] });
+    // The turn that runs, not a new one.
+    expect(second).toMatchObject({ queued: true, turn: first.turn });
+    await done;
+    const queued = events.filter((e) => e.kind === "queued").map((e) => [e.text, e.delivered]);
+    expect(queued).toEqual([
+      ["Also this", false],
+      ["Also this", true],
+    ]);
+    // Taken up while the answer was still coming.
+    expect(events.findIndex((e) => e.kind === "queued" && e.delivered)).toBeLessThan(events.findLastIndex((e) => e.kind === "text"));
+  });
+
   it("stops when asked, and keeps no keys", async () => {
     const chat = previewChat(() => null, { pace: 0 });
     const events = await ask(chat, "Hello", 5);

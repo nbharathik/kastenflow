@@ -1,10 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
 
-import { MovePicker } from "../features/workspace/overlays/MovePicker";
 import { loadNotePage } from "../features/workspace/page/LazyNotePage";
 import { Palette } from "../features/workspace/overlays/Palette";
 import { SideStack } from "../features/stack/SideStack";
-import { TemplateGallery } from "../features/templates/TemplateGallery";
 import { VaultChooser } from "../features/vaults/VaultChooser";
 import { ShortcutsHelp } from "../features/workspace/overlays/ShortcutsHelp";
 import { Toasts } from "../features/workspace/overlays/Toasts";
@@ -27,6 +25,11 @@ import { useShowWhenDrawn } from "./window-ready";
 import { useFirstPage } from "../features/vaults/first-page";
 import { Tooltips } from "../ui/Tooltips";
 import { ViewBoundary } from "../ui/ViewBoundary";
+import { useStoryboard } from "../features/pages/present/storyboard/state";
+import { useSlideNumbers } from "../features/slides/slide-numbers-state";
+import { useExportRequest } from "../features/projects/export/request";
+import { usePaperDialog } from "../features/references/add-state";
+import { useCompareDialog } from "../features/sources/compare/compare-state";
 import { PagePeek } from "./peek/PagePeek";
 import { OpenMenuHost } from "./open-menu";
 import { useDiagramHost } from "../features/diagrams/host-store";
@@ -43,6 +46,15 @@ const ChatDock = lazy(() => import("../features/chat/ChatDock").then((m) => ({ d
 const WhatsNew = lazy(() => import("../features/updates/WhatsNew"));
 // The diagram host (the editor in a modal, pictures drawn again off screen) loads only once a diagram asks for it.
 const DiagramHost = lazy(() => import("../features/diagrams/DiagramHost"));
+// The storyboard of a page and "turn slide numbers off in every deck" bring the slide engine: they load when one is asked for.
+const SlidesOverlays = lazy(() => import("../features/slides/SlidesOverlays"));
+// "Add a paper" and "Compare papers" load when one is asked for.
+const ResearchOverlays = lazy(() => import("../features/references/ResearchOverlays"));
+// "Export a project" (a bundle in a folder) loads when it is asked for.
+const ExportProject = lazy(() => import("../features/projects/export/ExportProject"));
+// The template gallery (with the starter kits and its previews) and the "Move to" picker load when they are opened.
+const TemplateGallery = lazy(() => import("../features/templates/TemplateGallery").then((m) => ({ default: m.TemplateGallery })));
+const MovePicker = lazy(() => import("../features/workspace/overlays/MovePicker").then((m) => ({ default: m.MovePicker })));
 
 /** Loads and warms the page editor while the window is idle, so the first
  * page opens at once instead of waiting for the editor's code. */
@@ -76,6 +88,12 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   const choosing = useWorkspace((s) => s.choosing);
   const whatsNew = useUpdates((s) => s.open);
   const diagramsWork = useDiagramHost((s) => s.modal !== null || s.picker !== null || s.queue.length > 0 || s.pngs.length > 0);
+  const storyboarding = useStoryboard((s) => s.request !== null);
+  const numbering = useSlideNumbers((s) => s.open);
+  const slidesDialog = storyboarding || numbering;
+  const addingPaper = usePaperDialog((s) => s.request !== null);
+  const comparing = useCompareDialog((s) => s.request !== null);
+  const exporting = useExportRequest((s) => s.request !== null);
   useGlobalShortcuts();
   useWindowTitle();
   useWeeklyCheck();
@@ -147,13 +165,36 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
       {!focusMode && <StatusBar />}
       {paletteOpen && <Palette />}
       {shortcutsOpen && <ShortcutsHelp />}
-      {moving && <MovePicker path={moving} />}
-      {gallery && <TemplateGallery />}
+      {moving && (
+        <Suspense fallback={null}>
+          <MovePicker path={moving} />
+        </Suspense>
+      )}
+      {gallery && (
+        <Suspense fallback={null}>
+          <TemplateGallery />
+        </Suspense>
+      )}
       <PagePeek />
       <OpenMenuHost />
       {diagramsWork && (
         <Suspense fallback={null}>
           <DiagramHost />
+        </Suspense>
+      )}
+      {slidesDialog && (
+        <Suspense fallback={null}>
+          <SlidesOverlays />
+        </Suspense>
+      )}
+      {(addingPaper || comparing) && (
+        <Suspense fallback={null}>
+          <ResearchOverlays />
+        </Suspense>
+      )}
+      {exporting && (
+        <Suspense fallback={null}>
+          <ExportProject />
         </Suspense>
       )}
       {whatsNew && (

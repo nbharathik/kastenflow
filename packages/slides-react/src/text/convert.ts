@@ -43,6 +43,8 @@ function runOf(text: string, marks: readonly Mark[]): Run {
   if (has("strike")) run.s = true;
   const color = value("color", "value");
   if (typeof color === "string" && color !== "") run.color = color;
+  const highlight = value("highlight", "value");
+  if (typeof highlight === "string" && highlight !== "") run.highlight = highlight;
   const size = value("size", "value");
   if (typeof size === "number" && size > 0) run.size = size;
   const font = value("font", "value");

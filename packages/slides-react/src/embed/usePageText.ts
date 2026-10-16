@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { SlidesHost } from "../editor/host.ts";
 
 /** What a view needs of the host to show pages: reading them, hearing that they changed, and following a link out of one. */
-export type PageAccess = Pick<SlidesHost, "readPage" | "watchPages" | "openPage" | "openUrl" | "pagePanel" | "imageUrl">;
+export type PageAccess = Pick<SlidesHost, "readPage" | "watchPages" | "openPage" | "openUrl" | "pagePanel" | "imageUrl" | "webPreview">;
 
 export interface PageText {
   markdown: string;

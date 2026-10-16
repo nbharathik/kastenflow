@@ -106,6 +106,14 @@ describe("tag database embeds", () => {
     expect(embed.querySelector(".kasten-db-embed-body")!.textContent).toBe("database paper Pipeline");
     embed.querySelector(".kasten-board-embed-open")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     expect(links.openDatabase).toHaveBeenCalledWith("paper", "here");
+    // Open is an icon with a name and a tooltip; the keyboard presses it as a click with no mouse before it.
+    const openTool = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-open")!;
+    expect(openTool.textContent).toBe("");
+    expect(openTool.getAttribute("aria-label")).toBe("Open database");
+    expect(openTool.title).toContain("Open the database");
+    vi.mocked(links.openDatabase!).mockClear();
+    openTool.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0, ctrlKey: true }));
+    expect(links.openDatabase).toHaveBeenCalledWith("paper", "tab");
     expect(note.save()).toBe(body);
   });
 

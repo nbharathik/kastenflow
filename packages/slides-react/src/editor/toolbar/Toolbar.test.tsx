@@ -39,7 +39,7 @@ describe("the toolbar", () => {
     expect(barNames()).toEqual([
       "Undo", "Redo", "Paint format", "Zoom",
       "Font", "Decrease font size", "Font sizes", "Increase font size",
-      "Bold", "Italic", "Underline", "Strikethrough", "Text colour", "Insert link",
+      "Bold", "Italic", "Underline", "Strikethrough", "Text colour", "Highlight colour", "Insert link",
       "Align", "Line and paragraph spacing", "Bulleted list", "Numbered list", "Bullets and numbering", "Decrease indent", "Increase indent", "Clear formatting",
       "Fill colour", "Border colour", "Border weight", "Border dash", "Shadow", "Opacity",
       "Order", "Align objects", "Animate",

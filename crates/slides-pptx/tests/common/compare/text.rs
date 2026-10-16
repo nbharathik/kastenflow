@@ -15,6 +15,8 @@ struct Look {
     underline: bool,
     strike: bool,
     color: String,
+    /// The colour behind the words, when the run has one of its own.
+    highlight: Option<String>,
     font: String,
     link: Option<String>,
     code: bool,
@@ -181,6 +183,7 @@ fn looks_and_settings(
                             } else {
                                 hex(deck, r.color.as_deref().unwrap_or(&style.color))
                             },
+                            highlight: r.highlight.as_deref().map(|h| hex(deck, h)),
                             font: font.clone(),
                             link: link.clone(),
                             code: r.code,

@@ -72,6 +72,36 @@
   line-height: 1.45;
 }
 
+/* What was changed about how the question was asked. */
+.kasten-chat-notice {
+  margin: 8px 0 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+  line-height: 1.45;
+}
+
+/* The way on from a failed answer. */
+.kasten-chat-failure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+
+  & button {
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-lg);
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font-size: var(--text-12);
+    font-weight: 500;
+
+    &:hover {
+      filter: brightness(0.96);
+    }
+  }
+}
+
 .kasten-chat-actions {
   display: flex;
   flex-wrap: wrap;

@@ -16,7 +16,7 @@ use crate::note::NoteFile;
 use crate::ops::{Kind, NewNote};
 use crate::time::Instant;
 
-fn note_ref(note: &NoteFile) -> Value {
+pub(super) fn note_ref(note: &NoteFile) -> Value {
     json!(NoteRef {
         path: note.meta.path.clone(),
         id: note.meta.id.clone(),
@@ -24,8 +24,33 @@ fn note_ref(note: &NoteFile) -> Value {
     })
 }
 
-fn day_of(now: Instant) -> String {
+pub(super) fn day_of(now: Instant) -> String {
     now.rfc3339()[..10].to_owned()
+}
+
+/// The layout an agent's `add_to_board` asks for: positions, else a named layout.
+pub(super) fn board_layout(layout: Option<&str>, positions: Option<&[[i64; 2]]>) -> Result<Layout> {
+    match (layout, positions) {
+        (_, Some(at)) => Ok(Layout::Positions(
+            at.iter().map(|[x, y]| (*x, *y)).collect(),
+        )),
+        (Some("cluster_by_tag"), None) => Ok(Layout::ClusterByTag),
+        (None | Some("grid"), None) => Ok(Layout::Grid),
+        (Some(other), None) => Err(Error::Invalid(format!(
+            "Layouts are grid and cluster_by_tag, or positions; not “{other}”"
+        ))),
+    }
+}
+
+/// The kind of note an agent's `type` names: agents make cards and pages.
+pub(super) fn agent_kind(note_type: &str) -> Result<Kind> {
+    match note_type {
+        "card" => Ok(Kind::Card),
+        "page" => Ok(Kind::Page),
+        other => Err(Error::Invalid(format!(
+            "Agents create cards and pages, not “{other}”"
+        ))),
+    }
 }
 
 impl Kasten {
@@ -45,15 +70,7 @@ impl Kasten {
                 parent,
                 template,
             } => {
-                let kind = match note_type.as_str() {
-                    "card" => Kind::Card,
-                    "page" => Kind::Page,
-                    other => {
-                        return Err(Error::Invalid(format!(
-                            "Agents create cards and pages, not “{other}”"
-                        )));
-                    }
-                };
+                let kind = agent_kind(note_type)?;
                 let new = NewNote {
                     kind,
                     title: title.clone(),
@@ -112,16 +129,7 @@ impl Kasten {
                 layout,
                 positions,
             } => {
-                let layout = match (layout.as_deref(), positions) {
-                    (_, Some(at)) => Layout::Positions(at.iter().map(|[x, y]| (*x, *y)).collect()),
-                    (Some("cluster_by_tag"), None) => Layout::ClusterByTag,
-                    (None | Some("grid"), None) => Layout::Grid,
-                    (Some(other), None) => {
-                        return Err(Error::Invalid(format!(
-                            "Layouts are grid and cluster_by_tag, or positions; not “{other}”"
-                        )));
-                    }
-                };
+                let layout = board_layout(layout.as_deref(), positions.as_deref())?;
                 json!(self.add_to_board(actor, board, notes, layout, now)?)
             }
             AgentOp::Connect {
@@ -138,9 +146,9 @@ impl Kasten {
             AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => {
                 self.deck_execute(actor, op, now)?
             }
-            AgentOp::CreateDiagram { .. } | AgentOp::UpdateDiagram { .. } => {
-                self.diagram_execute(actor, op, now)?
-            }
+            AgentOp::CreateDiagram { .. }
+            | AgentOp::UpdateDiagram { .. }
+            | AgentOp::EditDiagram { .. } => self.diagram_execute(actor, op, now)?,
         })
     }
 

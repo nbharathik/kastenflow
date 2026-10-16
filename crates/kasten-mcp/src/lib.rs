@@ -4,13 +4,17 @@
 //! through [`tools`].
 
 pub mod decks;
+pub mod diagram_words;
 mod http;
 mod mcp_board;
 mod mcp_diagram;
+mod mcp_diagram_ai;
 mod mcp_read;
 mod mcp_write;
 mod params;
+mod params_diagram;
 mod server;
+mod setup;
 mod token;
 pub mod tools;
 
@@ -28,24 +32,36 @@ use kasten_core::Kasten;
 use rmcp::ServiceExt;
 
 use crate::server::KastenServer;
+use crate::setup::{Server, Target};
 
 const USAGE: &str = "Usage: kasten-mcp --vault <path> [--http [--port 7433]]
+       kasten-mcp --vault <path> --check
+       kasten-mcp --vault <path> --setup claude-code|claude-desktop|http
 
 Serves a KastenFlow vault to AI agents over MCP. Without --http it speaks
 stdio, for Claude Code and Claude Desktop. The vault is --vault, else
 KASTEN_VAULT. It must keep history (turn it on in KastenFlow's settings or
-with `kastenflow start-history`), so every agent change can be undone.";
+with `kastenflow start-history`), so every agent change can be undone.
+
+--check prints how the server is doing (the vault, its history, and whether
+slides can be drawn here: a browser, the page it draws with, its sandbox) and
+exits with 1 when something is wrong. --setup prints the lines that connect an
+agent to this vault, for this program.";
 
 struct Options {
     vault: PathBuf,
     http: bool,
     port: u16,
+    check: bool,
+    setup: Option<Target>,
 }
 
 fn options(args: &[String]) -> Result<Option<Options>, String> {
     let mut vault = std::env::var_os("KASTEN_VAULT").map(PathBuf::from);
     let mut http = false;
     let mut port = DEFAULT_PORT;
+    let mut check = false;
+    let mut setup = None;
     let mut iter = args.iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -59,6 +75,17 @@ fn options(args: &[String]) -> Result<Option<Options>, String> {
             }
             "--vault" => vault = Some(iter.next().ok_or("--vault needs a path")?.into()),
             "--http" => http = true,
+            "--check" => check = true,
+            "--setup" => {
+                let word = iter
+                    .next()
+                    .ok_or("--setup needs claude-code, claude-desktop or http")?;
+                setup = Some(Target::parse(word).ok_or_else(|| {
+                    format!(
+                        "Not something to set up: {word}. Use claude-code, claude-desktop or http."
+                    )
+                })?);
+            }
             "--port" => {
                 let value = iter.next().ok_or("--port needs a number")?;
                 port = value.parse().map_err(|_| format!("Not a port: {value}"))?;
@@ -67,7 +94,13 @@ fn options(args: &[String]) -> Result<Option<Options>, String> {
         }
     }
     let vault = vault.ok_or(format!("No vault given\n\n{USAGE}"))?;
-    Ok(Some(Options { vault, http, port }))
+    Ok(Some(Options {
+        vault,
+        http,
+        port,
+        check,
+        setup,
+    }))
 }
 
 /// Writes to stderr in one go, and carries on if no one reads it any more:
@@ -77,10 +110,75 @@ pub(crate) fn say(text: &str) {
     let _ = std::io::stderr().write_all(text.as_bytes());
 }
 
+/// Writes to stdout, for what a person asked to see (`--check`, `--setup`).
+fn out(text: &str) {
+    use std::io::Write;
+    let mut stdout = std::io::stdout();
+    let _ = stdout.write_all(text.as_bytes());
+    let _ = stdout.flush();
+}
+
 /// Runs the server as `kasten-mcp` would with these arguments (the program
-/// name left out), until the client goes away. The desktop app calls this
-/// for `--mcp`, so an installed app is all an agent needs.
+/// name left out), until the client goes away.
 pub fn run(args: &[String]) -> ExitCode {
+    serve(args, false)
+}
+
+/// The same for the desktop app, which calls this for `--mcp` (and gives it
+/// the arguments after it), so an installed app is all an agent needs. It
+/// differs only in what `--setup` prints: the app is started with `--mcp`.
+pub fn run_in_app(args: &[String]) -> ExitCode {
+    serve(args, true)
+}
+
+/// `--setup`: the lines that connect an agent to the vault, for this program.
+fn print_setup(target: Target, options: &Options, app: bool) -> ExitCode {
+    let vault = match std::fs::canonicalize(&options.vault) {
+        Ok(path) => setup::plain(&path),
+        Err(err) => {
+            say(&format!(
+                "kasten-mcp: cannot find {}: {err}\n",
+                options.vault.display()
+            ));
+            return ExitCode::from(2);
+        }
+    };
+    let exe = match std::env::current_exe() {
+        Ok(path) => setup::plain(&path),
+        Err(err) => {
+            say(&format!(
+                "kasten-mcp: cannot tell where this program is: {err}\n"
+            ));
+            return ExitCode::from(2);
+        }
+    };
+    out(&setup::text(
+        target,
+        &Server::of(&exe, app),
+        &vault,
+        options.port,
+    ));
+    ExitCode::SUCCESS
+}
+
+/// `--check`: how the server is doing, as JSON; exit 1 when something is wrong.
+fn print_check(kasten: &Kasten) -> ExitCode {
+    let (status, problems) = tools::health(kasten, None);
+    out(&format!(
+        "{}\n",
+        serde_json::to_string_pretty(&status).unwrap_or_default()
+    ));
+    for problem in &problems {
+        say(&format!("kasten-mcp: {problem}\n"));
+    }
+    if problems.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn serve(args: &[String], app: bool) -> ExitCode {
     let options = match options(args) {
         Ok(Some(options)) => options,
         Ok(None) => return ExitCode::SUCCESS,
@@ -92,6 +190,9 @@ pub fn run(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if let Some(target) = options.setup {
+        return print_setup(target, &options, app);
+    }
     let kasten = match Kasten::open(&options.vault) {
         Ok(kasten) => Arc::new(kasten),
         Err(err) => {
@@ -103,6 +204,9 @@ pub fn run(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if options.check {
+        return print_check(&kasten);
+    }
     if !kasten.has_history() {
         say(&format!(
             "kasten-mcp: {} keeps no history, so agent changes could not be undone. \
@@ -132,6 +236,8 @@ pub fn run(args: &[String]) -> ExitCode {
             stdio(kasten).await
         }
     });
+    // A browser is not stopped by the program that started it ending.
+    decks::render::shutdown();
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {

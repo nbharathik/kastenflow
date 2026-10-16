@@ -50,6 +50,17 @@ Settings; to forget it on this side, press **Unpair this browser** in the popup.
   KastenFlow**. It goes to where the last send from the popup went, and the toolbar button
   shows a tick, or a mark when something went wrong (the popup then says what).
 
+- **Save as paper** (a button in the popup, shown when the page has tags to send): on a page of a paper or an
+  article, it sends the page's own citation tags (`citation_title`, `citation_author`, Dublin Core, JSON-LD) and
+  nothing of its text. KastenFlow opens a form with them to check; the paper is added to your references only when you
+  confirm there, and nothing about it is looked up on the internet.
+
+A page you already sent is not sent twice by accident. KastenFlow answers that it is saved
+("Already saved on 2026-09-01"), the popup writes nothing and offers **Save another
+snapshot**, which keeps a new card that points back at the first (the first card is never
+touched). A right-click send of a saved page says so on the toolbar button and sends
+nothing; open the popup to keep another snapshot. A quote added to a page is never held back.
+
 Each capture is one change in KastenFlow's history, and **Undo** takes it back.
 
 ## What it may do, and why

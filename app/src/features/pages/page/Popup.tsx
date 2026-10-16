@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { keepTabInside } from "../../../ui/focus-trap";
+import { useOccludesElement } from "../../browser/occlusion";
 
 interface PopupProps {
   label: string;
@@ -19,6 +20,8 @@ interface PopupProps {
 export function Popup({ label, role = "dialog", className = "", anchor, onClose, children }: PopupProps) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
+  // A browser tab's page beside the popup steps aside while it is open.
+  useOccludesElement(ref);
   useEffect(() => {
     close.current = onClose;
   }, [onClose]);

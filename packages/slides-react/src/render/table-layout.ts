@@ -96,3 +96,62 @@ export function layoutTable(table: Pick<TableEl, "columns" | "rows" | "headerRow
   });
   return { columns, rows, cells };
 }
+
+/** One place of a table's grid: a row and a column, both from 0. */
+export interface Place {
+  row: number;
+  col: number;
+}
+
+/** An area of a table in slide units, from the table's top left. */
+export interface TableRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The track (a column or a row) that holds `at`. A line between two tracks belongs to the one after it. -1 when `at` is outside; with `clamp`, the nearest track. */
+function trackAt(sizes: readonly number[], at: number, clamp: boolean): number {
+  if (sizes.length === 0 || !Number.isFinite(at)) return -1;
+  const total = sum(sizes);
+  if (!clamp && (at < 0 || at > total)) return -1;
+  if (at <= 0) return 0;
+  let edge = 0;
+  for (let i = 0; i < sizes.length; i++) {
+    edge += sizes[i] ?? 0;
+    if (at < edge) return i;
+  }
+  return sizes.length - 1;
+}
+
+/** The cell that covers a place (the whole merged cell for a place it spans); null when the place is not in the table or no cell is laid there. */
+export function cellAt(layout: TableLayout, place: Place): LaidCell | null {
+  if (place.row < 0 || place.col < 0 || place.row >= layout.cells.length) return null;
+  for (let r = 0; r <= place.row; r++) {
+    for (const laid of layout.cells[r] ?? []) {
+      if (laid.row + laid.rowSpan > place.row && laid.col <= place.col && place.col < laid.col + laid.colSpan) return laid;
+    }
+  }
+  return null;
+}
+
+/** The area the cell that covers `place` takes, from the table's top left; null where `cellAt` finds none. */
+export function cellRect(layout: TableLayout, place: Place): TableRect | null {
+  const laid = cellAt(layout, place);
+  if (!laid) return null;
+  return { x: sum(layout.columns.slice(0, laid.col)), y: sum(layout.rows.slice(0, laid.row)), w: laid.width, h: laid.height };
+}
+
+/**
+ * The place under a point of the table, given in the table's own units from its top left: the first place of the cell there, so a merged
+ * cell answers the same wherever in it the point is. Null for a point outside the table; with `clamp`, a point outside takes the nearest place
+ * (a drag that has left the table).
+ */
+export function placeAt(layout: TableLayout, x: number, y: number, clamp = false): Place | null {
+  const col = trackAt(layout.columns, x, clamp);
+  const row = trackAt(layout.rows, y, clamp);
+  if (col < 0 || row < 0) return null;
+  const laid = cellAt(layout, { row, col });
+  return laid ? { row: laid.row, col: laid.col } : { row, col };
+}

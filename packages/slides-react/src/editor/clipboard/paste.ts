@@ -8,6 +8,8 @@ import { pointerOf } from "../canvas/pointer.ts";
 import { insertImageFiles } from "../commands/insert.ts";
 import type { CommandContext } from "../commands/types.ts";
 import { type ClipContents, picturesOfHtml, wordsOfHtml } from "./format.ts";
+import { placeFor } from "./place.ts";
+import { cellsFromContents } from "./table.ts";
 
 export interface PasteOptions {
   /** Keep the place the blocks were copied from (Paste in place), instead of stepping from it. */
@@ -18,6 +20,18 @@ export interface PasteOptions {
 export async function pasteContents(context: CommandContext, contents: ClipContents, options: PasteOptions = {}): Promise<void> {
   const { session, ui } = context;
   const { clip } = contents;
+  // With cells picked in a table, what is pasted is cells: the words of a spreadsheet, a table of a page, or cells copied here. Blocks or
+  // slides that Kasten copied are not, and a picture is not: they go on as they always do, and the cells are let go.
+  if (session.state.cells !== null && session.state.editing === null && placeFor(context) === "cells") {
+    if (clip) session.selectCells(null);
+    else if (contents.files.length === 0) {
+      const cells = cellsFromContents(contents);
+      if (cells) {
+        session.tables.paste(cells);
+        return;
+      }
+    }
+  }
   if (clip?.kind === "slides") {
     session.slideClipboard.paste(clip);
     return;

@@ -98,32 +98,35 @@ different in a vault.
 
 Flowcharts, architecture drawings and sketches are draw.io diagrams: a
 `.drawio` file (uncompressed `mxfile` XML) with a `.drawio.svg` picture beside
-it. The tools are `list_diagrams`, `get_diagram`, `create_diagram`,
-`update_diagram` and `trash_diagram`.
+it. **Draw them with the typed tools, not with XML**; the `kasten-diagrams`
+skill has the whole method and the style catalogue. In short:
+`diagram_new` (from a `spec`, a Mermaid flowchart or a `template`) lays a
+diagram out; `diagram_describe` reads it; `diagram_edit` changes it with steps
+(`add_node`, `add_edge`, `update`, `move`, `group`, `restyle`, `delete`,
+`layout`, ...); `diagram_lint` and `diagram_preview` check it;
+`diagram_find_shapes` looks icons up; `diagram_export` keeps an SVG in
+`assets/`. `list_diagrams`, `get_diagram`, `create_diagram`, `update_diagram`
+and `trash_diagram` also exist.
 
 - **Name a diagram the way `list_diagrams` shows it**: by path
   (`projects/photo-organiser/diagrams/login-flow.drawio`) or by its title. A new
   one goes to the library, or to a project when you pass `project`. A diagram is
   never replaced: a name that is taken is numbered.
-- **Write the XML yourself.** `create_diagram` takes `xml`; without it the
-  diagram starts blank. The shape is `<mxfile><diagram name="Page-1">
-  <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>` then the
-  cells, then the closing tags. A box is an `mxCell` with `vertex="1"`,
-  `parent="1"`, a `value` (its label), a `style` such as
-  `rounded=1;whiteSpace=wrap;html=1;` and an `mxGeometry` (`x`, `y`, `width`,
-  `height`, `as="geometry"`). An arrow is an `mxCell` with `edge="1"`,
-  `parent="1"`, `source` and `target` (the ids of its two boxes) and an
-  `mxGeometry relative="1" as="geometry"`. Give every cell a short unique `id`,
-  and put boxes on a grid, about 160 apart, so nothing overlaps.
-- **Change a diagram by reading it first.** `get_diagram` gives the XML;
-  `update_diagram` takes the whole new XML. Keep the `id` of every cell you do
-  not mean to change: a change that takes more than 40% of the cells out (an
-  id written again counts as taken out) waits for review. If the user changed
-  the diagram meanwhile, theirs stays and yours is kept in a copy beside it
-  (`status: "conflict"`, with its path).
-- **You never draw the picture.** It is drawn from your XML the next time the
-  app has its diagram editor, so a diagram you just made may show no picture
-  yet. Show it in a page with `![[name.drawio]]` on a line of its own.
+- **Read before you change.** `diagram_describe` gives ids, labels, kinds and
+  places. Steps are applied to the diagram as it is when they run, so a change
+  the user made a moment ago is kept. A layout that moves most of the boxes of
+  a diagram the user arranged waits for review.
+- **Raw XML is for files you were given.** `get_diagram` gives the XML;
+  `create_diagram` and `update_diagram` take whole XML. With `update_diagram`,
+  keep the `id` of every cell you do not mean to change: a change that takes
+  more than 40% of the cells out (an id written again counts as taken out)
+  waits for review. If the user changed the diagram meanwhile, theirs stays and
+  yours is kept in a copy beside it (`status: "conflict"`, with its path).
+- **The picture.** What you make or change is drawn with a simple built-in
+  picture (a draft) at once; the diagram editor draws its own the next time
+  the diagram is open, and the draft never replaces a picture the editor drew
+  for the same version. Show a diagram in a page with `![[name.drawio]]` on a
+  line of its own.
 - `trash_diagram` always waits for the user.
 
 ## Guardrails you will meet

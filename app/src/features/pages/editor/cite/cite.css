@@ -1,0 +1,105 @@
+/* Citation chips (decorate.ts). The citation's words are still in the page; while
+   a chip is shown they are hidden, and they come back to be edited when the caret
+   or a selection touches them. */
+.kasten-cite-src {
+  display: none;
+}
+
+.kasten-cite-src.is-editing {
+  display: inline;
+  border-radius: var(--radius-sm);
+  background: var(--color-soft);
+  color: var(--color-accent);
+}
+
+.kasten-cite {
+  display: inline-block;
+  margin: 0 0.1em;
+  padding: 0 0.4em;
+  border-radius: var(--radius-sm);
+  background: var(--color-soft);
+  color: var(--color-accent);
+  font-size: 0.92em;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+  white-space: normal;
+}
+
+.kasten-cite:hover {
+  background: var(--color-hover);
+}
+
+.kasten-cite.is-missing {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+  color: var(--color-warning);
+}
+
+/* The card a chip shows, over the page. */
+.kasten-cite-card {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  width: 20rem;
+  max-width: calc(100vw - 16px);
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  line-height: 1.4;
+}
+
+.kasten-cite-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kasten-cite-card-item + .kasten-cite-card-item {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.kasten-cite-card-title {
+  font-weight: 600;
+}
+
+.kasten-cite-card-meta {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-cite-card-link {
+  color: var(--color-accent);
+  font-size: var(--text-12);
+  overflow-wrap: anywhere;
+}
+
+.kasten-cite-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.kasten-cite-card-button {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--color-well);
+  color: var(--color-ink);
+  font-size: var(--text-12);
+}
+
+.kasten-cite-card-button:hover {
+  background: var(--color-hover);
+}
+
+.kasten-cite-card-hint {
+  color: var(--color-faint);
+  font-size: var(--text-11);
+}

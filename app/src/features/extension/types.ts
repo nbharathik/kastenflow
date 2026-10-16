@@ -45,6 +45,10 @@ export interface ExtensionBackend {
   pairStart(): Promise<ExtensionStatus>;
   pairCancel(): Promise<ExtensionStatus>;
   revoke(id: string): Promise<ExtensionStatus>;
+  /** Where the extension's files are on this computer (the app carries them); rejects when this copy has none. */
+  folder(): Promise<string>;
+  /** Shows that folder in the file manager; resolves to its path. */
+  showFolder(): Promise<string>;
 }
 
 export const DEFAULT_PORT = 7434;

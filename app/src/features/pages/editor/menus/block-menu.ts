@@ -12,6 +12,8 @@ import { closesWith } from "../ui/close-with-editor";
 import { colorBlocks, deleteBlock, duplicateBlock, kindOfNode } from "./block-ops";
 import { blocksIn, type BlocksAt } from "./block-range";
 import { BLOCK_CHOICES, TURN_INTO, type BlockKind } from "./catalog";
+import { headingNumber } from "../page-handle";
+import { locationCopierFor } from "./location-link";
 import { canGroup, colorBlockRange, deleteBlocks, duplicateBlocks, groupIntoToggle } from "./range-ops";
 import { chain, turnInto, unwrapContainer } from "./transform";
 import { turnBlocksInto } from "./turn-blocks";
@@ -112,6 +114,10 @@ export function blockMenuSections(view: EditorView, pos: number, range?: BlocksA
   });
   const first: MenuItem[] = [];
   if (current !== null) first.push({ key: "turn-into", label: "Turn into", icon: "icon:refresh", submenu: () => [{ items: turnItems }] });
+  const copy = locationCopierFor(view);
+  if (copy && node.type.name === "heading" && node.textContent.trim() !== "") {
+    first.push({ key: "copy-location", label: "Copy link to this location", icon: "icon:link", onPick: () => copy({ text: node.textContent.trim(), nth: headingNumber(view.state.doc, pos) }) });
+  }
   if (hasText(node)) {
     first.push({
       key: "color",

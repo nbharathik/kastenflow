@@ -17,9 +17,11 @@ use crate::model::Run;
 mod build;
 mod inline;
 mod lines;
+mod made;
 mod parse;
 mod sections;
 mod slides;
+mod storyboard;
 
 #[cfg(test)]
 mod tests;
@@ -28,9 +30,14 @@ mod tests_build;
 
 pub use build::{Sizes, contents, has_media, media_elements, split, text_paragraphs};
 pub use inline::page_link;
+pub use made::{is_fingerprint, made_of};
 pub use parse::blocks;
 pub use sections::{fingerprint, plain, section_markdown, sections, strip_frontmatter};
 pub use slides::{Part, parts};
+pub use storyboard::{
+    StoryChunk, StoryEntry, StorySource, body_blocks, compose, draft, draft_chunks, is_as_drafted,
+    is_remote, section_body,
+};
 
 model! {
     /// One block of a page.

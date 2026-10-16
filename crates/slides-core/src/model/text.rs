@@ -106,6 +106,9 @@ model! {
         /// A theme token or `#rrggbb`; the paragraph's style when absent.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub color: Option<String>,
+        /// A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub highlight: Option<String>,
         /// Points.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub size: Option<f64>,
@@ -233,6 +236,7 @@ impl Run {
             underline: false,
             strike: false,
             color: None,
+            highlight: None,
             size: None,
             font: None,
             link: None,
@@ -305,5 +309,12 @@ impl Text {
         self.paragraphs
             .iter()
             .all(|p| p.runs.iter().all(|r| r.t.is_empty()))
+    }
+
+    /// Whether the words are nothing but spaces: a cell of spaces says as little as an empty one.
+    pub fn says_nothing(&self) -> bool {
+        self.paragraphs
+            .iter()
+            .all(|p| p.runs.iter().all(|r| r.t.trim().is_empty()))
     }
 }

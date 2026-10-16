@@ -10,13 +10,19 @@ use serde::Serialize;
 
 use super::authorize::{Authorization, Endpoints, authorize_url};
 use super::callback::{Listener, Outcome};
-use super::oauth::{self, Refused};
+use super::jwks::Failed;
+use super::oauth;
 use super::pkce;
-use super::session::{Account, Saved};
+use super::saved::Saved;
+use super::session::Account;
 
 /// The port to listen on when a random one is not accepted: the one
 /// OpenAI's own examples use.
 pub const FIXED_PORT: u16 = 1455;
+
+/// A sign-in for an account other than the one already kept.
+pub const OTHER_ACCOUNT: &str =
+    "You signed in as another ChatGPT account; sign out first to switch";
 
 /// How a sign-in ended, sent to the window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -147,27 +153,42 @@ pub async fn finish(
     .await
     {
         Ok(granted) => granted,
-        Err(Refused::Invalid(message) | Refused::Unavailable(message)) => return failed(message),
+        Err(refused) => return failed(refused.words()),
     };
     if !granted.plan_use() {
         return failed(
             "ChatGPT signed you in but did not let KastenFlow use your plan. Your account or workspace may not include it; check ChatGPT, Settings",
         );
     }
+    // Nothing is believed that OpenAI's keys do not vouch for: without the
+    // ID token, or without the keys to check it, there is no sign-in.
     let Some(id_token) = granted.id_token.as_deref() else {
         return failed("ChatGPT did not say who signed in. Try again");
     };
-    let who = match oauth::identity(id_token, &client_id, Some(&nonce), oauth::now()) {
+    let who = match account
+        .identity(http, &endpoints, id_token, &client_id, Some(&nonce))
+        .await
+    {
         Ok(who) => who,
-        Err(message) => return failed(message),
+        Err(Failed::Keys(message)) => return failed(message),
+        Err(Failed::Token(why)) => return failed(why.sentence()),
     };
     let Some(refresh_token) = granted.refresh_token.clone() else {
         return failed("ChatGPT gave KastenFlow no way to stay signed in. Try again");
     };
+    // A sign-in for another account does not replace the one kept: the
+    // person signs out first. The tokens just issued are given back.
+    if let Some(kept) = account.saved().await.and_then(|s| s.sub)
+        && kept != who.sub
+    {
+        let _ = oauth::revoke(http, &endpoints, &client_id, &refresh_token).await;
+        return failed(OTHER_ACCOUNT);
+    }
     let saved = Saved {
         refresh_token,
         client_id,
         email: who.email.clone(),
+        sub: Some(who.sub),
     };
     let remembered = account.adopt(saved, &granted).await;
     Some(SignInEnd::Signed {

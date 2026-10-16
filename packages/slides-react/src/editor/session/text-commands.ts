@@ -56,6 +56,7 @@ const NOTHING: FormatState = {
   strike: false,
   code: false,
   color: null,
+  highlight: null,
   size: null,
   font: null,
   align: "left",
@@ -91,6 +92,7 @@ export function mergeFormats(states: readonly FormatState[]): FormatState {
     strike: of("strike") as Tri,
     code: of("code") as Tri,
     color: of("color") as FormatState["color"],
+    highlight: of("highlight") as FormatState["highlight"],
     size: of("size") as FormatState["size"],
     font: of("font") as FormatState["font"],
     align: of("align") as FormatState["align"],
@@ -166,7 +168,7 @@ export class TextCommands {
   }
 
   /** Sets a run property on all the words; null puts the style's own value back. */
-  setRun(key: "color" | "size" | "font" | "link" | "spacing", value: string | number | null, ids: readonly string[] = this.s.state.selection): void {
+  setRun(key: "color" | "highlight" | "size" | "font" | "link" | "spacing", value: string | number | null, ids: readonly string[] = this.s.state.selection): void {
     this.apply(() => setValueMark(key, value), ids);
   }
 

@@ -23,7 +23,7 @@ fn open() -> (common::TempVault, Kasten, Session) {
 fn pending(outcome: &Outcome) -> &str {
     match outcome {
         Outcome::PendingReview { proposal, .. } => proposal,
-        Outcome::Done { result } => panic!("expected a proposal, got {result}"),
+        other => panic!("expected a proposal, got {other:?}"),
     }
 }
 

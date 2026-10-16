@@ -47,7 +47,9 @@ jobs:
           - { name: linux-x64, os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
           - { name: windows-x64, os: windows-latest, target: x86_64-pc-windows-msvc }
           - { name: macos-arm64, os: macos-latest, target: aarch64-apple-darwin }
-          - { name: macos-x64, os: macos-latest, target: x86_64-apple-darwin }
+          # Built on an Intel Mac: cross-built on Apple silicon it finds no
+          # Intel OpenSSL for libssh2.
+          - { name: macos-x64, os: macos-15-intel, target: x86_64-apple-darwin }
     # The tag reaches scripts through the environment, never spliced into them.
     env:
       TAG: ${{ github.ref_name }}
@@ -79,11 +81,21 @@ jobs:
         shell: bash
         run: |
           channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)
-          rustup toolchain install "$channel" --profile minimal --target "$TARGET"
+          rustup toolchain install "$channel" --profile minimal --target "$TARGET" --target wasm32-unknown-unknown
       - run: pnpm install --frozen-lockfile
       # The licences of what the app ships go inside it.
       - name: Write the third-party notices
         run: node scripts/notices.mjs
+      # The page the headless browser draws slides with is built into the
+      # program (crates/slides-render/build.rs embeds its build), so it is
+      # built before the program is: the command-line kasten-mcp draws
+      # render_slide and render_grid with it. Without it that program still
+      # builds, and says in a sentence that it cannot draw.
+      - name: Build the render page
+        shell: bash
+        run: |
+          node scripts/build-wasm.mjs --install
+          node scripts/build-render-page.mjs
       # Not code-signed for now: Windows and macOS warn before the first
       # launch. The update files are signed later, by the signing job.
       - name: Build the installers

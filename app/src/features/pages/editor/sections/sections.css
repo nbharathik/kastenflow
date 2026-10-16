@@ -179,9 +179,9 @@
       transform: rotate(-90deg);
     }
 
-    /* Present: a presentation screen and its word. */
+    /* Present: a presentation screen, an icon like the fold chevron. */
     & .kasten-sec-present {
-      padding: 0 0.4375rem 0 0.3125rem;
+      width: 1.5rem;
     }
   }
 

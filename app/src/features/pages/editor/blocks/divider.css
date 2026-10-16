@@ -1,5 +1,5 @@
-/* A divider in the page (divider-view.ts): its line, and on hover the title of
-   the section it opens with buttons that fold it and present from it. */
+/* A divider in the page (divider-view.ts): its line, and on hover two icon buttons
+   that fold the section it opens and present from it. The line carries no words. */
 
 .kasten-page-editor .kasten-divider {
   position: relative;
@@ -49,25 +49,12 @@
     display: none;
   }
 
-  & .kasten-divider-title {
-    max-width: 28ch;
-    overflow: hidden;
-    font-size: var(--text-12);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* A folded section already says its title in its own row. */
-  &.is-folded .kasten-divider-title {
-    display: none;
-  }
-
   & .kasten-divider-fold,
   & .kasten-divider-present {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    width: 24px;
     height: 24px;
     border-radius: var(--radius);
     color: inherit;
@@ -86,8 +73,6 @@
 
   /* Fold: a chevron, down while the section is open and turned right when it is folded. */
   & .kasten-divider-fold {
-    width: 24px;
-
     & svg {
       transition: transform var(--motion-fast) var(--ease-standard);
     }
@@ -95,10 +80,5 @@
 
   &.is-folded .kasten-divider-fold svg {
     transform: rotate(-90deg);
-  }
-
-  /* Present: a presentation screen and its word. */
-  & .kasten-divider-present {
-    padding: 0 7px 0 5px;
   }
 }

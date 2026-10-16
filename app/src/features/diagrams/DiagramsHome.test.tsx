@@ -156,7 +156,9 @@ describe("Diagrams", () => {
     expect(notice.textContent).toContain("github.com");
     expect(notice.textContent).toContain("draw.io (diagrams.net), Apache-2.0");
     // The preview has no desktop app to install with, and says so rather than offering a button that does nothing.
-    expect(within(notice).queryByRole("button")).toBeNull();
+    expect(within(notice).queryByRole("button", { name: /Install/ })).toBeNull();
+    // Only the way to Settings, where the editor is installed and removed.
+    expect(within(notice).getAllByRole("button").map((b) => b.textContent)).toEqual(["Diagram settings"]);
     expect(notice.textContent).toContain("Installing needs the desktop app");
     expect(useDiagramHost.getState().queue).toEqual([]);
     // Diagrams already there are still listed.

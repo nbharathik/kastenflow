@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+#
+# (The one case that was saved here was a table whose cells overlap, which cannot be edited; it is
+# the test `cells_that_reach_over_each_other_have_no_grid_...` now, and the properties draw
+# tables that follow the rules.)

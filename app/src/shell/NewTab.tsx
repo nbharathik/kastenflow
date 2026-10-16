@@ -1,10 +1,12 @@
 // The "+" at the end of a pane's tabs. A plain click makes a Home tab (in
-// the pane to the right when "New tabs open to the right" is on); the small
-// arrow beside it and a right-click show the other ways to start one.
+// the pane to the right when "New tabs open to the right" is on), or another
+// browser tab when the tab in front is one; the small arrow beside it and a
+// right-click show the other ways to start one.
 
 import { useRef, useState } from "react";
 
 import { startNewBoard } from "../features/boards/store";
+import { onBrowserTab, openWebTab } from "../features/browser/commands";
 import { keyTitle } from "../features/shortcuts/store";
 import { startNewDeck } from "../features/slides/store";
 import { usePrefs } from "../features/workspace/prefs";
@@ -51,7 +53,12 @@ export function NewTabButton() {
         aria-label="New tab"
         title={keyTitle("New tab", "new-tab")}
         className="kasten-tab-new"
-        onClick={() => (usePrefs.getState().plusOpensRight ? ws.openRight({ view: "home" }) : ws.openTab({ view: "home" }))}
+        onClick={() => {
+          // Beside a browser tab, the "+" makes another browser tab, as Ctrl+T does.
+          if (onBrowserTab()) openWebTab();
+          else if (usePrefs.getState().plusOpensRight) ws.openRight({ view: "home" });
+          else ws.openTab({ view: "home" });
+        }}
         onContextMenu={(event) => {
           event.preventDefault();
           setMenu({ x: event.clientX, y: event.clientY });

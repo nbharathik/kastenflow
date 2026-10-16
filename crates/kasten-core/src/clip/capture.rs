@@ -5,8 +5,10 @@
 //! What the page held is read here, not trusted: scripts and `javascript:`
 //! links go, text cannot form a link or a tag, and sizes are capped.
 
-use serde_json::{Map, Value, json};
+use serde_json::{Map, json};
 
+use super::address::{address, extra_tags, site_of};
+use super::capture_schema::schema;
 use super::escape::{plain, target as link_target};
 use super::{MAX_MARKDOWN, clip};
 use crate::engine::{Change, Kasten};
@@ -23,24 +25,23 @@ use crate::time::Instant;
 /// whole page. (The browser tab's own script sends at most 900,000 characters
 /// of a selection.)
 pub const MAX_INPUT: usize = 8 << 20;
-/// The longest address kept.
-const MAX_URL: usize = 4096;
 /// The most Markdown quoted into a page.
 const MAX_QUOTE: usize = 50_000;
 /// The tag every capture carries.
 pub const TAG: &str = "capture";
 const SCHEMA: &str = "tags/capture.yaml";
 
-/// The most tags a capture carries beside `capture`.
-const MAX_TAGS: usize = 8;
-/// The longest tag, in characters.
-const MAX_TAG: usize = 40;
-
 /// What the browser tab or the browser extension read: the page's address
 /// (from navigation, not from the page), its title, the selection or page as
 /// HTML or as plain text, how it came ("browser" or "extension"), and tags to
 /// put on the card beside `capture`. With neither `html` nor `text` the
 /// capture is the link alone. A quote added to a page takes no tags.
+///
+/// `snapshot_of` names (by id or path) a card the same page was saved in
+/// before: the new card is then kept as a snapshot of it, with that card's id
+/// (or, for a snapshot, the id it was a snapshot of) in `props.snapshot_of`.
+/// The first card is only read, never written. A quote added to a page has no
+/// card to mark and ignores it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct WebCapture {
     pub url: String,
@@ -49,6 +50,7 @@ pub struct WebCapture {
     pub text: Option<String>,
     pub via: String,
     pub tags: Vec<String>,
+    pub snapshot_of: Option<String>,
 }
 
 /// Where a capture goes.
@@ -66,7 +68,8 @@ pub enum Target {
 }
 
 /// What a capture would keep, for the person to see before it is written.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Preview {
     pub title: String,
     pub site: String,
@@ -84,73 +87,6 @@ struct Checked {
     /// The extra tags, cleaned: no `#`, no repeats, none called `capture`.
     tags: Vec<String>,
     markdown: Option<String>,
-}
-
-/// `tags` as the tags a card keeps beside `capture`: a leading `#` goes,
-/// empty ones and repeats (in any case) are dropped, and one that could not
-/// be a tag (letters, digits, `-`, `_` and `/` only) refuses the capture.
-fn extra_tags(tags: &[String]) -> Result<Vec<String>> {
-    let mut out: Vec<String> = Vec::new();
-    for tag in tags {
-        let tag = tag.trim().trim_start_matches('#').trim();
-        if tag.is_empty() {
-            continue;
-        }
-        let fine = tag.chars().count() <= MAX_TAG
-            && tag
-                .chars()
-                .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '/'));
-        if !fine {
-            return Err(Error::Invalid(format!(
-                "“{}” cannot be a tag: tags are letters, digits, dashes, underscores and slashes, up to {MAX_TAG} characters",
-                tag.chars().take(MAX_TAG).collect::<String>()
-            )));
-        }
-        if !tag.eq_ignore_ascii_case(TAG) && !out.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
-            out.push(tag.to_owned());
-        }
-    }
-    if out.len() > MAX_TAGS {
-        return Err(Error::Invalid(format!(
-            "A capture carries at most {MAX_TAGS} tags"
-        )));
-    }
-    Ok(out)
-}
-
-/// `url` as an address a capture keeps: a web page's, with no name or
-/// password in it.
-fn address(url: &str) -> Result<String> {
-    let url = url.trim();
-    let lower = url.to_ascii_lowercase();
-    let rest = ["https://", "http://"]
-        .iter()
-        .find_map(|scheme| lower.strip_prefix(scheme).map(|_| &url[scheme.len()..]));
-    let bad = |why: &str| Error::Invalid(format!("That address cannot be kept: {why}"));
-    let Some(rest) = rest else {
-        return Err(bad("only web pages (http or https) are captured"));
-    };
-    if url.len() > MAX_URL || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
-        return Err(bad("it is too long or holds spaces"));
-    }
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-    if authority.is_empty() || authority.contains('@') {
-        return Err(bad("it has no site, or holds a name and password"));
-    }
-    Ok(url.to_owned())
-}
-
-/// The site an address is on: its host without a port or a leading `www.`.
-pub fn site_of(url: &str) -> String {
-    let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or(rest);
-    let host = if authority.starts_with('[') {
-        authority.split_inclusive(']').next().unwrap_or(authority)
-    } else {
-        authority.split(':').next().unwrap_or(authority)
-    };
-    let host = host.to_ascii_lowercase();
-    host.strip_prefix("www.").unwrap_or(&host).to_owned()
 }
 
 /// Plain text as Markdown: paragraphs apart, line breaks kept, and nothing
@@ -318,26 +254,6 @@ fn quote(checked: &Checked, day: &str) -> String {
     lines.join("\n")
 }
 
-/// The tag database a capture is filed under: its columns and three views.
-fn schema() -> Value {
-    json!({
-        "color": "blue",
-        "properties": [
-            {"key": "url", "type": "url"},
-            {"key": "site", "type": "text"},
-            {"key": "captured", "type": "date"},
-            {"key": "status", "type": "select", "options": ["New", "Read", "Filed"]},
-        ],
-        "views": [
-            {"name": "All", "type": "table", "sort": [{"key": "captured", "dir": "desc"}]},
-            {"name": "By site", "type": "table", "sort": [{"key": "site", "dir": "asc"}, {"key": "captured", "dir": "desc"}]},
-            {"name": "This week", "type": "calendar", "date": "captured"},
-            // The view a project page embeds: only what is filed in that project.
-            {"name": "This project", "type": "table", "scope": "project", "sort": [{"key": "captured", "dir": "desc"}]},
-        ],
-    })
-}
-
 impl Kasten {
     /// Keeps what the browser tab captured, as one commit: a card (in the
     /// inbox or a project) tagged `capture`, with `url:` and the properties
@@ -373,6 +289,11 @@ impl Kasten {
                 Some(name.as_str())
             }
         };
+        // Read before the write lock is taken; the first card is not written.
+        let origin = match capture.snapshot_of.as_deref() {
+            Some(reference) => Some(self.snapshot_origin(reference)?),
+            None => None,
+        };
         self.apply(actor, "capture_web", false, now.millis, |vault| {
             let new = NewNote {
                 kind: Kind::Card,
@@ -403,6 +324,9 @@ impl Kasten {
                 props.insert("site".to_owned(), json!(checked.site));
                 props.insert("captured".to_owned(), json!(day));
                 props.insert("via".to_owned(), json!(checked.via));
+                if let Some(origin) = &origin {
+                    props.insert("snapshot_of".to_owned(), json!(origin));
+                }
                 let prefix = set_key_raw(parts.prefix, "tags", Some(&yaml_list(&tags)), eol);
                 let prefix = crate::props::set_props(&prefix, &props, eol)?;
                 let prefix = set_key(&prefix, "url", Some(&checked.url), eol);
@@ -442,8 +366,9 @@ impl Kasten {
                 paths.push(SCHEMA.to_owned());
             }
             paths.extend(self.keep_for_new(vault, &note.meta)?);
+            let again = if origin.is_some() { " (snapshot)" } else { "" };
             Ok(Change {
-                message: format!("capture: {}", note.meta.title),
+                message: format!("capture: {}{again}", note.meta.title),
                 paths,
                 value: note,
             })
@@ -452,79 +377,5 @@ impl Kasten {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn keeps_web_addresses_only_and_names_the_site() {
-        assert_eq!(
-            address(" https://www.Example.com/a?b=1#c ").unwrap(),
-            "https://www.Example.com/a?b=1#c"
-        );
-        for bad in [
-            "http:///x",
-            "https://u:p@example.com/",
-            "https://a b/",
-            "mailto:a@b.c",
-            "HTTP:example.com",
-        ] {
-            assert!(address(bad).is_err(), "{bad}");
-        }
-        assert_eq!(site_of("https://www.Example.com:8443/a?b=1"), "example.com");
-        assert_eq!(site_of("http://[::1]:8080/x"), "[::1]");
-        assert_eq!(site_of("https://news.example.org"), "news.example.org");
-    }
-
-    #[test]
-    fn the_default_database_is_the_one_a_first_capture_makes() {
-        // New vaults are given this file with the other default tags, and a
-        // vault without it gets the same text from its first capture.
-        let made = crate::tags::schema_yaml(TAG, &schema()).unwrap();
-        assert_eq!(made, include_str!("../../defaults/tags/capture.yaml"));
-    }
-
-    #[test]
-    fn extra_tags_are_cleaned_and_one_that_cannot_be_a_tag_refuses() {
-        let list = |tags: &[&str]| tags.iter().map(|t| (*t).to_owned()).collect::<Vec<_>>();
-        assert_eq!(
-            extra_tags(&list(&["#a", " b ", "A", "", "Capture", "x/y-z_1", "é"])).unwrap(),
-            ["a", "b", "x/y-z_1", "é"]
-        );
-        assert!(extra_tags(&[]).unwrap().is_empty());
-        for bad in ["a b", "a,b", "a:b", "a#b", "<x>", &"z".repeat(41)] {
-            assert!(extra_tags(&list(&[bad])).is_err(), "{bad}");
-        }
-        let nine: Vec<String> = (0..9).map(|n| format!("t{n}")).collect();
-        assert!(extra_tags(&nine).is_err());
-        assert_eq!(extra_tags(&nine[..8]).unwrap().len(), 8);
-    }
-
-    #[test]
-    fn text_becomes_paragraphs_that_start_no_block() {
-        assert_eq!(
-            paragraphs("a\r\nb\n\n\n# c\n- d\n1. e\n> f\n```\nplain"),
-            "a  \nb\n\n\\# c  \n\\- d  \n\\1. e  \n\\> f  \n\\```  \nplain"
-        );
-        assert_eq!(paragraphs(" \n\t\n"), "");
-    }
-
-    #[test]
-    fn a_long_selection_is_quoted_in_whole_paragraphs() {
-        let checked = Checked {
-            url: "https://example.com/x".to_owned(),
-            title: "T".to_owned(),
-            site: "example.com".to_owned(),
-            via: "browser".to_owned(),
-            tags: Vec::new(),
-            markdown: Some(format!(
-                "{}\n\n{}\n",
-                "a".repeat(40_000),
-                "b".repeat(40_000)
-            )),
-        };
-        let text = quote(&checked, "2026-09-24");
-        assert!(text.contains("*The rest of the selection was left out.*"));
-        assert!(!text.contains('b'.to_string().repeat(100).as_str()));
-        assert!(text.ends_with("> — [T](https://example.com/x), 2026-09-24"));
-    }
-}
+#[path = "capture_tests.rs"]
+mod tests;

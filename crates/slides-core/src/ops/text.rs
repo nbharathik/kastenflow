@@ -17,6 +17,11 @@ fn put(e: &mut Element, text: Text) -> Result<()> {
         Element::Text(t) => t.text = text,
         Element::Shape(s) => s.text = Some(text),
         Element::Connector(c) => c.label = Some(text),
+        Element::Table(_) => {
+            return Err(Error::refused(
+                "A table holds its words in its cells. Use set_cells to put words in them.",
+            ));
+        }
         _ => {
             return Err(Error::refused(format!(
                 "A {} element cannot hold text.",
@@ -28,7 +33,7 @@ fn put(e: &mut Element, text: Text) -> Result<()> {
 }
 
 /// Text that takes `old`'s box settings.
-fn keeping_box(mut fresh: Text, old: Option<&Text>) -> Text {
+pub(super) fn keeping_box(mut fresh: Text, old: Option<&Text>) -> Text {
     if let Some(old) = old {
         fresh.valign = old.valign.clone();
         fresh.insets = old.insets.clone();

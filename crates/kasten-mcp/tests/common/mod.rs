@@ -36,8 +36,11 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-/// A copy of the dev vault with history on.
+/// A copy of the dev vault with history on. A test that calls the tools in its own process
+/// is not given a browser to draw with, whatever the machine has (a browser started by a
+/// test would outlive it); the tests that draw for real run the program, which ends cleanly.
 pub fn vault() -> TempDir {
+    kasten_mcp::decks::render::pretend_no_browser(true);
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/dev-vault");
     let dir = std::env::temp_dir().join(format!("kasten-mcp-{}", ulid_at(Instant::now().millis)));
     copy_dir(&source, &dir);
@@ -47,7 +50,7 @@ pub fn vault() -> TempDir {
 
 pub struct Client {
     child: Child,
-    stdin: ChildStdin,
+    stdin: Option<ChildStdin>,
     stdout: BufReader<ChildStdout>,
     next: u64,
     /// What the server told the client about the vault when it connected.
@@ -55,7 +58,17 @@ pub struct Client {
 }
 
 impl Drop for Client {
+    /// Hangs up as a client does, so the server ends and lets go of the browser it may have
+    /// started to draw with; only a server that does not end is killed.
     fn drop(&mut self) {
+        drop(self.stdin.take());
+        let waited = std::time::Instant::now();
+        while waited.elapsed() < std::time::Duration::from_secs(5) {
+            if matches!(self.child.try_wait(), Ok(Some(_))) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -75,7 +88,7 @@ impl Client {
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut c = Client {
             child,
-            stdin,
+            stdin: Some(stdin),
             stdout,
             next: 1,
             instructions: String::new(),
@@ -96,8 +109,9 @@ impl Client {
     }
 
     fn send(&mut self, message: Value) {
-        writeln!(self.stdin, "{message}").unwrap();
-        self.stdin.flush().unwrap();
+        let stdin = self.stdin.as_mut().expect("the client is still connected");
+        writeln!(stdin, "{message}").unwrap();
+        stdin.flush().unwrap();
     }
 
     /// A request's result (or its error object).

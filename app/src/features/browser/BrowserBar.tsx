@@ -1,6 +1,7 @@
 // The browser tab's bar: back, forward, reload, the address box (which also
-// searches), full screen and "open in the system's browser"; and the capture
-// buttons, which read the page or the selection and show what would be kept.
+// searches), a "+" for a new browser tab, full screen and "open in the system's
+// browser"; and the capture buttons, which read the page or the selection and
+// show what would be kept.
 
 import { useEffect, useState, type RefObject } from "react";
 
@@ -19,13 +20,17 @@ interface Props {
   reading: boolean;
   onGo(text: string): void;
   onNav(action: "back" | "forward" | "reload"): void;
+  /** A new browser tab, on its start page. */
+  onNewTab(): void;
   onFull(): void;
   onSystem(): void;
   onCapture(kind: "selection" | "page"): void;
+  /** Makes a reference of the page's own tags, to review before it is added; without it the bar has no such button. */
+  onSavePaper?(): void;
   onSendTo(): void;
 }
 
-export function BrowserBar({ url, loading, live, fullScreen, address, target, reading, onGo, onNav, onFull, onSystem, onCapture, onSendTo }: Props) {
+export function BrowserBar({ url, loading, live, fullScreen, address, target, reading, onGo, onNav, onNewTab, onFull, onSystem, onCapture, onSavePaper, onSendTo }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
   // What the box shows: what is being typed, else where the page is.
   const shown = draft ?? url ?? "";
@@ -64,16 +69,19 @@ export function BrowserBar({ url, loading, live, fullScreen, address, target, re
             }
           }}
         />
+        <IconButton icon="plus" label="New web tab" size="sm" onClick={onNewTab} />
         <IconButton icon="expand" label={fullScreen ? "Leave full screen" : "Full screen"} size="sm" active={fullScreen} onClick={onFull} />
         <IconButton icon="external" label="Open in system browser" size="sm" disabled={!url} onClick={onSystem} />
       </div>
       <div className="kasten-browser-bar" role="toolbar" aria-label="Capture">
-        <Button size="sm" icon="bookmark" disabled={!live || reading} onClick={() => onCapture("page")}>
-          Capture page
-        </Button>
-        <Button size="sm" icon="quote" disabled={!live || reading} onClick={() => onCapture("selection")}>
-          Capture selection
-        </Button>
+        {/* The two captures are icons: their words are their names and tooltips. */}
+        <IconButton icon="bookmark" label="Capture page" title="Capture page: keep this page" disabled={!live || reading} onClick={() => onCapture("page")} />
+        <IconButton icon="quote" label="Capture selection" title="Capture selection: keep what you selected" disabled={!live || reading} onClick={() => onCapture("selection")} />
+        {onSavePaper && (
+          <Button size="sm" icon="book" disabled={!live || reading} title="Read the page's own citation tags and make a reference of them, to check before it is added" onClick={onSavePaper}>
+            Save as paper
+          </Button>
+        )}
         <Button size="sm" tone="quiet" icon="send" onClick={onSendTo}>
           Send to: {placeName(target)}
         </Button>

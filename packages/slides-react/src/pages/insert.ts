@@ -194,9 +194,11 @@ export async function standingOf(host: SlidesHost, element: Element): Promise<St
  * Makes the elements `ids` of the shown slide again from their pages as they are now (the whole deck when `ids` is left out), as one
  * step of undo. Resolves to how many were changed and how many pages could not be read.
  */
-export async function updateFromPages(session: EditorSession, ids?: readonly string[]): Promise<{ updated: number; missing: number; same: number }> {
+export async function updateFromPages(session: EditorSession, ids?: readonly string[]): Promise<{ updated: number; missing: number; same: number; edited?: number }> {
   const { host } = session;
-  const result = { updated: 0, missing: 0, same: 0 };
+  const result: { updated: number; missing: number; same: number; edited?: number } = { updated: 0, missing: 0, same: 0 };
+  /** Where in the batch each update of a slide made by a storyboard is: the engine says of each whether it was left alone for being changed by hand. */
+  const guarded: number[] = [];
   const jobs: { slide: string; element: Element }[] = [];
   const walk = (slide: string, elements: readonly Element[]) => {
     for (const element of elements) {
@@ -220,14 +222,24 @@ export async function updateFromPages(session: EditorSession, ids?: readonly str
         const next: PageSource = { ...source, title: page.title || source.title || null, markdown, hash: pageFingerprint(markdown) };
         operations.push(["patch_elements", { slide, patches: [{ id: element.id, patch: { source: next as never, title: page.title || null } }] }]);
       } else {
-        operations.push(["update_page_contents", { slide, id: element.id, markdown, title: page.title, sizes: await picturesOf(host, markdown) }]);
+        // What a storyboard made keeps a fingerprint of its words: a slide the person changed since is left alone, and said.
+        if (/^[0-9a-f]{16}$/.test(source.made ?? "")) guarded.push(operations.length);
+        operations.push(["update_page_contents", { slide, id: element.id, markdown, title: page.title, sizes: await picturesOf(host, markdown), ...(guarded.includes(operations.length) ? { keepEdits: true } : {}) }]);
       }
       result.updated += 1;
     } catch {
       result.missing += 1;
     }
   }
-  if (operations.length > 0) session.run(() => session.core.applyBatch(operations));
+  if (operations.length > 0) {
+    const applied = session.run(() => session.core.applyBatch(operations));
+    for (const at of guarded) {
+      if ((applied?.[at]?.output as { edited?: boolean } | undefined)?.edited) {
+        result.updated -= 1;
+        result.edited = (result.edited ?? 0) + 1;
+      }
+    }
+  }
   return result;
 }
 

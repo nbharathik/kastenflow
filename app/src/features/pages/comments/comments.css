@@ -1,0 +1,307 @@
+/* A page's comments: the column beside a sections page, and the same stacks
+   in the panel's Comments tab. Colours and sizes come from the window's
+   tokens, so light, dark and the accent follow the theme. */
+
+/* The column: one stack for each section, then the page as a whole and the
+   comments that lost their place. */
+.kasten-comments-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  width: 17rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem 0.75rem 2rem;
+  border-left: 1px solid var(--notion-line-soft);
+  background: var(--color-panel);
+  color: var(--notion-text);
+  font-family: var(--notion-font);
+  font-size: var(--text-13);
+  line-height: 1.45;
+}
+
+/* Too narrow to spare the room: the comments stay in the panel's tab. */
+@container pane (max-width: 760px) {
+  .kasten-comments-col {
+    display: none;
+  }
+}
+
+@media print {
+  .kasten-comments-col {
+    display: none;
+  }
+}
+
+.kasten-comments-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kasten-comments-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-weight: 600;
+}
+
+.kasten-comments-toggle {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-weight: 500;
+
+  &:hover,
+  &[aria-pressed="true"] {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}
+
+/* One stack: the section's name, then its comments, then a place to add one. */
+.kasten-comment-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid var(--notion-line-soft);
+  border-radius: var(--radius-xl);
+  background: var(--notion-bg);
+
+  &.is-detached {
+    border-style: dashed;
+    border-color: var(--notion-line);
+  }
+}
+
+.kasten-comment-stack-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-weight: 600;
+
+  & button {
+    min-width: 0;
+    overflow: hidden;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--notion-text);
+      text-decoration: underline;
+    }
+  }
+}
+
+.kasten-comment-stack-number {
+  flex: none;
+  color: var(--notion-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.kasten-comment-stack-count {
+  margin-left: auto;
+  color: var(--notion-text-3);
+  font-weight: 500;
+}
+
+.kasten-comment-note {
+  margin: 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+}
+
+.kasten-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kasten-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+
+  &.is-agent {
+    box-shadow: inset 2px 0 0 var(--kasten-agent);
+  }
+
+  &.is-resolved {
+    box-shadow: inset 2px 0 0 var(--notion-line);
+
+    & .kasten-comment-text {
+      color: var(--notion-text-2);
+    }
+  }
+}
+
+.kasten-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+}
+
+.kasten-comment-author {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--notion-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &.is-agent {
+    padding: 0 0.4375rem;
+    border-radius: var(--radius-xl);
+    background: var(--kasten-agent-bg);
+    color: var(--kasten-agent);
+    font-weight: 500;
+  }
+}
+
+.kasten-comment-state {
+  margin-left: auto;
+  color: var(--notion-text-3);
+}
+
+.kasten-comment-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  padding: 0 0 0 0.5rem;
+  border-left: 2px solid var(--notion-line);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+button.kasten-comment-quote:hover {
+  border-left-color: var(--color-accent);
+  color: var(--notion-text);
+}
+
+.kasten-comment-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kasten-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.125rem;
+}
+
+.kasten-comment-btn {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+
+  &:hover:not(:disabled) {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+  }
+
+  &.is-primary {
+    background: var(--color-accent);
+    box-shadow: none;
+    color: var(--color-on-accent);
+  }
+}
+
+/* The place to write a comment. */
+.kasten-comment-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  & textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--notion-line);
+    border-radius: var(--radius-lg);
+    outline: none;
+    background: var(--notion-bg);
+    color: inherit;
+    font: inherit;
+    resize: vertical;
+
+    &:focus {
+      border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    }
+  }
+
+  & .kasten-comment-btn {
+    align-self: flex-end;
+  }
+}
+
+.kasten-comment-about {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+
+  & .kasten-comment-about-quote {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & button {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-accent);
+    font-size: var(--text-12);
+  }
+}
+
+.kasten-comments-empty {
+  margin: 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-13);
+}

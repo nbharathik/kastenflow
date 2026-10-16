@@ -13,11 +13,13 @@ function plain(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value, (_, v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v)));
 }
 
-const saved = (engine: DeckEngine): unknown => plain(JSON.parse(engine.save()));
+/** The saved file, compared by content: its `formatVersion` line says 1 until the deck uses a
+ * version 2 field, while the engine's copy always says the newest version it can read. */
+const saved = (engine: DeckEngine): unknown => plain({ ...(JSON.parse(engine.save()) as object), formatVersion: engine.deck.formatVersion });
 
 describe("the engine", () => {
   it("makes a deck and reports the format version", () => {
-    expect(supportedFormatVersion()).toBe(1);
+    expect(supportedFormatVersion()).toBe(2);
     const engine = DeckEngine.create("Talk", "Light", 1);
     expect(engine.deck.title).toBe("Talk");
     expect(engine.deck.slides).toHaveLength(1);

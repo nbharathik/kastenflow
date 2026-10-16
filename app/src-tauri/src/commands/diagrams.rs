@@ -30,6 +30,23 @@ pub fn read_diagram_preview(
     state.run(|k| k.diagram_preview(&path))
 }
 
+/// A picture of the diagram `xml` drawn by the program itself, for changes
+/// to look at before they are written (the editor draws the exact picture
+/// once the diagram is opened). Says why when it cannot draw it.
+pub(crate) fn draft_svg(xml: &str) -> Result<String, String> {
+    if xml.len() > kasten_core::diagrams::MAX_BYTES {
+        return Err("This diagram is too large to draw a preview of".to_owned());
+    }
+    kasten_core::diagrams::draw::draft(xml, None).map(|draft| draft.svg)
+}
+
+/// The built-in picture of a diagram that is not in the vault (a proposal's
+/// before and after). Reads nothing and writes nothing.
+#[tauri::command(async)]
+pub fn diagram_draft_svg(xml: String) -> Result<String, String> {
+    draft_svg(&xml)
+}
+
 /// Creates a diagram in `project` or the library, from `xml` or with one
 /// empty page; returns its path.
 #[tauri::command(async)]

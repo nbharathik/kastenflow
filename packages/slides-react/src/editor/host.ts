@@ -5,8 +5,11 @@
 import type { Deck } from "@kasten-slides/wasm";
 import type { ComponentType } from "react";
 
+import type { RehearsalStore } from "../present/rehearsal-store.ts";
 import type { PresentSync } from "../present/sync.ts";
+import type { DecksHost } from "./decks-host.ts";
 import type { TemplatesHost } from "./layouts/templates-host.ts";
+import type { WebPreviewHost } from "./web-preview-host.ts";
 
 /** What a save did. */
 export type SaveOutcome =
@@ -71,6 +74,11 @@ export interface DiagramPicture {
   /** The picture's size in pixels, when the host knows it. */
   width?: number;
   height?: number;
+  /**
+   * Which version of the diagram the picture was drawn from, as the host names versions (an opaque string, such as a hash).
+   * The deck keeps it with the picture; when `diagramRevision` later answers another, the picture is out of date.
+   */
+  rev?: string;
 }
 
 /** A page of the host (a Kasten page) as the editor lists and links it. */
@@ -204,6 +212,16 @@ export interface SlidesHost {
    */
   editDiagram?(source: string): Promise<DiagramPicture | null>;
   /**
+   * The version the diagram `source` is at now, in the host's names for versions (what a `DiagramPicture.rev` holds); undefined
+   * when the diagram cannot be found. With this, `drawDiagram` and `watchDiagrams` the editor marks a picture whose diagram changed
+   * elsewhere and offers to draw it again.
+   */
+  diagramRevision?(source: string): Promise<string | undefined>;
+  /** A picture of the diagram `source` as it is now, drawn without opening its editor; rejects with the reason when it cannot be. */
+  drawDiagram?(source: string): Promise<DiagramPicture | null>;
+  /** Calls `onChange` when a diagram changed (saved in its editor, edited elsewhere); returns how to stop. */
+  watchDiagrams?(onChange: () => void): () => void;
+  /**
    * The editor now holds `text` as what is saved: it took a version from
    * outside (a change made elsewhere, or the file's version after a conflict).
    * A host that tracks which version it saved over updates that here.
@@ -234,11 +252,18 @@ export interface SlidesHost {
   /**
    * A picture of a web page as it looks in a window of `width` by `height`, kept in the image store; resolves to its path, or to
    * null when it could not be taken. Taking one needs a window of the page that only the desktop app has; without this a snapshot
-   * is a picture the person chooses.
+   * is a picture the person chooses (no host does this yet: nothing in the desktop app can read the pixels of a web view).
    */
   snapshotPage?(address: string, width: number, height: number): Promise<string | null>;
   /** The readable text of a web page, as Markdown, for the Reader mode of an embedded page; null when it cannot be made. */
   readerPage?(address: string): Promise<{ title: string; markdown: string } | null>;
+  /**
+   * A web page shown next to a slide, or over a presentation, in a view the host draws (a native web view in the desktop app). With it a
+   * web link followed in a presentation, and Preview live on an embedded page in the editor, open the page in a peek at the side (or
+   * in the middle, or over the whole window) that the editor places and the host fills; the editor makes no frame of its own for it.
+   * Without it a link opens outside, and a selected embed shows live in a frame in the page where the page allows it.
+   */
+  webPreview?: WebPreviewHost;
   /** Tells the person something short. */
   notify?(message: string): void;
   /**
@@ -267,6 +292,13 @@ export interface SlidesHost {
    * (the standalone page) leaves this out, and the editor offers no templates.
    */
   templates?: TemplatesHost;
+  /** The other decks the host keeps, so that layouts can be brought in from one of them. A host without them leaves this out, and the editor offers no import of layouts. */
+  decks?: DecksHost;
+  /**
+   * Where the rehearsals of a deck are kept (the timing of each slide and step of a run-through). Kasten keeps them on this computer, outside
+   * the vault. Left out, they are kept in the page's local storage, the last ten for each deck.
+   */
+  rehearsals?: RehearsalStore;
   /**
    * Whether the deck is a favourite of the host's (a star beside its name), and how to change that. A host without favourites leaves
    * this out, and the title bar shows no star.

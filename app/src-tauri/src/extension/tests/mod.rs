@@ -4,9 +4,11 @@
 //! big can be sent as a browser never would. Nothing here reaches a network
 //! beyond 127.0.0.1.
 
+mod dedupe;
 mod input;
 mod limits;
 mod pairing;
+mod paper;
 mod routes;
 mod rules;
 mod store;
@@ -74,6 +76,8 @@ pub struct Door {
     pub shared: Arc<Shared>,
     /// What the door told the window was written, one list per capture.
     pub told: Arc<Mutex<Vec<Vec<String>>>>,
+    /// The papers the door handed the window to check, `{ url, title, meta }`.
+    pub papers: Arc<Mutex<Vec<Value>>>,
     /// The settings folder `extension.json` is kept in.
     pub settings: PathBuf,
     vault: PathBuf,
@@ -95,15 +99,21 @@ impl Door {
         let kasten = Arc::new(Kasten::open(&vault).unwrap());
         kasten.start_history().unwrap();
         let told = Arc::new(Mutex::new(Vec::new()));
+        let papers = Arc::new(Mutex::new(Vec::new()));
         let for_vault = Arc::clone(&kasten);
         let for_told = Arc::clone(&told);
-        let shared = Arc::new(Shared::new(
+        let for_papers = Arc::clone(&papers);
+        let mut built = Shared::new(
             Box::new(move || Ok(Arc::clone(&for_vault))),
             Box::new(move |paths| for_told.lock().unwrap().push(paths)),
             Store::load(Some(settings.clone())),
             Pairing::new(setup.ttl, setup.tries),
             Limits::new(setup.requests, setup.failures, Duration::from_secs(60)),
-        ));
+        );
+        built.papers = Some(Box::new(move |draft| {
+            for_papers.lock().unwrap().push(draft)
+        }));
+        let shared = Arc::new(built);
         shared.on.store(true, Ordering::Relaxed);
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -119,6 +129,7 @@ impl Door {
             kasten,
             shared,
             told,
+            papers,
             settings,
             vault,
             runtime,

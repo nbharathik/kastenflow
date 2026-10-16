@@ -97,6 +97,34 @@ impl Kasten {
         })
     }
 
+    /// `create_diagram` for what an agent makes: with the source, the draft
+    /// picture of it in the same commit, so the diagram can be seen at once
+    /// (the editor draws the exact one the next time it is at hand).
+    pub fn create_diagram_drawn(
+        &self,
+        actor: &Actor,
+        title: &str,
+        project: Option<&str>,
+        xml: Option<&str>,
+        now: Instant,
+    ) -> Result<String> {
+        self.apply(actor, "create_diagram", false, now.millis, |vault| {
+            let path = diagrams::create_diagram(vault, title, project, xml)?;
+            let mut paths = vec![path.clone()];
+            // The picture is only derived: a source that cannot be drawn is kept without one.
+            if let Some(svg) = xml.and_then(diagrams::draft_for)
+                && diagrams::write_draft(vault, &path, &svg).unwrap_or(false)
+            {
+                paths.push(sidecar_of(&path));
+            }
+            Ok(Change {
+                message: format!("diagram: create {}", title.trim()),
+                paths,
+                value: path,
+            })
+        })
+    }
+
     /// Makes a diagram from a file another program wrote (`.drawio`, `.xml`,
     /// `.drawio.svg` or `.drawio.png`); returns its path.
     pub fn import_diagram(

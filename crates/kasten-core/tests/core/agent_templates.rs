@@ -22,7 +22,7 @@ fn open() -> (common::TempVault, Kasten, Session) {
 fn pending(outcome: &Outcome) -> String {
     match outcome {
         Outcome::PendingReview { proposal, .. } => proposal.clone(),
-        Outcome::Done { result } => panic!("expected a proposal, got {result}"),
+        other => panic!("expected a proposal, got {other:?}"),
     }
 }
 

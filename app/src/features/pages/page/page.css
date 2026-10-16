@@ -77,9 +77,14 @@
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-standard);
 
+  /* Icons with a name and a tooltip, not words. */
   & button {
-    padding: 4px 8px;
-    font-size: var(--text-12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 28px;
+    padding: 0;
     color: var(--notion-text-2);
 
     &:hover {
@@ -158,6 +163,14 @@
     &:hover {
       background: var(--notion-hover);
       color: var(--notion-text-2);
+    }
+
+    /* An icon with no word: a square target. */
+    &.is-icon {
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0;
     }
   }
 }

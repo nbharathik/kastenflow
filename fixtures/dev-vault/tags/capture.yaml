@@ -5,6 +5,7 @@ properties:
   - {key: site, type: text}
   - {key: captured, type: date}
   - {key: status, type: select, options: [New, Read, Filed]}
+  - {key: reading, type: select, options: [Unread, Reading, Finished]}
 views:
   - {name: All, type: table, sort: [{key: captured, dir: desc}]}
   - {name: By site, type: table, sort: [{key: site, dir: asc}, {key: captured, dir: desc}]}

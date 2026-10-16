@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 
 import type { NoteMeta } from "../../../lib/vault/types";
 import { useBoards } from "../../boards/store";
+import { useOccludesElement } from "../../browser/occlusion";
+import { useDiagrams } from "../../diagrams/store";
 import { Picker } from "../../library/Picker";
 import { schemaOf } from "../../panel/properties/schemas";
 import { KIND_NAMES, vaultTags, viewsOf } from "../../tags/model";
@@ -14,14 +16,17 @@ import { iconOf, titleOf } from "../../workspace/names";
 import { byModified, matchTitles } from "../../workspace/overlays/match";
 import { useWorkspace } from "../../workspace/store";
 import { tagCounts } from "../../workspace/tree";
-import { boardChip, noteChip, searchChip, tagChip } from "../context";
+import { useAttachments } from "../attach-store";
+import { boardChip, cardsChip, diagramChip, noteChip, searchChip, tagChip } from "../context";
+import { useOpenNotes } from "../open-pages";
+import { pickFiles } from "../pick-files";
 import { useChat } from "../store";
 import { chipKey, type Chip, type Thread } from "../thread";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
 import { lineIcon } from "../../../ui/glyph";
 import { Icon } from "../../../ui/Icon";
 
-type Step = "menu" | "page" | "board" | "tag" | "view" | "search";
+type Step = "menu" | "page" | "board" | "diagram" | "tag" | "view" | "search";
 
 /** Closes a popup on Escape or a press outside `within`. */
 function useDismiss(within: RefObject<HTMLElement | null>, onClose: () => void): void {
@@ -56,6 +61,7 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
   const within = useRef<HTMLSpanElement>(null);
   const notes = useWorkspace((s) => s.notes);
   const boards = useBoards((s) => s.list);
+  const diagrams = useDiagrams((s) => s.list);
   const schemas = useTags((s) => s.schemas);
   const close = () => {
     setStep(null);
@@ -67,6 +73,7 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
   };
   const go = (next: Step) => {
     if (next === "board") void useBoards.getState().load();
+    if (next === "diagram") void useDiagrams.getState().load();
     if (next === "tag") void useTags.getState().load();
     setStep(next);
   };
@@ -84,6 +91,9 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
     add(tagChip(name, views.find((v) => v.name === viewName) ?? (found?.views.length ? views[0]! : null)));
   };
   const hasPage = page ? thread.context.some((c) => chipKey(c) === `note:${page.path}`) : false;
+  // Every page open in the panes, the side stack and a peek, as one chip.
+  const open = useOpenNotes();
+  const everyOpen = open.length > 1 ? { ...cardsChip(open), label: `${open.length} open pages` } : null;
 
   return (
     <span ref={within} className="kasten-chat-add">
@@ -99,6 +109,13 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
               <small>{hasPage ? "added" : titleOf(page)}</small>
             </button>
           )}
+          {everyOpen && (
+            <button type="button" role="menuitem" disabled={thread.context.some((c) => chipKey(c) === chipKey(everyOpen))} onClick={() => add(everyOpen)}>
+              <Icon name="cards" className="size-4" />
+              <span className="kasten-chat-menu-label">Every open page</span>
+              <small>{open.length}</small>
+            </button>
+          )}
           <button type="button" role="menuitem" onClick={() => go("page")}>
             <Icon name="page" className="size-4" />
             <span className="kasten-chat-menu-label">A page or card…</span>
@@ -107,6 +124,10 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
             <Icon name="board" className="size-4" />
             <span className="kasten-chat-menu-label">A board…</span>
           </button>
+          <button type="button" role="menuitem" onClick={() => go("diagram")}>
+            <Icon name="diagram" className="size-4" />
+            <span className="kasten-chat-menu-label">A diagram…</span>
+          </button>
           <button type="button" role="menuitem" onClick={() => go("tag")}>
             <Icon name="tag" className="size-4" />
             <span className="kasten-chat-menu-label">A tag view…</span>
@@ -114,6 +135,18 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
           <button type="button" role="menuitem" onClick={() => go("search")}>
             <Icon name="search" className="size-4" />
             <span className="kasten-chat-menu-label">Search results…</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              close();
+              pickFiles((files) => void useAttachments.getState().add(thread.id, files));
+            }}
+          >
+            <Icon name="attach" className="size-4" />
+            <span className="kasten-chat-menu-label">Attach a file…</span>
+            <small>text, PDF, picture</small>
           </button>
         </ContextMenu>
       )}
@@ -127,6 +160,17 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
           within={within}
           onClose={close}
           onPick={(path) => add(boardChip(boards.find((b) => b.path === path) ?? { path, title: path }))}
+        />
+      )}
+      {step === "diagram" && (
+        <Picker
+          label="Add a diagram"
+          placeholder="Find a diagram…"
+          options={diagrams.filter((d) => !d.problem).map((d) => ({ key: d.path, label: d.title, icon: lineIcon("diagram"), detail: d.project ?? undefined }))}
+          empty="No diagrams yet"
+          within={within}
+          onClose={close}
+          onPick={(path) => add(diagramChip(diagrams.find((d) => d.path === path) ?? { path, title: path }))}
         />
       )}
       {step === "tag" && (
@@ -158,6 +202,7 @@ export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | 
 function ContextMenu({ within, onClose, children }: { within: RefObject<HTMLElement | null>; onClose: () => void; children: ReactNode }) {
   const menu = useRef<HTMLDivElement>(null);
   useDismiss(within, onClose);
+  useOccludesElement(menu);
   useEffect(() => {
     menu.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }, []);
@@ -173,11 +218,13 @@ function ContextMenu({ within, onClose, children }: { within: RefObject<HTMLElem
 export function NotePick({ notes, within, onClose, onPick }: { notes: NoteMeta[]; within: RefObject<HTMLElement | null>; onClose: () => void; onPick: (note: NoteMeta) => void }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
   useDismiss(within, onClose);
+  useOccludesElement(box);
   const found = useMemo(() => (query.trim() ? matchTitles(notes, query, 8) : byModified(notes).slice(0, 8)), [notes, query]);
   const current = Math.min(active, Math.max(0, found.length - 1));
   return (
-    <div role="dialog" aria-label="Add a page or card" className="kasten-chat-menu is-search">
+    <div ref={box} role="dialog" aria-label="Add a page or card" className="kasten-chat-menu is-search">
       <input
         autoFocus
         value={query}
@@ -211,9 +258,12 @@ export function NotePick({ notes, within, onClose, onPick }: { notes: NoteMeta[]
 /** A search whose top results go along, such as `diff metric` or `tag:paper`. */
 function SearchPick({ within, onClose, onPick }: { within: RefObject<HTMLElement | null>; onClose: () => void; onPick: (query: string) => void }) {
   const [query, setQuery] = useState("");
+  const box = useRef<HTMLFormElement>(null);
   useDismiss(within, onClose);
+  useOccludesElement(box);
   return (
     <form
+      ref={box}
       role="dialog"
       aria-label="Add search results"
       className="kasten-chat-menu is-search"

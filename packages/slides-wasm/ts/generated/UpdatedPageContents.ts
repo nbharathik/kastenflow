@@ -4,4 +4,8 @@ export type UpdatedPageContents = {
 /**
  * Whether the page said anything different from what the element was made from.
  */
-changed: boolean, };
+changed: boolean, 
+/**
+ * Whether `keepEdits` stopped the update because the element was changed by hand. Nothing was done.
+ */
+edited?: boolean, };

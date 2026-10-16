@@ -7,11 +7,14 @@ use serde::Serialize;
 
 use super::ops::title_of;
 use super::{Change, Kasten};
+use crate::companions;
 use crate::error::Result;
 use crate::history::Actor;
 use crate::note::NoteFile;
 use crate::ops;
+use crate::rollback::Rollback;
 use crate::time::Instant;
+use crate::vault::Vault;
 
 /// A note after an op that can move files: every (from, to) move the op
 /// made, its sub-pages' included, and the other notes whose links it
@@ -33,6 +36,26 @@ fn touched(moves: &[(String, String)], rest: impl IntoIterator<Item = String>) -
         .collect()
 }
 
+/// Takes the comments and highlights files of the notes in `moves` along to
+/// their new names, and gives the paths they touched (both ends of each). If
+/// that fails, the notes are put back where they were, so a page and its
+/// files are never parted.
+fn carry_along(vault: &Vault, moves: &[(String, String)]) -> Result<Vec<String>> {
+    let mut done = Rollback::default();
+    match companions::carry(vault, moves, &mut done) {
+        Ok(carried) => Ok(carried.into_iter().flat_map(|(a, b)| [a, b]).collect()),
+        Err(err) => {
+            done.put_back();
+            for (from, to) in moves.iter().rev() {
+                if let (Ok(back), Ok(was)) = (vault.path_of(to), vault.path_of(from)) {
+                    let _ = std::fs::rename(back, was);
+                }
+            }
+            Err(err)
+        }
+    }
+}
+
 impl Kasten {
     /// Moves a note, with its sub-pages, into `project` or the library.
     pub fn move_note(&self, actor: &Actor, path: &str, project: Option<&str>) -> Result<NoteFile> {
@@ -44,6 +67,7 @@ impl Kasten {
         self.apply(actor, "move_note", false, Instant::now().millis, |vault| {
             let notes = self.index().notes()?;
             let (note, moves) = crate::moving::move_note_among(vault, path, project, &notes)?;
+            let files = carry_along(vault, &moves)?;
             let relinked = self.keep_after(vault, &notes, &moves)?;
             let note = vault.read(&note.meta.path)?;
             let boards = crate::board::relink_boards(vault, &moves)?;
@@ -53,7 +77,10 @@ impl Kasten {
                     note.meta.title,
                     project.unwrap_or("library")
                 ),
-                paths: touched(&moves, boards.into_iter().chain(relinked.clone())),
+                paths: touched(
+                    &moves,
+                    boards.into_iter().chain(relinked.clone()).chain(files),
+                ),
                 value: Placed {
                     note,
                     moves,
@@ -69,12 +96,16 @@ impl Kasten {
         self.apply(actor, "move_note", false, Instant::now().millis, |vault| {
             let notes = self.index().notes()?;
             let (note, moves) = crate::moving::move_to_inbox_among(vault, path, &notes)?;
+            let files = carry_along(vault, &moves)?;
             let relinked = self.keep_after(vault, &notes, &moves)?;
             let note = vault.read(&note.meta.path)?;
             let boards = crate::board::relink_boards(vault, &moves)?;
             Ok(Change {
                 message: format!("move: {} to inbox", note.meta.title),
-                paths: touched(&moves, boards.into_iter().chain(relinked.clone())),
+                paths: touched(
+                    &moves,
+                    boards.into_iter().chain(relinked.clone()).chain(files),
+                ),
                 value: Placed {
                     note,
                     moves,
@@ -111,6 +142,7 @@ impl Kasten {
                 moves,
                 gave_id,
             } = crate::moving::nest_note_among(vault, path, parent, &notes, now)?;
+            let files = carry_along(vault, &moves)?;
             let relinked = self.keep_after(vault, &notes, &moves)?;
             let note = vault.read(&note.meta.path)?;
             let boards = crate::board::relink_boards(vault, &moves)?;
@@ -122,7 +154,8 @@ impl Kasten {
                 .into_iter()
                 .chain(boards)
                 .chain(relinked.clone())
-                .chain(gave_id);
+                .chain(gave_id)
+                .chain(files);
             Ok(Change {
                 message,
                 paths: touched(&moves, rest),
@@ -170,12 +203,14 @@ impl Kasten {
             let project = note.meta.project.clone();
             let (note, moves) =
                 crate::moving::file_note_among(vault, path, project.as_deref(), &notes)?;
+            let files = carry_along(vault, &moves)?;
             let relinked = self.keep_after(vault, &notes, &moves)?;
             let note = vault.read(&note.meta.path)?;
             let boards = crate::board::relink_boards(vault, &moves)?;
             let rest = std::iter::once(path.to_owned())
                 .chain(boards)
-                .chain(relinked.clone());
+                .chain(relinked.clone())
+                .chain(files);
             Ok(Change {
                 message: format!("convert: {} to a {kind}", note.meta.title),
                 paths: touched(&moves, rest),

@@ -8,6 +8,7 @@ import type { DiagramFile, DiagramInfo, DiagramMoved, DiagramPreview, DiagramSav
 import { stemOfPath, stemOfTitle, titleOfPath, validTitle } from "../../diagrams/names";
 import { relinkBoards } from "./board-extras";
 import { checkSvg, checkXml, contentOfSvg, diagramInPng, MAX_BYTES, retarget, stamped, stampOf } from "./diagram-text";
+import { draftSvg } from "./draft-svg";
 import { MemoryDecks } from "./memory-decks";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import { contentHash, stamps } from "./vault-text";
@@ -88,6 +89,10 @@ export class MemoryDiagrams extends MemoryDecks {
   async diagramPreview(path: string): Promise<string | null> {
     this.source(path);
     return this.drawingsOf()[pictureOf(path)] ?? null;
+  }
+
+  async diagramDraftSvg(xml: string): Promise<string | null> {
+    return draftSvg(xml);
   }
 
   async createDiagram(title: string, project: string | null, xml?: string | null): Promise<string> {

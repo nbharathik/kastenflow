@@ -210,6 +210,7 @@ mod tests {
             "create_diagram",
             "update_diagram",
             "trash_diagram",
+            "server_status",
         ];
         for tool in specs() {
             assert!(

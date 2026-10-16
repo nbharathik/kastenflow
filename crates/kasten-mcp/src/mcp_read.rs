@@ -3,6 +3,7 @@
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
+use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{tool, tool_router};
 
 use crate::params::*;
@@ -73,5 +74,15 @@ impl KastenServer {
     )]
     async fn list_templates(&self) -> CallToolResult {
         self.run(tools::list_templates).await
+    }
+
+    #[tool(
+        description = "How this server is doing: its version, the vault, whether the vault keeps history (so every change you make can be undone), your session, and whether slides can be drawn here (a browser, the page it draws with, the sandbox). Read it when something does not work. It changes nothing.",
+        annotations(read_only_hint = true)
+    )]
+    async fn server_status(&self, context: RequestContext<RoleServer>) -> CallToolResult {
+        let session = self.peek_session(&context);
+        self.run(move |k| tools::server_status(k, session.as_ref()))
+            .await
     }
 }

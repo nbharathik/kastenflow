@@ -11,9 +11,11 @@ use slides_core::{
 use super::body::BodyProps;
 use super::chain::Chain;
 use super::levels::{self, Bullet, Level, Reader, RunProps, Spacing};
+use crate::import::color::{ColorCx, Rgb};
 use crate::import::dom::Node;
 use crate::import::styles::{DEFAULT_SIZE, StyleBook, line_multiple, space_points};
 use crate::import::units::{round2, round4};
+use crate::text::metrics::CODE_GROUND;
 
 /// What a text body needs from the part it is in.
 pub struct TextEnv<'a> {
@@ -77,7 +79,35 @@ fn is_mono(font: &str) -> bool {
     crate::fonts::kind_of(&[font]) == crate::fonts::Kind::Mono
 }
 
-fn run_of(piece: Piece, base: &TextStyle, scale: f64) -> Run {
+/// The ground the editor lays behind inline code, as a file holds it: the text colour over the page
+/// at a fraction (the export writes this colour for a run that is `code`).
+fn code_ground(colors: &ColorCx) -> Rgb {
+    let deck = colors.deck_colors();
+    let (text, page) = (deck[0].1, deck[2].1);
+    let mix = |over: u8, below: u8| {
+        (f64::from(below) + (f64::from(over) - f64::from(below)) * CODE_GROUND)
+            .round()
+            .clamp(0.0, 255.0) as u8
+    };
+    Rgb(
+        mix(text.0, page.0),
+        mix(text.1, page.1),
+        mix(text.2, page.2),
+    )
+}
+
+/// Whether a highlight is that ground, to a step in a channel, which is all a trip through a file can lose.
+fn is_code_ground(value: &str, colors: &ColorCx) -> bool {
+    let Some(rgb) = value.strip_prefix('#').and_then(Rgb::from_hex) else {
+        return false;
+    };
+    let ground = code_ground(colors);
+    [(rgb.0, ground.0), (rgb.1, ground.1), (rgb.2, ground.2)]
+        .iter()
+        .all(|(a, b)| a.abs_diff(*b) <= 1)
+}
+
+fn run_of(piece: Piece, base: &TextStyle, scale: f64, colors: &ColorCx) -> Run {
     let props = &piece.props;
     let size = round2(props.size.unwrap_or(DEFAULT_SIZE) * scale);
     let linked = piece.link.is_some();
@@ -96,13 +126,16 @@ fn run_of(piece: Piece, base: &TextStyle, scale: f64) -> Run {
     {
         run.color = Some(paint.value.clone());
     }
+    let highlight = props.highlight.as_ref().map(|paint| paint.value.clone());
     match &props.font {
-        Some(font) if props.highlight.is_some() && (is_mono(font) || font == "code") => {
+        Some(font) if highlight.is_some() && (is_mono(font) || font == "code") => {
             run.code = true;
         }
         Some(font) if *font != base.font => run.font = Some(font.clone()),
         _ => {}
     }
+    // Inline code has a ground of its own: only a highlight that is not that ground is the run's.
+    run.highlight = highlight.filter(|value| !(run.code && is_code_ground(value, colors)));
     run.link = piece.link;
     run.field = piece.field;
     run.script = match props.baseline {
@@ -128,6 +161,7 @@ fn same_look(a: &Run, b: &Run) -> bool {
         && a.underline == b.underline
         && a.strike == b.strike
         && a.color == b.color
+        && a.highlight == b.highlight
         && a.size == b.size
         && a.font == b.font
         && a.link == b.link
@@ -271,7 +305,7 @@ fn paragraph(
 
     let mut runs: Vec<Run> = Vec::new();
     for piece in pieces {
-        let run = run_of(piece, base, scale.0);
+        let run = run_of(piece, base, scale.0, &env.reader.colors);
         if run.field.is_some() {
             runs.push(run);
         } else {

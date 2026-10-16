@@ -12,6 +12,7 @@ import { ViewBoundary } from "../../../ui/ViewBoundary";
 import { projectTitle } from "../../boards/store";
 import { newDiagram } from "../../diagrams/actions";
 import { useDiagrams } from "../../diagrams/store";
+import { UpdatedBadge } from "../../health/UpdatedBadge";
 import type { LinkProvider } from "../../pages/editor/links";
 import { useWorkspace } from "../store";
 
@@ -42,6 +43,7 @@ export function diagramLinks(_client: VaultClient, page: () => NoteMeta | undefi
           <Suspense fallback={<p className="px-3 py-6 text-center text-13 text-muted">Opening the diagram…</p>}>
             <LazyDiagramEmbed path={path} />
           </Suspense>
+          <UpdatedBadge kind="diagram" path={path} />
         </ViewBoundary>,
       );
       return () => root.unmount();

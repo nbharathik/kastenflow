@@ -1,0 +1,9 @@
+name: experiment
+color: purple
+properties:
+  - {key: status, type: select, options: [Planned, Running, Analysed, Abandoned]}
+  - {key: started, type: date}
+  - {key: hypothesis, type: text}
+  - {key: repo, type: url}
+views:
+  - {name: Runs, type: table, sort: [{key: started, dir: desc}]}

@@ -4,6 +4,7 @@
 use kasten_mcp::tools::specs;
 use serde_json::{Value, json};
 
+use crate::chat::capabilities::Applied;
 use crate::chat::model::{Call, Message, Reply, Stop, ToolCall, ToolOutput};
 use crate::chat::{anthropic, openai};
 
@@ -98,7 +99,7 @@ fn claude_requests_carry_the_prompt_tools_and_limits() {
         messages: &thread,
         tools: &tools,
     };
-    let body = anthropic::body("model-large", 16_000, &call);
+    let body = anthropic::body("model-large", 16_000, &call, &Applied::default());
     assert_eq!(body["model"], "model-large");
     assert_eq!(body["max_tokens"], 16_000);
     assert_eq!(body["stream"], true);
@@ -183,6 +184,7 @@ fn openai_requests_name_the_right_token_limit() {
         "local-model",
         4096,
         &call,
+        &Applied::default(),
     );
     assert_eq!(local["max_tokens"], 4096);
     assert_eq!(local["stream"], true);
@@ -198,6 +200,7 @@ fn openai_requests_name_the_right_token_limit() {
         "other-model",
         4096,
         &call,
+        &Applied::default(),
     );
     assert_eq!(official["max_completion_tokens"], 4096);
     assert!(official.get("max_tokens").is_none());

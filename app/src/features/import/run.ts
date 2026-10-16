@@ -1,9 +1,14 @@
 // The Import view's steps against the vault client: the plan, the import,
 // and taking it back, each reloading what the window lists afterwards.
 
+import { create } from "zustand";
+
 import type { ImportOptions, ImportSummary, Imported } from "../../lib/vault/types";
 import { reloadLists as reload } from "../workspace/reload";
 import { useWorkspace } from "../workspace/store";
+
+/** The import commit that was last taken back, so the view that shows it can stand down however it was undone (its button, or the notice's). */
+export const useUndoneImport = create<{ commit: string | null }>()(() => ({ commit: null }));
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -29,8 +34,11 @@ export async function runImport(source: string, options: ImportOptions): Promise
   const done = await attempt(() => client().importNotes(source, options));
   if (done.ok) {
     await reload();
+    useUndoneImport.setState({ commit: null });
     const { notes, project } = done.value.summary;
-    useWorkspace.getState().toast(`Imported ${notes} note${notes === 1 ? "" : "s"} into “${project}”`);
+    const commit = done.value.commit;
+    // One notice for the whole import, with the Undo that takes all of it back.
+    useWorkspace.getState().toast(`Imported ${notes} note${notes === 1 ? "" : "s"} into “${project}”`, commit ? { label: "Undo", run: () => void undoImport(commit) } : undefined);
   }
   return done;
 }
@@ -42,6 +50,7 @@ export async function undoImport(commit: string): Promise<Outcome<null>> {
   const conflict = undone.value.conflict;
   if (conflict) return { ok: false, error: `${conflict.path} changed since the import (${conflict.detail.toLowerCase()}), so nothing was undone. Undo that change first, or trash what you no longer want.` };
   await reload();
+  useUndoneImport.setState({ commit });
   useWorkspace.getState().toast("The import is undone");
   return { ok: true, value: null };
 }

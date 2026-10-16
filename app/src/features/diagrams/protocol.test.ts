@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bytesOfDataUri, configure, encode, exportPicture, exportPng, frameUrl, fromFrame, load, outsideLink, pageLink, parseEvent, textOfDataUri } from "./protocol";
+import { LAYOUT_PRESETS, bytesOfDataUri, configure, encode, exportPicture, exportPng, frameUrl, fromFrame, layoutDiagram, load, outsideLink, pageLink, parseEvent, textContent, textOfDataUri } from "./protocol";
 
 describe("the frame's address", () => {
   it("asks for the embed protocol, offline, with no buttons of the editor's own, in the app's theme", () => {
@@ -57,6 +57,33 @@ describe("messages to the editor", () => {
     // The light drawing, whatever the editor's own mood: otherwise its colours follow the viewer's theme.
     expect(JSON.parse(encode(exportPicture()))).toEqual({ action: "export", format: "xmlsvg", embedImages: true, border: 10, background: "#ffffff", theme: "light" });
     expect(JSON.parse(encode(exportPng()))).toEqual({ action: "export", format: "png", scale: 2, border: 10, background: "#ffffff" });
+  });
+});
+
+describe("laying the diagram out and reading its words", () => {
+  it("names each of the editor's layouts by its class, with the settings of its Arrange menu", () => {
+    const sent = (preset: Parameters<typeof layoutDiagram>[0]) => JSON.parse(encode(layoutDiagram(preset)));
+    expect(sent("verticalFlow")).toEqual({ action: "layout", layouts: [{ layout: "mxHierarchicalLayout", config: { orientation: "north" } }] });
+    expect(sent("horizontalFlow").layouts[0].config).toEqual({ orientation: "west" });
+    expect(sent("verticalTree").layouts[0]).toEqual({ layout: "mxCompactTreeLayout", config: { horizontal: false, edgeRouting: false } });
+    expect(sent("horizontalTree").layouts[0].config.horizontal).toBe(true);
+    expect(sent("radialTree")).toEqual({ action: "layout", layouts: [{ layout: "mxRadialTreeLayout" }] });
+    expect(sent("organic").layouts[0].layout).toBe("mxFastOrganicLayout");
+  });
+
+  it("offers the six presets, in words, each once", () => {
+    expect(LAYOUT_PRESETS.map((p) => p.id)).toEqual(["verticalFlow", "horizontalFlow", "verticalTree", "horizontalTree", "radialTree", "organic"]);
+    expect(new Set(LAYOUT_PRESETS.map((p) => p.label)).size).toBe(6);
+    // A message is a copy: what one layout does to its settings the next does not see.
+    const first = layoutDiagram("verticalFlow") as { layouts: { config: Record<string, unknown> }[] };
+    first.layouts[0]!.config.orientation = "south";
+    expect(JSON.parse(encode(layoutDiagram("verticalFlow"))).layouts[0].config.orientation).toBe("north");
+  });
+
+  it("asks for the labels' words and reads the answer", () => {
+    expect(JSON.parse(encode(textContent()))).toEqual({ action: "textContent" });
+    expect(parseEvent('{"event":"textContent","data":"Web app API Orders","message":{"action":"textContent"}}')).toEqual({ event: "textContent", text: "Web app API Orders" });
+    expect(parseEvent('{"event":"textContent"}')).toBeNull();
   });
 });
 

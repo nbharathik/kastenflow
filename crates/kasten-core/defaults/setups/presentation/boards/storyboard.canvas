@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    {"id": "hook", "type": "text", "text": "**Hook**\nThe first thing they see", "x": 0, "y": 0, "width": 240, "height": 100, "color": "5"},
+    {"id": "problem", "type": "text", "text": "**Problem**\nWhy it matters", "x": 320, "y": 0, "width": 240, "height": 100, "color": "1"},
+    {"id": "answer", "type": "text", "text": "**Answer**\nWhat you found or built", "x": 640, "y": 0, "width": 240, "height": 100, "color": "4"},
+    {"id": "ask", "type": "text", "text": "**Close**\nWhat happens next", "x": 960, "y": 0, "width": 240, "height": 100, "color": "6"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "hook", "fromSide": "right", "toNode": "problem", "toSide": "left"},
+    {"id": "e2", "fromNode": "problem", "fromSide": "right", "toNode": "answer", "toSide": "left"},
+    {"id": "e3", "fromNode": "answer", "fromSide": "right", "toNode": "ask", "toSide": "left"}
+  ]
+}

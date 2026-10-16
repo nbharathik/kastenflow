@@ -4,7 +4,7 @@ export { TextBlock } from "./TextBlock.tsx";
 export type { TextBlockProps, TextFields } from "./TextBlock.tsx";
 export { FittedTextBlock } from "./FittedTextBlock.tsx";
 export { TextEditor } from "./TextEditor.tsx";
-export type { CaretAt, FormatState, TextEditorHandle, TextEditorProps, Tri } from "./TextEditor.tsx";
+export type { CaretAt, CellKeys, FormatState, TextEditorHandle, TextEditorProps, Tri } from "./TextEditor.tsx";
 export { docToText, textToDoc } from "./convert.ts";
 export { createTextSchema } from "./schema.ts";
 export type { TextSchema } from "./schema.ts";

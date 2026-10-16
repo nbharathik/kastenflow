@@ -174,6 +174,9 @@ model! {
         pub keys: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub format: Option<CitationStyle>,
+        /// Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)
+        #[serde(default, skip_serializing_if = "is_false")]
+        pub links: bool,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]

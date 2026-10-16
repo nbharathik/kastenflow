@@ -1,0 +1,119 @@
+/* Highlights on a page kept from the web: the bar that offers them and their
+   list in the Details panel (the marks over the words are paint.css). */
+
+/* The bar's anchor: a point on the window where the selection is; the bar hangs from it. */
+.kasten-text-hl-host {
+  position: fixed;
+  z-index: 60;
+  width: 0;
+  height: 0;
+}
+
+/* The list in the panel. */
+.kasten-text-hl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kasten-text-hl-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.625rem 0.5rem 0.8125rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  box-shadow: inset 3px 0 0 var(--swatch-yellow);
+
+  &.is-green {
+    box-shadow: inset 3px 0 0 var(--swatch-green);
+  }
+
+  &.is-blue {
+    box-shadow: inset 3px 0 0 var(--swatch-blue);
+  }
+
+  &.is-pink {
+    box-shadow: inset 3px 0 0 var(--swatch-pink);
+  }
+
+  &.is-purple {
+    box-shadow: inset 3px 0 0 var(--swatch-purple);
+  }
+
+  &.is-current {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    outline-offset: -2px;
+  }
+}
+
+.kasten-text-hl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kasten-text-hl-remove {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-red);
+  }
+}
+
+.kasten-text-hl-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--notion-text);
+  font-size: var(--text-13);
+  line-height: 1.45;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+button.kasten-text-hl-quote:hover {
+  text-decoration: underline;
+}
+
+.kasten-text-hl-lost {
+  margin: 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+}
+
+.kasten-text-hl-comment {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  outline: none;
+  background: transparent;
+  color: var(--notion-text-2);
+  font: inherit;
+  font-size: var(--text-13);
+  font-style: italic;
+  resize: vertical;
+
+  &:hover {
+    border-color: var(--notion-line-soft);
+  }
+
+  &:focus {
+    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    background: var(--notion-bg);
+    font-style: normal;
+  }
+}

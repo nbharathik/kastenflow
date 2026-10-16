@@ -1,0 +1,197 @@
+/* A web page beside the slide or over a presentation: a peek at the right (the default), a peek in the middle, or the whole window. The
+   page itself is a view the host draws over .ks-wp-view; nothing here animates the box with a transform, so the place handed to the
+   host is where the page will be. */
+.ks-wp {
+  position: absolute;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid var(--ks-pr-tool-line, var(--ks-line));
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  color: var(--ks-pr-tool-fg, var(--ks-ink));
+  box-shadow: var(--ks-shadow-page, 0 8px 30px rgb(0 0 0 / 0.4));
+  font: 13px/1.4 var(--ks-font, system-ui, sans-serif);
+  outline: none;
+  animation: ks-wp-in var(--ks-slow, 200ms) var(--ks-ease, ease) both;
+}
+
+.ks-wp[data-mode="side"] {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 94%;
+  border-width: 0 0 0 1px;
+}
+
+.ks-wp[data-mode="center"] {
+  top: 5%;
+  bottom: 5%;
+  left: 50%;
+  width: min(1100px, 90%);
+  margin-left: calc(min(1100px, 90%) / -2);
+  border-radius: 10px;
+}
+
+.ks-wp[data-mode="full"] {
+  inset: 0;
+  border: 0;
+}
+
+/* The edge that is dragged (or moved with the arrow keys) to make the side peek wider or narrower. */
+.ks-wp-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 2;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.ks-wp-grip:hover,
+.ks-wp-grip:focus-visible,
+.ks-wp-grip:active {
+  background: color-mix(in srgb, var(--ks-accent, currentcolor) 40%, transparent);
+  outline: none;
+}
+
+.ks-wp-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--ks-pr-tool-line, var(--ks-line));
+}
+
+.ks-wp-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ks-wp-btn:hover:not(:disabled) {
+  background: var(--ks-hover, rgb(128 128 128 / 0.2));
+}
+
+.ks-wp-btn:focus-visible {
+  outline: 2px solid var(--ks-accent, currentcolor);
+  outline-offset: -2px;
+}
+
+.ks-wp-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ks-wp-btn[aria-pressed="true"] {
+  background: var(--ks-selected, rgb(128 128 128 / 0.3));
+}
+
+.ks-wp-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  color: var(--ks-pr-tool-dim, var(--ks-muted));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-wp-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+}
+
+.ks-wp-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ks-accent, currentcolor), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: ks-wp-load 1.2s var(--ks-ease, ease) infinite;
+}
+
+.ks-wp-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.ks-wp-card-text {
+  margin: 0;
+  max-width: 34em;
+}
+
+.ks-wp-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.ks-wp-card-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--ks-pr-tool-line, var(--ks-line));
+  border-radius: 999px;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ks-wp-card-btn:hover {
+  background: var(--ks-hover, rgb(128 128 128 / 0.2));
+}
+
+.ks-wp-card-btn:focus-visible {
+  outline: 2px solid var(--ks-accent, currentcolor);
+  outline-offset: 2px;
+}
+
+@keyframes ks-wp-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ks-wp-load {
+  from {
+    background-position: -40% 0;
+  }
+
+  to {
+    background-position: 140% 0;
+  }
+}
+
+:root[data-motion="off"] .ks-wp,
+:root[data-motion="off"] .ks-wp-loading {
+  animation: none;
+}

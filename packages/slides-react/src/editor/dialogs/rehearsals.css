@@ -1,0 +1,31 @@
+/* The list of past rehearsals in its dialog. */
+
+.ks-rh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.ks-rh-run {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-rh-run[aria-pressed="true"] {
+  border-color: var(--ks-accent);
+  background: var(--ks-soft);
+}
+
+.ks-rh-outdated {
+  color: var(--ks-ink-2);
+  font-size: 12px;
+}

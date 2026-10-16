@@ -85,7 +85,7 @@ describe("the page menu's style", () => {
     await screen.findByRole("navigation", { name: "Sidebar" });
     act(() => useWorkspace.getState().openPath("library/essay.md"));
     await screen.findByRole("textbox", { name: "Page title" }, { timeout: 20_000 });
-    const page = () => document.querySelector<HTMLElement>(".kasten-page")!;
+    const page =() => document.querySelector<HTMLElement>(".kasten-page")!;
     // The menu stays open while its style is changed.
     const menu = async () => {
       const shown = screen.queryByRole("group", { name: "Style of this page" });

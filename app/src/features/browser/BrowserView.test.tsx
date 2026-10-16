@@ -135,6 +135,12 @@ describe("the browser tab", () => {
     const id = show(URL);
     render(<BrowserView place={{ view: "web", url: URL }} />);
     await waitFor(() => expect(useWebTabs.getState().tabs[id]?.live).toBe(true));
+    // The two captures are icons: the words are their names and tooltips.
+    for (const name of ["Capture page", "Capture selection"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.textContent, name).toBe("");
+      expect(button.title, name).toContain(name);
+    }
     fireEvent.click(screen.getByRole("button", { name: "Capture selection" }));
     const panel = await screen.findByRole("region", { name: "Capture" });
     expect(of("capture")).toEqual([["capture", id, "selection"]]);
@@ -184,6 +190,57 @@ describe("the browser tab", () => {
     fireEvent.click(within(panel).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(of("confirm")).toHaveLength(1));
     expect(of("confirm")[0]![2]).toEqual({ kind: "project", project: "trip" });
+  });
+
+  describe("a page that is already saved", () => {
+    const SAVED = { path: "inbox/slip-box-basics.md", title: "Slip-box basics", captured: "2026-09-01" };
+    const again = async () => {
+      const { backend } = rig();
+      const confirmed: unknown[][] = [];
+      backend.capture = () => Promise.resolve({ ...PREVIEW, kind: "page", existing: [SAVED] });
+      backend.confirm = (token, where, title, snapshot) => {
+        confirmed.push([token, where, title, snapshot]);
+        return Promise.resolve({ path: "inbox/slip-box-basics-2.md", title: "Slip-box basics", place: "Inbox" });
+      };
+      setBrowserBackend(backend);
+      stage();
+      const id = show(URL);
+      render(<BrowserView place={{ view: "web", url: URL }} />);
+      await waitFor(() => expect(useWebTabs.getState().tabs[id]?.live).toBe(true));
+      fireEvent.click(screen.getByRole("button", { name: "Capture page" }));
+      return { panel: await screen.findByRole("region", { name: "Capture" }), confirmed };
+    };
+
+    it("says so with the day, opens the first card, and writes a snapshot only on request", async () => {
+      const { panel, confirmed } = await again();
+      const saved = within(panel).getByRole("status", { name: "Already saved" });
+      expect(saved.textContent).toBe("Already saved on 2026-09-01·Open·Save another snapshot");
+      // A plain Save would make a second copy, so it is not offered; Ctrl+Enter does nothing either.
+      expect(within(panel).queryByRole("button", { name: "Save" })).toBeNull();
+      fireEvent.keyDown(within(panel).getByLabelText("Title"), { key: "Enter", ctrlKey: true });
+      const openPath = vi.fn();
+      useWorkspace.setState({ openPath });
+      fireEvent.click(within(saved).getByRole("button", { name: "Open" }));
+      expect(openPath).toHaveBeenCalledWith("inbox/slip-box-basics.md", "tab");
+      expect(confirmed).toEqual([]);
+      fireEvent.click(within(saved).getByRole("button", { name: "Save another snapshot" }));
+      await waitFor(() => expect(confirmed).toHaveLength(1));
+      expect(confirmed[0]).toEqual(["tok-1", { kind: "inbox" }, "Slip-box basics", true]);
+      await waitFor(() => expect(screen.queryByRole("region", { name: "Capture" })).toBeNull());
+    });
+
+    it("holds nothing back from a quote added to a page", async () => {
+      const { panel, confirmed } = await again();
+      act(() => useWorkspace.setState({ notes: [{ path: "library/essay.md", kind: "page", title: "Essay", tags: [], modified: 1 } as never] }));
+      fireEvent.click(within(panel).getByRole("button", { name: /Send to: Inbox/ }));
+      // Pages are found by typing part of a title.
+      fireEvent.change(await within(panel).findByRole("combobox"), { target: { value: "Ess" } });
+      fireEvent.click(await screen.findByRole("option", { name: /Essay/ }));
+      expect(within(panel).queryByRole("status", { name: "Already saved" })).toBeNull();
+      fireEvent.click(within(panel).getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(confirmed).toHaveLength(1));
+      expect(confirmed[0]).toEqual(["tok-1", { kind: "page", path: "library/essay.md" }, "Slip-box basics", false]);
+    });
   });
 
   it("says it is off, with a way to Settings, and shows no page", () => {

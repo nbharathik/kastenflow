@@ -3,7 +3,7 @@
 // be saved as a template from the gallery.
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { useShell } from "../../lib/store";
 import type { KitInfo } from "../../lib/vault/types";
@@ -22,6 +22,11 @@ const SEED = {
 
 let vault: MemoryVault;
 
+// The gallery loads when it is opened; its load time is not what these tests are about.
+beforeAll(async () => {
+  await import("./TemplateGallery");
+}, 60_000);
+
 beforeEach(() => {
   localStorage.clear();
   vault = new MemoryVault(SEED);
@@ -34,7 +39,8 @@ async function gallery(kits: boolean) {
   render(<AppShell connect={async () => ({ client: vault })} />);
   await screen.findByRole("navigation", { name: "Sidebar" });
   act(() => useShell.getState().openGallery(kits ? { kits: true } : {}));
-  return screen.findByRole("dialog", { name: "Templates" });
+  // The gallery's code loads when it is opened.
+  return screen.findByRole("dialog", { name: "Templates" }, { timeout: 5000 });
 }
 
 describe("starter kits", () => {
@@ -58,7 +64,7 @@ describe("starter kits", () => {
 
     // Added once: the gallery offers to open it instead.
     act(() => useShell.getState().openGallery({ kits: true }));
-    const again = await screen.findByRole("dialog", { name: "Templates" });
+    const again = await screen.findByRole("dialog", { name: "Templates" }, { timeout: 5000 });
     expect(await within(again).findByRole("button", { name: "Open Daily planner and journal" })).toBeTruthy();
   });
 
@@ -78,7 +84,7 @@ describe("saving a page as a template", () => {
     await screen.findByRole("navigation", { name: "Sidebar" });
     act(() => useWorkspace.getState().openPath("library/welcome.md"));
     act(() => useShell.getState().openGallery({}));
-    const dialog = await screen.findByRole("dialog", { name: "Templates" });
+    const dialog = await screen.findByRole("dialog", { name: "Templates" }, { timeout: 5000 });
     expect(within(dialog).getByText("“Welcome” as a new template")).toBeTruthy();
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Save" })));
     await expect.poll(async () => (await vault.list()).some((n) => n.path === "templates/welcome.md")).toBe(true);

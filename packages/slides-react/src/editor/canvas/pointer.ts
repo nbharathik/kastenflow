@@ -15,6 +15,8 @@ export class PointerTrack {
   private x = 0;
   private y = 0;
   private over = false;
+  /** Whether the pointer has been over the slide at all. */
+  private seen = false;
   private toSlide: ToSlide | null = null;
 
   /** The pointer moved over the slide's surface: its handles and the text box being edited count as the slide. */
@@ -22,6 +24,7 @@ export class PointerTrack {
     this.x = clientX;
     this.y = clientY;
     this.over = true;
+    this.seen = true;
   }
 
   /** The pointer left the surface. */
@@ -40,6 +43,14 @@ export class PointerTrack {
   /** Where the pointer is on the slide, in slide units; null when it is somewhere else, or when no slide is shown. */
   slidePoint(): Point | null {
     return this.over && this.toSlide ? this.toSlide(this.x, this.y) : null;
+  }
+
+  /**
+   * Where the pointer last was on the slide, in slide units, though it has gone off it since (to a menu, the filmstrip): the spot a command
+   * given from there puts something at. Null when it has not been over the slide, or that place is no longer on it.
+   */
+  lastSlidePoint(): Point | null {
+    return this.seen && this.toSlide ? this.toSlide(this.x, this.y) : null;
   }
 }
 

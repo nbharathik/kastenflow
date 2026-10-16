@@ -107,7 +107,15 @@ export function Trash() {
     let back = 0;
     for (const trashed of chosen) {
       try {
-        await (trashed.endsWith(".canvas") ? vault.restoreBoard(trashed) : trashed.endsWith(".deck") ? vault.restoreDeck(trashed) : trashed.endsWith(".drawio") || trashed.endsWith(".drawio.svg") ? vault.restoreDiagram(trashed) : vault.restore(trashed));
+        await (trashed.endsWith(".canvas")
+          ? vault.restoreBoard(trashed)
+          : trashed.endsWith(".deck")
+            ? vault.restoreDeck(trashed)
+            : trashed.endsWith(".drawio") || trashed.endsWith(".drawio.svg")
+              ? vault.restoreDiagram(trashed)
+              : trashed.endsWith(".yaml")
+                ? vault.restoreCollection(trashed)
+                : vault.restore(trashed));
         back += 1;
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err));
@@ -170,11 +178,14 @@ function TrashRow({ item, picked, onPick, onRestore }: { item: Trashed; picked: 
   const board = item.original.endsWith(".canvas");
   const deck = item.original.endsWith(".deck");
   const diagram = item.original.endsWith(".drawio");
+  const collection = item.original.endsWith(".yaml");
   const read = async () => {
     if (text !== null) return setText(null);
     const client = useWorkspace.getState().client;
     try {
-      setText(splitFrontmatter((await client!.readTrashed(item.trashed)) ?? "").body.trim() || "This page is empty.");
+      const kept = (await client!.readTrashed(item.trashed)) ?? "";
+      // A collection is a YAML file: its text is shown as it is.
+      setText(collection ? kept.trim() || "This collection is empty." : splitFrontmatter(kept).body.trim() || "This page is empty.");
     } catch (err) {
       setText(err instanceof Error ? err.message : String(err));
     }
@@ -198,6 +209,11 @@ function TrashRow({ item, picked, onPick, onRestore }: { item: Trashed; picked: 
             {diagram && (
               <span aria-label="Diagram" className="mr-1.5">
                 <IconOrEmoji icon={lineIcon("diagram")} />
+              </span>
+            )}
+            {collection && (
+              <span aria-label="Collection" className="mr-1.5">
+                <IconOrEmoji icon={lineIcon("filter")} />
               </span>
             )}
             {item.title}

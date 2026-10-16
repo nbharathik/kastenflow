@@ -92,7 +92,7 @@ fn named_step(el: &Element) -> u32 {
 }
 
 /// The texts an element holds itself.
-fn texts_of(el: &Element) -> Vec<&Text> {
+pub(super) fn texts_of(el: &Element) -> Vec<&Text> {
     match el {
         Element::Text(t) => vec![&t.text],
         Element::Shape(s) => s.text.iter().collect(),

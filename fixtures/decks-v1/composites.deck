@@ -1,0 +1,1059 @@
+{
+  "format": "kasten-deck",
+  "formatVersion": 1,
+  "id": "d-5gic49jb",
+  "present": {
+    "slideNumbers": true,
+    "stepLabel": "Step {n} / {total}"
+  },
+  "size": {
+    "h": 540,
+    "w": 960
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "id": "e-fl2xnwwg",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Composite elements"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-12xy4sab",
+          "placeholder": "subtitle",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-asq1oyyt",
+      "layout": "title"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-crugml08",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Code, dark"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "code": "from dataclasses import dataclass\n\n@dataclass\nclass Card:\n    title: str\n    body: str = \"\"\n\n    def shout(self) -> str:\n        # loud, on purpose\n        return f\"{self.title.upper()}!\" + str(42)\n",
+          "h": 344,
+          "id": "code-dark",
+          "language": "python",
+          "type": "code",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-4lpxqanm",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-14pfw3mf",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Code, light, with line numbers"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "code": "use std::collections::HashMap;\n\nfn count(words: &[&str]) -> HashMap<String, usize> {\n    let mut seen = HashMap::new();\n    for w in words {\n        *seen.entry((*w).to_owned()).or_insert(0) += 1;\n    }\n    seen\n}",
+          "firstLine": 41,
+          "h": 344,
+          "id": "code-light",
+          "language": "rust",
+          "lineNumbers": true,
+          "theme": "light",
+          "type": "code",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-gyq0pekz",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-f5eklfck",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "A walkthrough of code"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "code": "interface Tool {\n  name: string;\n  run(input: string): Promise<string>;\n}\n\nasync function step(tools: Tool[], call: string) {\n  const tool = tools.find((t) => call.startsWith(t.name));\n  return tool ? await tool.run(call) : \"unknown tool\";\n}",
+          "focus": [
+            "1-4",
+            "6",
+            "7-8",
+            "9"
+          ],
+          "h": 344,
+          "id": "code-focus",
+          "language": "typescript",
+          "lineNumbers": true,
+          "type": "code",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        },
+        {
+          "h": 32,
+          "id": "step-label",
+          "type": "step-label",
+          "w": 140,
+          "x": 756,
+          "y": 496
+        }
+      ],
+      "id": "s-qht6z66r",
+      "layout": "title-only",
+      "notes": "Four steps: the interface, the function, the lookup and the call.",
+      "steps": 4
+    },
+    {
+      "elements": [
+        {
+          "id": "e-fh07p2gh",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Formulas"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "alt": "The integral of x squared from 0 to 1 is one third",
+          "h": 150,
+          "id": "math-display",
+          "latex": "\\int_0^1 x^2\\,dx = \\frac{1}{3}",
+          "type": "math",
+          "w": 832,
+          "x": 64,
+          "y": 156
+        },
+        {
+          "color": "accent1",
+          "fontSize": 24,
+          "h": 150,
+          "id": "math-small",
+          "latex": "\\mathrm{softmax}(z)_i = \\frac{e^{z_i}}{\\sum_j e^{z_j}}",
+          "type": "math",
+          "w": 832,
+          "x": 64,
+          "y": 330
+        }
+      ],
+      "id": "s-tulck7bm",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-bdpsjazs",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "A conversation"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "h": 344,
+          "id": "chat",
+          "messages": [
+            {
+              "role": "system",
+              "text": "You are a helpful assistant with a weather tool."
+            },
+            {
+              "role": "user",
+              "text": "Do I need an umbrella in Oslo today?"
+            },
+            {
+              "role": "toolCall",
+              "text": "get_weather(city=\"Oslo\", day=\"today\")"
+            },
+            {
+              "role": "toolResult",
+              "text": "{\"temp_c\": 4, \"sky\": \"rain\", \"chance\": 0.9}"
+            },
+            {
+              "role": "assistant",
+              "text": "Yes: it is 4 degrees with a 90% chance of rain."
+            }
+          ],
+          "type": "chat",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-8tbbeu8k",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-8xfphmuu",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "The next word"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "chosen": 0,
+          "h": 344,
+          "id": "probs",
+          "next": [
+            {
+              "p": 0.42,
+              "token": " mat"
+            },
+            {
+              "p": 0.3,
+              "token": " floor"
+            },
+            {
+              "p": 0.14,
+              "token": " sofa"
+            },
+            {
+              "p": 0.09,
+              "token": " bed"
+            },
+            {
+              "p": 0.05,
+              "token": " roof"
+            }
+          ],
+          "tokens": [
+            "The",
+            " cat",
+            " sat",
+            " on",
+            " the"
+          ],
+          "type": "token-probs",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-rt69sjsf",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-ituec37d",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Six cards"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "cards": [
+            {
+              "body": "Break the goal into steps.",
+              "title": "Plan"
+            },
+            {
+              "body": "Call a tool with an input.",
+              "title": "Act"
+            },
+            {
+              "body": "Read what came back.",
+              "title": "Observe"
+            },
+            {
+              "body": "Compare it with the goal.",
+              "title": "Reflect"
+            },
+            {
+              "body": "Until the goal is met.",
+              "title": "Repeat"
+            },
+            {
+              "body": "Say what was found.",
+              "title": "Answer"
+            }
+          ],
+          "h": 344,
+          "id": "cards-six",
+          "type": "card-grid",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-39051f9w",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-xylmls43",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Four cards, two columns"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "cards": [
+            {
+              "title": "Speed"
+            },
+            {
+              "title": "Cost"
+            },
+            {
+              "title": "Quality"
+            },
+            {
+              "title": "Safety"
+            }
+          ],
+          "columns": 2,
+          "h": 344,
+          "id": "cards-four",
+          "type": "card-grid",
+          "w": 832,
+          "x": 64,
+          "y": 148
+        }
+      ],
+      "id": "s-7eertnlh",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-p9kyglf6",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "References"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "format": "short",
+          "h": 32,
+          "id": "cite-short",
+          "keys": [
+            "vaswani2017",
+            "devlin2019"
+          ],
+          "type": "citation",
+          "w": 832,
+          "x": 64,
+          "y": 156
+        },
+        {
+          "format": "numbered",
+          "h": 32,
+          "id": "cite-numbered",
+          "keys": [
+            "vaswani2017",
+            "devlin2019",
+            "brown2020"
+          ],
+          "type": "citation",
+          "w": 832,
+          "x": 64,
+          "y": 196
+        },
+        {
+          "format": "list",
+          "h": 96,
+          "id": "cite-list",
+          "keys": [
+            "vaswani2017",
+            "devlin2019",
+            "brown2020"
+          ],
+          "type": "citation",
+          "w": 832,
+          "x": 64,
+          "y": 236
+        }
+      ],
+      "id": "s-4lufpmel",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-a0z4sj7g",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Web pages"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "h": 300,
+          "id": "embed-panel",
+          "title": "The documentation",
+          "type": "embed",
+          "url": "https://www.example.com/docs/intro",
+          "w": 400,
+          "x": 64,
+          "y": 156
+        },
+        {
+          "h": 300,
+          "id": "embed-poster",
+          "poster": "assets/demo-page.png",
+          "type": "embed",
+          "url": "https://example.com/demo",
+          "w": 400,
+          "x": 496,
+          "y": 156
+        }
+      ],
+      "id": "s-j1xex7es",
+      "layout": "title-only"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-vu4p2ext",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Video"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "h": 225,
+          "id": "video-plain",
+          "src": "assets/walkthrough.mp4",
+          "type": "video",
+          "w": 400,
+          "x": 64,
+          "y": 156
+        },
+        {
+          "h": 225,
+          "id": "video-poster",
+          "poster": "assets/talk-still.png",
+          "src": "https://example.com/talk.mp4",
+          "type": "video",
+          "w": 400,
+          "x": 496,
+          "y": 156
+        }
+      ],
+      "id": "s-5xs2rinr",
+      "layout": "title-only"
+    }
+  ],
+  "theme": {
+    "colors": {
+      "accent1": "#1a73e8",
+      "accent2": "#ea4335",
+      "accent3": "#fbbc04",
+      "accent4": "#34a853",
+      "accent5": "#ff6d01",
+      "accent6": "#46bdc6",
+      "bg1": "#ffffff",
+      "bg2": "#f1f3f4",
+      "text1": "#202124",
+      "text2": "#5f6368"
+    },
+    "dimmedOpacity": 0.25,
+    "fonts": {
+      "body": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      },
+      "code": {
+        "fallback": [
+          "Consolas",
+          "monospace"
+        ],
+        "family": "Roboto Mono"
+      },
+      "heading": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      }
+    },
+    "highlight": {
+      "color": "accent1",
+      "width": 2
+    },
+    "layouts": [
+      {
+        "label": "Title",
+        "name": "title",
+        "placeholders": [
+          {
+            "h": 148,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 140
+          },
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 304
+          }
+        ]
+      },
+      {
+        "label": "Section",
+        "name": "section",
+        "placeholders": [
+          {
+            "h": 108,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 172
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 296
+          }
+        ]
+      },
+      {
+        "label": "Title + body",
+        "name": "title-body",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title only",
+        "name": "title-only",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          }
+        ]
+      },
+      {
+        "label": "Two columns",
+        "name": "two-columns",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title + image",
+        "name": "title-image",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Image + caption",
+        "name": "image-caption",
+        "placeholders": [
+          {
+            "h": 400,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add caption",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 448
+          }
+        ]
+      },
+      {
+        "label": "Code",
+        "name": "code",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "prompt": "Click to add code",
+            "role": "code",
+            "style": "code",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Comparison",
+        "name": "comparison",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label2",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 200
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 200
+          }
+        ]
+      },
+      {
+        "label": "Big number",
+        "name": "big-number",
+        "placeholders": [
+          {
+            "h": 176,
+            "kind": "text",
+            "prompt": "Click to add number",
+            "role": "number",
+            "style": "big-number",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 144
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 328
+          }
+        ]
+      },
+      {
+        "label": "Quote",
+        "name": "quote",
+        "placeholders": [
+          {
+            "h": 232,
+            "kind": "text",
+            "prompt": "Click to add quote",
+            "role": "quote",
+            "style": "quote",
+            "valign": "bottom",
+            "w": 768,
+            "x": 96,
+            "y": 124
+          },
+          {
+            "h": 48,
+            "kind": "text",
+            "prompt": "Click to add attribution",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 768,
+            "x": 96,
+            "y": 372
+          }
+        ]
+      },
+      {
+        "label": "Blank",
+        "name": "blank",
+        "placeholders": []
+      }
+    ],
+    "master": [
+      {
+        "h": 24,
+        "id": "master-number",
+        "text": {
+          "paragraphs": [
+            {
+              "align": "right",
+              "runs": [
+                {
+                  "field": "slideNumber",
+                  "t": "‹#›"
+                }
+              ],
+              "style": "caption"
+            }
+          ]
+        },
+        "type": "text",
+        "w": 80,
+        "x": 860,
+        "y": 500
+      }
+    ],
+    "name": "Light",
+    "textStyles": {
+      "big-number": {
+        "bold": true,
+        "color": "accent1",
+        "font": "heading",
+        "size": 96
+      },
+      "body": {
+        "color": "text1",
+        "font": "body",
+        "lineSpacing": 1.15,
+        "size": 22,
+        "spaceAfter": 6
+      },
+      "caption": {
+        "color": "text2",
+        "font": "body",
+        "size": 14
+      },
+      "citation": {
+        "color": "text2",
+        "font": "body",
+        "size": 10
+      },
+      "code": {
+        "color": "text1",
+        "font": "code",
+        "size": 16
+      },
+      "display": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 44
+      },
+      "quote": {
+        "color": "text1",
+        "font": "heading",
+        "italic": true,
+        "size": 32
+      },
+      "subtitle": {
+        "color": "text2",
+        "font": "body",
+        "size": 20
+      },
+      "title": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 36
+      }
+    }
+  },
+  "title": "Composite elements"
+}

@@ -15,10 +15,10 @@ import { CLICK_SIZE } from "../shapes.ts";
 import { markFresh } from "./fresh.ts";
 import { SNAP, freeSpot, spotAt } from "./spot.ts";
 
-/** Where a box of this size goes now: at the pointer if it is over the slide, else where there is room. */
+/** Where a box of this size goes now: at the pointer if it is over the slide, else where it last was on the slide, else where there is room. */
 export function boxNow({ session, ui }: CommandContext, size: { w: number; h: number }): Rect {
   const slide = session.deck.size;
-  const at = pointerOf(ui).slidePoint();
+  const at = pointerOf(ui).slidePoint() ?? pointerOf(ui).lastSlidePoint();
   if (at) {
     const zoom = ui.state.zoom === "fit" ? ui.state.fitZoom : ui.state.zoom;
     return spotAt(at, size, slide, itemsOf(session).map(boundsOf), ui.state.snap ? SNAP / zoom : null);

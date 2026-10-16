@@ -123,7 +123,7 @@ export function EmbedSection({ session, ui, elements }: SectionProps) {
       <p className="ks-sp-hint">
         {hosted.length === pages.length
           ? "The page is live: it keeps up with the page as it is edited. Where it cannot be shown live, its words are drawn."
-          : "The page is laid out for the window above and scaled to the box. It is live when you present, and the snapshot shows elsewhere."}
+          : "The page is laid out for the window above and scaled to the box. It is live when you present, and the snapshot shows elsewhere. The snapshot is a picture you choose or paste: the app does not take pictures of web pages."}
       </p>
     </CompositeSection>
   );

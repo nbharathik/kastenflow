@@ -1,7 +1,10 @@
 import type { ComponentType } from "react";
 
+import type { RehearsalStore } from "../present/rehearsal-store.ts";
+import type { DecksHost } from "./decks-host.ts";
 import type { AiPanelProps, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
 import type { TemplatesHost } from "./layouts/templates-host.ts";
+import type { WebPreviewHost } from "./web-preview-host.ts";
 
 /**
  * A host that keeps everything in memory: the deck's last saved text, the images
@@ -21,6 +24,12 @@ export class MemoryHost implements SlidesHost {
   usage: Record<string, ImageUse> = {};
   /** The templates, for a test to give: none unless it does. */
   templates?: TemplatesHost;
+  /** The other decks, for a test to give: none unless it does. */
+  decks?: DecksHost;
+  /** The host's web preview, for a test to give: none unless it does. */
+  webPreview?: WebPreviewHost;
+  /** Where rehearsals are kept, for a test to give: the page's local storage unless it does. */
+  rehearsals?: RehearsalStore;
   private readonly watchers = new Set<() => void>();
   private last = 0;
 

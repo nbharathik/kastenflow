@@ -6,6 +6,7 @@ use kasten_mcp::tools::specs;
 use serde_json::json;
 
 use super::responses::{ANSWER, decode};
+use crate::chat::capabilities::{Applied, Effort};
 use crate::chat::model::{Call, Message, Reply, Stop, ToolCall, ToolOutput};
 use crate::chat::responses::{self, Shape};
 
@@ -120,7 +121,7 @@ fn the_request_asks_for_what_this_route_takes_and_nothing_it_refuses() {
         messages: &thread,
         tools: &[],
     };
-    let body = responses::body("gpt-6.1-sol", &call, Shape::default());
+    let body = responses::body("gpt-6.1-sol", &call, Shape::default(), &Applied::default());
     assert_eq!(
         body,
         json!({
@@ -162,8 +163,9 @@ fn the_request_asks_for_what_this_route_takes_and_nothing_it_refuses() {
     let plain = Shape {
         reasoning: false,
         namespaced: false,
+        ..Shape::default()
     };
-    let body = responses::body("m", &bare, plain);
+    let body = responses::body("m", &bare, plain, &Applied::default());
     assert!(
         body.get("instructions").is_none()
             && body.get("tools").is_none()
@@ -181,7 +183,7 @@ fn tools_go_flat_or_in_a_namespace_when_the_server_wants_that() {
         messages: &thread,
         tools: &tools,
     };
-    let flat = responses::body("m", &call, Shape::default());
+    let flat = responses::body("m", &call, Shape::default(), &Applied::default());
     let listed = flat["tools"].as_array().unwrap();
     assert_eq!(listed.len(), tools.len());
     let search = listed.iter().find(|t| t["name"] == "search").unwrap();
@@ -197,7 +199,7 @@ fn tools_go_flat_or_in_a_namespace_when_the_server_wants_that() {
         namespaced: true,
         ..Shape::default()
     };
-    let grouped = responses::body("m", &call, namespaced);
+    let grouped = responses::body("m", &call, namespaced, &Applied::default());
     let namespace = &grouped["tools"][0];
     assert_eq!(
         (namespace["type"].as_str(), namespace["name"].as_str()),
@@ -215,29 +217,36 @@ fn a_feature_the_server_names_is_dropped_for_the_next_try() {
         )
     };
     let first = Shape::default();
-    let without = first.adapted(&unsupported("include")).unwrap();
+    let without = first.adapted(&unsupported("include"), false).unwrap();
     assert_eq!(
         without,
         Shape {
+            effort: true,
             reasoning: false,
             namespaced: false
         }
     );
-    let grouped = without.adapted(&unsupported("tools[0]")).unwrap();
+    let grouped = without.adapted(&unsupported("tools[0]"), false).unwrap();
     assert_eq!(
         grouped,
         Shape {
+            effort: true,
             reasoning: false,
             namespaced: true
         }
     );
     assert_eq!(
-        grouped.adapted(&unsupported("tools[0]")),
+        grouped.adapted(&unsupported("tools[0]"), false),
         None,
         "nothing is left to drop"
     );
     // The first refusal that names tools asks for the namespace.
-    assert!(first.adapted(&unsupported("tools")).unwrap().namespaced);
+    assert!(
+        first
+            .adapted(&unsupported("tools"), false)
+            .unwrap()
+            .namespaced
+    );
     // Refusals that name nothing to drop change nothing.
     for body in [
         r#"{"error":{"code":"invalid_api_key","message":"Bad key"}}"#,
@@ -245,8 +254,113 @@ fn a_feature_the_server_names_is_dropped_for_the_next_try() {
         "<html>",
         "",
     ] {
-        assert_eq!(first.adapted(body), None, "{body}");
+        assert_eq!(first.adapted(body, false), None, "{body}");
+        assert_eq!(first.adapted(body, true), None, "{body}");
     }
+}
+
+#[test]
+fn a_reasoning_effort_the_server_names_is_the_first_to_go() {
+    let unsupported = |param: &str, message: &str| {
+        format!(
+            r#"{{"error":{{"code":"subscription_sharing_unsupported_capability","param":"{param}","message":"{message}"}}}}"#
+        )
+    };
+    let first = Shape::default();
+    for body in [
+        unsupported("reasoning.effort", "Unsupported parameter"),
+        unsupported("reasoning", "Unsupported parameter"),
+        unsupported("", "Unsupported value: effort"),
+    ] {
+        let next = first.adapted(&body, true).unwrap();
+        assert_eq!(
+            next,
+            Shape {
+                effort: false,
+                ..first
+            },
+            "{body}"
+        );
+    }
+    // A request that sent no effort cannot have been refused for one: the
+    // same words mean `include`, as they did before.
+    let dropped = first
+        .adapted(&unsupported("reasoning.effort", "Unsupported"), false)
+        .unwrap();
+    assert_eq!(
+        dropped,
+        Shape {
+            reasoning: false,
+            ..first
+        }
+    );
+    // The `include` parameter's own name has "reasoning" in it: not an effort.
+    let include = unsupported("include", "Unsupported value: reasoning.encrypted_content");
+    assert_eq!(
+        first.adapted(&include, true).unwrap(),
+        Shape {
+            reasoning: false,
+            ..first
+        },
+        "an effort that was sent is not blamed for `include`"
+    );
+    // With the effort gone, the next refusal about reasoning is the rest's.
+    let no_effort = Shape {
+        effort: false,
+        ..first
+    };
+    assert!(
+        !no_effort
+            .adapted(&unsupported("reasoning", "Unsupported"), true)
+            .unwrap()
+            .reasoning
+    );
+}
+
+#[test]
+fn only_the_reasoning_effort_is_read_from_the_settings_and_only_while_allowed() {
+    let thread = [Message::User("Hi".to_owned())];
+    let call = Call {
+        system: "",
+        messages: &thread,
+        tools: &[],
+    };
+    // Settings that could never reach this route: the body leaves them out.
+    let everything = Applied {
+        effort: Some(Effort::High),
+        thinking_budget: Some(2000),
+        temperature: Some(0.2),
+        max_output: Some(1000),
+    };
+    let body = responses::body("m", &call, Shape::default(), &everything);
+    assert_eq!(body["reasoning"], json!({"effort": "high"}));
+    for refused in [
+        "temperature",
+        "max_output_tokens",
+        "max_tokens",
+        "max_completion_tokens",
+        "thinking",
+        "reasoning_effort",
+        "top_p",
+    ] {
+        assert!(body.get(refused).is_none(), "{refused}");
+    }
+    // Without the effort the shape allows, it is not sent.
+    let no_effort = Shape {
+        effort: false,
+        ..Shape::default()
+    };
+    assert!(
+        responses::body("m", &call, no_effort, &everything)
+            .get("reasoning")
+            .is_none()
+    );
+    // And not asked for, not sent.
+    assert!(
+        responses::body("m", &call, Shape::default(), &Applied::default())
+            .get("reasoning")
+            .is_none()
+    );
 }
 
 #[test]

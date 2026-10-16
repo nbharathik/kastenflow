@@ -17,9 +17,11 @@ import { comboOf, showCombo } from "./keys.ts";
 import { layoutCommands } from "./layouts.ts";
 import { lintCommands } from "./lint.ts";
 import { pageCommands } from "./pages.ts";
+import { paintCommands } from "./paint.ts";
 import { presentCommands } from "./present.ts";
 import { slideCommands } from "./slides.ts";
 import { stepsCommands } from "./steps.ts";
+import { tableCommands } from "./table.ts";
 import { textFormatCommands } from "./text-format.ts";
 import type { Command, CommandContext, Commands, KeyScope } from "./types.ts";
 import { viewCommands } from "./view.ts";
@@ -36,6 +38,8 @@ const ALL: Command[] = [
   ...arrangeCommands,
   ...formatCommands,
   ...textFormatCommands,
+  ...paintCommands,
+  ...tableCommands,
   // Before the view's zoom: the same keys zoom the page of a selected embed, and the slide when none is selected.
   ...embedCommands,
   ...viewCommands,

@@ -164,7 +164,8 @@ impl Kasten {
             | AgentOp::EditDeck { .. }
             | AgentOp::CreateDeck { .. }
             | AgentOp::CreateDiagram { .. }
-            | AgentOp::UpdateDiagram { .. } => (None, None, String::new()),
+            | AgentOp::UpdateDiagram { .. }
+            | AgentOp::EditDiagram { .. } => (None, None, String::new()),
             AgentOp::CreateBoard { title, .. } => {
                 (None, None, format!("Create the board “{title}”"))
             }
@@ -240,6 +241,7 @@ impl Kasten {
         let note = match op {
             AgentOp::Trash { reason, .. }
             | AgentOp::Edit { reason, .. }
+            | AgentOp::EditDiagram { reason, .. }
             | AgentOp::UpdateDiagram { reason, .. } => reason.clone(),
             _ => None,
         };

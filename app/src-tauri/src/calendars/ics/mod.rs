@@ -4,6 +4,7 @@
 
 pub mod civil;
 pub mod expand;
+mod future;
 pub mod parse;
 pub mod recur;
 pub mod rule;
@@ -13,6 +14,8 @@ pub mod zones;
 
 #[cfg(test)]
 mod feed_tests;
+#[cfg(test)]
+mod future_tests;
 #[cfg(test)]
 mod rfc_tests;
 

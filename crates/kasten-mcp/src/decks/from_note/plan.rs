@@ -1,6 +1,7 @@
 //! A note as a plan for slides: what each heading becomes, what goes on the
 //! slide and what is left for the speaker notes.
 
+use kasten_core::agent::ChangeSet;
 use kasten_core::extract::extract;
 use kasten_core::frontmatter::split;
 use kasten_core::{Kasten, NoteFile};
@@ -58,6 +59,35 @@ pub(super) struct Plan {
 pub(super) struct Source<'a> {
     pub kasten: &'a Kasten,
     pub refs: Option<&'a Refs>,
+    /// A chat's staged changes, which a note, a link and a picture are read
+    /// through when the chat previews its changes.
+    pub staged: Option<&'a ChangeSet>,
+}
+
+impl Source<'_> {
+    pub(super) fn read(&self, path: &str) -> kasten_core::Result<NoteFile> {
+        match self.staged {
+            Some(set) => self.kasten.read_in(set, path),
+            None => self.kasten.read(path),
+        }
+    }
+
+    pub(super) fn resolve(&self, reference: &str) -> kasten_core::Result<String> {
+        match self.staged {
+            Some(set) => self.kasten.resolve_staged(set, reference),
+            None => self.kasten.resolve(reference),
+        }
+    }
+
+    /// A picture of `assets/`, kept or staged.
+    pub(super) fn asset(&self, path: &str) -> kasten_core::Result<Vec<u8>> {
+        if let Some(set) = self.staged
+            && let Some(bytes) = self.kasten.staged_asset_bytes(set, path)?
+        {
+            return Ok(bytes);
+        }
+        self.kasten.read_asset(path)
+    }
 }
 
 fn normalized(path: &str) -> Option<String> {
@@ -75,7 +105,7 @@ fn normalized(path: &str) -> Option<String> {
 }
 
 /// Where a picture named in a note is in the vault: beside the note, from the vault's root, or by its name in `assets/`.
-fn picture_path(kasten: &Kasten, note: &str, src: &str) -> Option<String> {
+pub(super) fn picture_path(source: &Source, note: &str, src: &str) -> Option<String> {
     if src.contains("://") || src.starts_with("data:") {
         return None;
     }
@@ -89,7 +119,7 @@ fn picture_path(kasten: &Kasten, note: &str, src: &str) -> Option<String> {
     tries
         .into_iter()
         .flatten()
-        .find(|path| kasten.read_asset(path).is_ok())
+        .find(|path| source.asset(path).is_ok())
 }
 
 fn words_of(lines: &[String]) -> String {
@@ -99,7 +129,7 @@ fn words_of(lines: &[String]) -> String {
 
 /// The slides a note gives, at most `most`.
 pub(super) fn of_note(source: &Source, path: &str, most: usize) -> Result<NotePlan, String> {
-    let note: NoteFile = source.kasten.read(path).map_err(|e| e.to_string())?;
+    let note: NoteFile = source.read(path).map_err(|e| e.to_string())?;
     let title = note.meta.title.trim().to_owned();
     let found = sections(split(&note.text).body);
     let mut plan = NotePlan {
@@ -142,7 +172,7 @@ pub(super) fn of_note(source: &Source, path: &str, most: usize) -> Result<NotePl
         let keys = main.keys.clone();
         plan.slides.push(main);
         for (n, picture) in body.pictures.iter().enumerate() {
-            let Some(src) = picture_path(source.kasten, path, &picture.src) else {
+            let Some(src) = picture_path(source, path, &picture.src) else {
                 plan.warnings.push(format!(
                     "Left out the picture `{}` of “{name}”: it is not a picture in the vault's assets/ folder.",
                     picture.src
@@ -231,7 +261,7 @@ pub(super) fn of_deck(source: &Source, path: &str, linked: bool) -> Result<Plan,
         from: vec![path.to_owned()],
     };
     if linked {
-        let note = source.kasten.read(path).map_err(|e| e.to_string())?;
+        let note = source.read(path).map_err(|e| e.to_string())?;
         let mut seen = vec![path.to_owned()];
         for link in extract(split(&note.text).body)
             .links
@@ -243,7 +273,7 @@ pub(super) fn of_deck(source: &Source, path: &str, linked: bool) -> Result<Plan,
                     .push("Followed only the first six links.".to_owned());
                 break;
             }
-            let Ok(target) = source.kasten.resolve(&link.target) else {
+            let Ok(target) = source.resolve(&link.target) else {
                 plan.warnings
                     .push(format!("Did not follow [[{}]]: no such note.", link.target));
                 continue;

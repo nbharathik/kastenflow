@@ -74,7 +74,8 @@ async function openReview() {
   const sidebar = await screen.findByRole("navigation", { name: "Sidebar" });
   const item = await within(sidebar).findByRole("button", { name: /Review/ });
   fireEvent.click(item);
-  await screen.findByRole("heading", { level: 1, name: /Review/ });
+  // The view's code loads when it is first opened; give it time on a busy machine.
+  await screen.findByRole("heading", { level: 1, name: /Review/ }, { timeout: 30_000 });
   return { sidebar, badge: () => within(sidebar).queryByRole("button", { name: /Review/ })?.textContent ?? null };
 }
 

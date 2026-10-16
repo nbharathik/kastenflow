@@ -64,8 +64,10 @@ fn the_handshake_carries_the_instructions_and_every_tool_is_listed() {
             "{wanted} is a tool; the tools are {names:?}"
         );
     }
+    // A range, not a design: every operation is a tool, so the count grows with the registry
+    // (the table operations took it from 47 to 62).
     assert!(
-        names.len() >= 40 && names.len() <= 60,
+        names.len() >= 40 && names.len() <= 70,
         "{} tools",
         names.len()
     );

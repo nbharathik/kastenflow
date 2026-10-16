@@ -19,12 +19,14 @@ mod drops;
 mod extension;
 mod git_host;
 mod guard;
+mod handlers;
 mod launch;
 mod main_window;
 mod meaning;
 mod notify;
 mod open_vault;
 mod presenter;
+mod rehearsals;
 mod reveal;
 mod runtime;
 mod secrets;
@@ -141,6 +143,7 @@ pub fn run() {
             closing::on_window_event(window, event);
             capture::on_window_event(window, event);
             presenter::on_window_event(window, event);
+            browser::on_window_event(window, event);
         })
         .setup(|app| {
             startup::mark("setup");
@@ -148,6 +151,12 @@ pub fn run() {
                 crash::log_to(&dir);
             }
             let settings = app.path().app_config_dir().ok();
+            // What the chat learns about a connection (the connection report, the
+            // models a plan lists, what a model turns down) is kept in the cache
+            // folder, never in the vault.
+            if let Ok(dir) = app.path().app_cache_dir() {
+                chat::cache::use_folder(dir.join("chat"));
+            }
             main_window::prepare(app.handle(), settings.as_deref());
             tray::start(app.handle());
             shortcut::start(app.handle());
@@ -168,6 +177,8 @@ pub fn run() {
                 startup::mark("vault");
                 let chat = handle.state::<chat::commands::ChatState>();
                 chat.know_vault(chat_settings, kasten.root().display().to_string());
+                // Saved chats and their attachments live in the app's data, not in the vault.
+                chat.open_threads(kasten, handle.path().app_local_data_dir().ok().as_deref());
                 git_host::hand_token(kasten, chat.keys().as_ref());
                 backup::finish_on_open(&handle, kasten);
                 show_files(&handle, kasten.root());
@@ -178,219 +189,7 @@ pub fn run() {
             app.manage(vault);
             Ok(())
         })
-        .invoke_handler(guard::commands(tauri::generate_handler![
-            closing::pages_written,
-            main_window::app_ready,
-            startup::startup_marks,
-            main_window::remember_theme,
-            commands::info::app_info,
-            commands::vault::vault_ready,
-            commands::vaults::vault_choices,
-            commands::vaults::open_vault,
-            commands::vaults::folder_synced,
-            commands::folders::browse_folders,
-            commands::folders::survey_folder,
-            commands::notes::list_notes,
-            commands::notes::notes_at,
-            commands::notes::read_note,
-            commands::notes::create_note,
-            commands::notes::capture_note,
-            commands::notes::save_note_body,
-            commands::notes::set_note_meta,
-            commands::notes::trash_note,
-            commands::notes::journal_day,
-            commands::notes::search_notes,
-            commands::notes::note_backlinks,
-            commands::notes::note_mentions,
-            commands::notes::day_mentions,
-            commands::notes::related_notes,
-            commands::notes::list_tasks,
-            commands::notes::apply_template,
-            commands::sources::import_source,
-            commands::sources::read_source,
-            commands::sources::list_sources,
-            commands::sources::source_highlights,
-            commands::sources::all_highlights,
-            commands::sources::add_highlight,
-            commands::sources::edit_highlight,
-            commands::sources::remove_highlight,
-            commands::sources::highlight_card,
-            commands::imports::plan_import,
-            commands::imports::import_notes,
-            commands::imports::undo_commit,
-            commands::replace::find_under,
-            commands::replace::replace_under,
-            commands::graph::vault_graph,
-            calendars::commands::calendars_list,
-            calendars::commands::calendar_add,
-            calendars::commands::calendar_edit,
-            calendars::commands::calendar_remove,
-            calendars::commands::calendar_refresh,
-            calendars::commands::calendar_events,
-            clip::clip_url,
-            clip::web_title,
-            web::open_url,
-            updates::check_update,
-            update_install::update_prepare,
-            update_install::update_install,
-            meaning::meaning_status,
-            meaning::make_vectors,
-            meaning::stop_vectors,
-            meaning::search_meaning,
-            commands::notes::list_trash,
-            commands::notes::read_trashed,
-            commands::notes::move_to_inbox,
-            reveal::reveal_in_folder,
-            drops::stage_drop,
-            commands::notes::restore_note,
-            commands::notes::rename_note,
-            commands::notes::move_note,
-            commands::notes::nest_note,
-            commands::notes::convert_note,
-            commands::notes::duplicate_note,
-            commands::vault::vault_status,
-            commands::vault::commit_edits,
-            commands::vault::start_history,
-            commands::vault::push_now,
-            commands::vault::note_history,
-            commands::vault::note_version,
-            commands::vault::restore_version,
-            commands::vault::restore_vault,
-            commands::vault::get_config,
-            commands::vault::set_config,
-            commands::vault::verify_vault,
-            commands::notes::empty_trash,
-            backup::set_backup_folder,
-            backup::backup_file_now,
-            backup::get_latest,
-            backup::get_latest_from_file,
-            backup::backup_ahead,
-            backup::restore::restore_from_git,
-            backup::restore::restore_from_file,
-            git_host::github_sign_in_start,
-            git_host::github_sign_in_cancel,
-            git_host::github_account,
-            git_host::github_sign_out,
-            git_host::github_backups,
-            git_host::github_create_backup,
-            git_host::git_token_save,
-            git_host::git_token_forget,
-            capture::capture_hide,
-            capture::capture_done,
-            capture::capture_resize,
-            presenter::open_presenter,
-            presenter::presenter_post,
-            presenter::presenter_close,
-            guard::allow_embeds,
-            shortcut::capture_shortcut,
-            shortcut::set_capture_shortcut,
-            desktop_prefs::desktop_prefs,
-            desktop_prefs::set_desktop_prefs,
-            commands::meta::tag_schemas,
-            commands::meta::set_tag_views,
-            commands::meta::set_tag_properties,
-            commands::meta::update_props,
-            commands::meta::set_tags,
-            commands::meta::note_stats,
-            commands::meta::missing_templates,
-            commands::meta::add_starter_templates,
-            commands::meta::add_tour,
-            commands::meta::list_kits,
-            commands::meta::add_kit,
-            commands::meta::save_as_template,
-            commands::meta::replace_section,
-            commands::meta::append_note,
-            commands::assets::save_asset,
-            commands::assets::add_asset,
-            commands::assets::list_assets,
-            commands::assets::asset_info,
-            commands::assets::set_asset_meta,
-            commands::assets::asset_thumb,
-            commands::assets::asset_usage,
-            commands::assets::assets_usage,
-            commands::assets::read_asset,
-            downloads::save_download,
-            commands::boards::list_boards,
-            commands::boards::read_board,
-            commands::boards::create_board,
-            commands::boards::add_to_board,
-            commands::boards::add_sticky,
-            commands::boards::connect_nodes,
-            commands::boards::group_nodes,
-            commands::boards::board_apply,
-            commands::boards::boards_with,
-            commands::boards::restore_board,
-            commands::decks::list_decks,
-            commands::decks::read_deck,
-            commands::decks::references,
-            commands::decks::create_deck,
-            commands::decks::save_deck,
-            commands::decks::restore_deck,
-            commands::decks::list_deck_templates,
-            commands::decks::create_deck_template,
-            commands::diagrams::list_diagrams,
-            commands::diagrams::read_diagram,
-            commands::diagrams::read_diagram_preview,
-            commands::diagrams::create_diagram,
-            commands::diagrams::import_diagram,
-            commands::diagrams::save_diagram,
-            commands::diagrams::save_diagram_preview,
-            commands::diagrams::rename_diagram,
-            commands::diagrams::move_diagram,
-            commands::diagrams::duplicate_diagram,
-            commands::diagrams::restore_diagram,
-            diagrams::commands::diagram_editor_status,
-            diagrams::commands::diagram_editor_install,
-            diagrams::commands::diagram_editor_cancel,
-            diagrams::commands::diagram_editor_remove,
-            commands::agents::mcp_token,
-            commands::agents::list_proposals,
-            commands::agents::accept_proposal,
-            commands::agents::reject_proposal,
-            commands::agents::list_sessions,
-            commands::agents::undo_session,
-            commands::agents::trust_session,
-            commands::agents::commit_changes,
-            commands::marks::agent_marks,
-            commands::marks::agent_marked,
-            commands::marks::accept_agent_marks,
-            chat::commands::chat_providers,
-            chat::commands::save_chat_provider,
-            chat::commands::confirm_chat_provider,
-            chat::commands::remove_chat_provider,
-            chat::commands::test_chat_provider,
-            chat::drafts::list_provider_models,
-            chat::drafts::test_provider_draft,
-            chat::write::ai_write,
-            chat::write::ai_write_stop,
-            chat::commands::chat_send,
-            chat::commands::chat_stop,
-            chat::commands::chat_reset,
-            chat::chatgpt::commands::chatgpt_sign_in_start,
-            chat::chatgpt::commands::chatgpt_sign_in_cancel,
-            chat::chatgpt::commands::chatgpt_account,
-            chat::chatgpt::commands::chatgpt_sign_out,
-            chat::commands::save_chat,
-            brainstorm::brainstorm_board,
-            browser::browser_open,
-            browser::browser_bounds,
-            browser::browser_hide,
-            browser::browser_show,
-            browser::browser_close,
-            browser::browser_nav,
-            browser::browser_enabled,
-            browser::set_browser_enabled,
-            browser::browser_clear_data,
-            browser::flow::browser_capture,
-            browser::flow::browser_capture_confirm,
-            browser::flow::browser_capture_discard,
-            extension::extension_status,
-            extension::set_extension_enabled,
-            extension::set_extension_port,
-            extension::extension_pair_start,
-            extension::extension_pair_cancel,
-            extension::extension_revoke,
-        ]))
+        .invoke_handler(handlers::invoke_handler())
         .build(context)
         .expect("error while building the KastenFlow app");
     app.run(|handle, event| match event {

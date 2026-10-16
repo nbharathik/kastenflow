@@ -107,6 +107,19 @@ describe("whiteboard embeds", () => {
     embed.addEventListener("kasten:present", asked);
     embed.querySelector(".kasten-board-embed-present")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     expect(asked).toHaveBeenCalledTimes(1);
+    // Both tools are icons with a name and a tooltip, and the keyboard presses them as a click with no mouse before it.
+    const presentTool = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-present")!;
+    const openTool = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-open")!;
+    expect([presentTool.textContent, openTool.textContent]).toEqual(["", ""]);
+    expect([presentTool.getAttribute("aria-label"), openTool.getAttribute("aria-label")]).toEqual(["Present whiteboard", "Open whiteboard"]);
+    expect(presentTool.title).toContain("Present");
+    expect(openTool.title).toContain("Open");
+    presentTool.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+    expect(asked).toHaveBeenCalledTimes(2);
+    presentTool.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    expect(asked, "a mouse click came after its mousedown, which did the work").toHaveBeenCalledTimes(2);
+    openTool.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+    expect(links.openBoard).toHaveBeenCalledWith("projects/trip/boards/map.canvas", "here");
     // The grip: keys and a drag set the height, kept per board and kept within limits.
     const body = embed.querySelector<HTMLElement>(".kasten-board-embed-body")!;
     const grip = embed.querySelector<HTMLElement>(".kasten-board-embed-grip")!;

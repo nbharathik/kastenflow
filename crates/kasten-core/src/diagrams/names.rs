@@ -89,7 +89,20 @@ pub(crate) fn folder_of(path: &str) -> &str {
 /// The first `dir/stem.drawio`, `dir/stem-2.drawio`, … whose source and
 /// picture are both free, so a leftover picture is never taken over.
 pub(crate) fn free_pair(vault: &Vault, dir: &str, stem: &str) -> String {
+    free_pair_besides(vault, dir, stem, &std::collections::HashSet::new())
+}
+
+/// `free_pair` that also passes over `planned`, paths a staged change means to use.
+pub(crate) fn free_pair_besides(
+    vault: &Vault,
+    dir: &str,
+    stem: &str,
+    planned: &std::collections::HashSet<String>,
+) -> String {
     let taken = |path: &str| {
+        if planned.contains(path) {
+            return true;
+        }
         let source = vault.file_of(path, &[EXT]).is_ok_and(|p| p.exists());
         let picture = vault
             .file_of(&format!("{path}.svg"), &[SIDECAR_EXT])

@@ -47,8 +47,7 @@
 .kasten-toolbar > button:hover,
 .kasten-toolbar > span > button:hover,
 .kasten-tool:hover:not(:disabled),
-.kasten-zoom-value:hover,
-.kasten-action:hover {
+.kasten-zoom-value:hover {
   background: var(--color-hover);
   color: var(--color-ink);
 }

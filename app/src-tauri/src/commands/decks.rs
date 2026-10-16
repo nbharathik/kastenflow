@@ -3,7 +3,7 @@
 //! from the vault's ops.
 
 use kasten_core::deck::{DeckFile, DeckSaved};
-use kasten_core::{DeckInfo, Instant};
+use kasten_core::{DeckInfo, DecksSaved, Instant, SaveDecksRequest};
 use tauri::State;
 
 use super::notes::{HUMAN, OpenVault};
@@ -48,6 +48,16 @@ pub fn save_deck(
     base_hash: String,
 ) -> Result<DeckSaved, String> {
     state.run(|k| k.save_deck(&HUMAN, &path, &text, &base_hash, Instant::now()))
+}
+
+/// Saves several decks together: all or none, in one commit that Undo takes back whole. Every deck must
+/// still be as it was when its new text was worked out (`base_hash`), or nothing is written.
+#[tauri::command(async)]
+pub fn save_decks(
+    state: State<'_, OpenVault>,
+    request: SaveDecksRequest,
+) -> Result<DecksSaved, String> {
+    state.run(|k| k.save_decks(&HUMAN, &request, Instant::now()))
 }
 
 /// The slide templates of the vault (`templates/slides/`), by title. They are decks to read and save

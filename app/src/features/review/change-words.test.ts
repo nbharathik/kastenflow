@@ -9,6 +9,8 @@ describe("a commit in words", () => {
     expect(describeChange("create: Trip plan")).toMatchObject({ action: "Created", icon: "plus", subject: "Trip plan" });
     expect(describeChange("trash: Trip plan")).toMatchObject({ action: "Moved to trash", icon: "trash", subject: "Trip plan" });
     expect(describeChange("props: Trip plan")).toMatchObject({ action: "Set properties", subject: "Trip plan" });
+    expect(describeChange("comment: Trip plan (resolved)")).toMatchObject({ action: "Commented", icon: "chat", subject: "Trip plan (resolved)" });
+    expect(describeChange("highlight: “jot something down” on An article")).toMatchObject({ action: "Highlighted", icon: "highlight" });
     // A journal day is named as the journal names it.
     expect(describeChange("journal: 2026-09-25")).toMatchObject({ action: "Wrote in the journal", subject: longDay("2026-09-25") });
     expect(describeChange("edit: 2026-09-25").subject).toBe(longDay("2026-09-25"));
@@ -30,6 +32,16 @@ describe("a commit in words", () => {
     expect(describeChange("deck: edit Q3 review")).toMatchObject({ action: "Edited a deck", subject: "Q3 review", detail: null });
     expect(describeChange("deck: edit Q3 review § add diagram")).toMatchObject({ action: "Edited a deck", subject: "Q3 review", detail: "add diagram" });
     expect(describeChange("template: Trip plan from Checklist")).toMatchObject({ action: "Made from a template", subject: "Trip plan", detail: "“Checklist”" });
+  });
+
+  it("says a diagram's commits as what happened to which diagram", () => {
+    expect(describeChange("diagram: create Login flow")).toEqual({ action: "Made a diagram", icon: "diagram", subject: "Login flow", detail: null });
+    expect(describeChange("diagram: edit Login flow")).toMatchObject({ action: "Changed a diagram", icon: "diagram", subject: "Login flow", detail: null });
+    expect(describeChange("diagram: import Login flow")).toMatchObject({ action: "Imported a diagram", subject: "Login flow" });
+    // The picture alone: the diagram itself is as it was.
+    expect(describeChange("diagram: preview Login flow")).toMatchObject({ action: "Drew the picture of a diagram again", subject: "Login flow", detail: "the diagram itself is as it was" });
+    // An agent says why, after §, as for a deck.
+    expect(describeChange("diagram: edit Login flow § add a cache")).toMatchObject({ action: "Changed a diagram", subject: "Login flow", detail: "add a cache" });
   });
 
   it("says an undo in the words of what it undid", () => {

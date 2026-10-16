@@ -16,9 +16,27 @@ describe("the registry of views", () => {
     expect(all).toEqual([
       ["Capture", ["inbox", "captures", "journal"]],
       ["Think", ["boards", "diagrams", "slides", "graph"]],
-      ["Organise", ["library", "tags", "tasks", "calendar", "highlights"]],
+      ["Organise", ["projects", "library", "tags", "collections", "tasks", "calendar", "reviews", "highlights", "references"]],
       ["Tools", ["chat", "browser", "import", "history", "trash", "review"]],
     ]);
+  });
+
+  it("lists the Projects hub under Organise, opened by its view and not pinned", () => {
+    expect(findNav("projects")).toMatchObject({ label: "Projects", icon: "project", group: "organise" });
+    expect(defaultPinned()).not.toContain("projects");
+    expect(placeOfNav("projects")).toEqual({ view: "projects" });
+    expect(showsNav({ view: "projects" }, "projects")).toBe(true);
+    expect(showsNav({ view: "overview", path: "projects/a/_project.md" }, "projects")).toBe(false);
+    expect(ids(availableNav())).toContain("projects");
+  });
+
+  it("lists the daily and weekly reviews under Organise, not pinned, opened by their view", () => {
+    expect(findNav("reviews")).toMatchObject({ label: "Reviews", group: "organise" });
+    expect(defaultPinned()).not.toContain("reviews");
+    expect(placeOfNav("reviews")).toEqual({ view: "reviews" });
+    // Either kind of review shows the row.
+    expect(showsNav({ view: "reviews", path: "weekly" }, "reviews")).toBe(true);
+    expect(showsNav({ view: "review" }, "reviews")).toBe(false);
   });
 
   it("pins the daily drivers until the person chooses", () => {

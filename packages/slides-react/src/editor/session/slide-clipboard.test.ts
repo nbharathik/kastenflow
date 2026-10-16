@@ -142,6 +142,63 @@ describe("pasting into another deck", () => {
   });
 });
 
+describe("the size of the deck the slides came from", () => {
+  it("is kept with the copy, and comes back through the clipboard's JSON", async () => {
+    const { session } = await openDeck({ slides: 2 });
+    session.selectSlides([idsOf(session)[0]!]);
+    const clip = session.slideClipboard.copy()!;
+    expect(clip.size).toEqual({ w: 960, h: 540 });
+    expect(decode(encode(clip))?.kind === "slides" && (decode(encode(clip)) as SlidesClip).size).toEqual({ w: 960, h: 540 });
+  });
+
+  it("is dropped from a copy that names no size, or an absurd one", () => {
+    const base = { v: 2, kind: "slides", stamp: "s", slides: [{ id: "s-1", layout: "blank", elements: [] }], sections: [], pins: {}, cut: false };
+    expect((decode(JSON.stringify(base)) as SlidesClip).size).toBeUndefined();
+    expect((decode(JSON.stringify({ ...base, size: { w: -5, h: 10 } })) as SlidesClip).size).toBeUndefined();
+    expect((decode(JSON.stringify({ ...base, size: { w: "wide", h: 10 } })) as SlidesClip).size).toBeUndefined();
+    expect((decode(JSON.stringify({ ...base, size: { w: 720, h: 540 } })) as SlidesClip).size).toEqual({ w: 720, h: 540 });
+  });
+
+  it("makes no difference to slides pasted into a deck of the same size", async () => {
+    const from = await openDeck({ slides: 2 });
+    const into = await openDeck({ slides: 1 });
+    from.session.elements.insert([{ type: "text", id: "", x: 100, y: 50, w: 400, h: 60, text: { paragraphs: [{ runs: [{ t: "kept" }] }] } } as never]);
+    from.session.selectSlides([from.session.state.slideId]);
+    const [made] = into.session.slideClipboard.paste(decode(encode(from.session.slideClipboard.copy()!)) as SlidesClip);
+    const text = into.session.deck.slides.find((s) => s.id === made)!.elements.find((e) => e.type === "text" && e.text.paragraphs[0]?.runs[0]?.t === "kept")!;
+    expect([text.x, text.y, text.w, text.h]).toEqual([100, 50, 400, 60]);
+  });
+
+  it("has the slides refitted to a deck of another size, as the engine refits a deck whose page size changes", async () => {
+    const from = await openDeck({ slides: 2 });
+    const into = await openDeck({ slides: 1 });
+    into.engine.apply("set_page_size", { w: 480, h: 270 });
+    from.session.elements.insert([{ type: "text", id: "", x: 100, y: 50, w: 400, h: 60, text: { paragraphs: [{ runs: [{ t: "kept" }] }] } } as never]);
+    from.session.selectSlides([from.session.state.slideId]);
+    const clip = decode(encode(from.session.slideClipboard.copy()!)) as SlidesClip;
+    const [made] = into.session.slideClipboard.paste(clip);
+    const text = into.session.deck.slides.find((s) => s.id === made)!.elements.find((e) => e.type === "text" && e.text.paragraphs[0]?.runs[0]?.t === "kept")!;
+    // Half the size each way: the box stretches with the slide.
+    expect([text.x, text.y, text.w, text.h]).toEqual([50, 25, 200, 30]);
+    // Undone in one step.
+    into.session.undo();
+    expect(into.session.deck.slides).toHaveLength(1);
+  });
+
+  it("is pasted as it always was when the copy has no size (a clip from before sizes were kept)", async () => {
+    const from = await openDeck({ slides: 2 });
+    const into = await openDeck({ slides: 1 });
+    into.engine.apply("set_page_size", { w: 480, h: 270 });
+    from.session.elements.insert([{ type: "text", id: "", x: 100, y: 50, w: 400, h: 60, text: { paragraphs: [{ runs: [{ t: "kept" }] }] } } as never]);
+    from.session.selectSlides([from.session.state.slideId]);
+    const clip = from.session.slideClipboard.copy()!;
+    delete clip.size;
+    const [made] = into.session.slideClipboard.paste(clip);
+    const text = into.session.deck.slides.find((s) => s.id === made)!.elements.find((e) => e.type === "text" && e.text.paragraphs[0]?.runs[0]?.t === "kept")!;
+    expect([text.x, text.w]).toEqual([100, 400]);
+  });
+});
+
 describe("sections", () => {
   const sections = [
     { title: "Intro", at: 0 },

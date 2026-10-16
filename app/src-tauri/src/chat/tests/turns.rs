@@ -9,7 +9,7 @@ use serde_json::json;
 use super::{Fake, Seen, Step, Vault, block_on, vault, vault_with};
 use crate::chat::model::{Message, Stop};
 use crate::chat::threads::{self, Chats};
-use crate::chat::{ChatRequest, ChatTurn, EventKind, Events, MAX_CALLS};
+use crate::chat::{ChatRequest, ChatTurn, EventKind, Events, WriteMode};
 
 pub(super) fn request(chat: &str, text: &str) -> ChatRequest {
     ChatRequest {
@@ -19,6 +19,10 @@ pub(super) fn request(chat: &str, text: &str) -> ChatRequest {
         text: text.to_owned(),
         context: vec![],
         date: Some("2026-09-24".to_owned()),
+        settings: None,
+        excerpts: vec![],
+        writes: WriteMode::Direct,
+        attachments: vec![],
     }
 }
 
@@ -222,32 +226,25 @@ fn refusals_and_reviews_go_back_to_the_model() {
 }
 
 #[test]
-fn a_turn_stops_at_its_tool_call_limit() {
+fn a_turn_is_not_cut_at_twelve_tool_calls() {
+    // The 1.1 limit: more than a dozen calls in one turn is ordinary work now.
     let v = vault();
     let chats = Chats::default();
-    let script = (0..=MAX_CALLS)
-        .map(|_| Step::Reply("", vec![("list_tags", json!({}))], Stop::Tools))
+    let mut script: Vec<Step> = (0..20)
+        .map(|i| {
+            // Different arguments each time, so it is work and not a loop.
+            let args = json!({ "limit": i + 1 });
+            Step::Reply("", vec![("list_notes", args)], Stop::Tools)
+        })
         .collect();
+    script.push(Step::Reply("Looked at everything.", vec![], Stop::End));
     let model = Fake::new(script);
     let seen = Seen::new();
     turn(&chats, &v, &model, &seen, request("c1", "Keep looking"));
-    assert_eq!(seen.of(EventKind::Tool).len(), MAX_CALLS);
-    assert_eq!(seen.of(EventKind::ToolResult).len(), MAX_CALLS);
+    assert_eq!(seen.of(EventKind::Tool).len(), 20);
     let last = seen.last();
-    assert_eq!(last.kind, EventKind::Error);
-    assert!(last.error.unwrap().contains("12 tool calls"));
-    // The call that was not run still has a result, so the thread goes on.
-    let thread = chats.messages("c1").unwrap();
-    let unrun = &results(thread.last().unwrap())[0];
-    assert!(unrun.is_error);
-    assert!(
-        unrun
-            .content
-            .starts_with("Not run: this turn reached its limit")
-    );
-    let seen = Seen::new();
-    turn(&chats, &v, &model, &seen, request("c1", "Go on"));
-    assert_eq!(seen.last().kind, EventKind::Done);
+    assert_eq!((last.kind, last.stopped), (EventKind::Done, Some(false)));
+    assert_eq!(seen.text(), "Looked at everything.");
 }
 
 #[test]
@@ -266,6 +263,46 @@ fn a_turn_without_an_answer_leaves_no_trace() {
     assert_eq!(chats.messages("c1").unwrap(), vec![]);
     turn(&chats, &v, &model, &seen, request("c1", "Hello"));
     assert_eq!(model.sent()[1].len(), 1, "the message is sent again, once");
+}
+
+#[test]
+fn a_thread_can_be_taken_back_so_the_last_question_is_asked_again() {
+    let v = vault();
+    let chats = Chats::default();
+    let model = Fake::new(vec![
+        Step::Reply("First answer.", vec![], Stop::End),
+        Step::Reply("Second answer.", vec![], Stop::End),
+        Step::Reply("Second answer, again.", vec![], Stop::End),
+    ]);
+    let seen = Seen::new();
+    let first = turn(&chats, &v, &model, &seen, request("c1", "One"));
+    turn(&chats, &v, &model, &seen, request("c1", "Two"));
+    assert_eq!(chats.messages("c1").unwrap().len(), 4);
+
+    // The last question goes with its answer; the first stays.
+    assert_eq!(chats.rewind("c1", 1).unwrap(), 1);
+    assert_eq!(chats.messages("c1").unwrap().len(), 2);
+    let again = turn(&chats, &v, &model, &seen, request("c1", "Two"));
+    assert_eq!(again.session, first.session, "still the same session");
+    assert_eq!(model.sent()[2].len(), 3, "One, its answer, and Two once");
+
+    // Keeping more than there is changes nothing.
+    assert_eq!(chats.rewind("c1", 5).unwrap(), 2);
+    assert_eq!(chats.messages("c1").unwrap().len(), 4);
+    // Back to nothing: the thread is empty, and a thread that is unknown has nothing.
+    assert_eq!(chats.rewind("c1", 0).unwrap(), 0);
+    assert_eq!(chats.messages("c1").unwrap(), vec![]);
+    assert_eq!(chats.rewind("nobody", 0).unwrap(), 0);
+}
+
+#[test]
+fn a_thread_cannot_be_taken_back_while_it_answers() {
+    let chats = Chats::default();
+    chats
+        .begin("c1", kasten_core::Instant::now(), || "system".to_owned())
+        .unwrap();
+    let err = chats.rewind("c1", 0).unwrap_err();
+    assert!(err.contains("still answering"), "{err}");
 }
 
 #[test]

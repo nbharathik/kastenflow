@@ -1,0 +1,807 @@
+{
+  "format": "kasten-deck",
+  "formatVersion": 1,
+  "id": "d-5pqzcjpl",
+  "present": {
+    "slideNumbers": true,
+    "stepLabel": "Step {n} / {total}"
+  },
+  "size": {
+    "h": 540,
+    "w": 960
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "id": "e-x8b1342f",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "A talk with words"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-1xh9nbhq",
+          "placeholder": "subtitle",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-g4dx7car",
+      "layout": "title"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-eyfsx7rw",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Why decks are files"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-x2xftws1",
+          "placeholder": "body",
+          "text": {
+            "paragraphs": [
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "Plain files"
+                  },
+                  {
+                    "t": " diff in git"
+                  }
+                ]
+              },
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "i": true,
+                    "t": "Agents"
+                  },
+                  {
+                    "t": " can edit them"
+                  }
+                ]
+              },
+              {
+                "level": 1,
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "and render the result"
+                  }
+                ]
+              },
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "Speaker notes stay with the slide"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-d5eevtym",
+      "layout": "title-body"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-l79tq2he",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Two columns"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-0jhvtt0o",
+          "placeholder": "body",
+          "text": {
+            "paragraphs": [
+              {
+                "list": "number",
+                "runs": [
+                  {
+                    "t": "First"
+                  }
+                ]
+              },
+              {
+                "list": "number",
+                "runs": [
+                  {
+                    "t": "Second"
+                  }
+                ]
+              },
+              {
+                "list": "number",
+                "runs": [
+                  {
+                    "t": "Third"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-il1v1hck",
+          "placeholder": "body2",
+          "text": {
+            "paragraphs": [
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "A paragraph with "
+                  },
+                  {
+                    "code": true,
+                    "t": "code"
+                  },
+                  {
+                    "t": ", a "
+                  },
+                  {
+                    "link": "https://example.com",
+                    "t": "link"
+                  },
+                  {
+                    "t": " and math "
+                  },
+                  {
+                    "math": true,
+                    "t": "e^{i\\pi}+1=0"
+                  },
+                  {
+                    "t": "."
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-bkybfyxr",
+      "layout": "two-columns"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-is3qhqor",
+          "placeholder": "quote",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Make it work, make it right, make it fast."
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-bypphzoz",
+          "placeholder": "caption",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Kent Beck"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-y83lfyvg",
+      "layout": "quote",
+      "notes": "Pause here.\n\n- ask the room"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-oba4l323",
+          "placeholder": "number",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "42"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-dae36uyv",
+          "placeholder": "label",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "the answer"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "hidden": true,
+      "id": "s-tunowkye",
+      "layout": "big-number"
+    },
+    {
+      "backup": true,
+      "elements": [
+        {
+          "id": "e-mf60ohsx",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Backup: details"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-skg8fbpy",
+      "layout": "title-only"
+    }
+  ],
+  "theme": {
+    "colors": {
+      "accent1": "#8c2f39",
+      "accent2": "#1f6f8b",
+      "accent3": "#c58b1b",
+      "accent4": "#3f7d4a",
+      "accent5": "#b5541b",
+      "accent6": "#5b4a8a",
+      "bg1": "#fffdf8",
+      "bg2": "#f3efe6",
+      "text1": "#2b2118",
+      "text2": "#6b5d4d"
+    },
+    "dimmedOpacity": 0.25,
+    "fonts": {
+      "body": {
+        "fallback": [
+          "Carlito",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Calibri"
+      },
+      "code": {
+        "fallback": [
+          "Liberation Mono",
+          "monospace"
+        ],
+        "family": "Courier New"
+      },
+      "heading": {
+        "fallback": [
+          "Caladea",
+          "Georgia",
+          "serif"
+        ],
+        "family": "Cambria"
+      }
+    },
+    "highlight": {
+      "color": "accent1",
+      "width": 2
+    },
+    "layouts": [
+      {
+        "label": "Title",
+        "name": "title",
+        "placeholders": [
+          {
+            "h": 148,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 140
+          },
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 304
+          }
+        ]
+      },
+      {
+        "label": "Section",
+        "name": "section",
+        "placeholders": [
+          {
+            "h": 108,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 172
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 296
+          }
+        ]
+      },
+      {
+        "label": "Title + body",
+        "name": "title-body",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title only",
+        "name": "title-only",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          }
+        ]
+      },
+      {
+        "label": "Two columns",
+        "name": "two-columns",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title + image",
+        "name": "title-image",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Image + caption",
+        "name": "image-caption",
+        "placeholders": [
+          {
+            "h": 400,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add caption",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 448
+          }
+        ]
+      },
+      {
+        "label": "Code",
+        "name": "code",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "prompt": "Click to add code",
+            "role": "code",
+            "style": "code",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Comparison",
+        "name": "comparison",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label2",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 200
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 200
+          }
+        ]
+      },
+      {
+        "label": "Big number",
+        "name": "big-number",
+        "placeholders": [
+          {
+            "h": 176,
+            "kind": "text",
+            "prompt": "Click to add number",
+            "role": "number",
+            "style": "big-number",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 144
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 328
+          }
+        ]
+      },
+      {
+        "label": "Quote",
+        "name": "quote",
+        "placeholders": [
+          {
+            "h": 232,
+            "kind": "text",
+            "prompt": "Click to add quote",
+            "role": "quote",
+            "style": "quote",
+            "valign": "bottom",
+            "w": 768,
+            "x": 96,
+            "y": 124
+          },
+          {
+            "h": 48,
+            "kind": "text",
+            "prompt": "Click to add attribution",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 768,
+            "x": 96,
+            "y": 372
+          }
+        ]
+      },
+      {
+        "label": "Blank",
+        "name": "blank",
+        "placeholders": []
+      }
+    ],
+    "master": [
+      {
+        "h": 24,
+        "id": "master-number",
+        "text": {
+          "paragraphs": [
+            {
+              "align": "right",
+              "runs": [
+                {
+                  "field": "slideNumber",
+                  "t": "‹#›"
+                }
+              ],
+              "style": "caption"
+            }
+          ]
+        },
+        "type": "text",
+        "w": 80,
+        "x": 860,
+        "y": 500
+      }
+    ],
+    "name": "Serif",
+    "textStyles": {
+      "big-number": {
+        "bold": true,
+        "color": "accent1",
+        "font": "heading",
+        "size": 96
+      },
+      "body": {
+        "color": "text1",
+        "font": "body",
+        "lineSpacing": 1.15,
+        "size": 22,
+        "spaceAfter": 6
+      },
+      "caption": {
+        "color": "text2",
+        "font": "body",
+        "size": 14
+      },
+      "citation": {
+        "color": "text2",
+        "font": "body",
+        "size": 10
+      },
+      "code": {
+        "color": "text1",
+        "font": "code",
+        "size": 16
+      },
+      "display": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 44
+      },
+      "quote": {
+        "color": "text1",
+        "font": "heading",
+        "italic": true,
+        "size": 32
+      },
+      "subtitle": {
+        "color": "text2",
+        "font": "body",
+        "size": 20
+      },
+      "title": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 36
+      }
+    }
+  },
+  "title": "A talk with words"
+}

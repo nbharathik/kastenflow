@@ -46,6 +46,8 @@
   scrollbar-width: none;
 }
 .ks-body {
+  /* The web page peek (a host-drawn view) stands at the right of this box. */
+  position: relative;
   flex: 1;
   display: flex;
   min-height: 0;
@@ -57,12 +59,35 @@
   flex-direction: column;
   background: var(--ks-well);
 }
-.ks-filmstrip {
+/* The filmstrip is as wide as the person made it (160 to 360, kept in this browser); the edge between it and the slide is what they drag. */
+.ks-filmstrip-wrap {
+  position: relative;
   flex: none;
-  width: 208px;
+  display: flex;
+  width: var(--ks-filmstrip-w, 208px);
+}
+.ks-filmstrip {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
   border-right: 1px solid var(--ks-line);
   background: var(--ks-panel);
+}
+.ks-filmstrip-grip {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  z-index: 2;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.ks-filmstrip-grip:hover,
+.ks-filmstrip-grip:active,
+.ks-filmstrip-grip:focus-visible {
+  background: color-mix(in srgb, var(--ks-accent) 40%, transparent);
+  outline: none;
 }
 .ks-side-panel {
   flex: none;

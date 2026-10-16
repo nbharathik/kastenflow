@@ -1,0 +1,37 @@
+/* The icon tools in an embed's head (embed-tools.ts): small, quiet, in a
+   comfortable 24px target. They show when the embed is pointed at, holds the
+   keyboard focus (so Tab reaches them) or is being worked on. */
+
+.kasten-page-editor .kasten-embed {
+  & .kasten-embed-tool {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: var(--radius);
+    color: var(--notion-text-2);
+    opacity: 0;
+    transition:
+      opacity var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard);
+
+    &:hover {
+      background: var(--color-hover);
+      color: var(--notion-text);
+    }
+
+    & svg {
+      flex: none;
+    }
+  }
+
+  &:hover .kasten-embed-tool,
+  &:focus-within .kasten-embed-tool,
+  &[data-active="true"] .kasten-embed-tool,
+  & .kasten-embed-tool:focus-visible {
+    opacity: 1;
+  }
+}

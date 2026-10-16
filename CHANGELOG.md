@@ -4,7 +4,203 @@ Every release of KastenFlow (called Kasten before 1.1.0), newest first.
 Versions follow [Semantic Versioning](https://semver.org); the vault format
 has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 
+## 1.2.0
+
+### Slides
+
+- **Tables can be edited cell by cell.** Click a cell, type to fill it, Tab and
+  Shift+Tab move (Tab in the last cell adds a row), Enter goes down, Shift+Enter
+  starts a new line, Esc cancels and Delete clears the selected cells. Insert or
+  delete rows and columns where you are, merge and unmerge cells, and colour them.
+  Copy cells to a spreadsheet and paste from Excel, Sheets or plain text; a paste
+  that would cut a merged cell is refused and says why.
+- Delete, copy, cut, paste and undo work right after a deck opens and after any
+  dialog closes, instead of waiting until you click the slide.
+- **Web pages in a presentation.** A link opens a page beside the slide, in the
+  centre or full screen, with back, forward, reload and open-in-browser; Esc steps
+  back out one level and returns to the same slide. A page that refuses to be shown
+  gets a clear card instead of silently disappearing. In the editor, **Preview
+  live** opens an embedded page in the same panel. (The desktop app shows pages
+  through its browser, so Settings → Browser must be on; with no connection you
+  see the browser's own error page.)
+- **Highlight colour** for text, and citations that link to their DOI or address.
+  Decks that use either are saved in deck format 2 (older versions cannot open
+  them; decks that use neither are saved as before).
+- Paint format has keys (Ctrl+Alt+C and Ctrl+Alt+V) and paints tables too. The
+  filmstrip can be made wider or narrower, panels and the filmstrip have
+  right-click menus, **Save as layout** and **Reset to layout** are in the menus,
+  and layouts can be imported from another deck.
+- A marquee can start on the grey stage, a readout shows the position while you
+  drag, Alt shows the distance to a neighbour, shapes appear where you last
+  pointed, the outline's "+" adds a blank slide, and a slide pasted into a deck of
+  another shape is scaled to fit.
+- **Storyboard first:** turning a page's sections into a deck now opens a storyboard
+  where you reorder, merge, split and leave out slides, and choose the template and
+  shape. When a source page changes, **Review sources** lists which slides moved on
+  and lets you update the ones you did not touch and keep or replace the ones you
+  edited (an update changes a slide's body, not its title or notes).
+- **Rehearse** a talk with per-slide timings (nothing advances by itself), and an
+  export check lists missing pictures, overflowing text, broken links and
+  unresolved citations before you export or present. **Turn off slide numbers in
+  every deck** is one change you can undo.
+- PowerPoint import keeps a layout's shapes as part of the layout, and text
+  highlights export and import.
+
+### Projects and organising
+
+- **Projects** opens a hub of every project as cards or a list: status (Active,
+  Paused, Done), health, open and overdue to-dos, a progress bar, the next action,
+  the last activity, search, sorting, pins and an Archived toggle. New projects can
+  start from a Research, Writing or Presentation setup, previewed before it is made.
+- Each project can pin a **next action**, show its health (On track, At risk,
+  Blocked) and keep a last review date, and **New update** writes a dated page
+  (progress, decisions, blockers, next action).
+- **Daily and weekly reviews** gather captures, due and overdue to-dos, projects
+  due for review and recent decisions. Opening one writes nothing; you save it as a
+  note only when you want to.
+- **Saved collections** keep a search and its filters as a small file in `views/`;
+  relative dates such as "last 30 days" stay relative. Pin them to Home or a
+  project.
+- **Workspaces** remember panes, tabs, panel sizes and a project, and resume
+  later; web tabs come back suspended.
+- Drop pages onto a gallery or table to add its tag (nothing moves), or use
+  **Add existing pages**. `kasten:` links point to a page, heading, PDF highlight
+  or whiteboard section (and to a deck, which opens, not a particular slide) and
+  only ever open it.
+
+### Capture and research
+
+- Capturing a page you already saved says so and offers **Save another snapshot**
+  (the browser tab and triage also offer **Open**); triage goes through captures by
+  keyboard (project, tag, board,
+  to-do, archive, put off, reading state), with undo for each action. A "this week"
+  view lists the last week's captures.
+- **References** lists every paper in your `.bib` files. Add one by pasting BibTeX,
+  a plain citation, a DOI or an arXiv address, from a web page you have open, from
+  the extension, or from a PDF you import; nothing is looked up online, so you
+  check the details yourself. `[@key]` cites a paper in a page. Renaming a key
+  updates the `.bib` file, pages, pictures and decks in one change you can undo.
+  Your own `.bib` files are never rewritten (a Zotero Better BibTeX auto-export
+  inside the vault is listed the same way, with no two-way sync); KastenFlow keeps
+  its entries in `sources/references.bib`.
+- **Compare papers**: put a highlight in a page with its quotation, source and a
+  link back to the PDF page, and build a comparison table or outline.
+- **Comments** on pages (a column beside smart-layout pages, or a Comments tab) and
+  **highlights** on captured articles stay in files beside the page and move,
+  rename, trash and restore with it.
+- **Project bundles** export a project (with its pictures, PDFs and cited
+  references) as a folder you can open anywhere, and import one with a preview of
+  what it will settle.
+
+### AI
+
+- **Sign in with ChatGPT** now verifies your identity with OpenAI's published
+  keys and ties the sign-in to one account. **Sign in again once** after updating.
+- **A connection that holds.** A request that hits a busy or rate-limited server, a
+  dropped connection or a stream that breaks before the model has asked for anything
+  is tried again up to four times with a growing pause (the chat says "trying again
+  (2 of 4)"), and Stop ends the wait at once. A renewal of your ChatGPT sign-in
+  always runs to its end, so pressing Stop or losing the connection mid-renewal can
+  no longer sign you out; only OpenAI refusing the sign-in itself (or a different
+  account answering) does. A failed identity check when renewing no longer throws
+  away a good token (the ChatGPT row says so), and a keychain hiccup no longer shows
+  as "not signed in". Connection problems are named (rate limit, usage limit, model
+  unavailable, sign in again), "Test connection" tries what a chat really sends and
+  names the step that failed, and Settings → AI providers has a **Connection
+  report** of recent requests, with no tokens, prompts or answers in it, to copy
+  when something goes wrong.
+- **A better agent.** The chat no longer stops after 12 tool calls. It works in
+  steps (up to 80 steps, 250 tool calls and 30 minutes by default, set in Settings →
+  AI providers → **Agent limits**). It pauses with a **Continue** button, not an
+  error, when it reaches a limit, notices it is going round in circles, keeps being
+  cut off by the model's length limit, or the app was closed while it worked. In a
+  long job it is asked to keep a short **plan** and update it as it goes,
+  it runs independent reads together, continues an answer that was cut off, and
+  makes room in a long conversation by leaving out old results and summarising older
+  steps. Send a message while it works and it takes it up at its next step; Stop
+  drops what was waiting.
+- **Chats keep working and are saved.** A chat goes on when you close the chat,
+  switch to another view or to Slides, or close the window to the tray, and the chat
+  button shows a pulsing dot while one works and a count when one finished, paused
+  or failed; a notice (in fixed words, never what the chat said) appears when
+  KastenFlow is in the background. Chats are saved on this computer (not in your
+  vault) after every step and come back after a restart, together with the changes
+  you had not applied yet; a chat that was working when the app closed is listed as
+  interrupted and Continue picks it up without running again what already ran.
+  KastenFlow never deletes a chat for you: you remove one yourself.
+- **Attach things to a chat:** paste or drop long text, pictures, text files and PDFs
+  (or **+ Context → Attach a file…**), up to five to a message. A long paste becomes
+  an attachment you can open, pictures are scaled in the window (to 2048 pixels and
+  5 MB), a PDF is read as text (the first ten pages), and a model that cannot read
+  pictures says so instead of ignoring them (on a ChatGPT plan, where that is not
+  known, a picture is tried on first use).
+- The chat box keeps one size however much you type or however narrow the chat is.
+- Pick a model from the list your account offers, and set reasoning effort, thinking
+  or the longest answer where the model supports them.
+- **Explain** a selection: read-only, with the nearby text or the whole page as an
+  option. The chat can be resized, shows exactly which pages it will send, follows
+  the active page, and offers regenerate and edit-and-resend.
+- Edits the chat makes to your notes are **previewed first**: see each change, then
+  Apply them as one change (Undo session reverses it) or Discard. Renames, moves
+  and the trash are not previewed: they still go to Review as proposals. A per-chat
+  switch (**Apply directly**) keeps the old direct behaviour, and changes you have
+  not applied stay with the chat and are still waiting after a restart.
+- AI actions are Markdown prompts you can edit in `templates/ai/` (Explain, Compare
+  sources, Outline, Extract action items, Draft project update, and four for
+  diagrams in the chat); PDF pages and highlights can be sent as context.
+- **Diagrams with AI.** An assistant can create, read, check and edit diagrams
+  without writing XML. It sends typed steps (add or change a box or arrow, restyle,
+  group, move, resize, lay out) that are replayed on the diagram as it is when they
+  run, so what you drew meanwhile stays and the boxes a step did not touch keep
+  their exact bytes. In the chat and over MCP these are `diagram_new` (from a
+  description, a Mermaid flowchart, which must be a flowchart, or one of ten
+  templates), `diagram_edit`, `diagram_describe`, `diagram_lint` (overlaps, loose or
+  unlabelled arrows, boxes off the page, crossings, low contrast, unsafe links and
+  more), `diagram_find_shapes` (the editor's own icon names) and `diagram_export`
+  (SVG only; the diagram editor still makes PNG pictures). A built-in automatic
+  layout keeps boxes on the grid and works to reduce crossings, and eleven style
+  presets cover architecture, network, C4, AWS, Azure, Google Cloud (drawn as plain
+  boxes, since its icons are pictures in the editor), Kubernetes, flowchart,
+  sequence, ER and mind-map drawings.
+- A diagram an assistant made or changed shows a **draft picture** that KastenFlow
+  draws itself (a library icon is a labelled box) until the diagram editor next
+  draws the exact one. The diagram editor's header has **Draw with AI** (it opens
+  the chat about the diagram and sends nothing yet), **Check diagram** and **Tidy**
+  (the editor's own layouts); a held-back diagram change shows its picture before
+  and after in the review, and an open editor reloads when you apply it.
+- The MCP server offers table tools for decks, `server_status`, and, in the
+  command-line `kasten-mcp`, `render_slide` through Chrome, Chromium or Edge (the
+  installed app does not draw slides); run `kasten-mcp --check` or
+  `kasten-mcp --setup claude-code` to test and set it up.
+
+### Browser, calendar and everyday
+
+- A **+** opens a new web tab, Ctrl+T opens one when a web tab is in front,
+  Ctrl+T/W/L work while a web page has the keyboard, web tabs idle for ten minutes
+  are closed, and menus appear over web pages.
+- Calendars: `THISANDFUTURE` repeats, subscriptions follow the system proxy,
+  "Subscribe to a calendar" is in the palette, and dragging an event onto a day
+  makes a note for it.
+- Section dividers and section cards show only icons (fold, present) and the
+  section's name in a tooltip; other repeated labelled buttons are icons too.
+- Settings search finds keyboard-shortcut names and each group remembers its
+  scroll position. One indicator shows Saved, Saving, Indexing, External changes,
+  Proposed, Stale or Failed, and a health page lists what needs attention without
+  changing anything.
+- The browser extension's folder ships with the installer.
+
+### Speed
+
+- The graph of a 10,000-note vault builds in under 100 ms (it was about 115 ms),
+  and refreshes when boards, decks or diagrams change, not only notes. The list
+  of what each picture is used by no longer reads every note on each call.
+- A shared revision tells every view when something changed; the first page the
+  app loads is smaller.
+
 ## 1.1.0
+
+1.1.0 was tagged, but no installers were published for it: everything below
+first ships in 1.2.0.
 
 ### A new name
 
@@ -90,7 +286,7 @@ has its own version, described in [docs/vault-format.md](docs/vault-format.md).
   gap where they will land and scrolls by itself; a deleted slide folds away, Enter
   adds a slide, and a run of arrow-key nudges is one step of undo.
 - A click on a text box writes in it, with the caret where you clicked.
-- Text and lists feel like Google Slides. Bullets and numbers hang properly, nine levels deep,
+- Bullets and numbers hang properly, nine levels deep,
   in twelve styles (disc, circle, square, arrow, check, dash, 1. 1) a. A. i. I.), with restart,
   continue and a number to start at; `- `, `* `, `1. ` and `a. ` start a list as you type, Tab and
   Shift+Tab move a level, and Enter on an empty item ends it. A marker follows its words: set the size
@@ -197,7 +393,7 @@ The first public release, for Windows, macOS and Linux.
 
 ### Write and plan
 
-- Pages that work like Notion: `/` for any block, `[[` to link a page,
+- Pages made of blocks: `/` for any block, `[[` to link a page,
   covers, icons, callouts, toggles, tables, equations and colours, with
   properties under the title and find and replace (Ctrl+F).
 - A new page is a draft until you type: nothing is written for a page you
@@ -215,7 +411,7 @@ The first public release, for Windows, macOS and Linux.
 
 ### Slides
 
-- A Google-Slides-style editor for decks that are plain `.deck` files in
+- A slide editor for decks that are plain `.deck` files in
   the vault: themes, layouts, shapes, tables, pictures, sections, speaker
   notes, undo, and find and replace.
 - Parts that draw themselves: code with syntax colours and lines in focus,

@@ -20,7 +20,9 @@
 
 mod element;
 
-use crate::model::{Deck, Size, Slide, TextStyle, Theme};
+use std::collections::BTreeMap;
+
+use crate::model::{Deck, Layout, Size, Slide, TextStyle, Theme};
 use crate::ops::geometry::reroute;
 
 pub use element::scale_elements;
@@ -116,6 +118,32 @@ fn scale_style(style: &mut TextStyle, by: f64) {
     style.space_after = style.space_after.map(|v| scaled_size(v, by));
 }
 
+/// Fits one layout to the slide size: the boxes of its slots and of the decoration it draws. This is
+/// what a layout brought from a deck of another size needs; its text styles are fitted with
+/// [`scale_text_styles`].
+pub fn scale_layout(layout: &mut Layout, fit: &Fit) {
+    if fit.is_identity() {
+        return;
+    }
+    for slot in &mut layout.placeholders {
+        slot.x = round2(slot.x * fit.sx);
+        slot.y = round2(slot.y * fit.sy);
+        slot.w = round2(slot.w * fit.sx);
+        slot.h = round2(slot.h * fit.sy);
+    }
+    scale_elements(&mut layout.elements, fit);
+}
+
+/// Fits text styles to the slide size: type follows the width.
+pub fn scale_text_styles(styles: &mut BTreeMap<String, TextStyle>, fit: &Fit) {
+    if fit.is_identity() {
+        return;
+    }
+    for style in styles.values_mut() {
+        scale_style(style, fit.text());
+    }
+}
+
 /// Fits a theme to the slide size: the boxes of its slots, of the decoration of its layouts and of
 /// its master shapes, and the sizes of its text styles.
 pub fn scale_theme(theme: &mut Theme, fit: &Fit) {
@@ -123,17 +151,9 @@ pub fn scale_theme(theme: &mut Theme, fit: &Fit) {
         return;
     }
     for layout in &mut theme.layouts {
-        for slot in &mut layout.placeholders {
-            slot.x = round2(slot.x * fit.sx);
-            slot.y = round2(slot.y * fit.sy);
-            slot.w = round2(slot.w * fit.sx);
-            slot.h = round2(slot.h * fit.sy);
-        }
-        scale_elements(&mut layout.elements, fit);
+        scale_layout(layout, fit);
     }
-    for style in theme.text_styles.values_mut() {
-        scale_style(style, fit.text());
-    }
+    scale_text_styles(&mut theme.text_styles, fit);
     theme.highlight.width = scaled_length(theme.highlight.width, fit.text());
     scale_elements(&mut theme.master, fit);
 }

@@ -16,6 +16,7 @@ import { useBoards } from "../boards/store";
 import { forgetSchemas } from "../panel/properties/schemas";
 import { useTags } from "../tags/store";
 import { filesChanged } from "./page/open-page";
+import { applyRevision, loadRevision } from "./revision";
 import { useWorkspace } from "./store";
 
 interface StatusState {
@@ -134,7 +135,9 @@ export function startLive(client: VaultClient): () => void {
     error(message) {
       useVaultStatus.setState({ error: message });
     },
+    revised: applyRevision,
   });
+  loadRevision(client);
   const every = setInterval(() => void useVaultStatus.getState().refresh(), 60_000);
   return () => {
     stop?.();

@@ -7,7 +7,8 @@ import { inTauri } from "../../lib/api";
 import { fillScreen } from "../../lib/fullscreen";
 import { fileUrl } from "../../lib/vault/file-url";
 import type { VaultClient } from "../../lib/vault/types";
-import { editDiagramPicture, pickDiagramPicture } from "../diagrams/slides";
+import { coverWindow } from "../browser/cover";
+import { diagramRevision, drawDiagramPicture, editDiagramPicture, pickDiagramPicture, watchDiagrams } from "../diagrams/slides";
 import { usePrefs } from "../workspace/prefs";
 import { contentHash } from "../workspace/preview/vault-text";
 import { AiTab } from "./AiTab";
@@ -15,7 +16,9 @@ import { galleryHost } from "./gallery-host";
 import { onBibFiles } from "./events";
 import { pageHost } from "./page-host";
 import { allowEmbeds, embeddedPages, openTauriPresenter } from "./presenter-link";
+import { rehearsalStore } from "./rehearse/store";
 import { useDecks } from "./store";
+import { webPreviewHost } from "./web-preview";
 
 export interface KastenHost extends SlidesHost {
   /** The hash of the file as the editor last read or wrote it. */
@@ -47,9 +50,22 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     },
     // Pages: Insert → Page… (choose, read, update), links to pages, the side panel of a presentation, and hearing that a page changed.
     ...pageHost(client),
-    // Diagrams: Insert → Diagram… and Edit diagram, on the vault's diagrams.
-    pickDiagram: () => pickDiagramPicture(client),
+    // The other decks of the vault, for Slide → Import layouts…: their titles, and each as the text of its file.
+    decks: {
+      async list() {
+        return (await client.decks()).filter((deck) => !deck.problem).map((deck) => ({ id: deck.path, title: deck.title, slides: deck.slides }));
+      },
+      async read(id) {
+        return (await client.deck(id)).text;
+      },
+    },
+    // Diagrams: Insert → Diagram… and Edit diagram, on the vault's diagrams; and, for a picture whose diagram changed since it was drawn,
+    // the diagram's version now, a fresh picture without opening its editor, and hearing that a diagram changed.
+    pickDiagram: () => pickDiagramPicture(client, path),
     editDiagram: (source) => editDiagramPicture(client, source),
+    diagramRevision: (source) => diagramRevision(client, source),
+    drawDiagram: (source) => drawDiagramPicture(client, source),
+    watchDiagrams,
     // The star beside the deck's name is the sidebar's favourite: the same list, so each shows what the other did.
     favourite: {
       isOn: () => usePrefs.getState().favourites.includes(path),
@@ -85,14 +101,28 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     },
     notify,
     // Presenting in the desktop app: the presenter's view is a window of its own, the screen is the window's, and the pages the deck embeds
-    // may load in their frames for as long as it is presented. In a browser the editor's own ways serve.
+    // may load in their frames for as long as it is presented. A web page, beside a slide or from a link in the show, is the browser's native
+    // view (when the browser is on). While a presentation fills the window, a web link must not open a browser tab beneath it. In a browser
+    // the editor's own ways serve.
     ...(inTauri()
       ? {
           openPresenter: () => openTauriPresenter(path),
           fillScreen,
+          webPreview: webPreviewHost(),
+          // Rehearsals are a person's practice, kept on this computer in the app's data folder, not in the vault.
+          rehearsals: rehearsalStore(),
           async willPresent(deck: unknown) {
-            await allowEmbeds(embeddedPages(deck));
-            return () => void allowEmbeds([]);
+            const uncover = coverWindow();
+            try {
+              await allowEmbeds(embeddedPages(deck));
+            } catch (err) {
+              uncover();
+              throw err;
+            }
+            return () => {
+              uncover();
+              void allowEmbeds([]);
+            };
           },
         }
       : {}),

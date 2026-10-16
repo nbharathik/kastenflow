@@ -39,11 +39,13 @@ const MAX_CHUNKS: usize = MAX_SLOW * 4 / 3 / CHUNK + 3;
 /// The most previews kept at once.
 const MAX_PREVIEWS: usize = 4;
 
-/// What was asked for: the selection, or the whole page.
+/// What was asked for: the selection, the whole page, or what the page says
+/// about itself in its `<meta>` tags and structured data (for "Save as paper").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Selection,
     Page,
+    Meta,
 }
 
 /// What the page's script answered.

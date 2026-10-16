@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { useShell } from "../../lib/store";
 import { AppShell } from "../../shell/AppShell";
@@ -18,6 +18,11 @@ const SEED = {
 };
 
 let vault: MemoryVault;
+
+// The "Move to" picker loads when it is opened; its load time is not what these tests are about.
+beforeAll(async () => {
+  await import("../workspace/overlays/MovePicker");
+}, 60_000);
 
 /** Opens the app on `seed` and goes to the Card Library from the sidebar. */
 async function openLibrary(seed: Record<string, string> = SEED, prepare?: (vault: MemoryVault) => void) {
@@ -118,7 +123,7 @@ describe("Card Library", () => {
     fireEvent.click(card("Welcome"), { ctrlKey: true });
     fireEvent.click(card("An idea"), { metaKey: true });
     fireEvent.click(screen.getByRole("button", { name: "Move to…" }));
-    const input = within(screen.getByRole("dialog", { name: "Move to" })).getByRole("textbox");
+    const input = within(await screen.findByRole("dialog", { name: "Move to" })).getByRole("textbox");
     fireEvent.change(input, { target: { value: "demo" } });
     await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
     expect(await screen.findByText("Moved 2 cards to Demo project")).toBeTruthy();
@@ -178,7 +183,7 @@ describe("Card Library", () => {
     const button = within(bar).getByRole("button", { name: "Move to…" });
     act(() => button.focus());
     fireEvent.click(button);
-    const input = within(screen.getByRole("dialog", { name: "Move to" })).getByRole("textbox");
+    const input = within(await screen.findByRole("dialog", { name: "Move to" })).getByRole("textbox");
     expect(document.activeElement).toBe(input);
     await act(async () => fireEvent.keyDown(input, { key: "Escape" }));
     expect(screen.queryByRole("dialog", { name: "Move to" })).toBeNull();
@@ -221,6 +226,26 @@ describe("Card Library", () => {
     expect(await screen.findByLabelText("5 cards")).toBeTruthy();
     expect(titles()).toHaveLength(5);
     expect((search as HTMLInputElement).value).toBe("");
+  });
+
+  it("keeps a search as a collection, with its filters, and says what it could not keep", async () => {
+    const search = await openLibrary();
+    // Nothing to keep until the Library is searched or filtered.
+    expect(screen.queryByRole("button", { name: "Save as collection" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cards" }));
+    fireEvent.change(search, { target: { value: "diff" } });
+    await within(grid()).findByRole("option", { name: "Diff metric" });
+    fireEvent.click(screen.getByRole("button", { name: "Save as collection" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect((dialog.getByLabelText("Name") as HTMLInputElement).value).toBe("diff");
+    expect(dialog.getByText("diff type:card", { selector: "code" })).toBeTruthy();
+    fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "Diff cards" } });
+    await act(async () => fireEvent.click(dialog.getByRole("button", { name: "Save" })));
+    await expect.poll(async () => (await vault.collections()).map((c) => [c.name, c.query])).toEqual([["Diff cards", "diff type:card"]]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // The notice offers to open it.
+    expect(await screen.findByText("Saved the collection “Diff cards”")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open" })).toBeTruthy();
   });
 
   it("draws 200 cards at a time", async () => {

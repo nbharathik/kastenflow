@@ -5,10 +5,24 @@
 
 import type { Deck, Section, Slide } from "@kasten-slides/wasm";
 
-/** The width of a thumbnail, in CSS pixels. */
-export const THUMB_W = 160;
+/** How wide the filmstrip is when the person has not chosen, and the bounds they can choose within, in CSS pixels. */
+export const FILMSTRIP_W = 208;
+export const FILMSTRIP_MIN = 160;
+export const FILMSTRIP_MAX = 360;
+/** What the filmstrip's width leaves out of a thumbnail's: the number beside it, the gaps and the border. */
+const BESIDE_THUMB = 48;
+/** How much narrower a backup slide is drawn than the others, tucked in under the slide above it. */
+const BACKUP_LESS = 14;
+
+/** The width of a thumbnail for a filmstrip of this width, in CSS pixels. */
+export const thumbWidth = (filmstrip: number): number => Math.round(filmstrip) - BESIDE_THUMB;
+/** The width of a backup slide's thumbnail, given an ordinary one's. */
+export const backupWidth = (thumb: number): number => thumb - BACKUP_LESS;
+
+/** The width of a thumbnail at the filmstrip's usual width, in CSS pixels. */
+export const THUMB_W = thumbWidth(FILMSTRIP_W);
 /** A backup slide is drawn a little smaller, tucked in under the slide above it. */
-export const BACKUP_W = 146;
+export const BACKUP_W = backupWidth(THUMB_W);
 /** The height of a section's header. */
 export const SECTION_H = 30;
 /** Room above and below a thumbnail inside its row. */
@@ -61,10 +75,11 @@ export function thumbHeight(size: Deck["size"], width = THUMB_W): number {
 
 /**
  * The rows of the filmstrip: a header where a section starts, then its slides
- * unless the section is collapsed, which leaves the header alone.
+ * unless the section is collapsed, which leaves the header alone. A row is as
+ * tall as a thumbnail of width `thumb`, which follows the filmstrip's width.
  */
-export function layoutFilmstrip(deck: Pick<Deck, "slides" | "sections" | "size">, collapsed: ReadonlySet<string>): FilmLayout {
-  const rowHeight = thumbHeight(deck.size) + FRAME + 2 * ROW_PAD;
+export function layoutFilmstrip(deck: Pick<Deck, "slides" | "sections" | "size">, collapsed: ReadonlySet<string>, thumb = THUMB_W): FilmLayout {
+  const rowHeight = thumbHeight(deck.size, thumb) + FRAME + 2 * ROW_PAD;
   const starts = new Map<string, Section>();
   for (const section of deck.sections ?? []) {
     if (!starts.has(section.startsAt)) starts.set(section.startsAt, section);

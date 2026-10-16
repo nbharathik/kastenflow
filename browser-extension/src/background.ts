@@ -54,6 +54,8 @@ export async function onMenuClick(env: BackgroundEnv, click: MenuClick, tab: Tab
   } catch (error) {
     // A token Kasten does not know is of no use: the popup asks to pair again.
     if (error instanceof KastenError && error.trouble === "unpaired") await forgetPairing(env.storage).catch(() => {});
-    await say(false, words(error));
+    // A page saved before is told, not saved again; the popup can keep another snapshot.
+    const saved = error instanceof KastenError && error.trouble === "saved";
+    await say(false, saved ? `${words(error)}. Nothing was sent: open the extension to save another snapshot.` : words(error));
   }
 }

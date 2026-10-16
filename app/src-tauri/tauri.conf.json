@@ -59,13 +59,21 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "../../browser-extension/manifest.json": "browser-extension/manifest.json",
+      "../../browser-extension/popup.html": "browser-extension/popup.html",
+      "../../browser-extension/popup.css": "browser-extension/popup.css",
+      "../../browser-extension/README.md": "browser-extension/README.md",
+      "../../browser-extension/icons/*": "browser-extension/icons/",
+      "../../browser-extension/dist/*": "browser-extension/dist/"
+    },
     "macOS": {
       "minimumSystemVersion": "12.0"
     }
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgzOUVBNTJFMjJBRkQxNwpSV1FYL1NyaVV1bzVDR2Q2bG5obmhDbWdEQzhhZUVvbjVIUzErdjR5QnQ4VjZ1Y3Y0RzE3U1IxNgo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJEQ0Q2NzgwQjA1OTczRkMKUldUOGMxbXdnR2ZOTFh3MUFGRXh2NjNLTXdUSmJhak9kdW0wNFNIeVdxVm5lVTFiMWE3cFBPRzIK",
       "requireSignedVersion": true,
       "windows": {
         "installMode": "passive"

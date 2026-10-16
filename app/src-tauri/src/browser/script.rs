@@ -11,14 +11,36 @@ const LIMIT: usize = 900_000;
 /// The most a slower way carries, in characters of the encoded answer.
 const SLOW_LIMIT: usize = 340_000;
 
+// The tags reader keeps at most 120 tags (a name of 100 characters and a value
+// of 1000) and 3 scripts of 30000, which stays under what a slower way carries.
+const _: () = assert!(120 * (100 + 1000) + 3 * 30_000 < SLOW_LIMIT * 3 / 4);
+
 /// Reads the selection (HTML and text) or the page's article, the title, and
 /// says who it answers for. `@NONCE@`, `@KIND@`, `@LIMIT@` are filled in.
 const COLLECT: &str = r#"
+function readMeta() {
+  var meta = [];
+  var tags = document.querySelectorAll("meta[name], meta[property]");
+  for (var i = 0; i < tags.length && meta.length < 120; i++) {
+    var name = String(tags[i].getAttribute("name") || tags[i].getAttribute("property") || "").toLowerCase().slice(0, 100);
+    var content = String(tags[i].getAttribute("content") || "").slice(0, 1000);
+    if (name && content) meta.push([name, content]);
+  }
+  var ld = [];
+  var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (var j = 0; j < scripts.length && ld.length < 3; j++) {
+    var text = String(scripts[j].textContent || "");
+    if (text.length > 0 && text.length <= 30000) ld.push(text);
+  }
+  return { meta: meta, ld: ld };
+}
 function collect() {
   var out = { n: "@NONCE@", title: "", html: "", text: "" };
   try {
     out.title = String(document.title || "").slice(0, 1000);
-    if ("@KIND@" === "page") {
+    if ("@KIND@" === "meta") {
+      out.html = JSON.stringify(readMeta());
+    } else if ("@KIND@" === "page") {
       var el = document.querySelector("article") || document.querySelector("main") || document.body || document.documentElement;
       out.html = String(el.outerHTML || "").slice(0, @LIMIT@);
       out.text = "";
@@ -59,6 +81,7 @@ fn collector(nonce: &str, kind: Kind) -> String {
             match kind {
                 Kind::Selection => "selection",
                 Kind::Page => "page",
+                Kind::Meta => "meta",
             },
         )
         .replace("@LIMIT@", &LIMIT.to_string())
@@ -161,6 +184,8 @@ mod tests {
             sentinel(NONCE, Kind::Page, "kasten-capture.invalid").unwrap(),
             next(NONCE).unwrap(),
             end(NONCE).unwrap(),
+            result(NONCE, Kind::Meta).unwrap(),
+            titled(NONCE, Kind::Meta).unwrap(),
         ];
         for script in &scripts {
             assert!(script.contains(NONCE));
@@ -169,6 +194,19 @@ mod tests {
         assert!(scripts[1].contains("\"page\" === \"page\""));
         assert!(scripts[0].contains("\"selection\" === \"page\""));
         assert!(scripts[3].contains("https://kasten-capture.invalid/?n="));
+        // The tags are read by the same collector, asked for by kind.
+        assert!(scripts[6].contains("\"meta\" === \"meta\""));
+        assert!(scripts[0].contains("\"selection\" === \"meta\""));
+    }
+
+    #[test]
+    fn the_tags_reader_takes_only_data_and_keeps_its_answer_small() {
+        let script = result(NONCE, Kind::Meta).unwrap();
+        // It reads attributes and text, never runs or follows anything the page holds.
+        assert!(script.contains("function readMeta()"));
+        for forbidden in ["eval(", "Function(", "location", "fetch(", "XMLHttpRequest"] {
+            assert!(!script.contains(forbidden), "{forbidden}");
+        }
     }
 
     #[test]

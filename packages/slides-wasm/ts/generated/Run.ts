@@ -14,6 +14,10 @@ t: string, b?: boolean, i?: boolean, u?: boolean, s?: boolean,
  */
 color?: string | null, 
 /**
+ * A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)
+ */
+highlight?: string | null, 
+/**
  * Points.
  */
 size?: number | null, 

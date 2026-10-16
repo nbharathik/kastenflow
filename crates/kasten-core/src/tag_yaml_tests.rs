@@ -92,6 +92,144 @@ fn leaves_a_nested_key_of_the_same_name_alone() {
     );
 }
 
+const VIEW: &str = "# my reading queue\nformat: 1\nname: Reading queue  # shown in the list\nicon: book\nquery: \"#capture project:photo-organiser\"\nwhen: {updated: last-30-days}\nfilter:\n  - {key: reading, op: is, value: Unread}\n\n# kept below\nextra: [1, 2]\nsort:\n  - {key: captured, dir: desc}\n";
+
+#[test]
+fn sets_a_one_line_value_and_keeps_every_other_byte() {
+    let out = set_value(VIEW, "query", Some(&json!("#capture tag:x")));
+    assert_eq!(
+        out,
+        VIEW.replace(
+            "query: \"#capture project:photo-organiser\"\n",
+            "query: \"#capture tag:x\"\n"
+        )
+    );
+    let out = set_value(VIEW, "when", Some(&json!({"created": "this-year"})));
+    assert_eq!(
+        out,
+        VIEW.replace(
+            "when: {updated: last-30-days}",
+            "when: {created: this-year}"
+        )
+    );
+    let out = set_value(VIEW, "icon", Some(&json!("a: b")));
+    assert_eq!(out, VIEW.replace("icon: book", "icon: \"a: b\""));
+}
+
+#[test]
+fn keeps_a_comment_that_follows_a_one_line_value() {
+    let out = set_value(VIEW, "name", Some(&json!("Renamed")));
+    assert_eq!(
+        out,
+        VIEW.replace(
+            "name: Reading queue  # shown in the list",
+            "name: Renamed  # shown in the list"
+        )
+    );
+    // A # inside the quoted value is not a comment.
+    let quoted = "query: \"a #b\"  # why\nname: x\n";
+    assert_eq!(
+        set_value(quoted, "query", Some(&json!("new"))),
+        "query: new  # why\nname: x\n"
+    );
+    assert_eq!(
+        set_value("query: \"a #b\"\n", "query", Some(&json!("new"))),
+        "query: new\n"
+    );
+}
+
+#[test]
+fn takes_a_key_out_with_all_its_lines_and_nothing_else() {
+    let out = set_value(VIEW, "filter", None);
+    assert_eq!(
+        out,
+        VIEW.replace("filter:\n  - {key: reading, op: is, value: Unread}\n", "")
+    );
+    assert_eq!(
+        set_value(VIEW, "icon", None),
+        VIEW.replace("icon: book\n", "")
+    );
+    // Not there: nothing changes.
+    assert_eq!(set_value(VIEW, "display", None), VIEW);
+    assert_eq!(set_value("", "display", None), "");
+}
+
+#[test]
+fn adds_a_missing_value_at_the_end_and_writes_maps_and_lists() {
+    assert_eq!(
+        set_value("format: 1\nname: A\n", "icon", Some(&json!("book"))),
+        "format: 1\nname: A\nicon: book\n"
+    );
+    assert_eq!(
+        set_value("format: 1\nname: A", "icon", Some(&json!("book"))),
+        "format: 1\nname: A\nicon: book\n"
+    );
+    assert_eq!(
+        set_value(
+            "name: A\n",
+            "display",
+            Some(&json!({"type": "table", "columns": ["title", "site"], "limit": 500}))
+        ),
+        "name: A\ndisplay: {type: table, columns: [title, site], limit: 500}\n"
+    );
+    assert_eq!(
+        set_value(
+            "name: A\n",
+            "sort",
+            Some(&json!([{"key": "captured", "dir": "desc"}]))
+        ),
+        "name: A\nsort:\n  - {key: captured, dir: desc}\n"
+    );
+    assert_eq!(
+        set_value("name: A\n", "sort", Some(&json!([]))),
+        "name: A\nsort: []\n"
+    );
+    assert_eq!(set_value("", "name", Some(&json!("A"))), "name: A\n");
+}
+
+#[test]
+fn a_value_replaces_a_block_written_over_several_lines() {
+    let yaml = "name: a\nwhen:\n  updated: last-7-days\n  created: this-year\nquery: q\n";
+    assert_eq!(
+        set_value(yaml, "when", Some(&json!({"updated": "today"}))),
+        "name: a\nwhen: {updated: today}\nquery: q\n"
+    );
+    // A one-line value becomes a list, a list a one-line value.
+    assert_eq!(
+        set_value("a: 1\nb: x\n", "b", Some(&json!([1]))),
+        "a: 1\nb:\n  - 1\n"
+    );
+    assert_eq!(
+        set_value("a: 1\nb:\n  - 1\n  - 2\nc: 3\n", "b", Some(&json!("x"))),
+        "a: 1\nb: x\nc: 3\n"
+    );
+}
+
+#[test]
+fn set_value_leaves_a_nested_key_alone_and_keeps_line_endings_and_marks() {
+    let yaml = "name: a\nextras:\n  query: nested\nquery: top\n";
+    assert_eq!(
+        set_value(yaml, "query", Some(&json!("new"))),
+        "name: a\nextras:\n  query: nested\nquery: new\n"
+    );
+    assert_eq!(
+        set_value("name: a\r\nquery: q  # c\r\n", "query", Some(&json!("z"))),
+        "name: a\r\nquery: z  # c\r\n"
+    );
+    assert_eq!(
+        set_value("name: a\r\n", "icon", Some(&json!("book"))),
+        "name: a\r\nicon: book\r\n"
+    );
+    assert_eq!(
+        set_value("\u{feff}query: a\nname: b\n", "query", Some(&json!("z"))),
+        "\u{feff}query: z\nname: b\n"
+    );
+    assert_eq!(
+        set_value("\u{feff}query: a\nname: b\n", "query", None),
+        "\u{feff}name: b\n"
+    );
+}
+
 #[test]
 fn keeps_a_byte_order_mark_on_the_list_it_replaces() {
     let yaml = "\u{feff}views:\n  - {name: Old, type: table}\ncolor: red\n";

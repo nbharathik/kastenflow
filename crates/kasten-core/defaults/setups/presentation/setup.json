@@ -1,0 +1,7 @@
+{
+  "icon": "🎤",
+  "name": "Presentation",
+  "summary": "Talk notes, a starter slide deck and a storyboard for a talk you are preparing.",
+  "home": "pages/talk-notes.md",
+  "props": {"status": "Active"}
+}

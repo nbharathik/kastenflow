@@ -1,0 +1,62 @@
+/* The window's chat, docked at the right (ChatDock): as wide as the person
+   drags it, or the whole area where the window is too narrow to keep the
+   panes beside it. */
+
+.kasten-chat-dock {
+  position: relative;
+  display: flex;
+  width: var(--chat-dock-width, 420px);
+  min-width: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  border-left: 1px solid var(--color-line);
+  background: var(--notion-bg);
+}
+
+.kasten-chat-dock-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* Too narrow for both: the dock takes the area, and the panes are hidden
+   (not covered: a web page is a native view that draws above anything else). */
+.kasten-chat-dock[data-layout="expanded"] {
+  flex: 1 1 auto;
+  width: auto;
+  border-left: 0;
+}
+
+.kasten-chat-expanded > :not(.kasten-chat-dock) {
+  display: none !important;
+}
+
+/* The panes, looked at for a moment: the dock is a slim bar that comes back. */
+.kasten-chat-dock[data-layout="collapsed"] {
+  width: 2.5rem;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.kasten-chat-reopen {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-2);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}

@@ -7,7 +7,7 @@
 // looked at from a distance until the person clicks one to use it (the keys then go to the page, Esc takes them back).
 
 import type { Deck, Element, Slide, Theme } from "@kasten-slides/wasm";
-import { type CSSProperties, type JSX, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type JSX, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { EmbedBox, stageStyle } from "../embed/EmbedBox.tsx";
 import { EmbedChip } from "../embed/EmbedChip.tsx";
@@ -16,11 +16,14 @@ import { PageView } from "../embed/PageView.tsx";
 import { PAGE_DESIGN } from "../embed/scale.ts";
 import { useEmbedControl } from "../embed/useEmbedControl.ts";
 import { type PageAccess, usePageText } from "../embed/usePageText.ts";
+import { openInWindow } from "../pages/follow.ts";
 import { stateAt } from "../render/index.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { type Box, boxOf } from "../theme/index.ts";
 import { PresentContext } from "./context.ts";
-import { EMBED_SECONDS, answers, embedSandbox, embedUrl } from "./live-url.ts";
+import { FrameCard, OpenOutside } from "./FrameCard.tsx";
+import { embedSandbox, embedUrl } from "./live-url.ts";
+import { type FrameStatus, watchFrame } from "./web-frame.ts";
 
 type Embed = Extract<Element, { type: "embed" }>;
 type Video = Extract<Element, { type: "video" }>;
@@ -59,10 +62,8 @@ function place({ box, element, opacity }: Item, extra: CSSProperties = {}): CSSP
 
 export interface EmbedFrameProps {
   item: Item & { element: Embed };
-  /** Seconds a page has to load. */
+  /** Seconds a page has to load before the card that says it is slow comes over it (the page is kept, and shows if it loads after all). */
   seconds?: number;
-  /** Asks whether an address answers; the browser's fetch when left out, and no question when null. */
-  ask?: typeof fetch | null;
   /** What a page of the host is read and followed with. Without it an embedded page is drawn from the words the deck kept. */
   pages?: Partial<PageAccess> | undefined;
   theme?: Theme | undefined;
@@ -72,8 +73,9 @@ export interface EmbedFrameProps {
 }
 
 /**
- * An embedded page. It is see-through until it has loaded and the address has answered, and it goes away (so the slide's own
- * poster or panel shows) if the address does not answer or the page has not loaded in time.
+ * An embedded page. It is see-through until it has loaded, with the slide's own poster or panel showing through. A page the security
+ * policy refuses, that is slow to load, or that cannot load offline gets a card that says so, with a way to open it outside (and
+ * to the snapshot when there is one); the page itself is never taken away on a guess.
  */
 export function EmbedFrame(props: EmbedFrameProps): JSX.Element | null {
   return isPageEmbed(props.item.element) ? <PageEmbed {...props} /> : <WebEmbed {...props} />;
@@ -88,33 +90,32 @@ function Cover({ title, onActivate }: { title: string; onActivate(): void }): JS
   );
 }
 
-function WebEmbed({ item, seconds = EMBED_SECONDS, ask }: EmbedFrameProps): JSX.Element | null {
+function WebEmbed({ item, seconds, pages }: EmbedFrameProps): JSX.Element | null {
   const url = embedUrl(item.element.url);
-  const [loaded, setLoaded] = useState(false);
-  const [reachable, setReachable] = useState<boolean | null>(null);
-  const [late, setLate] = useState(false);
+  const [status, setStatus] = useState<FrameStatus>("loading");
+  // The person asked for the slide's own snapshot instead of the page.
+  const [snapshot, setSnapshot] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const control = useEmbedControl(item.box, item.element);
   const title = item.element.title || item.element.alt || "Embedded page";
 
-  useEffect(() => {
-    if (!url) return;
-    let live = true;
-    const timer = setTimeout(() => live && setLate(true), seconds * 1000);
-    void answers(url, ask).then((yes) => live && setReachable(yes));
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [url, seconds, ask]);
+  // The frame has no address of its own: it is given one once the watch is on it, so a refusal is never missed.
+  useLayoutEffect(() => {
+    const node = frame.current;
+    if (!node || !url || snapshot) return;
+    setStatus("loading");
+    return watchFrame(node, url, { ...(seconds === undefined ? {} : { seconds }), onChange: setStatus });
+  }, [url, seconds, snapshot]);
 
-  // A page that refuses the connection still "loads" its error page, so the question of whether it answers has the last word.
-  const ready = loaded && reachable === true;
-  if (!url || reachable === false || (late && !ready)) return null;
+  if (!url || snapshot) return null;
+  const ready = status === "ready";
+  const open = (): void => (pages?.openUrl ?? openInWindow)(url);
   return (
     <div
       className="ks-show-live-item"
       data-active={control.active || undefined}
+      data-frame={status}
+      // Until the page shows, the slide under it keeps the pointer; the card and the link out of it take it themselves.
       style={place(item, { pointerEvents: ready ? "auto" : "none" })}
       // The keys go to the deck again once the pointer is off the page.
       onPointerLeave={() => {
@@ -130,17 +131,17 @@ function WebEmbed({ item, seconds = EMBED_SECONDS, ask }: EmbedFrameProps): JSX.
           <iframe
             ref={frame}
             className="ks-show-live-frame"
-            src={url}
             title={title}
             sandbox={embedSandbox(url)}
             referrerPolicy="no-referrer"
-            onLoad={() => setLoaded(true)}
             style={{ opacity: ready ? 1 : 0 }}
           />
         </div>
       </div>
+      <FrameCard status={status} hasSnapshot={Boolean(item.element.poster)} onSnapshot={() => setSnapshot(true)} onOpen={open} />
       {ready && !control.active ? <Cover title={title} onActivate={() => control.setActive(true)} /> : null}
       {ready && control.active ? <EmbedChip scale={control.frame.scale} fitted={control.fitted} onStep={control.step} onFit={control.fit} onDone={() => control.setActive(false)} /> : null}
+      {status === "loading" || ready ? <OpenOutside onOpen={open} /> : null}
     </div>
   );
 }

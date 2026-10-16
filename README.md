@@ -58,7 +58,7 @@ Slides WebAssembly package also requires the pinned Rust toolchain and
 
 ## What you can do
 
-- **Write** pages like in Notion: `/` for any block, `[[` to link a page,
+- **Write** pages: `/` for any block, `[[` to link a page,
   covers, icons, tables, callouts, toggles and equations.
 - **Plan** with project homes, a task board of every to-do, and a calendar
   of your notes by day.
@@ -102,5 +102,3 @@ for the trust model, reporting, and the
 ## License
 
 [MIT](LICENSE). The Slides engine and editor (`crates/slides-*` and `packages/*`) are Apache-2.0; each folder carries its own `LICENSE`.
-
-KastenFlow is an independent open-source project, not affiliated with Veeam or Kasten by Veeam.

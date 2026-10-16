@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ReferenceList } from "../../../citations/ReferenceList.tsx";
 import { useReferences } from "../../../citations/use-references.ts";
-import { Row, SelectField, TextField } from "../controls.tsx";
+import { Row, SelectField, TextField, TriToggle } from "../controls.tsx";
 import type { SectionProps } from "../types.ts";
 import { agree, only, shared } from "../values.ts";
 import { patchEach } from "../write.ts";
@@ -23,6 +23,7 @@ export function CitationSection({ session, ui, elements }: SectionProps) {
   const citations = only(elements, "citation");
   const keys = shared(citations.map((c) => showKeys(c.keys)), "");
   const style = agree<CitationStyle>(citations.map((c) => c.format ?? "short"), "short");
+  const links = agree(citations.map((c) => Boolean(c.links)), false);
   const works = useReferences();
   const [finding, setFinding] = useState(false);
   const known = useMemo(() => new Set(works?.map((w) => w.key)), [works]);
@@ -94,6 +95,8 @@ export function CitationSection({ session, ui, elements }: SectionProps) {
       <Row label="Format" wide>
         <SelectField<CitationStyle> label="Citation format" value={style} options={STYLES} onPick={(picked) => patchEach(session, citations, () => ({ format: picked }))} />
       </Row>
+      <TriToggle label="Link each work" on={links} onChange={(next) => patchEach(session, citations, (c) => (Boolean(c.links) === next ? null : { links: next }))} />
+      <p className="ks-sp-hint">A work with a DOI, a web address or an arXiv number opens its page from the slide, the show and the exports.</p>
     </CompositeSection>
   );
 }

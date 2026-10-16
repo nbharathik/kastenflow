@@ -61,7 +61,10 @@ describe("NotePage", () => {
     await open("library/welcome.md");
     fireEvent.click(screen.getByRole("button", { name: "Change icon" }));
     fireEvent.click(screen.getByRole("button", { name: "🚀" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    // The cover's two tools are icons with a name and a tooltip.
+    expect(screen.getByRole("button", { name: "Change cover" }).textContent).toBe("");
+    expect(screen.getByRole("button", { name: "Remove cover" }).title).toBe("Remove cover");
+    fireEvent.click(screen.getByRole("button", { name: "Remove cover" }));
     await act(flushOpenPage);
     const saved = await text("library/welcome.md");
     expect(saved).toContain("icon: 🚀\n");

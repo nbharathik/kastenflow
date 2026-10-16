@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 
 import type { NoteMeta, VaultClient } from "../../../lib/vault/types";
 import { ViewBoundary } from "../../../ui/ViewBoundary";
+import { UpdatedBadge } from "../../health/UpdatedBadge";
 import type { LinkProvider } from "../../pages/editor/links";
 import { useDecks } from "../../slides/store";
 import { useWorkspace } from "../store";
@@ -50,6 +51,7 @@ export function deckLinks(client: VaultClient, page: () => NoteMeta | undefined)
           <Suspense fallback={<p className="px-3 py-6 text-center text-13 text-muted">Opening the deck…</p>}>
             <LazyDeckEmbed path={path} />
           </Suspense>
+          <UpdatedBadge kind="deck" path={path} />
         </ViewBoundary>,
       );
       return () => root.unmount();

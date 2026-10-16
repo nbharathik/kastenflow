@@ -143,6 +143,10 @@ describe("the top of the board", () => {
     await open();
     const actions = screen.getByRole("toolbar", { name: "Whiteboard actions" });
     expect(labels(actions)).toEqual(["Present", "More"]);
+    // Both are icons: Present's word is in its name and its tooltip.
+    const present = within(actions).getByRole("button", { name: "Present" });
+    expect(present.textContent).toBe("");
+    expect(present.title).toContain("Present");
     fireEvent.click(within(actions).getByRole("button", { name: "More" }));
     const menu = screen.getByRole("menu", { name: "More" });
     expect(within(menu).getAllByRole("menuitem").map((i) => i.textContent?.replace(/\s+/g, " "))).toEqual([

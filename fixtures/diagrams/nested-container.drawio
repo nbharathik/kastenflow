@@ -1,0 +1,28 @@
+<mxfile host="Electron" version="32.2.0">
+  <diagram id="nest" name="VPC">
+    <mxGraphModel dx="1000" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="vpc" value="VPC" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="400" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="app" value="App" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="vpc">
+          <mxGeometry x="30" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="cache" value="Cache" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="vpc">
+          <mxGeometry x="250" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="inner" value="uses" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="vpc" source="app" target="cache">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="150" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="outer" value="calls" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="user" target="app">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

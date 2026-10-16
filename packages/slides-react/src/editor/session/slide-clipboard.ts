@@ -62,7 +62,7 @@ export class SlideClipboard {
     const pins: Record<string, Record<string, Box>> = {};
     for (const slide of slides) pins[slide.id] = pinsOf(deck, slide);
     const sections = (deck.sections ?? []).filter((section) => wanted.has(section.startsAt)).map((section) => ({ title: section.title, startsAt: section.startsAt }));
-    const clip: SlidesClip = { v: 2, kind: "slides", stamp: newStamp(), slides, sections, pins, cut: options.cut === true };
+    const clip: SlidesClip = { v: 2, kind: "slides", stamp: newStamp(), slides, sections, pins, size: { w: deck.size.w, h: deck.size.h }, cut: options.cut === true };
     if (options.remember !== false) remember(clip, wordsOf(clip));
     return clip;
   }
@@ -107,7 +107,9 @@ export class SlideClipboard {
     const starting = new Set((deck.sections ?? []).map((section) => section.startsAt));
     const mayStart = here < 0 || next === undefined || starting.has(next.id);
     const ids = [...renamed.values()];
-    const operations: Operations = [["add_slides", { slides, ...(after ? { after } : {}) }]];
+    // Slides from a deck of another size are refitted to this one as the engine refits a deck whose page size changes.
+    const apart = clip.size !== undefined && (clip.size.w !== deck.size.w || clip.size.h !== deck.size.h);
+    const operations: Operations = [["add_slides", { slides, ...(after ? { after } : {}), ...(apart && clip.size ? { fromSize: { w: clip.size.w, h: clip.size.h } } : {}) }]];
     if (toStart) operations.push(["move_slides", { ids, to: 0 }]);
     if (mayStart) {
       for (const section of clip.sections) {

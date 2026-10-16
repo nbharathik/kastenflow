@@ -1,8 +1,9 @@
-// A divider (`---`) as the page shows it: its line, and on hover the title of
-// the section it opens, a button that folds that section and one that presents
-// the page from it. The Markdown is still a thematic break; the buttons are the
-// view's. A divider inside a toggle, a list or a quote cuts no section, so it
-// is a line and nothing more.
+// A divider (`---`) as the page shows it: its line, and on hover two icons, one
+// that folds the section it opens and one that presents the page from it. The
+// line carries no words; the section's title is only in the icons' tooltips.
+// The Markdown is still a thematic break; the buttons are the view's. A divider
+// inside a toggle, a list or a quote cuts no section, so it is a line and
+// nothing more.
 
 import "./divider.css";
 
@@ -21,7 +22,7 @@ class DividerView implements NodeView {
   readonly dom: HTMLElement;
   private readonly fold: HTMLButtonElement;
   private readonly present: HTMLButtonElement;
-  private readonly title: HTMLElement;
+  private folded = false;
 
   constructor(
     private node: Node,
@@ -31,13 +32,12 @@ class DividerView implements NodeView {
   ) {
     this.dom = el("div", "kasten-divider");
     const tools = el("span", "kasten-divider-tools");
-    // Two different marks: a chevron that turns when the section folds, and a small
-    // presentation screen with its word, so neither reads as the other.
+    // Two different marks, icons only: a chevron that turns when the section folds, and a
+    // small presentation screen, so neither reads as the other.
     this.fold = withGlyph(el("button", "kasten-divider-fold", { type: "button" }), "icon:chevron-down", 14);
-    this.present = withGlyph(el("button", "kasten-divider-present", { type: "button", title: "Present from here" }), "icon:present", 14, "Present");
+    this.present = withGlyph(el("button", "kasten-divider-present", { type: "button", title: "Present from here" }), "icon:present", 14);
     this.present.setAttribute("aria-label", "Present from here");
-    this.title = el("span", "kasten-divider-title");
-    tools.append(this.fold, this.present, this.title);
+    tools.append(this.fold, this.present);
     this.dom.append(el("hr", "kasten-divider-line"), tools);
     // Pressing a button must not move the caret or select the divider.
     for (const button of [this.fold, this.present]) button.addEventListener("mousedown", (event) => event.preventDefault());
@@ -49,9 +49,9 @@ class DividerView implements NodeView {
       const pos = this.getPos();
       if (pos !== undefined) startPresenting(this.view, pos);
     });
-    // The title is worked out only when someone looks for it.
-    this.dom.addEventListener("mouseenter", () => this.readTitle());
-    this.dom.addEventListener("focusin", () => this.readTitle());
+    // The section's title (for the tooltips) is worked out only when someone looks for it.
+    this.dom.addEventListener("mouseenter", () => this.readSection());
+    this.dom.addEventListener("focusin", () => this.readSection());
     this.show(folded);
   }
 
@@ -77,6 +77,7 @@ class DividerView implements NodeView {
   }
 
   private show(folded: boolean): void {
+    this.folded = folded;
     this.dom.classList.toggle("is-nested", !this.topLevel());
     this.dom.classList.toggle("is-folded", folded);
     this.fold.setAttribute("aria-expanded", String(!folded));
@@ -84,12 +85,16 @@ class DividerView implements NodeView {
     this.fold.title = folded ? "Unfold this section" : "Fold this section";
   }
 
-  private readTitle(): void {
+  /** Puts the section's title in the icons' tooltips; the line itself shows no words. */
+  private readSection(): void {
     const pos = this.getPos();
     const { doc } = this.view.state;
     const section = pos === undefined ? undefined : sectionsOf(doc).find((s) => s.divider === pos);
     this.dom.classList.toggle("is-nested", !section);
-    this.title.textContent = section ? sectionTitle(doc, section) : "";
+    const name = section ? sectionTitle(doc, section) : "";
+    const verb = this.folded ? "Unfold" : "Fold";
+    this.fold.title = name ? `${verb} “${name}”` : `${verb} this section`;
+    this.present.title = name ? `Present from “${name}”` : "Present from here";
   }
 }
 

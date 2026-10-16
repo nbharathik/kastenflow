@@ -81,8 +81,11 @@ fn only_openais_own_discovery_document_is_believed() {
     let own = r#"{"issuer":"https://auth.openai.com",
         "authorization_endpoint":"https://auth.openai.com/api/accounts/authorize",
         "token_endpoint":"https://auth.openai.com/api/accounts/oauth/token",
-        "revocation_endpoint":"https://auth.openai.com/api/accounts/oauth/revoke"}"#;
+        "revocation_endpoint":"https://auth.openai.com/api/accounts/oauth/revoke",
+        "jwks_uri":"https://auth.openai.com/.well-known/jwks.json",
+        "id_token_signing_alg_values_supported":["RS256"]}"#;
     let found = Endpoints::from_discovery(own).unwrap();
+    assert_eq!(found.jwks, "https://auth.openai.com/.well-known/jwks.json");
     assert_eq!(
         found.token,
         "https://auth.openai.com/api/accounts/oauth/token"
@@ -108,4 +111,38 @@ fn only_openais_own_discovery_document_is_believed() {
     );
     assert!(Endpoints::from_discovery(&plain).is_none());
     assert!(Endpoints::from_discovery("<html>").is_none());
+}
+
+#[test]
+fn the_signing_keys_are_asked_for_on_openais_own_address_only() {
+    let base = r#"{"issuer":"https://auth.openai.com",
+        "authorization_endpoint":"https://auth.openai.com/a",
+        "token_endpoint":"https://auth.openai.com/t"JWKS}"#;
+    let with = |jwks: &str| base.replace("JWKS", jwks);
+    // Named by the document, on OpenAI's address.
+    let named = with(r#","jwks_uri":"https://auth.openai.com/keys.json""#);
+    assert_eq!(
+        Endpoints::from_discovery(&named).unwrap().jwks,
+        "https://auth.openai.com/keys.json"
+    );
+    // Left out: where OpenAI documents them.
+    assert_eq!(
+        Endpoints::from_discovery(&with("")).unwrap().jwks,
+        "https://auth.openai.com/.well-known/jwks.json"
+    );
+    assert_eq!(
+        Endpoints::official().jwks,
+        "https://auth.openai.com/.well-known/jwks.json"
+    );
+    // Named elsewhere, over plain http, or as a lookalike: the whole
+    // document is not believed, since keys from a stranger would sign anyone in.
+    for stranger in [
+        "https://evil.example/jwks.json",
+        "https://auth.openai.com.evil.example/jwks.json",
+        "http://auth.openai.com/jwks.json",
+        "not an address",
+    ] {
+        let doc = with(&format!(r#","jwks_uri":"{stranger}""#));
+        assert!(Endpoints::from_discovery(&doc).is_none(), "{stranger}");
+    }
 }

@@ -9,8 +9,10 @@ import "./home.css";
 
 import { Button } from "../../ui/Button";
 import { useBoards } from "../boards/store";
+import { PinnedSlot } from "../collections/PinnedSlot";
 import { useDiagrams } from "../diagrams/store";
 import { useDecks } from "../slides/store";
+import { ReviewBanner } from "../review-screens/ReviewBanner";
 import { usePrefs } from "../workspace/prefs";
 import { useWorkspace } from "../workspace/store";
 import { HomeBar } from "./HomeBar";
@@ -37,8 +39,18 @@ export function Home() {
     <div className="kasten-home">
       <div className="kasten-home-page">
         <HomeBar sections={sections} />
+        {/* Only when the weekly reminder is on and its day has come. */}
+        <ReviewBanner />
         <div className="kasten-home-body">
-          <div className="kasten-home-main">{welcome ? <Welcome /> : main.map(cell)}</div>
+          <div className="kasten-home-main">
+            {welcome ? <Welcome /> : main.map(cell)}
+            {/* Collections pinned here; nothing shows until one is. */}
+            {!welcome && (
+              <div className="kasten-home-cell" data-section="collections">
+                <PinnedSlot scope={{ kind: "home" }} />
+              </div>
+            )}
+          </div>
           {side.length > 0 && <aside className="kasten-home-side">{side.map(cell)}</aside>}
         </div>
       </div>

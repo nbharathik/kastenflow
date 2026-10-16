@@ -47,9 +47,11 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
     let (meta, extract) = std::panic::catch_unwind(|| meta_with_extract(path, text, modified))
         .unwrap_or_else(|_| meta_with_extract(path, "", modified));
     let day = day_of(meta.created.as_deref(), meta.updated.as_deref(), modified);
+    // The page a captured or clipped note came from, to find it saved again.
+    let url_key = crate::clip::note_url_key(text, &meta.props);
     tx.execute(
-        "INSERT INTO notes (path, id, title, title_key, kind, project, parent, icon, cover, tags, props, created, updated, day, modified, size, excerpt, words, locked)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+        "INSERT INTO notes (path, id, title, title_key, kind, project, parent, icon, cover, tags, props, created, updated, day, modified, size, excerpt, words, locked, url_key)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
         params![
             meta.path,
             meta.id,
@@ -70,6 +72,7 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
             meta.excerpt,
             meta.words,
             meta.locked,
+            url_key,
         ],
     )?;
     let num = tx.last_insert_rowid();

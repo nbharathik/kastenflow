@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use super::callback::LIMIT;
 use super::flow;
+use super::models::{self, Listing};
 use super::session::Status;
 use crate::chat::commands::ChatState;
 use crate::closing::MAIN;
@@ -81,6 +82,15 @@ pub fn chatgpt_sign_in_cancel(chat: State<'_, ChatState>) {
 #[tauri::command]
 pub async fn chatgpt_account(chat: State<'_, ChatState>) -> Result<Status, String> {
     Ok(chat.chatgpt().status().await)
+}
+
+/// The models the signed-in account can use: the account's own list, or why
+/// it could not be read together with the last list that was (and when),
+/// or only the built-in names, marked as not confirmed for the plan.
+#[tauri::command]
+pub async fn chatgpt_models(chat: State<'_, ChatState>) -> Result<Listing, String> {
+    let account = chat.chatgpt();
+    Ok(models::listing(&account, &chat.http()?, &models::url(), None).await)
 }
 
 /// Signs out here, and asks OpenAI to end the sign-in too.

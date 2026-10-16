@@ -105,12 +105,11 @@ describe("a page laid out for a window and scaled into its box", () => {
 
 const embed = (extra: Record<string, unknown> = {}) => ({ type: "embed", id: "e", x: 10, y: 20, w: 320, h: 200, url: "http://127.0.0.1:9/demo", ...extra }) as unknown as Extract<Element, { type: "embed" }>;
 const item = (element: Extract<Element, { type: "embed" }>) => ({ element, box: { x: 10, y: 20, w: 320, h: 200 }, opacity: 1 });
-const yes = vi.fn().mockResolvedValue({}) as unknown as typeof fetch;
 const settle = () => act(async () => void (await new Promise((done) => setTimeout(done, 0))));
 
 describe("a web page in a presentation", () => {
   async function show(extra: Record<string, unknown> = {}) {
-    const view = render(<EmbedFrame item={item(embed(extra))} ask={yes} theme={theme} />);
+    const view = render(<EmbedFrame item={item(embed(extra))} theme={theme} />);
     await settle();
     const frame = view.container.querySelector("iframe")!;
     await act(async () => void frame.dispatchEvent(new Event("load")));

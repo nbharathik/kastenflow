@@ -12,6 +12,11 @@ use kasten_core::index::Index;
 use kasten_core::vectors::Embedded;
 use kasten_core::{Instant, Kasten, Outcome, frontmatter};
 
+#[path = "core/diagrams.rs"]
+mod diagrams;
+#[path = "core/files.rs"]
+mod files;
+
 const NOTES: usize = 10_000;
 
 fn big_vault() -> &'static PathBuf {
@@ -178,6 +183,14 @@ fn budgets(c: &mut Criterion) {
     c.bench_function("link graph part: build", |b| {
         b.iter(|| kasten_core::graph::build(&notes, &rows, &[], &Scope::Vault))
     });
+    // The same graph with the boards and decks parsed again, as the first look
+    // (or every look, before they were remembered) costs.
+    c.bench_function("link graph, whole vault, files parsed again", |b| {
+        b.iter(|| {
+            k.forget_file_cache();
+            k.graph(&Scope::Vault).unwrap()
+        })
+    });
 }
 
 /// Gives the generated vault a page with sub-pages three levels down (20,
@@ -240,6 +253,7 @@ fn marks_vault(name: &str, later: usize) -> (PathBuf, String) {
     let run = |op: AgentOp| match k.agent_run(&s, &op, Instant::now()).unwrap() {
         Outcome::Done { result } => result,
         Outcome::PendingReview { reason, .. } => panic!("{reason}"),
+        Outcome::Staged { .. } => unreachable!("agent_run never stages"),
     };
     let made = run(AgentOp::CreateNote {
         note_type: "page".into(),
@@ -320,5 +334,13 @@ fn long_history(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, budgets, rebuild, marks, long_history);
+criterion_group!(
+    benches,
+    budgets,
+    files::facts,
+    diagrams::group,
+    rebuild,
+    marks,
+    long_history
+);
 criterion_main!(benches);

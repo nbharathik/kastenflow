@@ -43,7 +43,11 @@ fn stop_between_tool_calls_leaves_the_rest_unrun() {
             stopper.stop("c1");
         }
     });
-    let calls = vec![("list_tags", json!({})), ("list_boards", json!({}))];
+    // Calls that only read start together, so the second is a write: it follows the first.
+    let calls = vec![
+        ("list_tags", json!({})),
+        ("capture", json!({"markdown": "Never captured"})),
+    ];
     let model = Fake::new(vec![Step::Reply("", calls, Stop::Tools)]);
     turn(&chats, &v, &model, &seen, request("c1", "Look around"));
     assert_eq!(seen.of(EventKind::Tool).len(), 1);
@@ -115,9 +119,13 @@ fn a_thread_takes_one_turn_at_a_time() {
             r,
         )
     };
-    let (_, first) = send(request("c1", "One")).unwrap();
-    let busy = send(request("c1", "Two")).err().unwrap();
-    assert!(busy.contains("still answering"), "{busy}");
+    let (started, first) = send(request("c1", "One")).unwrap();
+    assert!(!started.queued);
+    // A message sent while the thread works waits for the running turn.
+    let (waiting, _) = send(request("c1", "Two")).unwrap();
+    assert!(waiting.queued);
+    assert_eq!(waiting.turn, started.turn);
+    assert_eq!(chats.waiting("c1"), ["Two"]);
     // Another chat is free, and a turn dropped unrun frees its own.
     assert!(send(request("c2", "Three")).is_ok());
     drop(first);

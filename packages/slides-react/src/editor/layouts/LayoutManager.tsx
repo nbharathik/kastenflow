@@ -84,6 +84,11 @@ export function LayoutManager({ session, ui, onClose }: DialogProps): JSX.Elemen
             <TextButton onClick={newBlank} title="Design your own blank slide: a background, a footer, a logo, a stripe. New slides can start from it.">
               Design my blank layout…
             </TextButton>
+            {session.host.decks ? (
+              <TextButton onClick={() => ui.openDialog("import-layouts")} title="Bring layouts in from another deck">
+                Import layouts…
+              </TextButton>
+            ) : null}
           </span>
           <TextButton primary onClick={onClose}>
             Done

@@ -1,5 +1,5 @@
 use super::SAMPLE;
-use crate::citations::{Cites, Numbering, Refs, lines, short_venue};
+use crate::citations::{Cites, Numbering, Piece, Refs, lines, pieces, short_venue};
 use crate::model::CitationStyle::{Full, List, Numbered, Short};
 
 fn keys(list: &[&str]) -> Vec<String> {
@@ -320,4 +320,90 @@ fn a_key_that_only_the_keys_know_is_written_as_itself_and_counts_as_known() {
     };
     assert_eq!(lines(&keys(&["a", "z"]), &Short, &cites), ["a; z?"]);
     assert_eq!(lines(&keys(&["a", "z"]), &Numbered, &cites), ["[1][z?]"]);
+}
+
+fn piece(text: &str, key: Option<&str>) -> Piece {
+    Piece {
+        text: text.to_owned(),
+        key: key.map(str::to_owned),
+    }
+}
+
+#[test]
+fn the_pieces_of_a_line_name_the_works_and_leave_the_words_between_them_unnamed() {
+    let refs = refs();
+    let cites = Cites {
+        refs: Some(&refs),
+        numbering: None,
+    };
+    let two = keys(&["vaswani2017attention", "devlin2019bert"]);
+    assert_eq!(
+        pieces(&two, &Short, &cites),
+        [vec![
+            piece(
+                "Vaswani et al., 2017 (NeurIPS)",
+                Some("vaswani2017attention")
+            ),
+            piece("; ", None),
+            piece("Devlin et al., 2019 (NAACL-HLT)", Some("devlin2019bert")),
+        ]]
+    );
+    // Without a bibliography the brackets are words between works too.
+    assert_eq!(
+        pieces(&keys(&["a", "b"]), &Short, &Cites::default()),
+        [vec![
+            piece("(", None),
+            piece("a", Some("a")),
+            piece("; ", None),
+            piece("b", Some("b")),
+            piece(")", None),
+        ]]
+    );
+    assert_eq!(
+        pieces(&keys(&["a", "z"]), &Numbered, &Cites::default()),
+        [vec![piece("[1]", Some("a")), piece("[2]", Some("z"))]]
+    );
+    assert_eq!(
+        pieces(&keys(&["a", "b"]), &Full, &Cites::default()),
+        [vec![piece("a", Some("a"))], vec![piece("b", Some("b"))]]
+    );
+    assert_eq!(
+        pieces(&keys(&["a"]), &List, &Cites::default()),
+        [vec![piece("[1] ", None), piece("a", Some("a"))]]
+    );
+    // Nothing to cite: one line of nothing, naming nothing.
+    assert_eq!(pieces(&[], &Short, &cites), [vec![piece("", None)]]);
+}
+
+#[test]
+fn put_end_to_end_the_pieces_are_the_lines_in_every_style_with_and_without_a_bibliography() {
+    let refs = refs();
+    let numbering = Numbering::new(["lecun2015deep", "nobody2000", "devlin2019bert"]);
+    let all = keys(&["devlin2019bert", "nobody2000", "lecun2015deep"]);
+    let none: &[String] = &[];
+    for cites in [
+        Cites::default(),
+        Cites {
+            refs: Some(&refs),
+            numbering: None,
+        },
+        Cites {
+            refs: Some(&refs),
+            numbering: Some(&numbering),
+        },
+        Cites {
+            refs: None,
+            numbering: Some(&numbering),
+        },
+    ] {
+        for style in [Short, Numbered, Full, List] {
+            for ks in [&all[..], &all[..1], none] {
+                let joined: Vec<String> = pieces(ks, &style, &cites)
+                    .into_iter()
+                    .map(|line| line.into_iter().map(|p| p.text).collect())
+                    .collect();
+                assert_eq!(joined, lines(ks, &style, &cites));
+            }
+        }
+    }
 }

@@ -71,6 +71,8 @@ export function opWords(op: AgentOp): string {
       return `Create the diagram ${quote(op.title)}`;
     case "update_diagram":
       return "Rewrite the diagram";
+    case "edit_diagram":
+      return sentence(String(op.summary ?? "")) || "Change the diagram";
     case "edit_deck":
       return sentence(String(op.summary ?? "")) || "Change the deck";
     case "create_deck":

@@ -4,15 +4,20 @@
   gap: 6px;
   min-height: calc(var(--ks-bar) + 4px);
   padding: 2px 12px 2px 8px;
+  /* The bar's own width decides what is shown (the rules at the end of this file): in a narrow editor,
+     such as the chat open beside the deck, the quieter parts give way before anything lies on top of
+     anything else. */
+  container: ks-titlebar / inline-size;
 }
 .ks-title-spacer {
   flex: 1;
 }
+/* The name may shrink to its minimum, but never below room for the star and where saving stands. */
 .ks-title-block {
   display: flex;
   align-items: center;
   gap: 2px;
-  min-width: 0;
+  min-width: 190px;
   flex: 0 1 auto;
 }
 /* The menus sit in the same row as the name, after it. */
@@ -201,6 +206,34 @@
 }
 .ks-editor .ks-present .ks-text-btn:disabled {
   opacity: 0.45;
+}
+
+/* A narrow editor, in three steps: the search over the menus keeps only its magnifier, Slideshow keeps
+   only its play mark, and last the words of where saving stands go (its mark and tooltip stay; a
+   message that has to be read is never hidden: it takes a row of its own). */
+@container ks-titlebar (max-width: 700px) {
+  .ks-menu-search > span {
+    display: none;
+  }
+  .ks-menu-search {
+    padding: 0 8px;
+  }
+}
+@container ks-titlebar (max-width: 600px) {
+  .ks-present-label {
+    display: none;
+  }
+  .ks-editor .ks-present .ks-present-main {
+    padding: 0 8px;
+  }
+}
+@container ks-titlebar (max-width: 500px) {
+  .ks-title-block {
+    min-width: 150px;
+  }
+  .ks-save:not(.is-error) .ks-save-text {
+    display: none;
+  }
 }
 
 /* The kit's tooltip in the colours of the toolbar's, so the two match. */

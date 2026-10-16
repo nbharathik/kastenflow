@@ -1,13 +1,13 @@
 // A deck inside a page (`![[talk.deck]]`): its current slide, drawn as the
 // Slides home draws a thumbnail but at the width of the page, with arrows and
-// a count to look through it, Present, and Open. Nothing here edits the deck.
+// a count to look through it, and two icons: Present and Open. Nothing here edits the deck.
 
 import { SlideView } from "@kasten-slides/react";
 import type { Deck } from "@kasten-slides/wasm";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { fileUrl } from "../../lib/vault/file-url";
-import { Button, IconButton } from "../../ui/Button";
+import { IconButton } from "../../ui/Button";
 import { useWorkspace } from "../workspace/store";
 import { presentFrom } from "./embed-present";
 import { useDecks } from "./store";
@@ -97,12 +97,8 @@ export function DeckEmbedView({ path }: { path: string }) {
         </span>
         <IconButton icon="chevron" label="Next slide" size="sm" disabled={at === count - 1} onClick={() => go(at + 1)} />
         <span className="flex-1" />
-        <Button tone="quiet" size="sm" icon="present" onClick={() => client && void presentFrom(client, path, deck, at, toast)}>
-          Present
-        </Button>
-        <Button tone="quiet" size="sm" icon="external" onClick={() => openPath(path)}>
-          Open
-        </Button>
+        <IconButton icon="present" label="Present from this slide" size="sm" onClick={() => client && void presentFrom(client, path, deck, at, toast)} />
+        <IconButton icon="arrow-up-right" label="Open the deck" size="sm" onClick={() => openPath(path)} />
       </div>
     </div>
   );

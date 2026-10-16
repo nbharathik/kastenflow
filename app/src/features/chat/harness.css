@@ -1,0 +1,128 @@
+/* The agent harness in a thread: a message sent while the model works, a
+   pause that is no failure, a connection tried again, the step it is on and
+   the plan. Quiet by design; colours and sizes come from the theme's tokens. */
+
+/* A message the person sent while it worked, where it took it up. */
+.kasten-chat-steer {
+  width: fit-content;
+  max-width: min(85%, 560px);
+  margin: 10px 0 10px auto;
+  padding: 6px 12px;
+  border-radius: var(--radius-3xl) var(--radius-3xl) var(--radius-lg) var(--radius-3xl);
+  background: color-mix(in srgb, var(--notion-accent) 11%, var(--notion-bg));
+  font-size: var(--text-13);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+
+  & span {
+    margin-right: 6px;
+    color: var(--notion-text-3);
+    font-size: var(--text-11);
+    font-weight: 500;
+  }
+}
+
+/* A message waiting for the next step. */
+.kasten-chat-question.is-pending .kasten-chat-bubble {
+  opacity: 0.6;
+}
+
+.kasten-chat-pending {
+  margin: 4px 6px 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+}
+
+/* An answer that stopped short, calmly, with the way on. */
+.kasten-chat-paused {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 8px;
+  padding: 8px 10px 8px 12px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+  color: var(--notion-text-2);
+  font-size: var(--text-13);
+  line-height: 1.45;
+
+  & span {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  & button {
+    flex: none;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: var(--radius-lg);
+    background: var(--notion-accent);
+    color: var(--color-on-accent);
+    font-size: var(--text-13);
+    font-weight: 500;
+
+    &:hover {
+      filter: brightness(1.08);
+    }
+  }
+}
+
+.kasten-chat-retry {
+  margin: 6px 0 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+}
+
+.kasten-chat-step {
+  margin: 4px 0 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-11);
+}
+
+/* The plan above the answer: a small checklist that folds away. */
+.kasten-chat-plan {
+  margin: 0 0 10px;
+  padding: 2px 10px 6px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+
+  & ol {
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  & li {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 2px 0;
+    color: var(--notion-text-2);
+    font-size: var(--text-13);
+    line-height: 1.45;
+
+    & svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    &[data-status="doing"] {
+      color: var(--notion-text);
+      font-weight: 500;
+    }
+
+    &[data-status="done"] {
+      color: var(--notion-text-3);
+
+      & svg {
+        color: var(--notion-green);
+      }
+
+      & span {
+        text-decoration: line-through;
+      }
+    }
+  }
+}

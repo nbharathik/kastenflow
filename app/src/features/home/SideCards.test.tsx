@@ -107,8 +107,27 @@ describe("Home's Inbox", () => {
     expect(rows.map((r) => r.querySelector(".kasten-dash-row-title")?.textContent)).toEqual(["Newest", "Second", "Third"]);
     expect(rows[0]!.querySelector(".kasten-dash-row-detail")?.textContent).toBe("now");
     expect(rows[1]!.querySelector(".kasten-dash-row-detail")?.textContent).toBe("5m");
+    // Triage opens the Inbox in triage mode.
     fireEvent.click(within(region).getByRole("button", { name: "Triage" }));
-    expect(go).toHaveBeenCalledWith({ view: "inbox" });
+    expect(go).toHaveBeenCalledWith({ view: "inbox", path: "triage" });
+  });
+
+  it("counts captures nobody has filed with the Inbox, and leaves out what is put off or filed", () => {
+    const capture = (title: string, over: Partial<NoteMeta>): NoteMeta => ({ ...card(title, 3), path: `library/${title.toLowerCase()}.md`, tags: ["capture"], ...over });
+    useWorkspace.setState({
+      notes: [
+        card("In the inbox", 1),
+        capture("Saved", {}),
+        capture("Filed", { props: { status: "Filed" } }),
+        capture("Elsewhere", { project: "trip" }),
+        { ...card("Later", 2), props: { review_after: dayFrom(5) } },
+      ],
+    });
+    render(<Inbox />);
+    const region = screen.getByRole("region", { name: "Inbox" });
+    expect(within(region).getByText("2")).toBeTruthy();
+    expect(within(region).getByText("Saved")).toBeTruthy();
+    for (const left of ["Filed", "Elsewhere", "Later"]) expect(within(region).queryByText(left)).toBeNull();
   });
 
   it("is not there while the Inbox is empty", () => {

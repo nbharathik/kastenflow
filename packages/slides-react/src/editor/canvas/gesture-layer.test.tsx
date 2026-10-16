@@ -8,8 +8,9 @@ import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
 import { EditorUi } from "../ui-state.ts";
 import { CanvasController, type PointerInfo, type Preview } from "./controller.ts";
-import { GestureLayer, readoutOf, sameView, viewOf } from "./GestureLayer.tsx";
+import { GestureLayer, sameView, viewOf } from "./GestureLayer.tsx";
 import { GuideBoard, MOST_GAPS, MOST_LINES, keyedGuides, limitGuides } from "./guides-dom.ts";
+import { readoutOf } from "./Readout.tsx";
 
 afterEach(cleanup);
 
@@ -206,9 +207,13 @@ describe("when the layer is drawn again", () => {
     expect(sameView(viewOf(step(1)), viewOf(step(1, { guides: [line(5), line(40, "spacing", "y", 10, 30)] })))).toBe(true);
   });
 
-  it("is for a resize, a turn, and the rectangle", () => {
-    expect(sameView(viewOf(step(1, { gesture: "resize" })), viewOf(step(2, { gesture: "resize" })))).toBe(false);
-    expect(sameView(viewOf(step(1, { gesture: "rotate", angle: 10 })), viewOf(step(1, { gesture: "rotate", angle: 20 })))).toBe(false);
+  it("is not for the steps of a resize or a turn either: the number beside them is written to the page", () => {
+    expect(sameView(viewOf(step(1, { gesture: "resize" })), viewOf(step(2, { gesture: "resize" })))).toBe(true);
+    expect(sameView(viewOf(step(1, { gesture: "rotate", angle: 10 })), viewOf(step(1, { gesture: "rotate", angle: 20 })))).toBe(true);
+  });
+
+  it("is for the rectangle, and for a gesture that begins", () => {
+    expect(sameView(viewOf(step(1, { gesture: "move" })), viewOf(step(1, { gesture: "resize" })))).toBe(false);
     const rect = { x: 0, y: 0, w: 5, h: 5 };
     expect(sameView(viewOf(step(1, { marquee: rect })), viewOf(step(1, { marquee: { ...rect, w: 6 } })))).toBe(false);
     expect(sameView(viewOf(step(1, { marquee: rect })), viewOf(step(1, { marquee: { ...rect } })))).toBe(true);
@@ -229,10 +234,19 @@ describe("what a gesture says in numbers", () => {
     expect(readoutOf({ gesture: "rotate", angle: null, overrides: only })).toBeNull();
   });
 
-  it("is nothing for a move, a selection or nothing", () => {
-    expect(readoutOf({ gesture: "move", angle: null, overrides: only })).toBeNull();
+  it("is the place of the box beside what is moved, and of the box round several", () => {
+    expect(readoutOf({ gesture: "move", angle: null, overrides: only })).toMatchObject({ text: "100, 100" });
+    expect(readoutOf({ gesture: "grab", angle: null, overrides: new Map([["a", { x: 12.4, y: 99.6, w: 10, h: 10 }]]) })).toMatchObject({ text: "12, 100" });
+    const two = new Map([...only, ["b", { x: 40, y: 150, w: 100, h: 100 }]]);
+    expect(readoutOf({ gesture: "move", angle: null, overrides: two })).toMatchObject({ text: "40, 100" });
+  });
+
+  it("is nothing for a selection, a drawing or nothing", () => {
+    expect(readoutOf({ gesture: "marquee", angle: null, overrides: only })).toBeNull();
+    expect(readoutOf({ gesture: "draw", angle: null, overrides: only })).toBeNull();
     expect(readoutOf({ gesture: null, angle: null, overrides: new Map() })).toBeNull();
     expect(readoutOf({ gesture: "resize", angle: null, overrides: new Map() })).toBeNull();
+    expect(readoutOf({ gesture: "move", angle: null, overrides: new Map() })).toBeNull();
   });
 });
 
@@ -270,6 +284,23 @@ describe("the gesture layer", () => {
     expect(guide).not.toBeNull();
     expect(guide.style.translate.startsWith("500px ")).toBe(true);
     act(() => controller.cancel());
+  });
+
+  it("says where a box is beside it while it is moved, and nothing after", async () => {
+    const { controller, view, a } = await open();
+    // The place the box is drawn at, which a guide may have pulled a little from where the pointer took it.
+    const where = () => {
+      const box = controller.preview.overrides.get(a)!;
+      return `${Math.round(box.x)}, ${Math.round(box.y)}`;
+    };
+    controller.down(at(150, 150), { kind: "surface" });
+    act(() => controller.move(at(190, 170)));
+    expect(view.container.querySelector(".ks-readout")?.textContent).toBe(where());
+    act(() => controller.move(at(200, 180)));
+    expect(view.container.querySelectorAll(".ks-readout")).toHaveLength(1);
+    expect(view.container.querySelector(".ks-readout")?.textContent).toBe(where());
+    act(() => controller.up(at(200, 180)));
+    expect(view.container.querySelector(".ks-readout")).toBeNull();
   });
 
   it("says the size beside a box being resized", async () => {

@@ -10,10 +10,13 @@ import { isoDay } from "../../../lib/dates";
 import type { NewNote, NoteFile, VaultClient } from "../../../lib/vault/types";
 import type { ChatClient } from "../client";
 import { MAX_IDEAS, type Brainstormed, type ChatEvent, type ChatProvider, type ChatRequest, type Idea, type ToolResult } from "../types";
+import { BUILT_IN_ACTIONS, BUILT_IN_CATALOG } from "./actions";
 import { afterCard, cardBody, pieces, replyFor } from "./canned";
 import { type DeckVault, playDeck, slideAsk } from "./deck-reply";
+import { diagramAsk, playDiagram } from "./diagram-reply";
+import { previewAgent } from "./fake-agent";
 import { cannedIdeas, sectionLabel } from "./ideas";
-import { cannedWriting } from "./writing";
+import { cannedAction, cannedWriting } from "./writing";
 
 type Agent = { session: string; client: string };
 
@@ -58,7 +61,7 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
   /** Editor writes under way, and whether each was stopped. */
   const writing = new Map<string, boolean>();
   /** Turns under way by thread; Stop sets `stop`. */
-  const running = new Map<string, { turn: string; stop: boolean }>();
+  const running = new Map<string, { turn: string; stop: boolean; queue: string[] }>();
   const emit = (event: ChatEvent) => {
     for (const listener of [...listeners]) listener(event);
   };
@@ -75,14 +78,33 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
     }
   }
 
+  /** Types `answer` out as a write, a piece at a time, until it ends or is stopped. */
+  async function typed(id: string, answer: string, onText: (text: string) => void) {
+    writing.set(id, false);
+    let said = "";
+    try {
+      for (const piece of pieces(answer)) {
+        await wait(pace);
+        if (writing.get(id)) return { text: said, stopped: true, note: null };
+        said += piece;
+        onText(piece);
+      }
+      return { text: said, stopped: false, note: null };
+    } finally {
+      writing.delete(id);
+    }
+  }
+
   async function play(request: ChatRequest, turn: string, session: string): Promise<void> {
-    const run = { turn, stop: false };
+    const run = { turn, stop: false, queue: [] as string[] };
     running.set(request.chat, run);
     const say = (event: Omit<ChatEvent, "chat" | "turn">) => emit({ chat: request.chat, turn, ...event });
     const stream = async (text: string) => {
       for (const piece of pieces(text)) {
         if (run.stop) return false;
         say({ kind: "text", text: piece });
+        // A message sent meanwhile is taken up at the next step: here, the next piece.
+        for (const waiting of run.queue.splice(0)) say({ kind: "queued", text: waiting, delivered: true });
         await wait(pace);
       }
       return !run.stop;
@@ -92,6 +114,11 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
       const ask = slideAsk(request.context);
       if (ask) {
         const played = await playDeck({ vault: vault() as DeckVault | null, ask, text: request.text, agent: { session, client: CHAT_CLIENT }, say, stream, pause: () => wait(pace * 30), id: () => nextId("tool") });
+        return say(played ? { kind: "done" } : { kind: "done", stopped: true });
+      }
+      const drawing = diagramAsk(request);
+      if (drawing) {
+        const played = await playDiagram({ vault: vault(), request, say, stream, pause: () => wait(pace * 30), id: () => nextId("tool") }, drawing);
         return say(played ? { kind: "done" } : { kind: "done", stopped: true });
       }
       for (const step of replyFor(request)) {
@@ -116,6 +143,7 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
 
   return {
     kind: "preview",
+    ...previewAgent(),
     providers: async () => providers.map((p) => ({ ...p })),
     async saveProvider(draft, key) {
       const known = providers.find((p) => p.name === draft.name);
@@ -142,32 +170,47 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
     // No provider is reached from the preview: every address "offers" the
     // canned model and answers at once.
     listProviderModels: async () => [PREVIEW_PROVIDER.model],
+    // As a local OpenAI-compatible server: a temperature and a longest answer.
+    modelCapabilities: async (_provider, model) => ({
+      version: 1,
+      route: { kind: "chatCompletions", official: false },
+      model,
+      family: "preview",
+      verified: true,
+      reasoningEffort: null,
+      thinking: null,
+      temperature: { min: 0, max: 2 },
+      maxOutput: { min: 256, max: 32000 },
+      effortRefused: false,
+    }),
     async testProviderDraft(draft) {
       return { ok: true, model: draft.model, millis: 42, reply: "OK", message: `${draft.name || "The provider"} answered in 0.0 s (the browser preview answers without a network)` };
     },
     async write(request, onText) {
       if (!providers.some((p) => p.name === request.provider)) throw new Error(`No AI provider called “${request.provider}”`);
-      const answer = cannedWriting(request);
-      writing.set(request.id, false);
-      let said = "";
-      try {
-        for (const piece of pieces(answer)) {
-          await wait(pace);
-          if (writing.get(request.id)) return { text: said, stopped: true, note: null };
-          said += piece;
-          onText(piece);
-        }
-        return { text: said, stopped: false, note: null };
-      } finally {
-        writing.delete(request.id);
-      }
+      return typed(request.id, cannedWriting(request), onText);
+    },
+    aiActions: async () => BUILT_IN_CATALOG,
+    async runAction(run, onText) {
+      if (!providers.some((p) => p.name === run.provider)) throw new Error(`No AI provider called “${run.provider}”`);
+      const action = BUILT_IN_ACTIONS.find((a) => a.slug === run.action);
+      if (!action) throw new Error(`There is no AI action called “${run.action}”`);
+      const missing = action.needs.find((need) => (need === "selection" ? !run.selection?.trim() : need === "page" ? !run.page?.trim() : false));
+      if (missing) throw new Error(`“${action.title}” needs ${missing === "selection" ? "some selected text" : "the text of a page"}`);
+      return typed(run.id, cannedAction(run), onText);
     },
     async stopWrite(id) {
       if (writing.has(id)) writing.set(id, true);
     },
     async send(request) {
       if (!providers.some((p) => p.name === request.provider)) throw new Error(`No AI provider called “${request.provider}”`);
-      if (running.has(request.chat)) throw new Error("This chat is still answering");
+      const going = running.get(request.chat);
+      if (going) {
+        // As the app does: it waits for the next step, and the person sees it waiting.
+        going.queue.push(request.text);
+        emit({ chat: request.chat, turn: going.turn, kind: "queued", text: request.text, delivered: false });
+        return { chat: request.chat, session: sessions.get(request.chat) ?? "", turn: going.turn, queued: true };
+      }
       const session = sessions.get(request.chat) ?? nextId("chat-session");
       sessions.set(request.chat, session);
       const turn = nextId("turn");
@@ -183,6 +226,14 @@ export function previewChat(vault: () => VaultClient | null, options: PreviewOpt
       if (run) run.stop = true;
       sessions.delete(chat);
     },
+    // The preview keeps no conversation of its own to take back.
+    rewind: async (_chat, keep) => keep,
+    // The preview writes at once, as a chat the person lets write directly does:
+    // it has nothing staged to look at, apply or throw away.
+    changes: async () => ({ id: "", files: [], pictures: [], steps: [] }),
+    applyChanges: async () => ({ status: "applied", commit: null, paths: [] }),
+    recalcChanges: async () => ({ dropped: [] }),
+    discardChanges: async () => {},
     async save(title, markdown) {
       const client = vault() as PreviewVault | null;
       if (!client) throw new Error("No vault is open");

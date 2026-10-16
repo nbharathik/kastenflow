@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { useTestEditor } from "../../../../test/editor";
 import type { MenuItem } from "../ui/popover";
 import { blockMenuSections } from "./block-menu";
+import { setLocationCopier, type HeadingSpot } from "./location-link";
 
 const editor = useTestEditor();
 
@@ -43,6 +44,29 @@ describe("the block menu", () => {
     item(0, "duplicate").onPick!();
     item(0, "delete").onPick!();
     expect(editor.save()).toBe('<span style="background-color: blue">One</span>\n\nTwo\n');
+  });
+
+  it("copies a link to a heading's place, counting the headings that share a title, and only for a heading", () => {
+    editor.open("## Plan\n\nText\n\n## Plan\n");
+    const spots: HeadingSpot[] = [];
+    setLocationCopier(editor.view, (spot) => spots.push(spot));
+    const headings: number[] = [];
+    let paragraph = -1;
+    editor.view.state.doc.forEach((node, offset) => {
+      if (node.type.name === "heading") headings.push(offset);
+      else if (node.type.name === "paragraph") paragraph = offset;
+    });
+    expect(item(headings[0]!, "copy-location").label).toBe("Copy link to this location");
+    item(headings[0]!, "copy-location").onPick!();
+    item(headings[1]!, "copy-location").onPick!();
+    expect(spots).toEqual([
+      { text: "Plan", nth: 1 },
+      { text: "Plan", nth: 2 },
+    ]);
+    expect(items(paragraph).map((i) => i.key)).not.toContain("copy-location");
+    // A page that cannot make a link (no copier) offers none.
+    setLocationCopier(editor.view, undefined);
+    expect(items(headings[0]!).map((i) => i.key)).not.toContain("copy-location");
   });
 
   it("has no Turn into or Colour for a divider", () => {

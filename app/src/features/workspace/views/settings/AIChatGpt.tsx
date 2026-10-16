@@ -145,16 +145,52 @@ export function ChatGptSignIn({ providers }: { providers: ChatProvider[] | null 
     );
   }
   if (!account) return null;
+  if (account.reauth) {
+    // An older sign-in is kept but not used until it is confirmed once.
+    return (
+      <Row
+        id="ai.chatgpt"
+        label="ChatGPT plan"
+        help="KastenFlow now checks which account signed in. Sign in once more to confirm it; nothing else changes."
+        detail={<span role="status">Sign in with ChatGPT again{account.email ? ` as ${account.email}` : ""} to keep using your plan.</span>}
+      >
+        <div className="flex gap-2">
+          <Button tone="primary" icon="user" disabled={busy} onClick={() => void start()}>
+            Sign in again
+          </Button>
+          <button type="button" className={BUTTON} disabled={busy} onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
+      </Row>
+    );
+  }
+  // The system keychain could not be read just now: whether there is a sign-in is not known, and it is not forgotten.
+  const unreadable = account.keychainError ? (
+    <span role="status" className="block text-warning">
+      The system keychain could not be read just now, so a sign-in kept on this computer may not show. {account.keychainError}
+    </span>
+  ) : undefined;
   if (!account.signedIn) {
     return (
-      <Row id="ai.chatgpt">
-        <Button tone="primary" icon="user" disabled={busy} onClick={() => void start()}>
-          Continue with ChatGPT
-        </Button>
+      <Row id="ai.chatgpt" detail={unreadable}>
+        <div className="flex gap-2">
+          {unreadable && (
+            <button type="button" className={BUTTON} disabled={busy} onClick={() => void load()}>
+              Check again
+            </button>
+          )}
+          <Button tone="primary" icon="user" disabled={busy} onClick={() => void start()}>
+            Continue with ChatGPT
+          </Button>
+        </div>
       </Row>
     );
   }
   const who = `Signed in as ${account.email ?? "your ChatGPT account"}`;
+  // What the sign-in's state asks the person to know: it lasts only until KastenFlow quits (the keychain would not keep it),
+  // or its identity could not be checked at the last renewal (it works, and is checked again at the next).
+  const warning = account.warning ?? (!account.remembered ? "This computer's keychain would not keep the sign-in, so it lasts until KastenFlow quits." : null);
   return (
     <>
       <Row
@@ -164,7 +200,8 @@ export function ChatGptSignIn({ providers }: { providers: ChatProvider[] | null 
         detail={
           <>
             {who}
-            {!account.remembered && <span className="block text-warning">This computer's keychain would not keep the sign-in, so it lasts until KastenFlow quits.</span>}
+            {warning && <span className="block text-warning">{warning}</span>}
+            {unreadable}
           </>
         }
       >

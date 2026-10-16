@@ -4,8 +4,11 @@
 
 /** Whether a diagram's picture shows what its source says now. `stale`: drawn
  * from other source, so it is drawn again when the editor is next at hand;
- * `missing`: there is none yet. */
-export type DiagramPreview = "fresh" | "stale" | "missing";
+ * `missing`: there is none yet; `draft`: the program drew it for this very
+ * source (an agent edited the diagram), boxes and words in their places, and the
+ * editor draws the exact one when it is next at hand. Anything but `fresh`
+ * is drawn again by the editor: test for `!== "fresh"`, never for the others. */
+export type DiagramPreview = "fresh" | "stale" | "missing" | "draft";
 
 export interface DiagramInfo {
   /** The source's vault path, `library/OAuth-flow.drawio`. */
@@ -52,6 +55,9 @@ export interface DiagramOps {
   diagram(path: string): Promise<DiagramFile>;
   /** The picture beside a diagram, as SVG text; null when there is none. */
   diagramPreview(path: string): Promise<string | null>;
+  /** A picture of diagram source that is not in the vault (a change that waits for review), drawn by the program rather
+   * than the editor; null when it cannot draw it. Reads nothing and writes nothing. */
+  diagramDraftSvg(xml: string): Promise<string | null>;
   /** A new diagram in the project or the library, from `xml` or with one empty page; resolves to its path. */
   createDiagram(title: string, project: string | null, xml?: string | null): Promise<string>;
   /** A diagram from a `.drawio`, `.xml`, `.drawio.svg` or PNG file the editor made; resolves to its path. */

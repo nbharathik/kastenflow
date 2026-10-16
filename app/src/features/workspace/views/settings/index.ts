@@ -172,9 +172,12 @@ function haystack(entry: SettingEntry): string {
 export interface Found {
   /** The entries that match. */
   ids: ReadonlySet<string>;
-  /** How many match in each group. */
+  /** How many match in each group (shortcut commands count in Keyboard shortcuts). */
   byGroup: ReadonlyMap<GroupId, number>;
+  /** Settings and shortcut commands found. */
   total: number;
+  /** The shortcut commands whose names the words find (command-search.ts); none when absent. */
+  commands?: readonly string[];
 }
 
 /** Whether a search counts the entry: it is drawn in this app (desktop or

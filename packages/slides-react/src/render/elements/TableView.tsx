@@ -11,7 +11,7 @@ import { Upright } from "./Upright.tsx";
 const GRID_ALPHA = 0.3;
 
 /** A table drawn as an HTML table that fills its box; the words in each cell are set by the text module. */
-export function TableView({ element, box, cx, hideText }: ViewProps<"table">): JSX.Element {
+export function TableView({ element, box, cx, hideText, hideCell }: ViewProps<"table">): JSX.Element {
   const { theme } = cx;
   const layout = layoutTable(element, box.w, box.h);
   const grid = colorOf(theme, "text2", GRID_ALPHA);
@@ -32,7 +32,7 @@ export function TableView({ element, box, cx, hideText }: ViewProps<"table">): J
                 rowSpan={laid.rowSpan}
                 style={{ borderColor: grid, background: laid.cell.fill ? colorOf(theme, laid.cell.fill.color, laid.cell.fill.alpha) : undefined }}
               >
-                {!hideText && (
+                {!hideText && !(hideCell && hideCell.row === laid.row && hideCell.col === laid.col) && (
                   <TextArea
                     cx={cx}
                     text={laid.header ? boldText(laid.cell.text) : laid.cell.text}

@@ -28,29 +28,3 @@ export function embedSandbox(address: string, here: string | undefined = typeof 
   }
 }
 
-/** How long a page has to load before the poster stays. */
-export const EMBED_SECONDS = 3;
-
-/**
- * Whether something answers at the address. A page that refuses the connection still fills the frame with the
- * browser's own error page and says it loaded, so the poster would be hidden by it; asking first is how a dead
- * address is told from a live one. A policy that forbids the question (the app's) says nothing, so the page gets its chance.
- */
-export async function answers(address: string, ask: typeof fetch | null = typeof fetch === "function" ? fetch : null): Promise<boolean> {
-  if (!ask) return true;
-  let forbidden = false;
-  const note = () => {
-    forbidden = true;
-  };
-  document.addEventListener("securitypolicyviolation", note);
-  try {
-    await ask(address, { mode: "no-cors", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
-    return true;
-  } catch {
-    // The report of a blocked request comes a moment after the request fails.
-    await new Promise((done) => setTimeout(done, 0));
-    return forbidden;
-  } finally {
-    document.removeEventListener("securitypolicyviolation", note);
-  }
-}

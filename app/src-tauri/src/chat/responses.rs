@@ -12,6 +12,7 @@ mod stream;
 use kasten_mcp::tools::ToolSpec;
 use serde_json::{Value, json};
 
+use super::capabilities::Applied;
 use super::model::{Call, Message, tool_schema};
 use super::openai::arguments;
 
@@ -26,6 +27,10 @@ pub const URL: &str = "https://api.openai.com/v1/responses";
 /// names a feature it does not support gets the next one without it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Shape {
+    /// Send the reasoning effort the person asked for, if they did. Dropped
+    /// first when the server turns it down (and remembered for that model,
+    /// not for the route: this stays true in what the account learns).
+    pub effort: bool,
     /// Ask for the reasoning, encrypted, so it can go back with the next
     /// request.
     pub reasoning: bool,
@@ -36,37 +41,101 @@ pub struct Shape {
 impl Default for Shape {
     fn default() -> Shape {
         Shape {
+            effort: true,
             reasoning: true,
             namespaced: false,
         }
     }
 }
 
+/// A part of the request that a refusal can name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Part {
+    Effort,
+    Include,
+    Tools,
+}
+
+/// The part the refusal's `param` names, which is the surest word the
+/// server gives (`include`, `reasoning.effort`, `tools[0]`).
+fn named_by_param(param: &str) -> Option<Part> {
+    let param = param.trim();
+    if param.starts_with("include") {
+        Some(Part::Include)
+    } else if param.starts_with("reasoning") {
+        Some(Part::Effort)
+    } else if param.starts_with("tools") || param.starts_with("tool_choice") {
+        Some(Part::Tools)
+    } else {
+        None
+    }
+}
+
+/// The part the words of a refusal speak of, for a refusal whose `param`
+/// names none: the `include` parameter's own name has "reasoning" in it, and
+/// is not an effort.
+fn named_by_words(all: &str) -> Option<Part> {
+    let include = all.contains("include") || all.contains("encrypted");
+    if all.contains("effort") || (all.contains("reasoning") && !include) {
+        Some(Part::Effort)
+    } else if include || all.contains("reasoning") {
+        Some(Part::Include)
+    } else if all.contains("tool") || all.contains("function") {
+        Some(Part::Tools)
+    } else {
+        None
+    }
+}
+
 impl Shape {
     /// The shape to try after the server refused this one with `body`, if
-    /// the refusal names a feature the request can do without.
-    pub fn adapted(self, body: &str) -> Option<Shape> {
+    /// the refusal names a part the request can do without. The refusal's
+    /// `param` is read first and its words only when `param` names nothing
+    /// known. `sent_effort` is whether the request carried a reasoning
+    /// effort: a refusal of "reasoning" cannot be about one that was not
+    /// sent, so it is about the encrypted reasoning.
+    pub fn adapted(self, body: &str, sent_effort: bool) -> Option<Shape> {
         let parsed: Value = serde_json::from_str(body).ok()?;
         let error = &parsed["error"];
-        let said = |key: &str| error[key].as_str().unwrap_or_default();
-        let all = format!("{} {} {}", said("code"), said("param"), said("message")).to_lowercase();
+        let said = |key: &str| error[key].as_str().unwrap_or_default().to_lowercase();
+        let (code, param, message) = (said("code"), said("param"), said("message"));
+        let all = format!("{code} {param} {message}");
         if !(all.contains("unsupported") || all.contains("unknown") || all.contains("not allowed"))
         {
             return None;
         }
-        if self.reasoning && (all.contains("include") || all.contains("reasoning")) {
-            return Some(Shape {
+        match named_by_param(&param).or_else(|| named_by_words(&all))? {
+            Part::Effort if self.effort && sent_effort => Some(Shape {
+                effort: false,
+                ..self
+            }),
+            Part::Effort | Part::Include if self.reasoning => Some(Shape {
                 reasoning: false,
                 ..self
-            });
-        }
-        if !self.namespaced && (all.contains("tool") || all.contains("function")) {
-            return Some(Shape {
+            }),
+            Part::Tools if !self.namespaced => Some(Shape {
                 namespaced: true,
                 ..self
-            });
+            }),
+            _ => None,
         }
-        None
+    }
+
+    /// The parts of the request that `next` leaves out and this one has:
+    /// what a refusal taught.
+    pub fn dropped(self, next: Shape) -> Vec<crate::chat::chatgpt::Feature> {
+        use crate::chat::chatgpt::Feature;
+        let mut parts = Vec::new();
+        if self.effort && !next.effort {
+            parts.push(Feature::Effort);
+        }
+        if self.reasoning && !next.reasoning {
+            parts.push(Feature::Include);
+        }
+        if !self.namespaced && next.namespaced {
+            parts.push(Feature::Flat);
+        }
+        parts
     }
 }
 
@@ -91,8 +160,9 @@ fn tools(specs: &[ToolSpec], namespaced: bool) -> Value {
 
 /// The request. The system prompt goes as `instructions`, since this route
 /// refuses a system message, and nothing else it refuses (a token limit,
-/// a temperature, a previous response) is sent.
-pub fn body(model: &str, call: &Call<'_>, shape: Shape) -> Value {
+/// a temperature, a previous response) is sent: of `applied` only the
+/// reasoning effort is read, and only while the shape allows it.
+pub fn body(model: &str, call: &Call<'_>, shape: Shape, applied: &Applied) -> Value {
     let mut body = json!({
         "model": model,
         "input": input(call.messages),
@@ -101,6 +171,9 @@ pub fn body(model: &str, call: &Call<'_>, shape: Shape) -> Value {
     });
     if !call.system.is_empty() {
         body["instructions"] = json!(call.system);
+    }
+    if let Some(effort) = applied.effort.filter(|_| shape.effort) {
+        body["reasoning"] = json!({"effort": effort.as_str()});
     }
     if shape.reasoning {
         body["include"] = json!(["reasoning.encrypted_content"]);
@@ -118,6 +191,9 @@ pub fn input(thread: &[Message]) -> Vec<Value> {
     for message in thread {
         match message {
             Message::User(text) => out.push(json!({"role": "user", "content": text})),
+            Message::UserImages { text, images } => {
+                out.push(json!({"role": "user", "content": super::parts::responses(text, images)}))
+            }
             Message::Assistant(reply) => match &reply.items {
                 Some(items) => out.extend(items.iter().cloned()),
                 None => {

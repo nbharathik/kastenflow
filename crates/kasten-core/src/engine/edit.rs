@@ -45,6 +45,54 @@ enum Related {
     Note(String),
 }
 
+/// The keys of the relation properties that the schemas of `tags` define.
+pub(crate) fn relation_keys(schemas: &[TagSchema], tags: &[String]) -> Vec<String> {
+    schemas
+        .iter()
+        .filter(|s| tags.iter().any(|t| t.eq_ignore_ascii_case(&s.name)))
+        .flat_map(|s| &s.properties)
+        .filter(|p| p.kind == "relation")
+        .map(|p| p.key.clone())
+        .collect()
+}
+
+/// `text` with the properties `checked` set (a null removes one) and `updated`
+/// bumped. The pure step of `update_props`, which a staged change shares.
+pub(crate) fn props_text(text: &str, checked: &Map<String, Value>, now: Instant) -> Result<String> {
+    let parts = split(text);
+    let eol = eol_of(text);
+    let prefix = crate::props::set_props(parts.prefix, checked, eol)?;
+    let prefix = crate::frontmatter::set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
+    still_readable(parts.prefix, &prefix)?;
+    Ok(join(&prefix, parts.body, eol))
+}
+
+/// `text` with tags `add`ed and `remove`d and `updated` bumped; None when the
+/// tags are already so. The pure step of `set_tags`, which a staged change
+/// shares.
+pub(crate) fn tags_text(
+    text: &str,
+    add: &[String],
+    remove: &[String],
+    now: Instant,
+) -> Result<Option<String>> {
+    let parts = split(text);
+    let current = crate::frontmatter::Front::read(parts.prefix)
+        .tags
+        .map(|t| t.0)
+        .unwrap_or_default();
+    let tags = adjust_tags(&current, add, remove);
+    if tags == current {
+        return Ok(None);
+    }
+    let eol = eol_of(text);
+    let list = (!tags.is_empty()).then(|| yaml_list(&tags));
+    let prefix = set_key_raw(parts.prefix, "tags", list.as_deref(), eol);
+    let prefix = crate::frontmatter::set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
+    still_readable(parts.prefix, &prefix)?;
+    Ok(Some(join(&prefix, parts.body, eol)))
+}
+
 impl Kasten {
     /// Replaces the section under `heading` with `markdown`.
     pub fn replace_section(
@@ -111,19 +159,7 @@ impl Kasten {
             let current = vault.read(path)?;
             let mut checked = check_props(&schemas, &current.meta.tags, props)?;
             let mut paths = vec![path.to_owned()];
-            let relations: Vec<String> = schemas
-                .iter()
-                .filter(|s| {
-                    current
-                        .meta
-                        .tags
-                        .iter()
-                        .any(|t| t.eq_ignore_ascii_case(&s.name))
-                })
-                .flat_map(|s| &s.properties)
-                .filter(|p| p.kind == "relation")
-                .map(|p| p.key.clone())
-                .collect();
+            let relations = relation_keys(&schemas, &current.meta.tags);
             // Every name is found before any note is given an id, so a
             // name refused leaves the vault as it was.
             let mut named = Vec::new();
@@ -156,15 +192,8 @@ impl Kasten {
                 checked.insert(key, Value::Array(ids));
             }
             let current = vault.read(path)?;
-            let parts = split(&current.text);
-            let eol = eol_of(&current.text);
-            let prefix = crate::props::set_props(parts.prefix, &checked, eol)?;
-            let prefix = crate::frontmatter::set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
-            still_readable(parts.prefix, &prefix)?;
-            write_atomic(
-                &vault.path_of(path)?,
-                join(&prefix, parts.body, eol).as_bytes(),
-            )?;
+            let text = props_text(&current.text, &checked, now)?;
+            write_atomic(&vault.path_of(path)?, text.as_bytes())?;
             let note = vault.read(path)?;
             paths.sort();
             paths.dedup();
@@ -187,24 +216,14 @@ impl Kasten {
     ) -> Result<NoteFile> {
         self.apply(actor, "tags", false, now.millis, |vault| {
             let current = vault.read(path)?;
-            let tags = adjust_tags(&current.meta.tags, add, remove);
-            if tags == current.meta.tags {
+            let Some(text) = tags_text(&current.text, add, remove, now)? else {
                 return Ok(Change {
                     message: String::new(),
                     paths: vec![],
                     value: current,
                 });
-            }
-            let parts = split(&current.text);
-            let eol = eol_of(&current.text);
-            let list = (!tags.is_empty()).then(|| yaml_list(&tags));
-            let prefix = set_key_raw(parts.prefix, "tags", list.as_deref(), eol);
-            let prefix = crate::frontmatter::set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
-            still_readable(parts.prefix, &prefix)?;
-            write_atomic(
-                &vault.path_of(path)?,
-                join(&prefix, parts.body, eol).as_bytes(),
-            )?;
+            };
+            write_atomic(&vault.path_of(path)?, text.as_bytes())?;
             let note = vault.read(path)?;
             Ok(Change {
                 message: format!("tags: {}", note.meta.title),

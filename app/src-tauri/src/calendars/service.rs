@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
+use super::client::Clients;
 use super::fetch::{self, Validators};
 use super::ics::expand::Occurrence;
 use super::ics::parse::{self, Feed};
@@ -70,11 +71,13 @@ pub struct Change {
 }
 
 /// The parsed copies, kept so asking for a month does not read the file
-/// again, and which calendars are being fetched.
+/// again, which calendars are being fetched, and the clients they are
+/// fetched with.
 #[derive(Clone, Default)]
 pub struct Calendars {
     parsed: Arc<Mutex<HashMap<String, Arc<Feed>>>>,
     busy: Arc<Mutex<HashSet<String>>>,
+    clients: Arc<Clients>,
 }
 
 /// The right to fetch one calendar; given back when it is dropped.
@@ -93,6 +96,21 @@ impl Drop for Claim {
 }
 
 impl Calendars {
+    /// The client a feed at `url` is fetched with (the computer's proxy
+    /// settings apply to it).
+    pub fn client_for(&self, url: &str) -> Result<reqwest::Client, String> {
+        self.clients.for_address(url)
+    }
+
+    /// Calendars that fetch with these clients, for tests.
+    #[cfg(test)]
+    pub fn with_clients(clients: Clients) -> Calendars {
+        Calendars {
+            clients: Arc::new(clients),
+            ..Calendars::default()
+        }
+    }
+
     fn held(&self) -> std::sync::MutexGuard<'_, HashMap<String, Arc<Feed>>> {
         self.parsed.lock().unwrap_or_else(|e| e.into_inner())
     }

@@ -6,8 +6,12 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 
 import { useShell } from "../../lib/store";
 import { Button, IconButton } from "../../ui/Button";
+import { commandHits, commandRowId } from "../workspace/views/settings/command-search";
+import { rowDomId } from "../workspace/views/settings/index";
 import { Block, Group, Row } from "../workspace/views/settings/parts";
+import { useSettingsView } from "../workspace/views/settings/view";
 import { KEY_SECTIONS, commandLabel } from "./catalog";
+import { CommandHits } from "./CommandHits";
 import { bindingOf, canBind, formatBinding, isMac } from "./keymap";
 import { keyLabel, useKeys } from "./store";
 
@@ -17,6 +21,9 @@ export function ShortcutSettings() {
   const [recording, setRecording] = useState<string | null>(null);
   const [note, setNote] = useState<{ id: string; text: string } | null>(null);
   const [filter, setFilter] = useState("");
+  // While Settings is searched, the commands whose names the words find are lines that open their row.
+  const view = useSettingsView();
+  const hits = useMemo(() => (view.matching === null ? [] : commandHits(view.words)), [view.matching, view.words]);
 
   const sections = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -27,12 +34,13 @@ export function ShortcutSettings() {
   const changed = Object.keys(overrides).length;
   const sheetKey = keyLabel(keymap, "shortcuts");
   return (
-    <Group title="Keyboard shortcuts">
+    <Group title="Keyboard shortcuts" found={hits.length > 0}>
       <Row id="shortcuts.sheet" detail={sheetKey ? `Also ${sheetKey}` : undefined}>
         <Button size="sm" icon="keyboard" onClick={() => useShell.getState().setShortcuts(true)}>
           Show
         </Button>
       </Row>
+      {hits.length > 0 && <CommandHits ids={hits} />}
       <Block id="shortcuts.editor" titled>
         <div className="kasten-set-filter">
           <input
@@ -95,6 +103,9 @@ interface KeyRowProps {
 function KeyRow({ id, keys, changed, recording, note, onRecord, onNote }: KeyRowProps) {
   const mac = isMac();
   const label = commandLabel(id);
+  // A search can open the editor at this command's row, and the row is marked for a moment.
+  const row = commandRowId(id);
+  const flash = useSettingsView().flash === row;
   const record = (event: KeyboardEvent<HTMLButtonElement>) => {
     const plain = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
     // Tab still moves on, which ends recording.
@@ -114,7 +125,7 @@ function KeyRow({ id, keys, changed, recording, note, onRecord, onNote }: KeyRow
     onNote(took.length ? `Taken from ${took.map(commandLabel).join(", ")}` : null);
   };
   return (
-    <div className="kasten-set-key">
+    <div id={rowDomId(row)} className={`kasten-set-key${flash ? " is-flash" : ""}`}>
       <div className="min-w-0 flex-1">
         <div className="truncate text-13">{label}</div>
         {note && (

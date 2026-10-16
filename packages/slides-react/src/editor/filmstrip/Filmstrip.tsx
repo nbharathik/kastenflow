@@ -8,8 +8,9 @@ import type { EditorUi } from "../ui-state.ts";
 import { useEditorValue } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
 import { DragBadge } from "./DragBadge.tsx";
+import { FilmstripFrame, useFilmstripWidth } from "./FilmstripGrip.tsx";
 import { collapseSelection, jumpShown, selectEvery, stepShown } from "./keys.ts";
-import { BACKUP_W, FRAME, SECTION_H, THUMB_W, entryOf, gapAt, gapShifts, layoutFilmstrip, sectionOf, thumbHeight, visibleIds } from "./model.ts";
+import { FRAME, SECTION_H, backupWidth, entryOf, gapAt, gapShifts, layoutFilmstrip, sectionOf, thumbHeight, thumbWidth, visibleIds } from "./model.ts";
 import { NewSlideButton } from "./NewSlideButton.tsx";
 import { type Drop, type Spot, useReorder } from "./reorder.ts";
 import { openSlideMenu, pickSection, pickSlide, slidesOfSection } from "./picking.ts";
@@ -45,7 +46,10 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   }, [service, badges]);
   const lint = badges ? service : null;
 
-  const layout = useMemo(() => layoutFilmstrip(deck, folded), [deck.slides, deck.sections, deck.size, folded]);
+  // The width the person chose for the filmstrip decides how big the thumbnails are, and so how tall a row is.
+  const sized = useFilmstripWidth();
+  const thumb = thumbWidth(sized.width);
+  const layout = useMemo(() => layoutFilmstrip(deck, folded, thumb), [deck.slides, deck.sections, deck.size, folded, thumb]);
   const latest = useRef(layout);
   latest.current = layout;
   // Where slides that were in the hand were put down, so that the rows do not glide to places they already made room at.
@@ -191,10 +195,10 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
     height: layout.height,
     "--fs-row": `${layout.rowHeight}px`,
     "--fs-section": `${SECTION_H}px`,
-    "--fs-w": `${THUMB_W + FRAME}px`,
-    "--fs-h": `${thumbHeight(deck.size) + FRAME}px`,
-    "--fs-bw": `${BACKUP_W + FRAME}px`,
-    "--fs-bh": `${thumbHeight(deck.size, BACKUP_W) + FRAME}px`,
+    "--fs-w": `${thumb + FRAME}px`,
+    "--fs-h": `${thumbHeight(deck.size, thumb) + FRAME}px`,
+    "--fs-bw": `${backupWidth(thumb) + FRAME}px`,
+    "--fs-bh": `${thumbHeight(deck.size, backupWidth(thumb)) + FRAME}px`,
   } as CSSProperties;
   const chosen = new Set(selection);
   const moving = drag ? new Set(drag.ids) : null;
@@ -208,7 +212,7 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
     }
   }
 
-  return (
+  const strip = (
     <div
       ref={scroller}
       className="ks-filmstrip"
@@ -223,6 +227,13 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
       onDoubleClick={(event) => {
         // Empty space between and below the slides adds one.
         if (event.target === event.currentTarget || event.target === list.current) addSlide(session, ui);
+      }}
+      onContextMenu={(event) => {
+        // The empty space of the list has a menu of its own (the rows and headers open theirs and are not this).
+        if (event.target !== event.currentTarget && event.target !== list.current) return;
+        event.preventDefault();
+        list.current?.focus({ preventScroll: true });
+        ui.openContextMenu({ kind: "filmstrip", x: event.clientX, y: event.clientY });
       }}
     >
       <div
@@ -263,6 +274,7 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
               selected={chosen.has(entry.id)}
               dragging={moving?.has(entry.id) ?? false}
               thumb={nearWindow(viewport, entry.top, entry.height, AHEAD)}
+              width={thumb}
               imageUrl={imageUrl}
               domId={`${prefix}${entry.id}`}
               handlers={handlers}
@@ -274,5 +286,10 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
       </div>
       <NewSlideButton session={session} ui={ui} />
     </div>
+  );
+  return (
+    <FilmstripFrame width={sized.width} onResize={sized.set} onKeep={sized.keep}>
+      {strip}
+    </FilmstripFrame>
   );
 }

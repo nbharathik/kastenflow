@@ -28,7 +28,7 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
         onClick={() => void runCommand("view.present", ctx)}
       >
         <Icon name="play" size={14} />
-        Slideshow
+        <span className="ks-present-label">Slideshow</span>
       </button>
       <button type="button" className="ks-btn ks-text-btn is-primary ks-present-caret" aria-label="Slideshow options" data-tip="Slideshow options" disabled={!can} {...dd.trigger}>
         <Icon name="chevron-down" size={14} />
@@ -44,6 +44,8 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
               commandItem("view.present-start", ctx, { label: "Present from beginning" }),
               commandItem("view.present", ctx, { label: "Present from current slide" }),
               commandItem("view.presenter", ctx),
+              commandItem("view.rehearse", ctx),
+              commandItem("view.rehearsals", ctx),
               commandItem("view.present-scroll", ctx),
             ],
             [

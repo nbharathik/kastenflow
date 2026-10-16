@@ -8,6 +8,7 @@ import "../dashboard/dashboard.css";
 import { useState } from "react";
 
 import type { NoteMeta } from "../../lib/vault/types";
+import { IconButton } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { Customize } from "../dashboard/Customize";
 import { DashEmpty, DashGrid } from "../dashboard/DashCard";
@@ -63,10 +64,7 @@ export function ProjectHome({ project }: { project: NoteMeta }) {
           Project home
         </button>
         <span className="flex-1" />
-        <button type="button" className="ui-btn is-quiet is-sm" title="Open the project overview full size" onClick={(event) => openOverview(project, howFrom(event))}>
-          <Icon name="expand" className="size-[14px]" />
-          Expand
-        </button>
+        <IconButton icon="expand" size="sm" label="Open overview" title="Open the project overview full size" onClick={(event) => openOverview(project, howFrom(event))} />
         <Customize
           label="Project home"
           defs={PROJECT_SECTIONS}

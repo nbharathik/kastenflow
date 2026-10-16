@@ -14,6 +14,7 @@ import { titleOf } from "../workspace/names";
 import { reloadLists } from "../workspace/reload";
 import { useWorkspace } from "../workspace/store";
 import { describeChange, noteDiff } from "./change-words";
+import { DiagramChange, PictureChange } from "./DiagramChange";
 import { DiffStats, DiffView } from "./DiffView";
 import { clock } from "./group";
 import { message } from "./store";
@@ -187,7 +188,7 @@ function CommitFiles({ id }: { id: string }) {
   return (
     <div className={`${pad} space-y-2`}>
       {shown.map((file) => (
-        <FileDiff key={file.path} file={file} note={byPath.get(file.path)} />
+        <FileDiff key={file.path} file={file} note={byPath.get(file.path)} withSource={files.some((f) => f.path === file.path.replace(/\.svg$/, "") && f.before !== f.after)} />
       ))}
       {files.length > shown.length && (
         <button type="button" className={QUIET} onClick={() => setAll(true)}>
@@ -198,11 +199,15 @@ function CommitFiles({ id }: { id: string }) {
   );
 }
 
-function FileDiff({ file, note }: { file: ChangedFile; note: NoteMeta | undefined }) {
+/** `withSource`: a picture (`x.drawio.svg`) whose diagram (`x.drawio`) changed in the same commit. */
+function FileDiff({ file, note, withSource }: { file: ChangedFile; note: NoteMeta | undefined; withSource: boolean }) {
   const openPath = useWorkspace((s) => s.openPath);
   const { lines, details } = useMemo(() => noteDiff(file.path, file.before, file.after), [file]);
   const binary = file.before === null && file.after === null;
   const deck = !binary && file.path.endsWith(".deck");
+  // A diagram is told in words, its picture in a line: neither is read as lines of XML.
+  const diagram = !binary && file.path.endsWith(".drawio");
+  const picture = !binary && file.path.endsWith(".drawio.svg");
   const status = binary ? null : file.before === null ? "added" : file.after === null ? "removed" : null;
   const textChanged = lines.some((l) => l.kind !== "same");
   return (
@@ -219,7 +224,7 @@ function FileDiff({ file, note }: { file: ChangedFile; note: NoteMeta | undefine
         )}
         {status && <Pill>{status}</Pill>}
         <span className="ml-auto" />
-        {textChanged && !deck && <DiffStats lines={lines} />}
+        {textChanged && !deck && !diagram && !picture && <DiffStats lines={lines} />}
       </div>
       {details.length > 0 && (
         <p className="border-b border-line px-3 py-1.5 text-13 text-muted last:border-b-0">
@@ -229,6 +234,10 @@ function FileDiff({ file, note }: { file: ChangedFile; note: NoteMeta | undefine
       )}
       {binary ? (
         <p className="px-3 py-2 text-13 text-muted">No text to show for this file.</p>
+      ) : diagram ? (
+        <DiagramChange path={file.path} before={file.before} after={file.after} />
+      ) : picture ? (
+        <PictureChange withSource={withSource} />
       ) : deck ? (
         <Suspense fallback={<p className="px-3 py-2 text-13 text-muted">Reading the slides…</p>}>
           <DeckVersions before={file.before} after={file.after} gone="The deck that was removed" bare />

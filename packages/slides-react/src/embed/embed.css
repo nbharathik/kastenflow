@@ -18,6 +18,75 @@
   border: 0;
 }
 
+/* Over a page that is not showing (refused, slow, offline): why, and a way out. */
+.ks-embed-card {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--ks-pr-tool-bg, var(--ks-raised)) 94%, transparent);
+  color: var(--ks-pr-tool-fg, var(--ks-ink));
+  font: 13px/1.4 var(--ks-font, system-ui, sans-serif);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.ks-embed-card-text {
+  margin: 0;
+  max-width: 36em;
+}
+
+.ks-embed-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.ks-embed-card-btn,
+.ks-embed-ext {
+  padding: 5px 12px;
+  border: 1px solid var(--ks-pr-tool-line, var(--ks-line));
+  border-radius: 999px;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  color: var(--ks-pr-tool-fg, var(--ks-ink));
+  font: 12px/1.3 var(--ks-font, system-ui, sans-serif);
+  cursor: pointer;
+}
+
+.ks-embed-card-btn:hover,
+.ks-embed-ext:hover {
+  background: var(--ks-hover, rgb(128 128 128 / 0.2));
+}
+
+.ks-embed-card-btn:focus-visible,
+.ks-embed-ext:focus-visible {
+  outline: 2px solid var(--ks-accent, currentcolor);
+  outline-offset: 2px;
+}
+
+/* Always there on a live page, though quiet until the pointer or the keys are near: a page that refuses to be framed cannot be told. */
+.ks-embed-ext {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity var(--ks-base, 140ms) var(--ks-ease, ease);
+  pointer-events: auto;
+}
+
+.ks-show-live-item:hover > .ks-embed-ext,
+.ks-embed-ext:focus-visible {
+  opacity: 1;
+}
+
 /* The words of a Kasten page, drawn from the deck's theme. */
 .ks-pv {
   --pv-ink: #000;

@@ -25,15 +25,21 @@ fn level_for(blocks: &[Block]) -> u8 {
         .unwrap_or(0)
 }
 
+/// The heading level a page is cut at for the `split` asked for: that level, or the one that suits the page when `split` is 0. 0 for a
+/// page with no heading to cut at.
+pub(super) fn level_of(blocks: &[Block], split: u8) -> u8 {
+    if (1..=6).contains(&split) {
+        split
+    } else {
+        level_for(blocks)
+    }
+}
+
 /// The slides of a page: a heading at `split` (or a shallower one) starts one and gives it its title, and everything
 /// down to the next such heading is its body. Words before the first heading go on a slide called `intro`. `split` of 0
 /// is the level the page is best cut at.
 pub fn parts(blocks: &[Block], split: u8, intro: &str) -> Vec<Part> {
-    let level = if (1..=6).contains(&split) {
-        split
-    } else {
-        level_for(blocks)
-    };
+    let level = level_of(blocks, split);
     let mut out: Vec<Part> = Vec::new();
     let mut lead: Vec<Block> = Vec::new();
     for block in blocks {

@@ -15,6 +15,7 @@ import { FilterBar, type Layout } from "./highlights/FilterBar";
 import { HighlightCard } from "./highlights/HighlightCard";
 import { Library } from "./highlights/Library";
 import { SourceGroup } from "./highlights/SourceGroup";
+import { openCompare } from "./compare/compare-state";
 import { pickPdfs } from "./import";
 import { readingOrder } from "./reader/HighlightList";
 import { useSources } from "./store";
@@ -112,9 +113,16 @@ export function HighlightsHome() {
             )}
           </div>
         </div>
-        <button type="button" className="ui-btn is-primary" onClick={pickPdfs} title="Import a PDF (Ctrl+O), or drop one anywhere">
-          Import PDF…
-        </button>
+        <div className="kasten-hls-head-actions">
+          {list && list.length > 1 && (
+            <button type="button" className="ui-btn" onClick={() => openCompare({ sources: list.map((s) => s.path) })} title="Put papers side by side in a page, with the highlights as evidence">
+              Compare papers…
+            </button>
+          )}
+          <button type="button" className="ui-btn is-primary" onClick={pickPdfs} title="Import a PDF (Ctrl+O), or drop one anywhere">
+            Import PDF…
+          </button>
+        </div>
       </header>
 
       {list && list.length > 0 && <Library sources={list} highlights={highlights} kept={kept} onOpen={open} />}

@@ -18,6 +18,8 @@ import { scopeOf, validPath } from "./scope.ts";
 import { SlideClipboard } from "./slide-clipboard.ts";
 import { SlideCommands } from "./slides.ts";
 import { StepCommands } from "./steps.ts";
+import { type CellSelection, cellsAfter, isTableIn, sameSelection } from "../table/cells.ts";
+import { TableCommands } from "../table/commands.ts";
 import { TextCommands } from "./text-commands.ts";
 import type { EditStart, EditorState, Tool } from "./types.ts";
 
@@ -39,6 +41,8 @@ export class EditorSession {
   readonly elements = new ElementCommands(this);
   readonly text = new TextCommands(this);
   readonly clipboard = new Clipboard(this);
+  /** What is done to the cells picked in a table: words, rows and columns, merging, fill. */
+  readonly tables = new TableCommands(this);
   /** Copy, cut and paste of slides, for the filmstrip and the grid. */
   readonly slideClipboard = new SlideClipboard(this);
   readonly exports = new Exports(this);
@@ -69,6 +73,7 @@ export class EditorSession {
       inside: [],
       slideSelection: first ? [first.id] : [],
       editing: null,
+      cells: null,
       editFrom: null,
       tool: "select",
       ...this.history(),
@@ -171,7 +176,10 @@ export class EditorSession {
     const inside = same(into, before.inside) ? before.inside : into;
     const onSlide = new Set(scopeOf(shown, inside).map((e) => e.id));
     const selection = slideId === before.slideId ? before.selection.filter((id) => onSlide.has(id)) : [];
-    const editing = slideId === before.slideId && before.editing && onSlide.has(before.editing) ? before.editing : null;
+    const picked = slideId === before.slideId ? cellsAfter(before.cells, selection, scopeOf(shown, inside)) : null;
+    const cells = sameSelection(picked, before.cells) ? before.cells : picked;
+    // A table is edited a cell at a time: with no cell picked there is nothing open.
+    const editing = slideId === before.slideId && before.editing && onSlide.has(before.editing) && (cells !== null || !isTableIn(shown, before.editing)) ? before.editing : null;
     const alive = new Set(deck.slides.map((s) => s.id));
     const kept = before.slideSelection.filter((id) => alive.has(id));
     const slideSelection = slideId === before.slideId ? (kept.includes(slideId) ? kept : [slideId, ...kept]) : [slideId];
@@ -183,6 +191,7 @@ export class EditorSession {
       selection: same(selection, before.selection) ? before.selection : selection,
       slideSelection: same(slideSelection, before.slideSelection) ? before.slideSelection : slideSelection,
       editing,
+      cells,
       ...this.history(),
       saving: { status: "unsaved" },
       revision: this.revision,
@@ -206,7 +215,7 @@ export class EditorSession {
 
   goTo(slideId: string): void {
     if (slideId === this.current.slideId || !this.current.deck.slides.some((s) => s.id === slideId)) return;
-    this.patch({ slideId, selection: [], inside: [], editing: null, slideSelection: [slideId] });
+    this.patch({ slideId, selection: [], inside: [], editing: null, cells: null, slideSelection: [slideId] });
   }
 
   /** Moves by `delta` slides (or to the ends with -Infinity / Infinity). */
@@ -235,9 +244,24 @@ export class EditorSession {
     // Nothing to change only when the slides picked in the filmstrip are already just the one shown: a click on empty canvas, which
     // selects nothing, still takes several picked slides back to it.
     const alone = same(this.current.slideSelection, [this.current.slideId]);
-    if (same(selection, this.current.selection) && this.current.editing === null && alone) return;
+    // Choosing the table whose cells are picked again leaves the cells picked; anything else takes them off.
+    const cells = selection.length === 1 && selection[0] === this.current.cells?.table ? this.current.cells : null;
+    if (same(selection, this.current.selection) && this.current.editing === null && alone && cells === this.current.cells) return;
     const editing = this.current.editing && selection.length === 1 && selection[0] === this.current.editing ? this.current.editing : null;
-    this.patch({ selection, editing, slideSelection: [this.current.slideId] });
+    this.patch({ selection, editing, cells, slideSelection: [this.current.slideId] });
+  }
+
+  /**
+   * Picks cells of a table, selecting the table: the one thing selected. Null takes the cells off and leaves the table selected (the frame).
+   * Nothing is open for writing afterwards; `startEditingCell` opens a cell.
+   */
+  selectCells(cells: CellSelection | null): void {
+    this.tables.pick(cells);
+  }
+
+  /** Opens the cell at the focus of `cells` for writing, with the caret where `from` says (a press) or at the end of its words. */
+  startEditingCell(cells: CellSelection, from?: EditStart): void {
+    this.tables.open(cells, from);
   }
 
   selectAll(): void {
@@ -252,7 +276,7 @@ export class EditorSession {
     const group = this.scope.find((e) => e.id === id);
     if (group?.type !== "group") return;
     const wanted = child && group.children.some((c) => c.id === child) ? [child] : [];
-    this.patch({ inside: [...this.current.inside, id], selection: wanted, editing: null, slideSelection: [this.current.slideId] });
+    this.patch({ inside: [...this.current.inside, id], selection: wanted, editing: null, cells: null, slideSelection: [this.current.slideId] });
   }
 
   /** Goes up one level out of the groups gone into, and selects the group left, so that the next step up is plain. Answers whether there was a level to leave. */
@@ -260,13 +284,13 @@ export class EditorSession {
     const { inside } = this.current;
     const left = inside[inside.length - 1];
     if (left === undefined) return false;
-    this.patch({ inside: inside.slice(0, -1), selection: [left], editing: null });
+    this.patch({ inside: inside.slice(0, -1), selection: [left], editing: null, cells: null });
     return true;
   }
 
   /** Comes out of every group gone into, selecting nothing. */
   leaveGroups(): void {
-    if (this.current.inside.length > 0) this.patch({ inside: [], selection: [], editing: null });
+    if (this.current.inside.length > 0) this.patch({ inside: [], selection: [], editing: null, cells: null });
   }
 
   /**
@@ -279,17 +303,17 @@ export class EditorSession {
     const chosen = ids.filter((id) => alive.has(id));
     if (chosen.length === 0) return;
     const slideId = show && chosen.includes(show) ? show : chosen[0]!;
-    this.patch({ slideSelection: chosen, slideId, selection: [], inside: [], editing: null, editFrom: null });
+    this.patch({ slideSelection: chosen, slideId, selection: [], inside: [], editing: null, cells: null, editFrom: null });
   }
 
   setTool(tool: Tool): void {
-    if (tool !== this.current.tool) this.patch({ tool, editing: tool === "select" ? this.current.editing : null });
+    if (tool !== this.current.tool) this.patch({ tool, editing: tool === "select" ? this.current.editing : null, ...(tool === "select" ? {} : { cells: null }) });
   }
 
   /** Starts editing an element's text, selecting only it. `from` is the press that began it, where there was one: the caret goes there. */
   startEditing(id: string, from?: EditStart): void {
     if (!this.scope.some((e) => e.id === id)) return;
-    this.patch({ selection: [id], editing: id, editFrom: from ?? null, tool: "select" });
+    this.patch({ selection: [id], editing: id, cells: null, editFrom: from ?? null, tool: "select" });
   }
 
   stopEditing(): void {
@@ -361,6 +385,7 @@ export class EditorSession {
       selection: same(kept, this.current.selection) ? this.current.selection : kept,
       slideSelection: [slideId],
       editing: null,
+      cells: slideId === this.current.slideId ? cellsAfter(this.current.cells, kept, scopeOf(loaded, inside)) : null,
       ...this.history(),
       saving: { status: "saved" },
       revision: this.revision,

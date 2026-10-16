@@ -15,16 +15,20 @@ import { LayoutsDialog } from "./LayoutsDialog.tsx";
 import { LinkDialog } from "./LinkDialog.tsx";
 import { ExportDialog } from "./ExportDialog.tsx";
 import { ImportDialog } from "./ImportDialog.tsx";
+import { ImportLayoutsDialog } from "./ImportLayoutsDialog.tsx";
 import { InsertDialog } from "./InsertDialog.tsx";
 import { AboutDialog } from "./Notices.tsx";
 import { PageDialog } from "./PageDialog.tsx";
 import { PageSetupDialog } from "./PageSetupDialog.tsx";
 import { PngDialog } from "./PngDialog.tsx";
+import { RehearsalsDialog } from "./RehearsalsDialog.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { TableDialog } from "./TableDialog.tsx";
 import { ThemeDialog } from "./ThemeDialog.tsx";
 import { VideoDialog } from "./VideoDialog.tsx";
 import { LintDialog } from "../lint/LintDialog.tsx";
+import { PreflightDialog } from "../preflight/PreflightDialog.tsx";
+import { ReviewSourcesDialog } from "../sources/ReviewSourcesDialog.tsx";
 
 /** The layout designer is a whole editor of its own and is opened rarely: it is loaded when first asked for (it also holds these dialogs again). */
 const LayoutDesigner = lazy(() => import("../layouts/LayoutDesigner.tsx").then((module) => ({ default: module.LayoutDesigner })));
@@ -75,6 +79,14 @@ export function Dialogs({ session, ui }: { session: EditorSession; ui: EditorUi 
       return <SaveLayoutDialog {...props} />;
     case "layouts-manage":
       return <LayoutManager {...props} />;
+    case "import-layouts":
+      return <ImportLayoutsDialog {...props} />;
+    case "rehearsals":
+      return <RehearsalsDialog {...props} />;
+    case "preflight":
+      return <PreflightDialog {...props} />;
+    case "review-sources":
+      return <ReviewSourcesDialog {...props} />;
     case "layout-design":
       return (
         <Suspense fallback={null}>

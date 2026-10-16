@@ -36,4 +36,8 @@ hash?: string | null,
 /**
  * The Markdown of the page (or of the section) as it was read: what an embedded page is drawn from where the page cannot be read.
  */
-markdown?: string | null, };
+markdown?: string | null, 
+/**
+ * How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)
+ */
+made?: string | null, };

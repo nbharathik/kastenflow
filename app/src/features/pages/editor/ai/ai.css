@@ -71,7 +71,30 @@
   padding: 0 4px;
 }
 
+.kasten-ai-actions,
+.kasten-ai-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.kasten-ai-actions-label {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+/* Which text an explanation reads: the pressed one is in use. */
+.kasten-ai-scope [aria-pressed="true"] {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
 .kasten-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 2px 10px;
   border: 1px solid var(--color-line);
   border-radius: 999px;

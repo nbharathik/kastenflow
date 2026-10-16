@@ -29,6 +29,27 @@ pub enum Saved {
     Merged { note: NoteFile },
 }
 
+/// The file text that saving `body` under the frontmatter of `current` makes,
+/// with `updated` bumped; None when the file already holds that body. The
+/// pure step of `save_body`, which a staged change shares so that what it
+/// plans is what the real save writes.
+pub(crate) fn saved_text(current: &str, body: &str, now: Instant) -> Option<String> {
+    let parts = split(current);
+    if parts.body == body_under(parts.prefix, body) {
+        return None;
+    }
+    let eol = eol_of(current);
+    // `updated` goes only into frontmatter that is there and reads: not
+    // into a byte order mark alone, nor a note that opens with two rules.
+    let fenced = !parts.prefix.trim_start_matches('\u{feff}').is_empty();
+    let prefix = if fenced && yaml_ok(parts.prefix) {
+        set_key(parts.prefix, "updated", Some(&now.rfc3339()), eol)
+    } else {
+        parts.prefix.to_owned()
+    };
+    Some(join(&prefix, body, eol))
+}
+
 /// Writes `body` under the note's current frontmatter if the file still has
 /// `base_hash`; bumps `updated` when the body changes.
 pub fn save_body(
@@ -39,7 +60,6 @@ pub fn save_body(
     now: Instant,
 ) -> Result<Saved> {
     let current = vault.read(rel)?;
-    let parts = split(&current.text);
     if current.hash != base_hash {
         let copy = conflict_copy(vault, &current, body, now)?;
         return Ok(Saved::Conflict {
@@ -47,19 +67,10 @@ pub fn save_body(
             note: current,
         });
     }
-    if parts.body == body_under(parts.prefix, body) {
+    let Some(text) = saved_text(&current.text, body, now) else {
         return Ok(Saved::Unchanged { note: current });
-    }
-    let eol = eol_of(&current.text);
-    // `updated` goes only into frontmatter that is there and reads: not
-    // into a byte order mark alone, nor a note that opens with two rules.
-    let fenced = !parts.prefix.trim_start_matches('\u{feff}').is_empty();
-    let prefix = if fenced && yaml_ok(parts.prefix) {
-        set_key(parts.prefix, "updated", Some(&now.rfc3339()), eol)
-    } else {
-        parts.prefix.to_owned()
     };
-    write_atomic(&vault.path_of(rel)?, join(&prefix, body, eol).as_bytes())?;
+    write_atomic(&vault.path_of(rel)?, text.as_bytes())?;
     Ok(Saved::Written {
         note: vault.read(rel)?,
     })

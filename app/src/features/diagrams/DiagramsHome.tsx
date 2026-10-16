@@ -9,6 +9,7 @@ import { Icon } from "../../ui/Icon";
 import { Segmented } from "../../ui/Segmented";
 import { projectTitle } from "../boards/store";
 import { renameDiagram, importDiagrams, newDiagram, IMPORT_ACCEPT } from "./actions";
+import { drawFromScratch } from "./ai/actions";
 import { DiagramTile, type Place } from "./DiagramTile";
 import { InstallNotice } from "./InstallNotice";
 import { RenameDialog } from "./RenameDialog";
@@ -121,6 +122,9 @@ export function DiagramsHome() {
             event.target.value = "";
           }}
         />
+        <Button icon="sparkle" onClick={() => drawFromScratch()}>
+          Draw with AI
+        </Button>
         <Button icon="upload" onClick={() => file.current?.click()}>
           Import…
         </Button>

@@ -26,8 +26,11 @@ describe("chat store", () => {
     const thread = store().threads[id]!;
     expect(thread.session).toBe(`session-${id}`);
     expect(last(id).turn).toBe("turn-1");
-    // Nothing goes while it answers.
-    expect(await store().send(id, "More")).toBe(false);
+    // While it answers a message is sent too: the backend queues it for the next step.
+    chat.queueNext();
+    expect(await store().send(id, "More")).toBe(true);
+    expect(chat.requests.map((r) => r.text)).toEqual(["Sort these ideas", "More"]);
+    expect(store().threads[id]!.messages).toHaveLength(2);
 
     // A new thread starts with the model chosen last.
     const other = store().start();

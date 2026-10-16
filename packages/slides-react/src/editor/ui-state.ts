@@ -18,7 +18,7 @@ const NEW_SLIDES_CHOICES = ["blank", "same", "mine"] as const;
 export type PanelName = "format" | "themes" | "transitions" | "steps" | "ai" | "comments";
 /** A menu opened by a right click, where it was pressed. */
 export interface ContextMenuState {
-  kind: "element" | "canvas" | "slide";
+  kind: "element" | "canvas" | "slide" | "cells" | "filmstrip" | "panel";
   x: number;
   y: number;
 }
@@ -49,7 +49,13 @@ export type DialogName =
   | "layouts-manage"
   | "layout-design"
   | "template-save"
-  | "template-apply";
+  | "template-apply"
+  // Layouts brought in from another deck, a check before presenting or exporting, and the rehearsals kept for the deck.
+  | "import-layouts"
+  | "preflight"
+  | "rehearsals"
+  // The slides made from pages, looked at again after the pages changed.
+  | "review-sources";
 
 /** A transition to play once on the canvas, as a preview. `id` counts them, so the same transition asked for again plays again. */
 export interface TransitionPreview {
@@ -67,6 +73,8 @@ export interface PaintFormat {
     u?: boolean;
     s?: boolean;
     color?: string;
+    /** The colour behind the words; null takes it away. */
+    highlight?: string | null;
     size?: number;
     font?: string;
     /** Raised or lowered words; null puts them level. */
@@ -104,6 +112,8 @@ export interface UiState {
   /** The images drawer, beside the filmstrip. */
   readonly galleryOpen: boolean;
   readonly paint: PaintFormat | null;
+  /** The format picked up by Copy format (Ctrl+Alt+C), kept until something else is picked up, to be laid on what is selected (Ctrl+Alt+V). */
+  readonly heldFormat: PaintFormat | null;
   /** The text editor with the caret, while a box is being edited. */
   readonly text: TextHandle | null;
   readonly contextMenu: ContextMenuState | null;
@@ -134,6 +144,7 @@ const INITIAL: UiState = {
   filmstripOpen: true,
   galleryOpen: false,
   paint: null,
+  heldFormat: null,
   text: null,
   contextMenu: null,
   previewStep: null,
@@ -158,7 +169,7 @@ export interface ZoomIntent {
 /** What the host application gives the editor to call: present, export, and leaving. */
 export interface EditorActions {
   /** Presents the deck from its first slide or the one shown; `view: "scroll"` is the whole deck as a page with its notes, `presenter` also opens the presenter's window. */
-  present?(from: "start" | "current", options?: { view?: "slides" | "scroll"; presenter?: boolean }): void;
+  present?(from: "start" | "current", options?: { view?: "slides" | "scroll"; presenter?: boolean; rehearse?: boolean }): void;
   exportAs?(format: "pptx" | "pdf" | "png" | "markdown" | "html"): void;
   /** Prints the deck (the browser's print dialog, where "Save as PDF" is a destination). */
   print?(options?: PrintOptions): void;
@@ -298,6 +309,11 @@ export class EditorUi {
 
   setPaint(paint: PaintFormat | null): void {
     this.patch({ paint });
+  }
+
+  /** Keeps the format Copy format picked up, or lets it go with null. */
+  setHeldFormat(heldFormat: PaintFormat | null): void {
+    this.patch({ heldFormat });
   }
 
   openContextMenu(menu: ContextMenuState | null): void {

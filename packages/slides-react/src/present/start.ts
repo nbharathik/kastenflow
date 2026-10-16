@@ -14,6 +14,8 @@ export interface PresentOptions {
   view?: "slides" | "scroll";
   /** Also open the presenter's window. */
   presenter?: boolean;
+  /** A rehearsal: the presenter's window is opened and starts timing the talk. Nothing advances by itself. */
+  rehearse?: boolean;
 }
 
 export async function presentDeck(session: EditorSession, host: SlidesHost, from: "start" | "current", options: PresentOptions = {}): Promise<void> {
@@ -32,7 +34,7 @@ export async function presentDeck(session: EditorSession, host: SlidesHost, from
     if (!link) host.notify?.("The presenter view could not be opened. Allow this page to open a window and try again.");
     else presentation?.update({ sync: link });
   };
-  if (options.presenter === true && options.view !== "scroll") await openLink();
+  if ((options.presenter === true || options.rehearse === true) && options.view !== "scroll") await openLink();
 
   const fullscreen = host.fillScreen
     ? () => {
@@ -53,6 +55,7 @@ export async function presentDeck(session: EditorSession, host: SlidesHost, from
     // What the person chose in Present options: the colour round a slide on a screen of another shape.
     matte: readMatte(),
     ...(options.view ? { view: options.view } : {}),
+    ...(options.rehearse ? { rehearse: true } : {}),
     onPresenter: () => void openLink(),
     // The host's own pages: the ones a deck embeds are read through it, and a link to one opens its panel.
     pages: host,

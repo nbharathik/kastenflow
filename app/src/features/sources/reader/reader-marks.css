@@ -108,6 +108,7 @@
 
 .kasten-hl-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 
   & button:not(.kasten-hl-primary) {

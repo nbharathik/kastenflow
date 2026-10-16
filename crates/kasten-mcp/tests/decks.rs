@@ -305,14 +305,12 @@ fn what_a_person_saved_a_moment_ago_is_kept_by_the_agents_next_change() {
     );
 }
 
+// What drawing a slide says where it cannot is in deck_render.rs.
+
 #[test]
-fn rendering_says_it_is_not_available_and_errors_read_like_the_note_tools() {
+fn errors_read_like_the_note_tools() {
     let (_v, k, s) = open();
-    let (path, ids) = deck_of_eight(&k, &s);
-    for tool in ["render_slide", "render_grid"] {
-        let err = call(&k, &s, tool, json!({"deck": path, "slide": ids[1]})).unwrap_err();
-        assert!(err.contains("not available"), "{tool}: {err}");
-    }
+    let (path, _ids) = deck_of_eight(&k, &s);
     let unknown = call(&k, &s, "delete_everything", json!({})).unwrap_err();
     assert_eq!(unknown, "tool not found: delete_everything");
     let bad_slide = call(

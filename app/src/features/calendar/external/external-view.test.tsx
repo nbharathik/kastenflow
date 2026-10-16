@@ -79,7 +79,8 @@ describe("Calendar: events of subscribed calendars", () => {
     fireEvent.keyDown(window, { key: "w" });
     const day = cell(today);
     const chip = await within(day).findByRole("button", { name: "09:00–10:00 Team standup, Work" });
-    expect(chip.getAttribute("draggable")).toBe("false");
+    // It does not move, but it can be carried to a day to make a note for it (event-drop.test.tsx).
+    expect(chip.getAttribute("draggable")).toBe("true");
     expect(chip.querySelector("time.kasten-cal-chip-time")?.textContent).toBe("09:00–10:00");
     const names = within(day)
       .getAllByRole("button")

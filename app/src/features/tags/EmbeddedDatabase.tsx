@@ -1,7 +1,7 @@
 // A tag database inside a page: the Tag Database in small.
 // Its views as tabs, with "+ View" to add a table, board, list, gallery or
-// calendar; the view's filters and sorts; Properties, to add the details
-// notes carry; and New. Switching tabs is this page's view of it; views,
+// calendar; the view's filters and sorts; Properties (an icon), to add the
+// details notes carry; and New (an icon). Switching tabs is this page's view of it; views,
 // properties and notes are the tag's, the same as in the Tag Database.
 
 import "./tags.css";
@@ -11,11 +11,15 @@ import { useEffect, useMemo, useState } from "react";
 import type { TagView } from "../../lib/vault/types";
 import { schemaOf } from "../panel/properties/schemas";
 import { useWorkspace } from "../workspace/store";
+import { AddExistingPages } from "./AddExistingPages";
+import { DatabaseTools } from "./DatabaseTools";
 import { NoteHomeContext } from "./home";
 import { applyView, notesWith, projectFolderOf, scoped, viewsOf } from "./model";
 import { SchemaEditor } from "./SchemaEditor";
 import { useTags } from "./store";
 import { NewNote, ViewBody } from "./TagDatabase";
+import { TagDropZone } from "./TagDropZone";
+import { RevealedLine, useTagMembership, withRevealed } from "./use-membership";
 import { ViewBar } from "./ViewBar";
 import { ViewTabs } from "./ViewTabs";
 
@@ -62,6 +66,9 @@ export function EmbeddedDatabase({
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const home = useMemo(() => ({ project: null, parent }), [parent]);
+  // Pages dropped on the list, or picked with "Add existing pages", gain the tag.
+  const membership = useTagMembership(name, view, schema, folder);
+  const listed = useMemo(() => withRevealed(shown, tagged, membership.revealed), [shown, tagged, membership.revealed]);
   const saveViews = (next: TagView[]) =>
     void useTags.getState().saveViews(name, next);
   const change = (next: TagView) => {
@@ -91,30 +98,34 @@ export function EmbeddedDatabase({
             total={tagged.length}
             onChange={change}
           />
-          <button
-            type="button"
-            className="kasten-tagdb-button"
-            onClick={() => setEditing(true)}
-          >
-            Properties
-            {schema?.properties.length ? ` · ${schema.properties.length}` : ""}
-          </button>
-          <button
-            type="button"
-            className="kasten-tagdb-button is-primary"
-            onClick={() => setAdding(true)}
-          >
-            New
-          </button>
+          <DatabaseTools
+            properties={schema?.properties.length ?? 0}
+            onProperties={() => setEditing(true)}
+            onAddExisting={() => membership.setPicking(true)}
+            onNew={() => setAdding(true)}
+          />
         </div>
         {adding && <NewNote tag={name} onDone={() => setAdding(false)} />}
-        <ViewBody
-          tag={name}
-          schema={schema}
-          view={view}
-          notes={shown}
-          onChange={change}
-        />
+        <TagDropZone tag={name} onDrop={membership.add}>
+          <RevealedLine
+            count={listed.length - shown.length}
+            onHide={membership.hideRevealed}
+          />
+          <ViewBody
+            tag={name}
+            schema={schema}
+            view={view}
+            notes={listed}
+            onChange={change}
+          />
+        </TagDropZone>
+        {membership.picking && (
+          <AddExistingPages
+            tag={name}
+            onAdd={membership.add}
+            onClose={() => membership.setPicking(false)}
+          />
+        )}
         {editing && (
           <SchemaEditor
             tag={name}

@@ -17,14 +17,16 @@ import {
   selectionBounds,
 } from "@kasten-slides/canvas";
 
-import { isCompositeType } from "../composite-kinds.ts";
-import { requestFieldFocus } from "../field-focus.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { Placement } from "../session/elements.ts";
+import type { Place } from "../table/cells.ts";
+import { dragCells, pickCell, pressCells } from "../table/pointer.ts";
 import type { EditorUi } from "../ui-state.ts";
-import { STICK, drawEnd, finishDraw, lineBox, snapAngle } from "./drawing.ts";
+import { doubleClickAt } from "./double-click.ts";
+import { drawEnd, finishDraw } from "./drawing.ts";
 import { isEmptyPlaceholder } from "./empty.ts";
-import { hitAt, itemsOf, itemsOfList, nearestSite } from "./geometry.ts";
+import { hitAt, itemsOf } from "./geometry.ts";
+import { endPoint, endPreview, finishEnd } from "./line-end.ts";
 
 export { boxOfPoints, lineBox, snapAngle } from "./drawing.ts";
 
@@ -81,6 +83,7 @@ type Gesture =
   | { kind: "rotate"; session: RotateSession }
   | { kind: "marquee"; session: MarqueeSession; extend: boolean; from: Point; moved: boolean; click: string | null }
   | { kind: "end"; id: string; end: "start" | "end"; fixed: Point; from: Point }
+  | { kind: "cells"; table: string; anchor: Place }
   | { kind: "draw"; tool: string; from: Point };
 
 const placementOf = (item: Item, point: Point): Placement => ({ x: point.x, y: point.y, w: item.w, h: item.h });
@@ -173,11 +176,12 @@ export class CanvasController {
     const slot = id !== null && !this.session.state.selection.includes(id) && isEmptyPlaceholder(this.session.scope.find((e) => e.id === id)) ? id : null;
     if (id === null || slot !== null) {
       this.session.stopEditing();
-      // Alt takes whatever the rectangle touches, not only what it holds whole; an empty slot is never taken that way.
-      const touch = p.alt;
-      const all = items.filter((i) => !i.locked && !(touch && isEmptyPlaceholder(this.session.scope.find((e) => e.id === i.id))));
-      const session = MarqueeSession.start({ all, origin: at, base: this.session.state.selection, additive: extend, mode: touch ? "touch" : "contain" });
-      this.gesture = { kind: "marquee", session, extend, from: at, moved: false, click: slot };
+      return this.startMarquee(items, at, p, slot);
+    }
+    // A press on a table whose cells are picked picks cells (Shift extends); the table itself is moved from its handle or its frame.
+    const picked = pressCells(this.session, id, at, extend);
+    if (picked) {
+      this.gesture = { kind: "cells", table: picked.table, anchor: picked.anchor };
       return this.show(NONE);
     }
     const wasSelected = this.session.state.selection.includes(id);
@@ -193,6 +197,28 @@ export class CanvasController {
     if (ids.length === 0 || !this.session.state.selection.includes(id)) return;
     if (this.session.state.editing === id) return;
     this.beginMove(items, ids, at, { clicked: id, wasSelected, extend, grab: false, ctrl });
+  }
+
+  /** The selection rectangle from a press at `at`; `click` is the empty slot the press was on, which a click that goes nowhere selects. */
+  private startMarquee(items: Item[], at: Point, p: PointerInfo, click: string | null): void {
+    // Alt takes whatever the rectangle touches, not only what it holds whole; an empty slot is never taken that way.
+    const touch = p.alt;
+    const extend = p.shift || p.mod;
+    const all = items.filter((i) => !i.locked && !(touch && isEmptyPlaceholder(this.session.scope.find((e) => e.id === i.id))));
+    const session = MarqueeSession.start({ all, origin: at, base: this.session.state.selection, additive: extend, mode: touch ? "touch" : "contain" });
+    this.gesture = { kind: "marquee", session, extend, from: at, moved: false, click };
+    this.show(NONE);
+  }
+
+  /**
+   * A press on the grey stage round the slide: a selection rectangle can begin there too (its corner may be off the slide, so the slide
+   * units may be negative), and a click that goes nowhere takes the selection off. Answers whether a gesture began.
+   */
+  stageDown(p: PointerInfo): boolean {
+    if (this.gesture || p.button !== 0 || this.session.state.tool !== "select") return false;
+    this.session.stopEditing();
+    this.startMarquee(itemsOf(this.session), { x: p.x, y: p.y }, p, null);
+    return true;
   }
 
   /** The move of `ids` from a press at `at`: the one gesture a press on a block and a press on its move handle both start. */
@@ -279,7 +305,9 @@ export class CanvasController {
       // The rectangle outlines what it would take; the selection is made when the pointer is let go.
       this.show({ ...NONE, marquee: state.rect, hits: state.ids, gesture: "marquee" });
     } else if (g.kind === "end") {
-      this.show({ ...NONE, overrides: this.endPreview(g, this.endPoint(g, at, p.shift)), gesture: "end" });
+      this.show({ ...NONE, overrides: endPreview(g, endPoint(this.session, this.zoom(), g, at, p.shift)), gesture: "end" });
+    } else if (g.kind === "cells") {
+      dragCells(this.session, g.table, g.anchor, at);
     } else {
       this.show({ ...NONE, drawing: { tool: g.tool, from: g.from, to: drawEnd(this.session, this.zoom(), g.tool, g.from, at, p.shift) }, gesture: "draw" });
     }
@@ -298,20 +326,6 @@ export class CanvasController {
   /** Whether the move being made leaves what it moves where it is and puts copies where it ends: Alt, or Ctrl (Cmd), held, with nothing being typed. */
   private copies(g: Extract<Gesture, { kind: "move" }>, p: PointerInfo): boolean {
     return (p.alt || (p.mod && !p.shift)) && this.session.state.editing === null && g.ids.length > 0;
-  }
-
-  /** Where a dragged line end lands: on a side of a shape near it, else the pointer (in 45° steps with Shift). */
-  private endPoint(g: Extract<Gesture, { kind: "end" }>, at: Point, shift: boolean): Point {
-    const items = itemsOf(this.session);
-    const site = nearestSite(items, this.session.scope, at, STICK / this.zoom(), new Set([g.id]));
-    if (site) return site.point;
-    return shift ? snapAngle(g.fixed, at) : at;
-  }
-
-  private endPreview(g: Extract<Gesture, { kind: "end" }>, point: Point): Map<string, Placement> {
-    const a = g.end === "start" ? point : g.fixed;
-    const b = g.end === "start" ? g.fixed : point;
-    return new Map([[g.id, lineBox(a, b)]]);
   }
 
   // ---- release
@@ -340,8 +354,8 @@ export class CanvasController {
       // A press that did not move: on one of several selected, it picks that one. A Ctrl press on one that was selected takes it out.
       if (g.wasSelected && !g.extend && !g.grab && g.ids.length > 1) this.session.select([g.clicked]);
       else if (g.ctrl && g.wasSelected) this.session.select([g.clicked], "toggle");
-      // A click on a text box is a click to write in it.
-      else if (!g.extend && !g.grab && g.ids.length === 1) this.writeIn(g.clicked, p);
+      // A click on a table picks the cell under it; a click on a text box is a click to write in it.
+      else if (!g.extend && !g.grab && g.ids.length === 1 && !pickCell(this.session, g.clicked, at)) this.writeIn(g.clicked, p);
     } else if (g.kind === "resize") {
       const result = g.session.end(at, { shift: p.shift, alt: p.alt, noSnap: !this.ui.state.snap });
       this.show(NONE);
@@ -362,26 +376,13 @@ export class CanvasController {
         if (!g.extend) this.writeIn(g.click, p);
       } else this.session.select(state.ids);
     } else if (g.kind === "end") {
-      this.finishEnd(g, this.endPoint(g, at, p.shift));
+      finishEnd(this.session, this.zoom(), g, endPoint(this.session, this.zoom(), g, at, p.shift));
+    } else if (g.kind === "cells") {
+      dragCells(this.session, g.table, g.anchor, at);
     } else {
       finishDraw(this.session, this.zoom(), g.tool, g.from, drawEnd(this.session, this.zoom(), g.tool, g.from, at, p.shift), this.snapOn({ alt: p.alt }));
     }
     this.show(NONE);
-  }
-
-  private finishEnd(g: Extract<Gesture, { kind: "end" }>, point: Point): void {
-    const moved = Math.hypot(point.x - g.from.x, point.y - g.from.y) > 1;
-    if (!moved) return;
-    const a = g.end === "start" ? point : g.fixed;
-    const b = g.end === "start" ? g.fixed : point;
-    const box = lineBox(a, b);
-    this.session.elements.place(new Map([[g.id, box]]));
-    const site = nearestSite(itemsOf(this.session), this.session.scope, point, STICK / this.zoom(), new Set([g.id]));
-    const element = this.session.scope.find((e) => e.id === g.id);
-    if (element?.type === "connector") {
-      const key = g.end === "start" ? "from" : "to";
-      this.session.elements.patch({ [key]: site ? { el: site.id, side: site.side } : null }, [g.id]);
-    }
   }
 
   /** A resize reports a flip when the drag crossed the far edge, meaning "toggle": the element's own flip after it. */
@@ -402,27 +403,9 @@ export class CanvasController {
     return true;
   }
 
-  /** A double click on an element with words in it opens its text for editing; on a composite, its format options, with the caret in the field for what it is made of (the code, the formula ...). */
+  /** A double click: opens the words, the cell, the group or the format options of what is under the pointer (see `doubleClickAt`). */
   doubleClick(p: PointerInfo): void {
-    if (this.session.state.tool !== "select") return;
-    const items = itemsOf(this.session);
-    const id = hitAt(items, { x: p.x, y: p.y }, this.zoom());
-    if (id === null) return;
-    const element = this.session.scope.find((e) => e.id === id);
-    if (element?.type === "group") {
-      // A double click on a group goes into it, and takes what is under the pointer.
-      const child = hitAt(itemsOfList(this.session, element.children), { x: p.x, y: p.y }, this.zoom());
-      this.session.enterGroup(id, child ?? undefined);
-      return;
-    }
-    if (element && isCompositeType(element.type)) {
-      this.session.select([id]);
-      this.ui.openPanel("format");
-      requestFieldFocus(this.ui, id);
-    } else if (element && (element.type === "text" || element.type === "shape" || element.type === "connector") && !element.locked) {
-      // The word where the pointer is comes selected, as in a document.
-      this.session.startEditing(id, p.client ? { at: p.client, select: "word" } : undefined);
-    }
+    doubleClickAt(this.session, this.ui, this.zoom(), p);
   }
 
   /** The box round the selection, for drawing its frame and handles. */

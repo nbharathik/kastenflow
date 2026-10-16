@@ -26,8 +26,11 @@ mod groups;
 mod incoming;
 mod layout;
 mod layouts;
+mod layouts_design;
+mod layouts_import;
 mod marks;
 mod page;
+mod page_slides;
 mod pages;
 mod paragraphs;
 mod present;
@@ -35,10 +38,13 @@ mod replace;
 mod sections;
 mod slides;
 mod steps;
+mod storyboard;
+mod tables;
 mod templates;
 mod text;
 mod theme;
 mod util;
+mod validate;
 
 #[cfg(test)]
 mod tests;
@@ -143,19 +149,24 @@ use elements::*;
 use groups::*;
 use incoming::{AddSlides, ReplaceDeck};
 use layout::*;
-use layouts::{
-    AddLayout, DeleteLayout, EditLayout, ImportLayouts, MoveLayout, ResetSlides, SaveLayout,
-    SetLayoutDesign,
-};
+use layouts::{AddLayout, DeleteLayout, EditLayout, MoveLayout};
+use layouts_design::{ResetSlides, SaveLayout, SetLayoutDesign};
+use layouts_import::ImportLayouts;
 use marks::AcceptMarks;
 use page::SetPageSize;
-use pages::{AddPageContents, AddPageSlides, UpdatePageContents};
+use page_slides::AddPageSlides;
+use pages::{AddPageContents, UpdatePageContents};
 use paragraphs::FormatParagraphs;
 use present::SetPresent;
 use replace::*;
 use sections::{AddSection, RemoveSection, RenameSection};
 use slides::*;
 use steps::{BuildSteps, SetSlideSteps, SetStepStates};
+use storyboard::{AcknowledgeSource, AddStoryboardSlides};
+use tables::{
+    ClearCells, DeleteColumns, DeleteRows, InsertColumns, InsertRows, MergeCells, SetCellFill,
+    SetCells, UnmergeCells,
+};
 use templates::ApplyTemplate;
 use text::*;
 use theme::*;
@@ -200,6 +211,8 @@ registry![
     AddPageContents,
     UpdatePageContents,
     AddPageSlides,
+    AddStoryboardSlides,
+    AcknowledgeSource,
     PatchElements,
     TransformElements,
     DeleteElements,
@@ -214,6 +227,15 @@ registry![
     SetText,
     SetRichText,
     FormatParagraphs,
+    SetCells,
+    ClearCells,
+    InsertRows,
+    DeleteRows,
+    InsertColumns,
+    DeleteColumns,
+    MergeCells,
+    UnmergeCells,
+    SetCellFill,
     ReplaceAll,
     AcceptMarks,
 ];

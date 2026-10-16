@@ -9,6 +9,8 @@ export const tauriDiagrams: DiagramOps = {
   diagrams: () => invoke<DiagramInfo[]>("list_diagrams"),
   diagram: (path) => invoke<DiagramFile>("read_diagram", { path }),
   diagramPreview: (path) => invoke<string | null>("read_diagram_preview", { path }),
+  // The command says why it cannot draw; the window only needs to know it did not.
+  diagramDraftSvg: (xml) => invoke<string>("diagram_draft_svg", { xml }).catch(() => null),
   createDiagram: (title, project, xml) => invoke<string>("create_diagram", { title, project, xml: xml ?? null }),
   // The bytes go as the request's body; header values are ASCII, hence the escaping.
   importDiagram: (name, bytes, project) =>

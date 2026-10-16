@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    {"id": "opening", "type": "text", "text": "**Opening**\nWhy the reader should care", "x": 0, "y": 0, "width": 260, "height": 110, "color": "5"},
+    {"id": "middle", "type": "text", "text": "**Middle**\nThe argument, step by step", "x": 340, "y": 0, "width": 260, "height": 110, "color": "4"},
+    {"id": "ending", "type": "text", "text": "**Ending**\nWhat they take away", "x": 680, "y": 0, "width": 260, "height": 110, "color": "6"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "opening", "fromSide": "right", "toNode": "middle", "toSide": "left"},
+    {"id": "e2", "fromNode": "middle", "fromSide": "right", "toNode": "ending", "toSide": "left"}
+  ]
+}

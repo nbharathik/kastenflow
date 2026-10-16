@@ -5,6 +5,7 @@ members = [
     "crates/kasten-cli",
     "crates/kasten-mcp",
     "crates/slides-assets",
+    "crates/slides-bib",
     "crates/slides-core",
     "crates/slides-cli",
     "crates/slides-pptx",
@@ -14,7 +15,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
@@ -23,8 +24,13 @@ publish = false
 
 [workspace.dependencies]
 kasten-core = { path = "crates/kasten-core" }
-kasten-mcp = { path = "crates/kasten-mcp" }
+# Without the render feature: a member's `default-features = false` is ignored unless
+# this entry says it. The command-line program (built as its own package) and the
+# test runs turn drawing slides on; the desktop app asks for it only if the
+# installer stays within its budget.
+kasten-mcp = { path = "crates/kasten-mcp", default-features = false }
 slides-assets = { path = "crates/slides-assets" }
+slides-bib = { path = "crates/slides-bib" }
 slides-core = { path = "crates/slides-core" }
 slides-pptx = { path = "crates/slides-pptx" }
 slides-render = { path = "crates/slides-render" }

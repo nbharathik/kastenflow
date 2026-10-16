@@ -5,6 +5,8 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../lib/api";
+import { useSettingsJump } from "../workspace/views/settings/jump";
+import { useWorkspace } from "../workspace/store";
 import { InstallNotice } from "./InstallNotice";
 import { EDITOR_CREDIT, editorPage, megabytes, originOf, setEditorBackend, useDiagramEditor, type EditorBackend, type EditorInfo, type InstallProgress } from "./editor";
 
@@ -163,10 +165,22 @@ describe("the offer to install", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
-  it("says the preview cannot install, with no button that does nothing", async () => {
+  it("says the preview cannot install, with no install button that does nothing", async () => {
     setEditorBackend(backend().b);
     render(<InstallNotice />);
     expect((await screen.findByRole("region", { name: "Diagram editor" })).textContent).toContain("Installing needs the desktop app");
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install/ })).toBeNull();
+    // Only the way to Settings is there.
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Diagram settings"]);
+  });
+
+  it("links to Settings, Diagrams, in a tab, at the editor's row", async () => {
+    setEditorBackend(backend().b);
+    useSettingsJump.setState({ target: null });
+    render(<InstallNotice />);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Diagram settings" })));
+    expect(useSettingsJump.getState().target).toEqual({ group: "diagrams", row: "diagrams.editor" });
+    const { layout } = useWorkspace.getState();
+    expect(layout.panes.flatMap((p) => p.tabs.map((t) => t.place.view))).toContain("settings");
   });
 });

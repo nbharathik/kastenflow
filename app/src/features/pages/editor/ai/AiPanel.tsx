@@ -3,6 +3,10 @@
 // once. The answer streams into a preview and the page stays as it is
 // until Replace or Insert, one change that Mod+Z takes back, saved as the
 // person's own edit. Escape or Discard leaves the page untouched.
+//
+// "Explain" and the AI actions that write nothing are answers to read: they
+// can be copied or carried on in the chat, and never put in the page.
+// Actions that write offer Replace and Insert like Ask AI does.
 
 import "./ai.css";
 
@@ -15,10 +19,14 @@ import { Icon } from "../../../../ui/Icon";
 import { openProviders } from "../../../chat/actions";
 import { Markdown } from "../../../chat/markdown/Markdown";
 import { modelFor } from "../../../chat/prefs";
+import { runInChat } from "../../../chat/run-action";
 import { useChat } from "../../../chat/store";
-import type { WriteAction } from "../../../chat/types";
-import { aiRange, closingAi, type AiOpen } from "./ai";
-import { cleanAnswer, pageText, placeAnswer, type Placing } from "./place";
+import type { ActionRun, AiAction, ExplainScope, WriteAction } from "../../../chat/types";
+import { aiRange, closingAi, type AiOpen, type AiRange } from "./ai";
+import { ActionRow, iconOf } from "./ActionRow";
+import { continueInChat, copyAnswer, pageChip, pageFacts } from "./explain";
+import { cleanAnswer, pageText, placeAnswer, wholePage, type Placing } from "./place";
+import { useAnswer } from "./useAnswer";
 
 interface Props {
   view: EditorView;
@@ -31,27 +39,28 @@ interface Props {
   onClose(): void;
 }
 
-type Phase = "asking" | "writing" | "done" | "failed" | "setup";
+/** What the panel is doing: one of the editor's own actions, or an AI action. */
+type Kind = WriteAction | "action";
 
-const TITLES: Record<WriteAction, string> = { ask: "Ask AI", continue: "Continue writing", summarize: "Summarize page" };
+const TITLES: Record<WriteAction, string> = { ask: "Ask AI", continue: "Continue writing", summarize: "Summarize page", explain: "Explain" };
 const ON_TEXT = ["Improve the writing", "Make it shorter", "Fix spelling and grammar", "Turn it into a list"];
 const AT_CARET = ["Brainstorm ideas", "Draft an outline", "Write a to-do list"];
+const SCOPES: { scope: ExplainScope; label: string }[] = [
+  { scope: "nearby", label: "Nearby text" },
+  { scope: "page", label: "Whole page" },
+];
 
-const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 const noLinks = () => {};
-let runs = 0;
 
 export function AiPanel({ view, open, title, parse, serialize, onClose }: Props) {
   const providers = useChat((s) => s.providers);
-  const [phase, setPhase] = useState<Phase>(open.action === "ask" ? "asking" : "writing");
+  const [kind, setKind] = useState<Kind>(open.slug && open.slug !== "explain" ? "action" : open.slug === "explain" ? "explain" : open.action);
+  const [action, setAction] = useState<AiAction | null>(null);
+  const [scope, setScope] = useState<ExplainScope>("nearby");
   const [instruction, setInstruction] = useState("");
   const [asked, setAsked] = useState("");
-  const [text, setText] = useState("");
-  const [note, setNote] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const run = useRef<{ id: string; live: boolean } | null>(null);
-  const buffer = useRef("");
-  const frame = useRef(0);
+  const answer = useAnswer(open.action === "ask" && !open.slug ? "asking" : "writing");
+  const { phase, text, note, error } = answer;
   const input = useRef<HTMLInputElement>(null);
   const [chosen] = useState(() => {
     const range = aiRange(view.state);
@@ -60,78 +69,74 @@ export function AiPanel({ view, open, title, parse, serialize, onClose }: Props)
   const choice = modelFor({ provider: null, model: null }, providers);
   const client = () => useChat.getState().ensure();
 
-  /** Stops the answer under way, keeping what came. */
-  const stop = () => {
-    const current = run.current;
-    if (current?.live) void client().stopWrite(current.id);
-  };
-  /** Stops it and forgets it. */
-  const abandon = () => {
-    stop();
-    run.current = null;
-    cancelAnimationFrame(frame.current);
-    frame.current = 0;
+  /** What an AI action is run with: only what it asks for. */
+  const runFor = (picked: AiAction, id: string, pick: { provider: string; model: string }, range: AiRange, extra: string): ActionRun => {
+    const wants = new Set([...picked.needs, ...picked.optional]);
+    const around = pageText(view.state.doc, "ask", range, serialize);
+    const facts = pageFacts();
+    return {
+      id,
+      action: picked.slug,
+      provider: pick.provider,
+      model: pick.model,
+      title,
+      ...(extra ? { instruction: extra } : {}),
+      ...(wants.has("selection") ? { selection: around.selection } : {}),
+      ...(wants.has("nearby") ? { before: around.before, after: around.after } : {}),
+      ...(wants.has("page") ? { page: wholePage(view.state.doc, serialize) } : {}),
+      ...(wants.has("project") && facts.project ? { project: facts.project } : {}),
+      ...(wants.has("journal") ? { date: facts.date } : {}),
+    };
   };
 
-  const start = async (asking: string) => {
+  /** An action that proposes a change is a chat about this page that previews
+   * its changes: what it changes waits as staged changes for the person to
+   * review, and nothing is put in the page from here. */
+  const proposeInChat = (picked: AiAction) => {
+    const range = aiRange(view.state);
+    const passage = range ? pageText(view.state.doc, "ask", range, serialize).selection : "";
+    const chip = pageChip();
+    onClose();
+    void runInChat(picked.slug, chip ? [chip] : [], passage);
+  };
+
+  /** Asks for an answer in `how`: the editor's own action, or an AI action. */
+  const begin = async (how: { kind: Kind; action?: AiAction | null; scope?: ExplainScope; asking?: string }) => {
     const range = aiRange(view.state);
     if (!range) return onClose();
     const pick = modelFor({ provider: null, model: null }, useChat.getState().providers);
-    if (!pick) return setPhase("setup");
-    abandon();
-    const mine = { id: `write-${Date.now().toString(36)}-${++runs}`, live: true };
-    run.current = mine;
-    buffer.current = "";
-    setText("");
-    setNote(null);
-    setError(null);
-    setAsked(asking);
-    setPhase("writing");
-    const onText = (piece: string) => {
-      if (run.current !== mine) return;
-      buffer.current += piece;
-      if (!frame.current) {
-        frame.current = requestAnimationFrame(() => {
-          frame.current = 0;
-          if (run.current === mine) setText(buffer.current);
-        });
+    if (!pick) return answer.setPhase("setup");
+    setAsked(how.asking ?? "");
+    await answer.start((id, onText) => {
+      if (how.kind === "action") {
+        if (!how.action) throw new Error("There is no such AI action");
+        return client().runAction(runFor(how.action, id, pick, range, how.asking ?? ""), onText);
       }
-    };
-    try {
-      const page = pageText(view.state.doc, open.action, range, serialize);
-      const written = await client().write({ id: mine.id, provider: pick.provider, model: pick.model, action: open.action, instruction: asking, title, ...page }, onText);
-      if (run.current !== mine) return;
-      cancelAnimationFrame(frame.current);
-      frame.current = 0;
-      setText(written.text);
-      if (!written.text.trim()) {
-        setError(written.stopped ? "Stopped before anything was written." : "The model wrote nothing. Try again, or ask another way.");
-        setPhase("failed");
-      } else {
-        setNote(written.note ?? (written.stopped ? "Stopped: take what was written, or try again." : null));
-        setPhase("done");
-      }
-    } catch (err) {
-      if (run.current !== mine) return;
-      setError(message(err));
-      setPhase("failed");
-    } finally {
-      mine.live = false;
-    }
+      const page = pageText(view.state.doc, how.kind, range, serialize, how.scope);
+      const explaining = how.kind === "explain";
+      return client().write({ id, provider: pick.provider, model: pick.model, action: how.kind, instruction: how.asking ?? "", title, ...page, ...(explaining ? { scope: how.scope ?? "nearby" } : {}) }, onText);
+    });
   };
 
+  // Opening: the actions that need no words start at once; Ask AI waits for them.
   useEffect(() => {
     let gone = false;
     void (async () => {
       if (useChat.getState().providers === null) await useChat.getState().loadProviders();
       if (gone) return;
-      if (open.action !== "ask") void start("");
-      else if (!modelFor({ provider: null, model: null }, useChat.getState().providers)) setPhase("setup");
+      if (open.slug && open.slug !== "explain") {
+        const found = (await client().aiActions().catch(() => null))?.actions.find((a) => a.slug === open.slug) ?? null;
+        if (gone) return;
+        if (found?.writes === "propose") return proposeInChat(found);
+        setAction(found);
+        void begin({ kind: "action", action: found });
+      } else if (kind !== "ask") void begin({ kind, scope });
+      else if (!modelFor({ provider: null, model: null }, useChat.getState().providers)) answer.setPhase("setup");
       else input.current?.focus();
     })();
     return () => {
       gone = true;
-      abandon();
+      answer.abandon();
     };
     // Once per opening: the panel is keyed by it.
   }, []);
@@ -139,38 +144,64 @@ export function AiPanel({ view, open, title, parse, serialize, onClose }: Props)
   const accept = (how: Placing) => {
     const range = aiRange(view.state);
     const doc = parse(cleanAnswer(text));
-    if (!range || !doc || doc.childCount === 0) return setError("This answer could not be put in the page.");
+    if (!range || !doc || doc.childCount === 0) return answer.setError("This answer could not be put in the page.");
     view.dispatch(closingAi(placeAnswer(view.state, doc.content, range, how)));
     view.focus();
     onClose();
   };
   const discard = () => {
-    abandon();
+    answer.abandon();
     onClose();
     view.focus();
   };
   const ask = (what: string) => {
     const wanted = what.trim();
-    if (wanted) void start(wanted);
+    if (wanted) void begin({ kind: "ask", asking: wanted });
+  };
+  /** An action picked from the row: Explain keeps its own request, the rest are run. */
+  const pick = (picked: AiAction) => {
+    if (picked.slug === "explain") {
+      setKind("explain");
+      void begin({ kind: "explain", scope });
+      return;
+    }
+    if (picked.writes === "propose") return proposeInChat(picked);
+    setKind("action");
+    setAction(picked);
+    void begin({ kind: "action", action: picked });
+  };
+  const switchScope = (next: ExplainScope) => {
+    if (next === scope) return;
+    setScope(next);
+    void begin({ kind: "explain", scope: next });
   };
 
+  const readOnly = kind === "explain" || (kind === "action" && action?.writes === "none");
   const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
       discard();
-    } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && phase === "done") {
+    } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && phase === "done" && !readOnly) {
       event.preventDefault();
       accept(chosen ? "replace" : "below");
     }
   };
+  const again = () => void begin({ kind, action, scope, asking: kind === "ask" ? instruction.trim() || asked : "" });
+  const carryOver = () => {
+    const range = aiRange(view.state);
+    const passage = range ? pageText(view.state.doc, "ask", range, serialize).selection : "";
+    continueInChat({ title, passage, answer: cleanAnswer(text) });
+    discard();
+  };
 
   const answered = phase === "done" || phase === "failed";
   const preview = client().kind === "preview";
+  const heading = kind === "action" ? (action?.title ?? "AI action") : TITLES[kind];
   return (
-    <div className="kasten-ai" role="dialog" aria-label={TITLES[open.action]} onKeyDown={onKey}>
+    <div className="kasten-ai" role="dialog" aria-label={heading} onKeyDown={onKey}>
       <div className="kasten-ai-head">
-        <Icon name="sparkle" className="kasten-ai-mark" />
-        {open.action === "ask" ? (
+        <Icon name={kind === "action" && action ? iconOf(action) : kind === "explain" ? "bulb" : "sparkle"} className="kasten-ai-mark" />
+        {kind === "ask" ? (
           <form
             className="min-w-0 flex-1"
             onSubmit={(event) => {
@@ -189,34 +220,46 @@ export function AiPanel({ view, open, title, parse, serialize, onClose }: Props)
             />
           </form>
         ) : (
-          <span className="kasten-ai-title">{TITLES[open.action]}</span>
+          <span className="kasten-ai-title">{heading}</span>
         )}
         {phase === "writing" && (
-          <Button size="sm" icon="stop" onClick={stop}>
+          <Button size="sm" icon="stop" onClick={answer.stop}>
             Stop
           </Button>
         )}
       </div>
-      {phase === "asking" && !instruction && (
-        <div className="kasten-ai-quick">
-          {(chosen ? ON_TEXT : AT_CARET).map((quick) => (
-            <button
-              key={quick}
-              type="button"
-              className="kasten-ai-chip"
-              onClick={() => {
-                setInstruction(quick);
-                ask(quick);
-              }}
-            >
-              {quick}
+      {kind === "ask" && phase === "asking" && !instruction && (
+        <>
+          <div className="kasten-ai-quick">
+            {(chosen ? ON_TEXT : AT_CARET).map((quick) => (
+              <button
+                key={quick}
+                type="button"
+                className="kasten-ai-chip"
+                onClick={() => {
+                  setInstruction(quick);
+                  ask(quick);
+                }}
+              >
+                {quick}
+              </button>
+            ))}
+          </div>
+          <ActionRow have={{ selection: chosen, project: Boolean(pageFacts().project) }} onPick={pick} />
+        </>
+      )}
+      {kind === "explain" && phase !== "setup" && (
+        <div className="kasten-ai-scope" role="group" aria-label="Text to read">
+          {SCOPES.map(({ scope: value, label }) => (
+            <button key={value} type="button" className="kasten-ai-chip" aria-pressed={scope === value} onClick={() => switchScope(value)}>
+              {label}
             </button>
           ))}
         </div>
       )}
       {(phase === "writing" || text) && (
         <div className="kasten-ai-preview" aria-label="AI's answer" aria-busy={phase === "writing"}>
-          {text ? <Markdown text={cleanAnswer(text)} onOpenTitle={noLinks} /> : <span className="text-muted">Writing…</span>}
+          {text ? <Markdown text={cleanAnswer(text)} onOpenTitle={noLinks} /> : <span className="text-muted">{readOnly ? "Reading…" : "Writing…"}</span>}
         </div>
       )}
       {note && <p className="kasten-ai-note">{note}</p>}
@@ -238,7 +281,16 @@ export function AiPanel({ view, open, title, parse, serialize, onClose }: Props)
           {choice && `${choice.provider} · ${choice.model}`}
         </span>
         {phase === "done" &&
-          (chosen ? (
+          (readOnly ? (
+            <>
+              <Button size="sm" onClick={() => void copyAnswer(cleanAnswer(text))}>
+                Copy
+              </Button>
+              <Button size="sm" tone="primary" onClick={carryOver}>
+                Continue in chat
+              </Button>
+            </>
+          ) : chosen ? (
             <>
               <Button size="sm" tone="primary" onClick={() => accept("replace")}>
                 Replace selection
@@ -253,7 +305,7 @@ export function AiPanel({ view, open, title, parse, serialize, onClose }: Props)
             </Button>
           ))}
         {answered && (
-          <Button size="sm" onClick={() => void start(open.action === "ask" ? instruction.trim() || asked : "")}>
+          <Button size="sm" onClick={again}>
             Try again
           </Button>
         )}

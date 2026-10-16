@@ -6,6 +6,8 @@
 import { inTauri } from "../../../lib/api";
 import { useShell } from "../../../lib/store";
 import type { NoteMeta } from "../../../lib/vault/types";
+import { highlightSelection } from "../../annotations/highlight-registry";
+import { openComments } from "../../panel/panel-store";
 import { presentThisPage, sectionsToDeck, toggleSmartLayout } from "../../pages/present/actions";
 import { linkFor } from "../links";
 import { copyAsMarkdown, showInFolder } from "../page/page-file";
@@ -125,6 +127,22 @@ export const PAGE_COMMANDS: Command[] = [
     run: () => {
       const note = openNote();
       if (note) sectionsToDeck(note);
+    },
+  },
+  {
+    id: "page-comments",
+    label: "Comments on this page",
+    words: "comment review note feedback discuss resolve panel",
+    run: () => {
+      if (openNote()) openComments();
+    },
+  },
+  {
+    id: "highlight-selection",
+    label: "Highlight the selected words",
+    words: "mark web clip article quote colour color yellow green blue pink purple",
+    run: () => {
+      if (openNote()) void highlightSelection();
     },
   },
 ];

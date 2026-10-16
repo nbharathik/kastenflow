@@ -1,8 +1,10 @@
 import { type CSSProperties, type JSX, type KeyboardEvent, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { editorOf, focusedNow, giveFocusBack, lastEditorRoot } from "../focus/home.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { IconButton, TextButton } from "../ui/Button.tsx";
+import { holdCover } from "../ui/covers.ts";
 import { Toggle } from "../ui/Fields.tsx";
 import { useEditor } from "../useEditor.ts";
 import { type FindMatch, type FindOptions, compareAt, findAll, sameMatch } from "./find.ts";
@@ -58,11 +60,16 @@ export function FindDialog({ session, ui }: { session: EditorSession; ui: Editor
   }, [session, settings]);
 
   useEffect(() => {
-    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const before = focusedNow();
+    const editor = editorOf(card.current) ?? lastEditorRoot();
     field.current?.focus();
     field.current?.select();
-    // Closing hands the keys back to whatever had them: usually the slide.
-    return () => before?.focus?.();
+    const release = holdCover();
+    // Closing hands the keys back to whatever had them: usually the slide, and the slide when that place is gone (a menu row).
+    return () => {
+      release();
+      giveFocusBack(before, editor);
+    };
   }, []);
 
   // Mod+F and Mod+H come back to the search box instead of the browser's own.

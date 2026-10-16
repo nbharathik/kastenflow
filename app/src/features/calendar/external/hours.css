@@ -98,6 +98,13 @@
   &.is-today {
     background-color: color-mix(in srgb, var(--color-accent) 4%, transparent);
   }
+
+  /* An event of a subscribed calendar is carried over the day. */
+  &.is-over {
+    background-color: var(--color-soft);
+    outline: 1px dashed var(--color-accent);
+    outline-offset: -1px;
+  }
 }
 
 /* One thing on its hours; overlapping ones share the column. */

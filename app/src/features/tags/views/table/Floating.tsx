@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
+import { useOccludesElement } from "../../../browser/occlusion";
 import { useLatest } from "./context";
 
 interface FloatingProps {
@@ -43,6 +44,8 @@ const samePlace = (a: Place, b: Place) => a.left === b.left && a.top === b.top &
 export function Floating({ anchor, label, onClose, children, className = "", role = "dialog", minWidth = 220 }: FloatingProps) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useLatest(onClose);
+  // A browser tab's page beside the table steps aside while the panel is open (the menus and pickers of the table all sit in this panel).
+  useOccludesElement(panel);
   // Placed from the first render: a hidden panel could not take focus.
   const [place, setPlace] = useState<Place | null>(() => {
     const box = anchor.current?.getBoundingClientRect();

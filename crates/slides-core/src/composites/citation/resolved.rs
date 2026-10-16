@@ -17,6 +17,7 @@ fn cite(keys: &[&str], format: Option<CitationStyle>, h: f64) -> Element {
         base: Base::new("e-cite").place(64.0, 400.0, 700.0, h),
         keys: keys.iter().map(|k| (*k).to_owned()).collect(),
         format,
+        links: false,
         extra: Extra::new(),
     })
 }

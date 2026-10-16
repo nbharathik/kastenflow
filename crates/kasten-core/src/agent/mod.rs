@@ -3,11 +3,16 @@
 //! guardrails that decide between running, proposing and refusing live in
 //! the engine, next to the ops they guard.
 
+mod change_set;
 mod import;
 mod op;
 mod proposal;
 mod session;
 
+pub use change_set::{
+    ApplyOutcome, ChangeSet, Dropped, FileKind, MAX_STAGED_BYTES, MAX_STAGED_FILES, NewFile,
+    StagedAsset, StagedFile, Step,
+};
 pub use import::{DeckImport, ImportedDeck};
 pub use op::AgentOp;
 pub use proposal::{PROPOSALS, Proposal, ProposalStatus, Target};

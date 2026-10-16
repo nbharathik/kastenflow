@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isoDay } from "../../lib/dates";
 import type { TagSchema } from "../../lib/vault/types";
 import { dateItems, dateRanges } from "../calendar/dates";
+import { useEventDrop } from "../calendar/external/use-event-drop";
 import { useSchemas } from "../calendar/use-data";
 import { LazyNotePage } from "../workspace/page/LazyNotePage";
 import { usePrefs } from "../workspace/prefs";
@@ -33,6 +34,8 @@ export function JournalView({ path }: { path?: string }) {
   const marks = useMemo(() => dayMarks(notes, dateItems(notes, schemas), dateRanges(notes, schemas)), [notes, schemas]);
   const note = pages.get(day);
   const listOpen = usePrefs((s) => s.journalDays);
+  // An event of a subscribed calendar dropped on the page makes a note for its day.
+  const drop = useEventDrop(day);
 
   // Today's page exists as soon as the journal opens; other days only
   // once someone writes in them.
@@ -44,7 +47,7 @@ export function JournalView({ path }: { path?: string }) {
   return (
     <div className="kasten-journal">
       <div className="kasten-journal-main">
-        <div className="kasten-journal-page">
+        <div className={`kasten-journal-page${drop.over ? " is-event-over" : ""}`} {...drop.props}>
           {note && client ? (
             <LazyNotePage key={note.path} client={client} path={note.path} />
           ) : day === today ? (

@@ -1,6 +1,8 @@
 //! Making notes: from a template, with tags and properties, or as a quick
 //! capture in the inbox, each as one commit.
 
+use serde_json::{Map, Value};
+
 use super::{Change, Kasten};
 use crate::atomic::write_atomic;
 use crate::error::{Error, Result};
@@ -9,7 +11,86 @@ use crate::history::Actor;
 use crate::note::NoteFile;
 use crate::ops::{self, NewNote};
 use crate::slug::slugify;
+use crate::tags::TagSchema;
 use crate::time::Instant;
+use crate::vault::Vault;
+
+/// `all` with the given `tags` added (case ignored, `#` and blanks dropped).
+pub(crate) fn with_tags(mut all: Vec<String>, tags: &[String]) -> Vec<String> {
+    for tag in tags
+        .iter()
+        .map(|t| t.trim().trim_start_matches('#'))
+        .filter(|t| !t.is_empty())
+    {
+        if !all.iter().any(|a| a.eq_ignore_ascii_case(tag)) {
+            all.push(tag.to_owned());
+        }
+    }
+    all
+}
+
+/// The properties of a new note checked against the tags it will have (its
+/// template's and the given ones); none when there are none.
+pub(crate) fn new_props(
+    vault: &Vault,
+    schemas: &[TagSchema],
+    new: &NewNote,
+    tags: &[String],
+    props: &Map<String, Value>,
+) -> Result<Option<Map<String, Value>>> {
+    if props.is_empty() {
+        return Ok(None);
+    }
+    let from_template = match &new.template {
+        Some(name) => {
+            vault
+                .read(&format!("templates/{}.md", slugify(name)))?
+                .meta
+                .tags
+        }
+        None => Vec::new(),
+    };
+    let all = with_tags(from_template, tags);
+    Ok(Some(crate::tags::check_props(schemas, &all, props)?))
+}
+
+/// The text of a note just made (`created`) with its body, the given tags
+/// and the checked properties put in. The pure step of `create_with_body`,
+/// which a staged change shares.
+pub(crate) fn finished_text(
+    created: &str,
+    body: &str,
+    tags: &[String],
+    checked: Option<&Map<String, Value>>,
+) -> Result<String> {
+    let parts = split(created);
+    let eol = if created.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let mut prefix = parts.prefix.to_owned();
+    let had = crate::frontmatter::Front::read(parts.prefix)
+        .tags
+        .map(|t| t.0)
+        .unwrap_or_default();
+    let all = with_tags(had.clone(), tags);
+    if all != had {
+        prefix = set_key_raw(&prefix, "tags", Some(&yaml_list(&all)), eol);
+    }
+    if let Some(checked) = checked {
+        prefix = crate::props::set_props(&prefix, checked, eol)?;
+    }
+    let body = if body.trim().is_empty() {
+        parts.body.to_owned()
+    } else if body.ends_with('\n') {
+        body.to_owned()
+    } else {
+        format!("{body}{eol}")
+    };
+    still_readable(parts.prefix, &prefix)?;
+    Ok(join(&prefix, &body, eol))
+}
 
 impl Kasten {
     pub fn create(&self, actor: &Actor, new: &NewNote, now: Instant) -> Result<NoteFile> {
@@ -44,67 +125,23 @@ impl Kasten {
         verb: &str,
         now: Instant,
     ) -> Result<NoteFile> {
+        if let Some(name) = &new.template {
+            ops::not_an_action(name)?;
+        }
         let schemas = if props.is_empty() {
             Vec::new()
         } else {
             self.tag_schemas()?
         };
-        let with_tags = |mut all: Vec<String>| {
-            for tag in tags
-                .iter()
-                .map(|t| t.trim().trim_start_matches('#'))
-                .filter(|t| !t.is_empty())
-            {
-                if !all.iter().any(|a| a.eq_ignore_ascii_case(tag)) {
-                    all.push(tag.to_owned());
-                }
-            }
-            all
-        };
         self.apply(actor, "create_note", false, now.millis, |vault| {
             // Check the properties before writing anything, against the
             // tags the note will have (its template's and the given ones),
             // so a refusal leaves no file behind.
-            let checked = if props.is_empty() {
-                None
-            } else {
-                let from_template = match &new.template {
-                    Some(name) => {
-                        vault
-                            .read(&format!("templates/{}.md", slugify(name)))?
-                            .meta
-                            .tags
-                    }
-                    None => Vec::new(),
-                };
-                let all = with_tags(from_template);
-                Some(crate::tags::check_props(&schemas, &all, props)?)
-            };
+            let checked = new_props(vault, &schemas, new, tags, props)?;
             let created = ops::create_note(vault, new, now)?;
-            let parts = split(&created.text);
-            let eol = if created.text.contains("\r\n") {
-                "\r\n"
-            } else {
-                "\n"
-            };
-            let mut prefix = parts.prefix.to_owned();
-            let all = with_tags(created.meta.tags.clone());
-            if all != created.meta.tags {
-                prefix = set_key_raw(&prefix, "tags", Some(&yaml_list(&all)), eol);
-            }
-            if let Some(checked) = &checked {
-                prefix = crate::props::set_props(&prefix, checked, eol)?;
-            }
-            let body = if body.trim().is_empty() {
-                parts.body.to_owned()
-            } else if body.ends_with('\n') {
-                body.to_owned()
-            } else {
-                format!("{body}{eol}")
-            };
+            let text = finished_text(&created.text, body, tags, checked.as_ref())?;
             let path = created.meta.path.clone();
-            still_readable(parts.prefix, &prefix)?;
-            write_atomic(&vault.path_of(&path)?, join(&prefix, &body, eol).as_bytes())?;
+            write_atomic(&vault.path_of(&path)?, text.as_bytes())?;
             let note = vault.read(&path)?;
             let mut paths = vec![path];
             paths.extend(new.parent.clone());

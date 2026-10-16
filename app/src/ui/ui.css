@@ -124,6 +124,7 @@
   }
 
   .ui-icon-btn {
+    position: relative;
     display: inline-grid;
     width: 28px;
     height: 28px;
@@ -148,6 +149,39 @@
   .ui-icon-btn.is-sm {
     width: 24px;
     height: 24px;
+  }
+
+  /* A small mark on an icon button: a dot that pulses while something works,
+     or the count of things that need a look. Drawn over the icon's corner. */
+  .ui-icon-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    display: grid;
+    min-width: 8px;
+    height: 8px;
+    place-items: center;
+    border-radius: 9999px;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font: 600 var(--text-11)/1 var(--font-sans);
+    pointer-events: none;
+  }
+  .ui-icon-badge[data-kind="working"] {
+    animation: ui-badge-pulse 1s ease-in-out infinite;
+  }
+  @keyframes ui-badge-pulse {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  .ui-icon-badge[data-kind="count"] {
+    top: -2px;
+    right: -3px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    box-shadow: 0 0 0 2px var(--color-canvas);
   }
 
   /* Keycaps, Raycast style: a hairline edge and a slightly deeper bottom. */

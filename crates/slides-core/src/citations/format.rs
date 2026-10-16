@@ -141,41 +141,88 @@ fn numbered(key: &str, position: usize, cites: &Cites) -> String {
     }
 }
 
-/// The lines a citation shows, one per paragraph. `cites` says what it can look the keys
-/// up in and how the deck numbers them; with neither, the keys are written as they are.
-pub fn lines(keys: &[String], style: &CitationStyle, cites: &Cites) -> Vec<String> {
+/// A stretch of a citation's line: its words, and the key of the work they stand for when they
+/// stand for one. The words between works (`; `, brackets, the number of a list item) name none.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Piece {
+    pub text: String,
+    pub key: Option<String>,
+}
+
+impl Piece {
+    fn between(text: impl Into<String>) -> Piece {
+        Piece {
+            text: text.into(),
+            key: None,
+        }
+    }
+
+    fn of(text: String, key: &str) -> Piece {
+        Piece {
+            text,
+            key: Some(key.to_owned()),
+        }
+    }
+}
+
+/// The lines a citation shows, one per paragraph, each in pieces that say which work they name.
+/// `cites` says what it can look the keys up in and how the deck numbers them; with neither, the
+/// keys are written as they are. Put end to end, the pieces of a line are what [`lines`] gives.
+pub fn pieces(keys: &[String], style: &CitationStyle, cites: &Cites) -> Vec<Vec<Piece>> {
     let all: Vec<&str> = match (style, cites.numbering) {
         (CitationStyle::List, Some(numbering)) => numbering.keys().collect(),
         _ => keys.iter().map(String::as_str).collect(),
     };
     if all.is_empty() {
-        return vec![String::new()];
+        return vec![vec![Piece::between("")]];
     }
     match style {
         CitationStyle::Short => {
-            let labels: Vec<String> = all
-                .iter()
-                .map(|key| described(key, cites, short_label))
-                .collect();
-            match cites.refs {
-                Some(_) => vec![labels.join("; ")],
-                None => vec![format!("({})", labels.join("; "))],
+            // Without a bibliography the keys stand in brackets, as a citation to be looked up.
+            let bracketed = cites.refs.is_none();
+            let mut line = Vec::new();
+            if bracketed {
+                line.push(Piece::between("("));
             }
+            for (i, key) in all.iter().enumerate() {
+                if i > 0 {
+                    line.push(Piece::between("; "));
+                }
+                line.push(Piece::of(described(key, cites, short_label), key));
+            }
+            if bracketed {
+                line.push(Piece::between(")"));
+            }
+            vec![line]
         }
         CitationStyle::Numbered => vec![
             all.iter()
                 .enumerate()
-                .map(|(i, key)| numbered(key, i + 1, cites))
+                .map(|(i, key)| Piece::of(numbered(key, i + 1, cites), key))
                 .collect(),
         ],
         CitationStyle::Full => all
             .iter()
-            .map(|key| described(key, cites, full_label))
+            .map(|key| vec![Piece::of(described(key, cites, full_label), key)])
             .collect(),
         CitationStyle::List => all
             .iter()
             .enumerate()
-            .map(|(i, key)| format!("[{}] {}", i + 1, described(key, cites, full_label)))
+            .map(|(i, key)| {
+                vec![
+                    Piece::between(format!("[{}] ", i + 1)),
+                    Piece::of(described(key, cites, full_label), key),
+                ]
+            })
             .collect(),
     }
+}
+
+/// The lines a citation shows, one per paragraph. `cites` says what it can look the keys
+/// up in and how the deck numbers them; with neither, the keys are written as they are.
+pub fn lines(keys: &[String], style: &CitationStyle, cites: &Cites) -> Vec<String> {
+    pieces(keys, style, cites)
+        .into_iter()
+        .map(|line| line.into_iter().map(|piece| piece.text).collect())
+        .collect()
 }

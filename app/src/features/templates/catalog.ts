@@ -47,6 +47,7 @@ const KNOWN: Record<string, Known> = {
   interview: { label: "Interview", category: "Work", description: "Questions, notes, signals and a recommendation." },
   "weekly-status": { label: "Weekly status", category: "Work", description: "Done, next, risks and asks, for someone who reads only this." },
   "project-kickoff": { label: "Project kickoff", category: "Work", description: "Why, what done looks like, people, milestones and risks." },
+  "project-update": { label: "Project update", category: "Work", description: "Progress, decisions, blockers and the next action, dated." },
   paper: { label: "Paper", category: "Study and research", description: "A paper draft with abstract, sections and references." },
   reading: { label: "Reading notes", category: "Knowledge", description: "Source, summary, key ideas, quotes and your thoughts." },
   "literature-review": { label: "Literature review", category: "Study and research", description: "Sources in a table, themes, gaps and what to read next." },

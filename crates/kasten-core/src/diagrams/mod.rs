@@ -10,13 +10,24 @@
 //! rewrites it, and never replaces a file it did not read.
 
 mod cells;
+pub mod describe;
+pub mod draw;
 mod files;
 mod format;
 mod import;
 mod info;
+pub mod layout;
+pub mod lint;
+pub mod model;
+mod moved;
 mod names;
 mod pairs;
+pub mod presets;
 mod relink;
+pub mod sanitize;
+pub mod shapes;
+pub mod spec;
+pub mod steps;
 mod xml;
 
 #[cfg(test)]
@@ -24,14 +35,16 @@ mod xml_tests;
 
 pub use cells::{cell_ids, removed_cells};
 pub use files::{
-    DiagramFile, DiagramSaved, Preview, check_new_diagram, create_diagram, read_diagram,
-    read_preview, write_diagram, write_preview,
+    DiagramFile, DiagramSaved, Preview, check_new_diagram, create_diagram, draft_for, plan_diagram,
+    read_diagram, read_preview, write_diagram, write_draft, write_edited, write_preview,
 };
 pub use format::{
-    EXT, MAX_BYTES, SIDECAR_EXT, blank_xml, check_svg, check_xml, sidecar_of, stamp_of, stamped,
+    DRAFT_MARK, EXT, MAX_BYTES, SIDECAR_EXT, blank_xml, check_svg, check_xml, sidecar_of, stamp_of,
+    stamped,
 };
 pub use import::import_diagram;
 pub use info::{DiagramInfo, DiagramMoved, list};
+pub use moved::moved_cells;
 pub use names::title_of;
 pub(crate) use names::{free_pair, stem_of_path};
 pub use pairs::{

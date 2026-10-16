@@ -1,5 +1,6 @@
 import { type JSX, useLayoutEffect, useMemo, useRef } from "react";
 
+import { editorOf, focusedNow, giveFocusBack, lastEditorRoot } from "../focus/home.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { Menu } from "../ui/Menu.tsx";
@@ -10,14 +11,15 @@ import { contextItems } from "./context-items.ts";
 import { MENU_LIST, useFocusWhenShown } from "./focus.ts";
 import "./menus.css";
 
-/** Puts the focus back where it was when the menu goes, unless something else has taken it since (a dialog, a text box). */
+/**
+ * Puts the focus back where it was when the menu goes, unless something else has taken it since (a dialog, a text box). When the place
+ * it was is gone (the row of a filmstrip that was deleted, a block that was cut) it goes to the editor's home and not to the page.
+ */
 function useRestoreFocus(active: boolean): void {
   useLayoutEffect(() => {
     if (!active) return;
-    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => {
-      if (before?.isConnected && (document.activeElement === document.body || document.activeElement === null)) before.focus({ preventScroll: true });
-    };
+    const before = focusedNow();
+    return () => giveFocusBack(before, editorOf(before) ?? lastEditorRoot());
   }, [active]);
 }
 

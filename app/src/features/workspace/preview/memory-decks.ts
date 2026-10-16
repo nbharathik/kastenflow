@@ -2,11 +2,14 @@
 // with the hash they were read with, and decks in the trash. Inside the app
 // the core does this (kasten-core's deck module and engine/decks.rs).
 
-import type { DeckFile, DeckInfo, DeckSaved, NoteFile, Trashed } from "../../../lib/vault/types";
+import type { DeckFile, DeckInfo, DeckSaved, DecksSaved, NoteFile, SaveDecksRequest, Trashed } from "../../../lib/vault/types";
 import { MemoryBoards } from "./memory-boards";
 import { contentHash, slugify, stamps } from "./vault-text";
 
 const FORMAT = "kasten-deck";
+
+/** The most decks one save of several changes (kasten-core's `MAX_SAVE_DECKS`). */
+const MOST_SAVED = 500;
 
 /** Where slide templates are made; a deck anywhere in `templates/` is a template, not one of the person's decks (kasten-core's `deck::is_template`). */
 const TEMPLATES = "templates/slides/";
@@ -101,7 +104,7 @@ export class MemoryDecks extends MemoryBoards {
 
   /** The `.bib` files of the vault, one after another in the order of their paths (engine/references.rs). */
   async references(): Promise<string> {
-    return Object.values(this.bibliography)
+    return Object.values(this.bibFiles)
       .map((text) => `${text}\n`)
       .join("");
   }
@@ -137,6 +140,35 @@ export class MemoryDecks extends MemoryBoards {
     decks[path] = text;
     this.persist();
     return { status: "written", deck: this.fileOf(path) };
+  }
+
+  /** Several decks together, all or none (engine/decks.rs `save_decks`). The preview keeps no history, so there is no commit to undo. */
+  async saveDecks(request: SaveDecksRequest): Promise<DecksSaved> {
+    const message = request.message.trim();
+    if (!message || /[\n\r]/.test(message) || [...message].length > 200) throw new Error("A save of several decks needs a message of one line, up to 200 characters");
+    if (request.edits.length === 0) throw new Error("Nothing to save: no deck was given");
+    if (request.edits.length > MOST_SAVED) throw new Error(`At most ${MOST_SAVED} decks can be saved at once`);
+    const seen = new Set<string>();
+    for (const edit of request.edits) {
+      if (seen.has(edit.path)) throw new Error(`${edit.path} is listed twice`);
+      seen.add(edit.path);
+    }
+    // Every deck is read and every text checked before the first write.
+    const work = request.edits.map((edit) => {
+      const current = this.fileOf(edit.path);
+      if (current.hash !== edit.baseHash) throw new Error("Some decks changed since you looked, so nothing was saved. Look again.");
+      deckHead(edit.text);
+      return { edit, current };
+    });
+    const decks = (this.data.decks ??= {});
+    const paths: string[] = [];
+    for (const { edit, current } of work) {
+      if (current.text === edit.text) continue;
+      decks[edit.path] = edit.text;
+      paths.push(edit.path);
+    }
+    if (paths.length > 0) this.persist();
+    return { commit: null, paths };
   }
 
   override async trash(path: string): Promise<string> {

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { inTauri } from "../../lib/api";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
+import { openSettingsAt } from "../workspace/views/settings/jump";
 import { EDITOR_CREDIT, megabytes, useDiagramEditor } from "./editor";
 
 /** The line that offers the diagram editor while it is not installed: what it is, how big, where from, and the licence.
@@ -45,12 +46,20 @@ export function InstallNotice({ className = "" }: { className?: string }) {
         <Button size="sm" onClick={() => void useDiagramEditor.getState().cancel()}>
           Cancel
         </Button>
-      ) : desktop ? (
-        <Button tone="primary" icon="download" onClick={() => void useDiagramEditor.getState().install()}>
-          {error ? "Try again" : `Install diagram editor (${size})`}
-        </Button>
       ) : (
-        <span className="text-13 text-muted">Installing needs the desktop app.</span>
+        <>
+          {desktop ? (
+            <Button tone="primary" icon="download" onClick={() => void useDiagramEditor.getState().install()}>
+              {error ? "Try again" : `Install diagram editor (${size})`}
+            </Button>
+          ) : (
+            <span className="text-13 text-muted">Installing needs the desktop app.</span>
+          )}
+          {/* Where the editor is installed, removed and credited; opened in a tab so nothing here is lost. */}
+          <Button tone="quiet" size="sm" icon="settings" title="Open Settings, Diagrams" onClick={() => openSettingsAt({ group: "diagrams", row: "diagrams.editor" }, "tab")}>
+            Diagram settings
+          </Button>
+        </>
       )}
     </section>
   );

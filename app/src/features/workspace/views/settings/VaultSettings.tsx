@@ -3,6 +3,8 @@
 
 import { Button } from "../../../../ui/Button";
 import type { RowComponent } from "../../../backup/parts";
+import { HealthSettings } from "../../../health/HealthSettings";
+import { askToExport } from "../../../projects/export/request";
 import { showInFolder } from "../../page/page-file";
 import { useWorkspace } from "../../store";
 import { VaultSafety } from "../VaultSafety";
@@ -40,6 +42,13 @@ export function VaultSettings({ onSwitch }: { onSwitch: () => void }) {
           Import…
         </Button>
       </Row>
+      {!preview && (
+        <Row id="vault.export">
+          <Button size="sm" icon="upload" onClick={() => askToExport()}>
+            Export…
+          </Button>
+        </Row>
+      )}
       {!preview && (
         <Row id="vault.switch">
           <Button size="sm" icon="move-to" onClick={onSwitch}>
@@ -84,8 +93,11 @@ const SafetyRow: RowComponent = ({ label, detail, help, children }) => {
 
 export function HistorySettings() {
   return (
-    <Group title="History and backup">
-      <VaultSafety Row={SafetyRow} />
-    </Group>
+    <>
+      <Group title="History and backup">
+        <VaultSafety Row={SafetyRow} />
+      </Group>
+      <HealthSettings />
+    </>
   );
 }

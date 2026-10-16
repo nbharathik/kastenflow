@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 
 import { useBoards } from "../features/boards/store";
+import { useDiagrams } from "../features/diagrams/store";
 import { useDecks } from "../features/slides/store";
 import { SIDEBAR_WIDTH, usePrefs } from "../features/workspace/prefs";
 import { matchTree, sidebarLoose, type Named } from "../features/workspace/sidebar-rows";
@@ -16,11 +17,13 @@ import { ResizeHandle } from "../ui/ResizeHandle";
 import { SETTINGS_NAV } from "./nav";
 import { FavouriteBoards } from "./BoardRows";
 import { FavouriteDecks } from "./DeckRows";
+import { FavouriteDiagrams } from "./DiagramRows";
 import { FolderTree } from "./FolderTree";
 import { Menu } from "./Menu";
 import { ACTIVE_ROW, IDLE_ROW, openView, ROW, useActive } from "./NavRow";
 import { RowList, TreeRow } from "./PageTree";
 import { DROP_INTO, useDropInto } from "./drop-into";
+import { ProjectsHubButton } from "./projects/HubButton";
 import { ProjectList } from "./projects/ProjectList";
 import { SelectionBar } from "./SelectionBar";
 import { SidebarNav } from "./SidebarNav";
@@ -40,6 +43,7 @@ export function Sidebar() {
   const savedWidth = usePrefs((s) => s.sidebarWidth);
   const boards = useBoards((s) => s.list);
   const decks = useDecks((s) => s.list);
+  const diagrams = useDiagrams((s) => s.list);
   // The width while its edge is dragged; the preference once it is let go.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const width = dragWidth ?? savedWidth;
@@ -50,11 +54,12 @@ export function Sidebar() {
   const favouriteNotes = favourites.map((p) => noteAt(notes, p)).filter((n): n is NonNullable<typeof n> => Boolean(n));
   const favouriteBoards = favourites.filter((p) => p.endsWith(".canvas"));
   const favouriteDecks = favourites.filter((p) => p.endsWith(".deck"));
+  const favouriteDiagrams = favourites.filter((p) => p.endsWith(".drawio"));
 
   // What is typed in the filter box narrows the tree to the titles that
-  // match, whiteboards and decks included, with what holds them opened out.
+  // match, whiteboards, decks and diagrams included, with what holds them opened out.
   const [query, setQuery] = useState("");
-  const named = useMemo<Named[]>(() => [...boards, ...decks].map(({ path, title, project }) => ({ path, title, project: project ?? null })), [boards, decks]);
+  const named = useMemo<Named[]>(() => [...boards, ...decks, ...diagrams].map(({ path, title, project }) => ({ path, title, project: project ?? null })), [boards, decks, diagrams]);
   const match = useMemo(() => matchTree(notes, query, named), [notes, query, named]);
 
   return (
@@ -107,16 +112,17 @@ export function Sidebar() {
         <TreeFilterBox value={query} onChange={setQuery} />
         <TreeFilterProvider value={match}>
           {match && match.show.size === 0 && <p className="px-3 py-2 text-13 text-muted">No page is called “{query.trim()}”.</p>}
-          {(favouriteNotes.length > 0 || favouriteBoards.length > 0 || favouriteDecks.length > 0) && (
+          {(favouriteNotes.length > 0 || favouriteBoards.length > 0 || favouriteDecks.length > 0 || favouriteDiagrams.length > 0) && (
             <Section title="Favourites">
               {favouriteNotes.map((note) => (
                 <TreeRow key={note.path} note={note} />
               ))}
               <FavouriteBoards paths={favouriteBoards} />
               <FavouriteDecks paths={favouriteDecks} />
+              <FavouriteDiagrams paths={favouriteDiagrams} />
             </Section>
           )}
-          <Section title="Projects" onAdd={() => setNaming(true)} addLabel="New project">
+          <Section title="Projects" onAdd={() => setNaming(true)} addLabel="New project" actions={<ProjectsHubButton />}>
             <ProjectList>
               {naming && (
                 <li className="px-1 py-0.5">
@@ -212,11 +218,13 @@ interface SectionProps {
   children: ReactNode;
   onAdd?: () => void;
   addLabel?: string;
+  /** Small buttons beside the heading, ahead of "+". */
+  actions?: ReactNode;
   /** Pages dropped here move in. */
   drop?: ReturnType<typeof useDropInto>;
 }
 
-function Section({ title, children, onAdd, addLabel, drop }: SectionProps) {
+function Section({ title, children, onAdd, addLabel, actions, drop }: SectionProps) {
   const folded = usePrefs((s) => s.foldedSections.includes(title));
   const fold = () => {
     const { foldedSections, set } = usePrefs.getState();
@@ -231,6 +239,7 @@ function Section({ title, children, onAdd, addLabel, drop }: SectionProps) {
             <Icon name="chevron" className={`size-3 opacity-0 group-hover:opacity-100 ${folded ? "" : "rotate-90"}`} />
           </button>
         </h2>
+        {actions}
         {onAdd && (
           <button
             type="button"

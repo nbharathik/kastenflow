@@ -1,6 +1,7 @@
 //! Decks on disk: created where boards go, read with the hash a save must
 //! bring back, and written atomically.
 
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::time::UNIX_EPOCH;
@@ -11,7 +12,7 @@ use super::head::{MAX_BYTES, head_of};
 use crate::atomic::{create_atomic, write_atomic};
 use crate::error::{Error, Result};
 use crate::note::content_hash;
-use crate::ops::{free_file, kind_folder};
+use crate::ops::{free_file_besides, kind_folder};
 use crate::save::fitting;
 use crate::slug::slugify;
 use crate::time::Instant;
@@ -53,9 +54,24 @@ pub fn create_deck(
     project: Option<&str>,
     text: &str,
 ) -> Result<String> {
-    let (title, folder) = checked_new(vault, title, project, text)?;
-    let path = free_file(vault, &folder, &slugify(&title), EXT);
+    let path = plan_deck(vault, title, project, text, &HashSet::new())?;
     create_atomic(&vault.file_of(&path, &[EXT])?, text.as_bytes())?;
+    Ok(path)
+}
+
+/// Where `create_deck` would put the deck (passing over `taken`, paths a
+/// staged change means to use), with nothing written; refused for what it
+/// would refuse. The pure step of `create_deck`, which a staged change shares.
+pub fn plan_deck(
+    vault: &Vault,
+    title: &str,
+    project: Option<&str>,
+    text: &str,
+    taken: &HashSet<String>,
+) -> Result<String> {
+    let (title, folder) = checked_new(vault, title, project, text)?;
+    let path = free_file_besides(vault, &folder, &slugify(&title), EXT, taken);
+    vault.file_of(&path, &[EXT])?;
     Ok(path)
 }
 

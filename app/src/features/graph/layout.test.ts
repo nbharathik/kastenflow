@@ -45,13 +45,13 @@ describe("the force layout", () => {
     expect(closest).toBeGreaterThan(5);
   });
 
-  it("keeps the whole picture centred and nodes without links near the middle", () => {
+  it("keeps the linked graph centred and the nodes without links near it (their island is in layout-orphans.test.ts)", () => {
     const edges = pairs([0, 1], [1, 2], [2, 3]);
     const p = settle(12, edges, { seed: 5 });
     let [mx, my] = [0, 0];
-    for (let i = 0; i < 12; i++) [mx, my] = [mx + p[2 * i]!, my + p[2 * i + 1]!];
-    expect(Math.abs(mx / 12)).toBeLessThan(1);
-    expect(Math.abs(my / 12)).toBeLessThan(1);
+    for (let i = 0; i < 4; i++) [mx, my] = [mx + p[2 * i]!, my + p[2 * i + 1]!];
+    expect(Math.abs(mx / 4)).toBeLessThan(1);
+    expect(Math.abs(my / 4)).toBeLessThan(1);
     // The loners did not fly away.
     for (let i = 4; i < 12; i++) expect(Math.hypot(p[2 * i]!, p[2 * i + 1]!)).toBeLessThan(400);
   });

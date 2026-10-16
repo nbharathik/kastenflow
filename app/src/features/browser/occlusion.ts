@@ -4,10 +4,10 @@
 // browser's area, the view is hidden and its placeholder shows the page's
 // title instead. An overlay that cannot say where it is covers the window.
 
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, type RefObject } from "react";
 import { create } from "zustand";
 
-import { overlaps, type Box } from "./bounds";
+import { boxOf, isEmpty, overlaps, type Box } from "./bounds";
 
 /** What an overlay covers: a rectangle, or the whole window. */
 export type Hold = Box | "all";
@@ -78,6 +78,51 @@ export function useOccludes(on = true, measure?: () => Box | null): void {
   useEffect(() => {
     if (on && latest.current) useOcclusion.getState().hold(key, latest.current() ?? "all");
   });
+}
+
+let elements = 0;
+
+/** A popup that is a plain element of the page (a menu a text editor builds, not a
+ * component) covers the area it takes for as long as it is on the page. The
+ * rectangle is read now, and again whenever the element's size or style changes
+ * (the editor moves a menu by its style) or the window resizes or scrolls; an element
+ * that is gone or has no area covers nothing. Returns how to let go. */
+export function occludeElement(element: Element): () => void {
+  const key = `element:${++elements}`;
+  const place = () => {
+    const box = element.isConnected ? boxOf(element.getBoundingClientRect()) : null;
+    if (box && !isEmpty(box)) useOcclusion.getState().hold(key, box);
+    else useOcclusion.getState().release(key);
+  };
+  place();
+  const stops: (() => void)[] = [];
+  if (typeof ResizeObserver !== "undefined") {
+    const resized = new ResizeObserver(place);
+    resized.observe(element);
+    stops.push(() => resized.disconnect());
+  }
+  if (typeof MutationObserver !== "undefined") {
+    const moved = new MutationObserver(place);
+    moved.observe(element, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
+    stops.push(() => moved.disconnect());
+  }
+  window.addEventListener("resize", place);
+  window.addEventListener("scroll", place, true);
+  return () => {
+    stops.forEach((stop) => stop());
+    window.removeEventListener("resize", place);
+    window.removeEventListener("scroll", place, true);
+    useOcclusion.getState().release(key);
+  };
+}
+
+/** The same for a component's own element: it covers its area while it is shown (`on`). */
+export function useOccludesElement(element: RefObject<Element | null>, on = true): void {
+  useLayoutEffect(() => {
+    const target = element.current;
+    if (!on || !target) return;
+    return occludeElement(target);
+  }, [element, on]);
 }
 
 /** A gesture holds the window while it lasts (a tab or a pane being dragged,

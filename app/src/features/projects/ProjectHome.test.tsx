@@ -60,6 +60,15 @@ describe("a project's home", () => {
     expect(await screen.findByTestId("page-editor", {}, { timeout: 20_000 })).toBeTruthy();
   });
 
+  it("shows the project's status in its Summary and changes it from a menu, through the core", async () => {
+    const home = await openProject();
+    const summary = within(home).getByRole("region", { name: "Summary" });
+    fireEvent.click(within(summary).getByRole("button", { name: "Project status: Active" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Status: Paused" }));
+    await within(summary).findByRole("button", { name: "Project status: Paused" });
+    expect(await text(PROJECT)).toContain("status: Paused");
+  });
+
   it("adds a to-do under the project page's To-dos heading and ticks one", async () => {
     const home = await openProject();
     const todos = within(home).getByRole("region", { name: "To-dos" });
@@ -109,6 +118,14 @@ describe("a project's home", () => {
     await act(async () => fireEvent.click(within(menu).getByRole("button", { name: /Hide for this project/ })));
     await expect.poll(() => text(PROJECT)).toContain("home: false");
     await expect.poll(() => screen.queryByRole("region", { name: "Project home" })).toBeNull();
+  });
+
+  it("opens the overview from an icon, named and with a tooltip, not from a word", async () => {
+    const home = await openProject();
+    const expand = within(home).getByRole("button", { name: "Open overview" });
+    expect(expand.textContent).toBe("");
+    expect(expand.title).toBe("Open the project overview full size");
+    expect(within(home).queryByText("Expand")).toBeNull();
   });
 
   it("folds away and stays folded", async () => {

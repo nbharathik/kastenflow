@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    {"id": "question", "type": "text", "text": "**Research question**\nWhat this project asks", "x": 0, "y": 160, "width": 260, "height": 110, "color": "6"},
+    {"id": "theory", "type": "text", "text": "**Theory**\nThe ideas it builds on", "x": 360, "y": 0, "width": 260, "height": 110, "color": "5"},
+    {"id": "methods", "type": "text", "text": "**Methods**\nHow others tested it", "x": 360, "y": 160, "width": 260, "height": 110, "color": "4"},
+    {"id": "gap", "type": "text", "text": "**Gap**\nWhat nobody has answered", "x": 360, "y": 320, "width": 260, "height": 110, "color": "1"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "question", "fromSide": "right", "toNode": "theory", "toSide": "left"},
+    {"id": "e2", "fromNode": "question", "fromSide": "right", "toNode": "methods", "toSide": "left"},
+    {"id": "e3", "fromNode": "question", "fromSide": "right", "toNode": "gap", "toSide": "left", "label": "so we ask"}
+  ]
+}

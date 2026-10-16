@@ -15,6 +15,8 @@ import type { EditorState } from "./session/types.ts";
 
 /** The field of an image element that names the diagram it is a picture of. */
 export const DIAGRAM_KEY = "x-diagram";
+/** The field that names which version of the diagram the picture was drawn from (the host's word for a version). */
+export const REVISION_KEY = "x-diagram-rev";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -25,6 +27,13 @@ export function diagramOf(element: Element | undefined): string | undefined {
   return typeof source === "string" && source !== "" ? source : undefined;
 }
 
+/** The version of its diagram a picture was drawn from, when the deck kept one. */
+export function revisionOf(element: Element | undefined): string | undefined {
+  if (element?.type !== "image") return undefined;
+  const rev = (element as unknown as Record<string, unknown>)[REVISION_KEY];
+  return typeof rev === "string" && rev !== "" ? rev : undefined;
+}
+
 /** The selected picture and its diagram, when exactly one picture of a diagram is selected. */
 export function selectedDiagram(state: EditorState): { id: string; source: string } | undefined {
   const id = state.selection.length === 1 ? state.selection[0] : undefined;
@@ -33,7 +42,23 @@ export function selectedDiagram(state: EditorState): { id: string; source: strin
   return id && source ? { id, source } : undefined;
 }
 
-const altOf = (picture: DiagramPicture) => `Diagram: ${picture.name}`;
+const altOf = (picture: { name: string }) => `Diagram: ${picture.name}`;
+
+/** The words the editor gives a picture of a diagram (`Diagram: Login flow`); any other description is the person's own. */
+const GENERATED_ALT = /^Diagram: /;
+
+/** Whether the person worked on a picture of a diagram: they cropped it, or wrote its description. A new picture put over it would lose that. */
+export function editedLocally(element: Element): boolean {
+  if (element.type !== "image") return false;
+  const alt = element.alt ?? "";
+  return Boolean(element.crop) || (alt !== "" && !GENERATED_ALT.test(alt));
+}
+
+/** What a picture of a diagram is called, from its description (`Diagram: Login flow`), else from its diagram's file name. */
+export function pictureName(element: Element, source: string): string {
+  const alt = element.type === "image" ? (element.alt ?? "") : "";
+  return GENERATED_ALT.test(alt) ? alt.replace(GENERATED_ALT, "") : source.replace(/^.*\//, "").replace(/\.drawio(\.svg)?$/i, "");
+}
 
 const heldAs = (picture: DiagramPicture): HostImage => ({ path: picture.path, name: picture.name, ...(picture.width && picture.height ? { width: picture.width, height: picture.height } : {}) });
 
@@ -41,7 +66,7 @@ const heldAs = (picture: DiagramPicture): HostImage => ({ path: picture.path, na
 export async function insertDiagram(session: EditorSession, picture: DiagramPicture): Promise<string | undefined> {
   const preferred = preferredBox(await naturalSize(session, heldAs(picture)), session.deck.size);
   const box = spotFor(session, { w: preferred.w, h: preferred.h });
-  const element: Element = Object.assign(image(picture.path, box, altOf(picture)), { [DIAGRAM_KEY]: picture.source });
+  const element: Element = Object.assign(image(picture.path, box, altOf(picture)), { [DIAGRAM_KEY]: picture.source }, picture.rev ? { [REVISION_KEY]: picture.rev } : {});
   return session.elements.insert([element])[0];
 }
 
@@ -51,11 +76,29 @@ export async function replaceDiagram(session: EditorSession, slideId: string, id
   const [element] = session.elements.find([id]);
   if (element?.type !== "image") return false;
   // The diagram did not change: the same picture comes back, and the slide has nothing to do.
-  if (element.src === picture.path && diagramOf(element) === picture.source) return true;
+  if (element.src === picture.path && diagramOf(element) === picture.source && revisionOf(element) === picture.rev) return true;
   const natural = await naturalSize(session, heldAs(picture));
   // The width stays; the height follows the new picture's shape, so a diagram that grew is not squeezed.
-  const patch: Patch = { src: picture.path, alt: altOf(picture), crop: null, [DIAGRAM_KEY]: picture.source };
+  const patch: Patch = { src: picture.path, alt: altOf(picture), crop: null, [DIAGRAM_KEY]: picture.source, [REVISION_KEY]: picture.rev ?? null };
   if (element.w && element.h) patch.h = Math.max(1, Math.round((element.w * natural.h) / natural.w));
+  session.elements.patch(patch, [id]);
+  return true;
+}
+
+/**
+ * Like `replaceDiagram`, but what the person did to the picture stays: its crop and its description. The place and width stay as they
+ * are; the height follows the new picture's shape only when there is no crop (a crop is a part of the picture, and so a part of the box).
+ */
+export async function replaceDiagramKeeping(session: EditorSession, slideId: string, id: string, picture: DiagramPicture): Promise<boolean> {
+  if (session.state.slideId !== slideId) return false;
+  const [element] = session.elements.find([id]);
+  if (element?.type !== "image") return false;
+  if (element.src === picture.path && diagramOf(element) === picture.source && revisionOf(element) === picture.rev) return true;
+  const patch: Patch = { src: picture.path, [DIAGRAM_KEY]: picture.source, [REVISION_KEY]: picture.rev ?? null };
+  if (!element.crop && element.w && element.h) {
+    const natural = await naturalSize(session, heldAs(picture));
+    patch.h = Math.max(1, Math.round((element.w * natural.h) / natural.w));
+  }
   session.elements.patch(patch, [id]);
   return true;
 }

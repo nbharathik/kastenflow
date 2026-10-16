@@ -1,6 +1,7 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, createEvent, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { NOTE_DRAG } from "../workspace/drag";
 import { MemoryVault } from "../workspace/preview/memory-vault";
 import { useWorkspace } from "../workspace/store";
 import { useTags } from "./store";
@@ -129,7 +130,11 @@ describe("Tag Database", () => {
 
   it("adds a note carrying the tag", async () => {
     render(<TagDatabase tag="task" />);
-    fireEvent.click(await screen.findByRole("button", { name: "New" }));
+    // New is an icon: its word is its name and its tooltip.
+    const add = await screen.findByRole("button", { name: "New note" });
+    expect(add.textContent).toBe("");
+    expect(add.title).toBe("New note");
+    fireEvent.click(add);
     const field = screen.getByRole("textbox", { name: "New note in #task" });
     fireEvent.change(field, { target: { value: "Pack bags" } });
     await act(async () => fireEvent.submit(field.closest("form")!));
@@ -150,5 +155,72 @@ describe("Tag Database", () => {
     fireEvent.keyDown(find, { key: "Escape" });
     expect(screen.getByText("Write intro")).toBeTruthy();
     expect((await schema()).views?.every((v) => !JSON.stringify(v).includes("done"))).toBe(true);
+  });
+});
+
+/** A drag event over `target` carrying `data`, as a drag of pages from the sidebar does (jsdom has no DataTransfer). */
+function dropOn(type: "dragEnter" | "drop", target: Element, data: Record<string, string>) {
+  const event = createEvent[type](target);
+  Object.defineProperty(event, "dataTransfer", { value: { types: Object.keys(data), getData: (key: string) => data[key] ?? "", dropEffect: "none" } });
+  fireEvent(target, event);
+}
+
+describe("pages put into a tag's database", () => {
+  const tagsOf = async (path: string) => (await vault.read(path)).meta.tags;
+  const body = () => document.querySelector(".kasten-tagdb-body")!;
+
+  it("gain the tag when dropped on the list, and stay where they are", async () => {
+    render(<TagDatabase tag="task" />);
+    await screen.findByText("Write intro");
+    dropOn("dragEnter", body(), { [NOTE_DRAG]: "library/idea.md" });
+    expect(screen.getByRole("status").textContent).toBe("Add tag #task");
+    dropOn("drop", body(), { [NOTE_DRAG]: "library/idea.md" });
+    await expect.poll(() => tagsOf("library/idea.md")).toEqual(["idea", "task"]);
+    expect(screen.queryByText("Add tag #task")).toBeNull();
+    expect(await screen.findByText("Idea")).toBeTruthy();
+    expect(useWorkspace.getState().notes.find((n) => n.path === "library/idea.md")?.path).toBe("library/idea.md");
+    expect(useWorkspace.getState().toasts.at(-1)?.text).toBe("Added “Idea” to #task");
+  });
+
+  it("are added from a keyboard picker, by search, without a drag", async () => {
+    render(<TagDatabase tag="task" />);
+    await screen.findByText("Write intro");
+    fireEvent.click(screen.getByRole("button", { name: "Add existing pages" }));
+    const box = await screen.findByRole("textbox", { name: "Find pages to add to #task" });
+    // Pages with the tag already are not offered.
+    expect(within(screen.getByRole("listbox", { name: "Pages" })).queryByText("Book flights")).toBeNull();
+    fireEvent.change(box, { target: { value: "idea" } });
+    await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+    await expect.poll(() => tagsOf("library/idea.md")).toEqual(["idea", "task"]);
+    expect(screen.queryByRole("textbox", { name: "Find pages to add to #task" })).toBeNull();
+  });
+
+  it("are shown, and said to be, when the view’s filters would hide them", async () => {
+    vault = new MemoryVault({ ...SEED, "tags/task.yaml": TASK.replace("{name: All, type: table}", "{name: All, type: table, filter: [{key: status, op: is, value: Doing}]}") });
+    await useWorkspace.getState().connect({ client: vault });
+    render(<TagDatabase tag="task" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /All/ }));
+    await expect.poll(() => screen.queryByText("Book flights")).toBeNull();
+    dropOn("drop", body(), { [NOTE_DRAG]: "library/idea.md" });
+    // Idea has no status, so the filter hides it: a notice says so, with a way to see it.
+    await expect.poll(() => useWorkspace.getState().toasts.map((t) => t.text)).toContain("1 added page is hidden by this view’s filters");
+    expect(screen.queryByText("Idea")).toBeNull();
+    const reveal = useWorkspace.getState().toasts.find((t) => t.text.endsWith("hidden by this view’s filters"))!.action!;
+    expect(reveal.label).toBe("Reveal");
+    act(() => reveal.run());
+    const line = await screen.findByText("Showing 1 added page that this view’s filters hide.");
+    expect(screen.getByText("Idea")).toBeTruthy();
+    // Showing it changed nothing in the page or the view.
+    expect((await vault.read("library/idea.md")).meta.props).toEqual({});
+    fireEvent.click(within(line.closest("p")!).getByRole("button", { name: "Hide it again" }));
+    expect(screen.queryByText("Idea")).toBeNull();
+    expect(await tagsOf("library/idea.md")).toEqual(["idea", "task"]);
+  });
+
+  it("are not added by a drop of something that is not a page", async () => {
+    render(<TagDatabase tag="task" />);
+    await screen.findByText("Write intro");
+    dropOn("drop", body(), { "text/plain": "library/idea.md" });
+    expect(await tagsOf("library/idea.md")).toEqual(["idea"]);
   });
 });

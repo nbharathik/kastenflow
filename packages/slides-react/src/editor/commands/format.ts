@@ -11,6 +11,9 @@ import type { Command, CommandContext } from "./types.ts";
 /** The sizes the size box steps through. */
 export const SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 44, 54, 72, 96];
 
+/** The colour the Highlight command puts behind words: a marker pen's yellow. */
+export const MARKER = "#fff176";
+
 /** How the text in hand looks now: the open editor's selection, else the selected boxes. */
 export function currentFormat({ session, ui }: CommandContext): FormatState {
   return (ui.state.text?.formatState() as FormatState | undefined) ?? session.text.state();
@@ -33,6 +36,13 @@ export function setColor(context: CommandContext, color: string | null): void {
   const editor = context.ui.state.text;
   if (editor) editor.setColor(color);
   else context.session.text.setRun("color", color);
+}
+
+/** A colour behind the words, like a marker pen; null takes it away. */
+export function setHighlight(context: CommandContext, color: string | null): void {
+  const editor = context.ui.state.text;
+  if (editor) editor.setHighlight(color);
+  else context.session.text.setRun("highlight", color);
 }
 
 export function setFont(context: CommandContext, family: string | null): void {
@@ -161,6 +171,23 @@ export const formatCommands: Command[] = [
     scope: "global",
     enabled: (s, ui) => ui.text !== null || s.selection.length > 0,
     run: clearFormatting,
+  },
+  {
+    id: "text.highlight",
+    label: "Highlight",
+    icon: "highlighter",
+    scope: "global",
+    enabled: (s, ui) => ui.text !== null || s.selection.length > 0,
+    // The marker pen: yellow behind the words, or off when all of them have it already. Another colour is picked in the toolbar.
+    run: (context) => setHighlight(context, currentFormat(context).highlight === MARKER ? null : MARKER),
+  },
+  {
+    id: "text.highlight-none",
+    label: "Remove highlight",
+    icon: "remove-formatting",
+    scope: "global",
+    enabled: (s, ui) => ui.text !== null || s.selection.length > 0,
+    run: (context) => setHighlight(context, null),
   },
   {
     id: "text.link",

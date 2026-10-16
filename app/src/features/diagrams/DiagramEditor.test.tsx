@@ -44,6 +44,8 @@ async function mount(props: Partial<Parameters<typeof DiagramEditor>[0]> = {}) {
   });
   const sent: string[] = [];
   vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(((message: unknown) => void sent.push(String(message))) as Window["postMessage"]);
+  // The frame's session starts listening in an effect, which has to have run before the editor can be spoken for.
+  await act(async () => {});
   return { ...view, frame, win: frame.contentWindow!, sent };
 }
 

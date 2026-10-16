@@ -19,6 +19,17 @@ export interface KeyHooks {
   linkRequest(current: string | null): void;
   /** Whether an address typed before Enter becomes a link. */
   autoLinks?(): boolean;
+  /**
+   * For the editor of a cell of a table: Tab and Shift+Tab (`tab`) and Enter (`enter`) belong to the table, which commits the words and moves
+   * to another cell, and Shift+Enter is the paragraph break. The other keys are the text's.
+   */
+  cellKeys?: CellKeys;
+}
+
+/** What the table does with the keys that move between cells. */
+export interface CellKeys {
+  tab(back: boolean): void;
+  enter(): void;
 }
 
 /**
@@ -69,6 +80,18 @@ export function keyBindings(ctx: EditorContext, hooks: KeyHooks): Record<string,
     return true;
   });
   bind(["Mod-\\"], clearFormatting);
+  // In a cell the keys that move between cells are the table's; the paragraph break moves to Shift-Enter.
+  const cell = hooks.cellKeys;
+  if (cell) {
+    const take = (move: () => void): Command => () => {
+      move();
+      return true;
+    };
+    bind(["Tab"], take(() => cell.tab(false)));
+    bind(["Shift-Tab"], take(() => cell.tab(true)));
+    bind(["Enter"], take(() => cell.enter()));
+    bind(["Shift-Enter"], enter(ctx, hooks.autoLinks));
+  }
   return { ...baseKeymap, ...custom };
 }
 

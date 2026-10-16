@@ -1,5 +1,8 @@
-/* The message box: context chips, the growing text box, the model and Send.
-   The menus that open above it are in menus.css. */
+/* The message box: context chips, the text box, the model and Send. It is one
+   size always (about 150px): one row of chips, three rows of text that scroll,
+   and a bar of one height, whatever is typed, however wide the chat is and
+   whether or not there is a model to pick. The menus that open above it are in
+   menus.css. */
 
 .kasten-chat-foot {
   flex: none;
@@ -27,10 +30,13 @@
   & textarea {
     display: block;
     width: 100%;
-    min-height: 44px;
-    max-height: 220px;
+    /* Rows of text and the padding: never measured, so typing and resizing do not move anything. */
+    height: calc(var(--chat-lines, 3) * 1.5em + 14px);
     padding: 10px 14px 4px;
     resize: none;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    field-sizing: fixed;
     border: 0;
     outline: none;
     background: transparent;
@@ -54,7 +60,9 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 4px 8px 8px 8px;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 8px;
 }
 
 .kasten-chat-grow {
@@ -118,17 +126,53 @@
   background: currentColor;
 }
 
-/* Context chips. */
+/* In a narrow chat Stop is its mark alone (it keeps its name), so the bar still
+   has room for the model, the switch and Send. */
+@container kasten-chat (max-width: 440px) {
+  .kasten-chat .kasten-chat-stop {
+    justify-content: center;
+    width: 32px;
+    padding: 0;
+  }
+
+  .kasten-chat-stop-label {
+    display: none;
+  }
+}
+
+/* Context chips: one row of one height. The chips scroll sideways when there are
+   more than fit; "+ Context" stays at the end of the row, outside what scrolls. */
 .kasten-chat-chips {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 9px 10px 0;
+  box-sizing: border-box;
+  height: 33px;
+  padding: 6px 10px 3px;
+}
+
+.kasten-chat-chips-scroll {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  /* Room for a focus ring around a chip, inside what scrolls. */
+  margin: -3px -2px;
+  padding: 3px 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .kasten-chat-chip {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 5px;
   max-width: 240px;
@@ -170,12 +214,16 @@
   white-space: nowrap;
 }
 
+/* Its menus open from the box's left edge in every chat, as they do in the dock
+   (and not from the button, which sits beside a row that scrolls). */
 .kasten-chat-add {
-  position: relative;
+  position: static;
   display: inline-flex;
+  flex: none;
 }
 
 .kasten-chat .kasten-chat-add-button {
+  flex: none;
   height: 24px;
   padding: 0 8px;
   border-radius: var(--radius-lg);
@@ -198,7 +246,6 @@
     font-size: var(--text-13);
   }
 
-  & .kasten-chat-add,
   & .kasten-chat-model {
     position: static;
   }

@@ -25,13 +25,11 @@ fn a_working_provider_answers_and_is_timed() {
     assert!(!result.reply.is_empty());
     assert!(result.message.contains("local-model"), "{}", result.message);
     let asked = server.join().unwrap();
-    // A test sends no tools, so it costs next to nothing.
-    assert!(
-        asked
-            .body
-            .get("tools")
-            .is_none_or(|t| t.as_array().is_some_and(Vec::is_empty))
-    );
+    // A test sends what a chat sends, a function tool among it, as small as
+    // one can be: it fails where a chat would.
+    let tools = asked.body["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0]["function"]["name"], "connection_test");
     assert_eq!(
         asked.body["messages"].as_array().unwrap().last().unwrap()["role"],
         "user"

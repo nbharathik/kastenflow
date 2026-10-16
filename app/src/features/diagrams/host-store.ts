@@ -35,6 +35,8 @@ interface HostState {
   donePng(id: number): void;
   /** Someone is waiting for a diagram to be chosen: how the choice is told to them. */
   picker: ((picked: Picked | null) => void) | null;
+  /** The deck the picker was opened from, if it was: "Draw with AI" in the picker is about its slide. */
+  pickFor: string | null;
   /** Diagrams waiting to be drawn again, first first. */
   queue: string[];
   /** Diagrams drawn again this session, or tried and given up on, so none is asked for twice. */
@@ -44,7 +46,7 @@ interface HostState {
   openModal(path: string): void;
   closeModal(): void;
   /** Asks the person to choose a diagram (or make one); resolves to null when they close the picker. One at a time: asking again cancels the first. */
-  pick(): Promise<Picked | null>;
+  pick(from?: { deck?: string }): Promise<Picked | null>;
   answerPick(picked: Picked | null): void;
   /** Asks for the picture of `path` to be drawn again, when the editor is installed and it was not asked for already. */
   redraw(path: string): void;
@@ -62,19 +64,20 @@ export const useDiagramHost = create<HostState>((set, get) => ({
     }),
   donePng: (id) => set((s) => ({ pngs: s.pngs.filter((j) => j.id !== id) })),
   picker: null,
+  pickFor: null,
   queue: [],
   seen: [],
   editing: [],
   openModal: (path) => set({ modal: path }),
   closeModal: () => set({ modal: null }),
-  pick: () =>
+  pick: (from) =>
     new Promise<Picked | null>((resolve) => {
       get().picker?.(null);
-      set({ picker: resolve });
+      set({ picker: resolve, pickFor: from?.deck ?? null });
     }),
   answerPick(picked) {
     const answer = get().picker;
-    set({ picker: null });
+    set({ picker: null, pickFor: null });
     answer?.(picked);
   },
   redraw(path) {

@@ -58,6 +58,9 @@ export interface LinkProvider {
   create?(title: string, open?: boolean): Promise<PageLink | null> | void;
   /** The start of a page, for the card shown while hovering a link. */
   preview?(target: string): Promise<PagePreview | null>;
+  /** Copies a `kasten:` link to a heading of this page, the `nth` one with
+   * that text (from 1), for "Copy link to this location". */
+  copyLocation?(heading: { text: string; nth: number }): void;
   /** Follows a Markdown link to a vault file, such as a PDF at a page
    * (`../sources/x.pdf#page=3`), `href` as written in the page; false when
    * it is no file the workspace opens. */

@@ -34,7 +34,7 @@ export function sectionHead(view: EditorView, getPos: () => number | undefined, 
   fold.setAttribute("aria-label", spec.folded ? "Unfold section" : "Fold section");
   fold.setAttribute("aria-expanded", String(!spec.folded));
   const title = el("span", "kasten-sec-title", { textContent: spec.title });
-  const present = withGlyph(el("button", "kasten-sec-present", { type: "button", title: "Present from here" }), "icon:present", 14, "Present");
+  const present = withGlyph(el("button", "kasten-sec-present", { type: "button", title: "Present from here" }), "icon:present", 14);
   present.setAttribute("aria-label", "Present from here");
   head.append(fold, el("span", "kasten-sec-number", { textContent: String(spec.index + 1) }), title, present);
   // Pressing a button must not move the caret or select the page.

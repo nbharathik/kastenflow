@@ -2,7 +2,11 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { loadNotePage } from "../workspace/page/LazyNotePage";
 
-beforeAll(async () => { await loadNotePage(); }, 60_000);
+// The editor and the gallery load on demand; their load time is not what these tests are about.
+beforeAll(async () => {
+  await loadNotePage();
+  await import("./TemplateGallery");
+}, 60_000);
 
 import { useShell } from "../../lib/store";
 import { AppShell } from "../../shell/AppShell";

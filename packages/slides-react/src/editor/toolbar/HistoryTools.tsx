@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 
+import { runCommand } from "../commands/index.ts";
 import { historyLabel } from "../menus/history-label.ts";
 import { zoomItems, zoomText } from "../menus/items-view.ts";
 import type { EditorSession } from "../session/session.ts";
@@ -7,7 +8,6 @@ import type { EditorUi } from "../ui-state.ts";
 import { useEditorValue } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
 import { Group } from "./Group.tsx";
-import { capturePaint } from "./paint.ts";
 import { CommandButton, MenuButton, ToolButton } from "./ToolButton.tsx";
 
 /** Undo and redo, which say what they would undo, and the paint format brush. */
@@ -26,18 +26,7 @@ export function HistoryTools({ session, ui }: { session: EditorSession; ui: Edit
     <Group id="history">
       <CommandButton id="edit.undo" ctx={ctx} label={historyLabel("Undo", undoLabel)} />
       <CommandButton id="edit.redo" ctx={ctx} label={historyLabel("Redo", redoLabel)} />
-      <ToolButton
-        icon="paintbrush"
-        label="Paint format"
-        className="ks-tb-paint"
-        on={paint !== null}
-        disabled={!canTake}
-        onClick={() => {
-          if (paint) return ui.setPaint(null);
-          const taken = capturePaint(ctx);
-          if (taken) ui.setPaint(taken);
-        }}
-      />
+      <ToolButton icon="paintbrush" label="Paint format" className="ks-tb-paint" on={paint !== null} disabled={!canTake} onClick={() => void runCommand("format.paint", ctx)} />
     </Group>
   );
 }

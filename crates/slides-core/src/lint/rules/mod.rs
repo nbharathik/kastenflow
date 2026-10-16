@@ -6,8 +6,12 @@ mod content;
 mod contrast;
 mod families;
 mod layout;
+mod links;
 mod overlap;
 mod text;
+
+#[cfg(test)]
+pub(crate) use links::link_problem;
 
 use crate::model::Element;
 
@@ -33,7 +37,7 @@ const fn rule(name: &'static str, severity: Severity, summary: &'static str) -> 
 }
 
 /// Every rule, errors first: the order issues are reported in.
-pub const RULES: [RuleInfo; 14] = [
+pub const RULES: [RuleInfo; 15] = [
     rule(
         "text-overflow",
         Severity::Error,
@@ -53,6 +57,11 @@ pub const RULES: [RuleInfo; 14] = [
         "font-missing",
         Severity::Error,
         "Text names a font that is neither a theme font nor one of the bundled families.",
+    ),
+    rule(
+        "broken-link",
+        Severity::Error,
+        "A link goes to a slide that is not in the deck, or to an address that cannot be opened (no host, a space, a scheme that is not web, mail or phone).",
     ),
     rule(
         "overlap",
@@ -211,6 +220,7 @@ pub fn run(scene: &Scene, options: &Options, sink: &mut Sink) -> Outcome {
         content::citations(scene, refs, sink);
     }
     families::missing(scene, sink);
+    links::broken_links(scene, sink);
     overlap::overlap(scene, sink);
     text::min_font(scene, sink);
     contrast::contrast(scene, sink);

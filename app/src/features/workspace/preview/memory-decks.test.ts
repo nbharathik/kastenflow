@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { saveDecksWasStale } from "../../../lib/vault/types";
 import { deckHead } from "./memory-decks";
 import { MemoryVault } from "./memory-vault";
 
@@ -76,6 +77,29 @@ describe("decks in the preview", () => {
     await expect(vault.saveDeck(path, "{}", first.hash)).rejects.toThrow("Not a KastenFlow deck");
     expect((await vault.deck(path)).text).toBe(second);
     await expect(vault.saveDeck("library/none.deck", mine, "x")).rejects.toThrow();
+  });
+
+  it("saves several decks all or none, with the hashes they were read with", async () => {
+    const vault = ready();
+    const a = await vault.createDeck("Alpha", null, deck("Alpha", 1));
+    const b = await vault.createDeck("Beta", null, deck("Beta", 2));
+    const [ha, hb] = [(await vault.deck(a)).hash, (await vault.deck(b)).hash];
+    const request = { message: "slides: change two decks", edits: [{ path: a, baseHash: ha, text: deck("Alpha", 3) }, { path: b, baseHash: hb, text: deck("Beta", 2) }] };
+
+    // One of them is not a deck, one has moved on, a path is listed twice, the message is not one line: nothing is written.
+    await expect(vault.saveDecks({ ...request, edits: [request.edits[0]!, { ...request.edits[1]!, text: "{}" }] })).rejects.toThrow("Not a KastenFlow deck");
+    await expect(vault.saveDecks({ ...request, edits: [request.edits[0]!, { ...request.edits[1]!, baseHash: "x" }] })).rejects.toThrow("changed since you looked");
+    await expect(vault.saveDecks({ ...request, edits: [request.edits[0]!, request.edits[0]!] })).rejects.toThrow("listed twice");
+    await expect(vault.saveDecks({ ...request, message: "a\nb" })).rejects.toThrow("message");
+    await expect(vault.saveDecks({ ...request, edits: [] })).rejects.toThrow("Nothing to save");
+    expect((await vault.deck(a)).text).toBe(deck("Alpha", 1));
+
+    // The deck that already holds the text it is given is not among the written; there is no history in the preview to undo with.
+    const saved = await vault.saveDecks(request);
+    expect(saved).toEqual({ commit: null, paths: [a] });
+    expect((await vault.deck(a)).text).toBe(deck("Alpha", 3));
+    expect(saveDecksWasStale(new Error("Some decks changed since you looked, so nothing was saved. Look again."))).toBe(true);
+    expect(saveDecksWasStale(new Error("nope"))).toBe(false);
   });
 
   it("trashes a deck, lists it by title and puts it back beside one that took its place", async () => {

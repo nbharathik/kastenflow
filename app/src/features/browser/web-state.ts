@@ -7,6 +7,8 @@ import { create } from "zustand";
 import { openUrl } from "../../lib/api";
 import { useWorkspace } from "../workspace/store";
 import { browserBackend } from "./backend";
+import { startChildFocus } from "./child-focus";
+import { PREVIEW_ID, sendPreviewSignal } from "./preview-events";
 import { useWebTitles } from "./titles";
 import type { BrowserEvent } from "./types";
 
@@ -56,8 +58,18 @@ export function webTabIds(): Set<string> {
   return ids;
 }
 
-/** How a page's events change the window. */
+/** Says a download was refused, with a way to get the file in the system's browser. */
+function refuseDownload(url: string | null | undefined): void {
+  useWorkspace.getState().toast("KastenFlow's browser does not download files.", url ? { label: "Open in your browser", run: () => void openUrl(url).catch(() => {}) } : undefined);
+}
+
+/** How a page's events change the window. The deck preview's are no tab's: they go to whoever listens for it. */
 export function handleEvent(event: BrowserEvent): void {
+  if (event.id === PREVIEW_ID) {
+    if (event.kind === "download") refuseDownload(event.url);
+    else sendPreviewSignal({ type: "page", event });
+    return;
+  }
   const ws = useWorkspace.getState();
   const tabs = useWebTabs.getState();
   switch (event.kind) {
@@ -77,11 +89,9 @@ export function handleEvent(event: BrowserEvent): void {
     case "new-tab":
       if (event.url) void import("./open").then((m) => m.openInBrowserTab(event.url!));
       break;
-    case "download": {
-      const url = event.url;
-      ws.toast("KastenFlow's browser does not download files.", url ? { label: "Open in your browser", run: () => void openUrl(url).catch(() => {}) } : undefined);
+    case "download":
+      refuseDownload(event.url);
       break;
-    }
     case "closed":
       tabs.patch(event.id, { live: false, loading: false });
       break;
@@ -95,6 +105,8 @@ export function startBrowserEvents(): void {
   if (started || !browserBackend().available) return;
   started = true;
   void browserBackend().onEvent(handleEvent).catch(() => {});
+  // A page in a native view that has the keyboard still gets Ctrl+T, Ctrl+W and Ctrl+L.
+  startChildFocus();
   let before = webTabIds();
   useWorkspace.subscribe((state, previous) => {
     if (state.layout === previous.layout) return;

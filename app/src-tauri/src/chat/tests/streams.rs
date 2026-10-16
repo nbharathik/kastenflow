@@ -185,7 +185,7 @@ fn claude_errors_and_stop_reasons() {
         ("max_tokens", Stop::Length),
         ("refusal", Stop::Refusal),
         ("model_context_window_exceeded", Stop::Full),
-        ("pause_turn", Stop::End),
+        ("pause_turn", Stop::Pause),
     ] {
         let stream = format!(
             "event: message_delta\ndata: {{\"type\":\"message_delta\",\"delta\":{{\"stop_reason\":\"{reason}\"}}}}\n\n"

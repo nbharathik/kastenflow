@@ -5,6 +5,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::diagrams::steps::Step;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentOp {
@@ -188,6 +190,26 @@ pub enum AgentOp {
         #[serde(default)]
         reason: Option<String>,
     },
+    /// Typed steps on a diagram (`add_node`, `add_edge`, `layout`, …). They
+    /// are run on the diagram as it is when they are applied, so accepting a
+    /// proposal later, or applying staged changes, keeps what a person drew
+    /// meanwhile instead of putting a whole file over it.
+    EditDiagram {
+        path: String,
+        /// The page the steps start on; the first when none.
+        #[serde(default)]
+        page: Option<String>,
+        /// The preset the kinds are looked up in; the default when none.
+        #[serde(default)]
+        preset: Option<String>,
+        steps: Vec<Step>,
+        #[serde(default)]
+        reason: Option<String>,
+        /// What the steps do, in a few words for the history and the review;
+        /// worked out from the steps when left empty.
+        #[serde(default)]
+        summary: String,
+    },
 }
 
 impl AgentOp {
@@ -215,6 +237,7 @@ impl AgentOp {
             AgentOp::CreateDeck { .. } => "create_deck",
             AgentOp::CreateDiagram { .. } => "create_diagram",
             AgentOp::UpdateDiagram { .. } => "update_diagram",
+            AgentOp::EditDiagram { .. } => "edit_diagram",
         }
     }
 
@@ -230,6 +253,7 @@ impl AgentOp {
             | AgentOp::Trash { path, .. }
             | AgentOp::Edit { path, .. }
             | AgentOp::UpdateDiagram { path, .. }
+            | AgentOp::EditDiagram { path, .. }
             | AgentOp::EditDeck { path, .. } => Some(path),
             AgentOp::AddToBoard { board, .. }
             | AgentOp::Connect { board, .. }
@@ -274,6 +298,10 @@ impl AgentOp {
             AgentOp::EditDeck { sent, .. } | AgentOp::CreateDeck { sent, .. } => *sent,
             AgentOp::CreateDiagram { title, xml, .. } => title.len() + xml.len(),
             AgentOp::UpdateDiagram { xml, .. } => xml.len(),
+            // What the agent sent: the steps as they travel.
+            AgentOp::EditDiagram { steps, .. } => {
+                serde_json::to_string(steps).map_or(0, |s| s.len())
+            }
             AgentOp::Move { .. } | AgentOp::Trash { .. } => 0,
         }
     }

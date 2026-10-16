@@ -1,10 +1,10 @@
-// "Turn sections into a deck": the page's sections become the slides of a new
-// deck in the page's project, made with the real slide engine.
+// "Turn sections into a deck": the page's sections are drafted as a storyboard and the storyboard dialog is asked for. Nothing is made, and the
+// page is not changed.
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DeckEngine, loadSlides } from "@kasten-slides/wasm";
+import { loadSlides } from "@kasten-slides/wasm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { MemoryVault } from "../../workspace/preview/memory-vault";
@@ -13,16 +13,18 @@ import { derive } from "../../workspace/store-layout";
 import { initialLayout } from "../../workspace/tabs";
 import { useDecks } from "../../slides/store";
 import { registerSections, type SectionsHandle } from "../editor/sections/registry";
-import { addSlides, turnSectionsIntoDeck } from "./to-deck";
+import { useStoryboard } from "./storyboard/state";
+import { turnSectionsIntoDeck } from "./to-deck";
 
 beforeAll(async () => {
   await loadSlides(await readFile(join(import.meta.dirname, "../../../../../packages/slides-wasm/pkg/slides_wasm_bg.wasm")));
 });
 
 const PLAN = "projects/trip/pages/plan.md";
+const BODY = "## Plan\n\nBook early.\n\n- flights\n- guesthouse\n\n## Budget\n\n![chart](assets/c.png)\n";
 const SEED = {
   "projects/trip/_project.md": "---\ntitle: Trip\ntype: project\n---\n",
-  [PLAN]: "---\ntitle: Seaside trip\n---\nWords.\n",
+  [PLAN]: `---\ntitle: Seaside trip\n---\n${BODY}\n---\n\n## Thanks\n\nQuestions?\n`,
   "library/loose.md": "---\ntitle: Loose [page]\n---\nWords.\n",
 };
 
@@ -45,6 +47,7 @@ beforeEach(async () => {
   vault = new MemoryVault(SEED);
   useWorkspace.setState({ client: vault, ready: true, notes: await vault.list(), ...derive(initialLayout()), recent: [], toasts: [] });
   useDecks.setState({ list: [], loaded: false });
+  useStoryboard.setState({ request: null });
 });
 afterEach(() => {
   forget?.();
@@ -55,58 +58,47 @@ const note = (path: string) => useWorkspace.getState().notes.find((n) => n.path 
 const said = () => useWorkspace.getState().toasts.map((t) => t.text).join(" ");
 
 describe("turning sections into a deck", () => {
-  it("makes a slide of each section in the page's project, and opens the deck", async () => {
+  it("drafts a slide for each section and asks for the storyboard, without making anything", async () => {
     const page = note(PLAN);
     showing(page.id || page.path, [
       { title: "Plan", markdown: "## Plan\n\nBook early.\n\n- flights\n- guesthouse" },
       { title: "Budget", markdown: "## Budget\n\n![chart](assets/c.png)" },
       { title: "Thanks", markdown: "Questions?" },
+      { title: "Extra", markdown: "Not on the page." },
     ]);
     await turnSectionsIntoDeck(page);
-    const [made] = await vault.decks();
-    expect(made, said()).toBeDefined();
-    expect(made!.path.startsWith("projects/trip/decks/")).toBe(true);
-    const deck = DeckEngine.open((await vault.deck(made!.path)).text).deck;
-    expect(deck.title).toBe("Seaside trip");
-    // A title slide, then one for each section.
-    expect(deck.slides).toHaveLength(4);
-    const text = (slide: (typeof deck.slides)[number]) => JSON.stringify(slide);
-    expect(text(deck.slides[1]!)).toContain("flights");
-    expect(text(deck.slides[1]!)).toContain("Book early.");
-    expect(text(deck.slides[2]!)).toContain("Budget");
-    expect(deck.slides[2]!.layout).toBe("section");
-    expect(deck.slides[3]!.layout).toBe("title-body");
-    expect(useDecks.getState().list.map((d) => d.path)).toEqual([made!.path]);
-    expect(useWorkspace.getState().place.path).toBe(made!.path);
-    expect(said()).toContain("3 sections");
-    expect(said()).toContain("A picture was left out");
-    // The page itself is not changed.
+    const request = useStoryboard.getState().request;
+    expect(request, said()).not.toBeNull();
+    expect(request?.note.path).toBe(PLAN);
+    const entries = request!.entries;
+    expect(entries.map((e) => e.title)).toEqual(["Plan", "Budget", "Thanks", "Extra"]);
+    expect(entries[0]).toMatchObject({ point: "Book early.", evidence: ["- flights", "- guesthouse"] });
+    expect(entries[1]).toMatchObject({ evidence: ["![chart](assets/c.png)"], media: true });
+    expect(entries[2]?.point).toBe("Questions?");
+    // A section that says what the page's heading says is kept in step with it; words the page does not have under a heading are not.
+    expect(entries[0]?.sources[0]).toMatchObject({ page: PLAN, section: "Plan" });
+    expect(entries[1]?.sources[0]?.section).toBe("Budget");
+    expect(entries[2]?.sources[0]?.section).toBe("Thanks");
+    expect(entries[3]?.sources[0]?.section).toBeUndefined();
+    // Nothing was made and the page is not changed.
+    expect(await vault.decks()).toEqual([]);
     expect((await vault.read(PLAN)).text).toBe(SEED[PLAN]);
   });
 
-  it("names a deck with a plain title when the page's has brackets or bars, and keeps a loose page's deck in the library", async () => {
-    const page = note("library/loose.md");
-    showing(page.id || page.path, [{ title: "One", markdown: "- a" }]);
-    await turnSectionsIntoDeck(page);
-    const [made] = await vault.decks();
-    expect(made!.path.startsWith("library/")).toBe(true);
-    expect(made!.title).toBe("Loose page");
-  });
-
-  it("says so, and makes nothing, when the page is not open or has no sections", async () => {
+  it("says so, and asks for nothing, when the page is not open or has no sections", async () => {
     await turnSectionsIntoDeck(note(PLAN));
-    expect(await vault.decks()).toEqual([]);
+    expect(useStoryboard.getState().request).toBeNull();
     expect(said()).toContain("nothing to turn into slides");
     const page = note(PLAN);
     showing(page.id || page.path, []);
     await turnSectionsIntoDeck(page);
+    expect(useStoryboard.getState().request).toBeNull();
     expect(await vault.decks()).toEqual([]);
   });
 
-  it("adds a slide operation for each, a divider slide for a section with no words", () => {
-    expect(addSlides([{ title: "A", layout: null, body: "- x", notes: "n", pictures: 0 }, { title: "B", layout: "section", body: "", notes: "", pictures: 0 }])).toEqual([
-      ["add_slide", { content: { title: "A", body: "- x" }, notes: "n" }],
-      ["add_slide", { layout: "section", content: { title: "B" }, notes: null }],
-    ]);
+  it("does nothing without a vault", async () => {
+    useWorkspace.setState({ client: null });
+    await turnSectionsIntoDeck(note(PLAN));
+    expect(useStoryboard.getState().request).toBeNull();
   });
 });

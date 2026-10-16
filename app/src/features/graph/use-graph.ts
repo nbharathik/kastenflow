@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { GraphScope, NoteMeta, VaultGraph } from "../../lib/vault/types";
+import { useStamp } from "../workspace/revision";
 import { useWorkspace } from "../workspace/store";
 import { scopeKey } from "./graph-model";
 
@@ -28,7 +29,12 @@ export interface LoadedGraph {
 /** The graph of `scope` (none while `scope` is null), by the scope's key, so a new scope never shows the last one's nodes. */
 export function useVaultGraph(scope: GraphScope | null): LoadedGraph {
   const client = useWorkspace((s) => s.client);
-  const stamp = useWorkspace((s) => notesStamp(s.notes));
+  // The core's counters follow every kind of file the graph draws (a board, a
+  // deck or a diagram changing refreshes it too); the notes the window holds
+  // answer at once to its own edits.
+  const counted = useStamp("notes", "boards", "decks");
+  const held = useWorkspace((s) => notesStamp(s.notes));
+  const stamp = `${counted}|${held}`;
   const key = scope ? scopeKey(scope) : "";
   const [loaded, setLoaded] = useState<{ key: string; graph: VaultGraph } | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openUrl } from "../../lib/api";
 import { openWeb } from "../../shell/web-links";
+import { coverWindow, windowCovered } from "./cover";
 import { openInBrowserTab } from "./open";
 import { resetBrowserPrefs, useBrowserPrefs } from "./prefs";
 
@@ -58,6 +59,27 @@ describe("where a web link in a page opens", () => {
     await settle();
     expect(openInBrowserTab).not.toHaveBeenCalled();
     expect(openUrl).toHaveBeenLastCalledWith("mailto:me@example.com");
+  });
+
+  it("never makes a tab beneath a presentation: the link goes to the system's browser, and tabs return after", async () => {
+    useBrowserPrefs.setState({ enabled: true, known: true });
+    useBrowserPrefs.getState().set({ webLinks: "tab" });
+    const uncover = coverWindow();
+    const second = coverWindow();
+    expect(windowCovered()).toBe(true);
+    openWeb(URL);
+    await settle();
+    expect(openInBrowserTab).not.toHaveBeenCalled();
+    expect(openUrl).toHaveBeenCalledWith(URL);
+    // Two things covering the window: it is open until both are gone, and a second "gone" changes nothing.
+    uncover();
+    uncover();
+    expect(windowCovered()).toBe(true);
+    second();
+    expect(windowCovered()).toBe(false);
+    openWeb(URL);
+    await settle();
+    expect(openInBrowserTab).toHaveBeenCalledWith(URL);
   });
 
   it("keeps what was chosen, and reads nothing odd back", () => {

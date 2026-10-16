@@ -11,6 +11,7 @@ import { DOMSerializer, Fragment, type Node as DocNode } from "@milkdown/kit/pro
 import { sectionOf } from "../../markdown/sections";
 import { isFileTarget, linksOf, parseWikiTarget, type EmbeddedPage } from "../links";
 import { el, withGlyph } from "../ui/dom";
+import { embedTool } from "./embed-tools";
 
 /** Blocks drawn at most; a longer page shows its start. */
 const MAX_BLOCKS = 60;
@@ -85,7 +86,8 @@ export class EmbedCard {
     head.append(
       withGlyph(el("span", "kasten-embed-icon"), icon ?? "icon:page", 16),
       el("span", "kasten-embed-title", { textContent: label }),
-      el("span", "kasten-embed-open", { textContent: "Open ↗" }),
+      // An icon, no words; the whole header opens the page too, so a click on it is the header's.
+      embedTool("kasten-embed-open", "icon:arrow-up-right", "Open page", `Open “${label}”`),
     );
     const body = el("div", "kasten-embed-body");
     body.append(content);

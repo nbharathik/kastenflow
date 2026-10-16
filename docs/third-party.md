@@ -1,8 +1,34 @@
 # Third-party software
 
 KastenFlow's own licence is in `LICENSE`. The libraries, icons and typeface that ship inside the app are
-listed, each with its licence text, in the app (Settings, About) and in `app/public/third-party-notices.txt`.
-This page is about software KastenFlow can download after you ask for it.
+listed, each with its licence text, in the app (Settings, About) and in `app/public/third-party-notices.txt`,
+which is written again for every release build. This page is about software KastenFlow can download after you
+ask for it, and it names the libraries that version 1.2.0 added to the app.
+
+## Libraries added in 1.2.0: checking the ChatGPT sign-in
+
+KastenFlow 1.2.0 checks the signature of the identity token that comes back from "Continue with ChatGPT"
+against OpenAI's published keys, and ties the sign-in to one account. It does this with `jsonwebtoken` 10
+(MIT), which brings in the pure-Rust RustCrypto implementations of the signature algorithms a token may name.
+They are compiled into the app. They add 38 packages in all, listed here by the licence each declares; the
+generated notices file is the record. The full licence and copyright text of each is in Settings, About and in `app/public/third-party-notices.txt`
+once that file is written for the release; where this page gives only a name and an SPDX identifier, the text is
+not repeated here.
+
+| Licence (SPDX) | Crates |
+| --- | --- |
+| MIT | `jsonwebtoken` 10.4.0, `libm` 0.2.16, `spin` 0.9.9 |
+| BSD-3-Clause | `curve25519-dalek` 4.1.3, `ed25519-dalek` 2.2.0, `subtle` 2.6.1 |
+| MIT OR Apache-2.0 OR BSD-1-Clause | `fiat-crypto` 0.2.9 |
+| MIT OR Apache-2.0 | `rsa` 0.9.10, `p256` 0.13.2, `p384` 0.13.1, `primeorder` 0.13.6, `ecdsa` 0.16.9, `ed25519` 2.2.3, `elliptic-curve` 0.13.8, `crypto-bigint` 0.5.5, `ff` 0.13.1, `group` 0.13.0, `rfc6979` 0.4.0, `sec1` 0.7.3, `signature` 2.2.0, `der` 0.7.10, `pkcs1` 0.7.5, `pkcs8` 0.10.2, `spki` 0.7.3, `pem-rfc7468` 0.7.0, `base16ct` 0.2.0, `base64ct` 1.8.3, `const-oid` 0.9.6, `hmac` 0.12.1, `hkdf` 0.12.4, `num-bigint-dig` 0.8.6, `rand` 0.8.8, `rand_chacha` 0.3.1, `rand_core` 0.6.4, `getrandom` 0.2.17, `lazy_static` 1.5.1, `zeroize_derive` 1.5.0, `curve25519-dalek-derive` 0.1.1 |
+
+Every licence above allows use and redistribution with the licence text and copyright notice kept; none is
+copyleft. The `rsa` crate has a published advisory (RUSTSEC-2023-0071, a timing side channel in RSA operations
+with a private key). KastenFlow only checks signatures with OpenAI's public keys and never holds a private RSA
+key, so the advisory does not apply to how it is used.
+
+`slides-bib`, a small BibTeX reader added in the same release, is KastenFlow's own code under Apache-2.0 and has
+no dependencies.
 
 ## Diagram editor: draw.io (diagrams.net)
 
@@ -29,8 +55,6 @@ changing a diagram, and making a PNG of one, need it.
   the frame cannot reach KastenFlow's commands, your vault or the rest of the window.
 - **Your diagrams.** A diagram is a plain file in your vault, `name.drawio` (the editor's own XML format),
   with a picture beside it, `name.drawio.svg`. Both are yours; any draw.io app opens the first.
-- **Names.** draw.io and diagrams.net are names of JGraph Ltd. KastenFlow is not affiliated with or endorsed by
-  them, and does not use their logo.
 
 ### Licence
 

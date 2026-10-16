@@ -48,6 +48,8 @@ fn done(outcome: Outcome) -> Result<Value> {
         Outcome::PendingReview { reason, .. } => Err(Error::Invalid(format!(
             "The brainstorm stopped to wait for review: {reason}"
         ))),
+        // `agent_run` never stages; only a chat that previews its changes does.
+        Outcome::Staged { result, .. } => Ok(result),
     }
 }
 

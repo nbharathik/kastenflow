@@ -8,6 +8,7 @@
 //! three routes, and the vault is reached through `capture_web` alone.
 
 mod api;
+mod folder;
 mod limit;
 mod pairing;
 mod server;
@@ -116,7 +117,8 @@ pub fn start(app: &AppHandle) {
     let settings = dir.as_deref().map(AppSettings::load).unwrap_or_default();
     let vault = app.clone();
     let told = app.clone();
-    let shared = Arc::new(Shared::new(
+    let papered = app.clone();
+    let mut built = Shared::new(
         Box::new(move || vault.state::<OpenVault>().require()),
         Box::new(move |paths| {
             // To the main window only, as the watcher does.
@@ -125,7 +127,12 @@ pub fn start(app: &AppHandle) {
         Store::load(dir),
         Pairing::new(pairing::TTL, pairing::TRIES),
         Limits::usual(),
-    ));
+    );
+    // A paper the extension found goes to the main window alone, to be checked there.
+    built.papers = Some(Box::new(move |draft| {
+        let _ = papered.emit_to(MAIN, "kasten://paper-draft", &draft);
+    }));
+    let shared = Arc::new(built);
     shared.on.store(settings.extension_on(), Ordering::Relaxed);
     let extension = app.state::<Extension>();
     let _ = extension.shared.set(shared);
@@ -251,4 +258,30 @@ pub async fn extension_revoke(
 ) -> Result<Status, String> {
     held(&extension.shared()?.store).revoke(&id)?;
     status(&app, &extension).await
+}
+
+/// The folder the extension's files are in: the installed app carries them as
+/// resources, and a debug build run from a source checkout uses the checkout's.
+fn extension_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let resources = app.path().resource_dir().ok();
+    // A release build never looks in the folder it was built in.
+    let checkout = cfg!(debug_assertions).then(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")));
+    folder::find(resources.as_deref(), checkout)
+        .ok_or_else(|| "The extension's files are not in this copy of KastenFlow".to_owned())
+}
+
+/// Where the extension's files are, for Settings to show (Chrome and Edge
+/// "Load unpacked" from there).
+#[tauri::command]
+pub fn extension_folder(app: AppHandle) -> Result<String, String> {
+    extension_dir(&app).map(|dir| dir.display().to_string())
+}
+
+/// Shows the extension's folder in the system's file manager.
+#[tauri::command(async)]
+pub fn show_extension_folder(app: AppHandle) -> Result<String, String> {
+    let dir = extension_dir(&app)?;
+    crate::web::run_detached(crate::reveal::reveal(&dir, false))
+        .map_err(|e| format!("Could not open the folder: {e}"))?;
+    Ok(dir.display().to_string())
 }

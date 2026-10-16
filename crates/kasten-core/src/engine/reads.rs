@@ -14,9 +14,12 @@ impl Kasten {
         self.index().related(path, limit)
     }
 
-    /// Every note, from the index.
+    /// Every note, from the index. AI actions are not among them: they are
+    /// not notes to open or link, and `ai_actions` lists them.
     pub fn list(&self) -> Result<Vec<NoteMeta>> {
-        self.index().notes()
+        let mut notes = self.index().notes()?;
+        notes.retain(|note| note.kind != crate::note::AI_ACTION);
+        Ok(notes)
     }
 
     /// The notes at `paths` that exist, in the order asked: what the app
@@ -25,7 +28,9 @@ impl Kasten {
         let index = self.index();
         let mut out = Vec::with_capacity(paths.len());
         for path in paths {
-            if let Some(meta) = index.note(path)? {
+            if let Some(meta) = index.note(path)?
+                && meta.kind != crate::note::AI_ACTION
+            {
                 out.push(meta);
             }
         }

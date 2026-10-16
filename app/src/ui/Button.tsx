@@ -26,6 +26,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
+/** A mark on an icon button's corner: a dot that pulses while something works, or a count of things that need a look. */
+export type IconBadge = { kind: "working" } | { kind: "count"; count: number };
+
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: IconName;
   /** What the button does, for its tooltip and screen readers. */
@@ -34,9 +37,11 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Shown pressed: a panel it opens is open. */
   active?: boolean;
   iconClass?: string;
+  /** A small mark in its corner; say what it means in `aria-description`. */
+  badge?: IconBadge | null;
 }
 
-export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ icon, label, size = "md", active, iconClass, className = "", type = "button", title, ...rest }, ref) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ icon, label, size = "md", active, iconClass, badge, className = "", type = "button", title, ...rest }, ref) {
   return (
     <button
       ref={ref}
@@ -48,6 +53,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       {...rest}
     >
       <Icon name={icon} className={iconClass ?? (size === "sm" ? "size-[15px]" : "size-[17px]")} />
+      {badge && (
+        <span className="ui-icon-badge" data-kind={badge.kind} aria-hidden="true">
+          {badge.kind === "count" ? (badge.count > 9 ? "9+" : badge.count) : null}
+        </span>
+      )}
     </button>
   );
 });

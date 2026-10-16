@@ -14,6 +14,9 @@ pub const MAX_BYTES: usize = 5 * 1024 * 1024;
 
 const STAMP_OPEN: &str = "<!-- kasten-source: ";
 const STAMP_CLOSE: &str = " -->";
+/// The comment after a picture the program drew itself, in front of the
+/// stamp: the editor draws the exact picture and replaces it.
+pub const DRAFT_MARK: &str = "<!-- kasten-draft -->";
 
 /// The picture's path, from the source's.
 pub fn sidecar_of(path: &str) -> String {
@@ -70,6 +73,11 @@ pub fn check_svg(svg: &str) -> Result<()> {
             "A picture of a diagram may not hold a script element".to_owned(),
         ));
     }
+    if let Some(what) = super::sanitize::dangers(svg) {
+        return Err(Error::Invalid(format!(
+            "A picture of a diagram may not hold {what}"
+        )));
+    }
     Ok(())
 }
 
@@ -96,6 +104,12 @@ pub fn stamp_of(svg: &str) -> Option<&str> {
     let at = svg.rfind(STAMP_OPEN).filter(|at| *at > end)?;
     let rest = &svg[at + STAMP_OPEN.len()..];
     Some(&rest[..rest.find(STAMP_CLOSE)?])
+}
+
+/// Whether the last bytes of a picture say the program drew it.
+pub(super) fn draft_in_tail(tail: &str) -> bool {
+    tail.rfind(DRAFT_MARK)
+        .is_some_and(|at| tail[at..].contains(STAMP_OPEN))
 }
 
 /// The hash in the stamp at the end of a picture, from only its last bytes.

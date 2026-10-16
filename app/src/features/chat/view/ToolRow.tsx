@@ -25,8 +25,9 @@ export const ToolRow = memo(function ToolRow({ part, live }: { part: Extract<Par
   const summary = result?.summary.trim() || describeCall(call.name, call.input);
   const review = result ? REVIEW.exec(summary) : null;
   const toReview = () => links.go({ view: "review" });
-  // Notes that are gone (trashed since, or undone) are not offered.
-  const shown = result?.ok ? result.paths.filter((path) => (path.endsWith(".md") ? noteAt(notes, path) : true)) : [];
+  // Notes that are gone (trashed since, or undone) are not offered. A staged
+  // change is not in the vault yet: what is there to open is the note as it was.
+  const shown = result?.ok && !result.staged ? result.paths.filter((path) => (path.endsWith(".md") ? noteAt(notes, path) : true)) : [];
   const open = (path: string) => (event: MouseEvent) => links.openPath(path, howFrom(event));
 
   return (
@@ -48,6 +49,7 @@ export const ToolRow = memo(function ToolRow({ part, live }: { part: Extract<Par
         )}
         {state === "working" && "…"}
         {state === "unfinished" && <span className="kasten-chat-tool-note"> · did not finish</span>}
+        {result?.staged && <span className="kasten-chat-tool-note"> · staged, not saved yet</span>}
       </span>
       {result && !review && PROPOSED.test(summary) && (
         <button type="button" className="kasten-chat-tool-link" onClick={toReview}>

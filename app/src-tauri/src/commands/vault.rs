@@ -2,7 +2,9 @@
 //! and the integrity check.
 
 use kasten_core::history::{Actor, BackupStatus, CommitInfo};
-use kasten_core::{BackupFileStatus, Config, Instant, Kasten, NoteFile, Report, VaultRestore};
+use kasten_core::{
+    BackupFileStatus, Config, Instant, Kasten, NoteFile, Report, Revision, VaultRestore,
+};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
@@ -172,4 +174,11 @@ pub fn set_config(
 #[tauri::command(async)]
 pub fn verify_vault(state: State<'_, OpenVault>) -> Result<Report, String> {
     state.run(|k| k.verify())
+}
+
+/// The vault's change counters as they are now; the window also hears each
+/// change as a `vault-revision` event (runtime.rs).
+#[tauri::command(async)]
+pub fn vault_revision(state: State<'_, OpenVault>) -> Result<Revision, String> {
+    state.run(|k| Ok(k.revision()))
 }

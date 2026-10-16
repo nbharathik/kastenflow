@@ -3,36 +3,38 @@
 // day's 24 hours with each timed event, and each to-do or mention with a
 // time (`@14:00`), placed on its hour. Things that overlap share the column.
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 
+import { ActionsContext } from "../actions";
 import { EntryChip, entryKey } from "../Chip";
 import { dayEntries, fullDay } from "../layout";
 import type { GridProps } from "../MonthGrid";
 import { WeekGrid } from "../WeekGrid";
+import { carriesEvent } from "./event-drag";
 import { HOUR_PX, placeBlocks, splitDay, startHour, type Placed } from "./hours";
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const label = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 
 export function HourWeek(props: GridProps) {
-  const { days, today, items, tasks, mentions, made, events, colors, dragging } = props;
+  const { days, today, items, tasks, mentions, made, events, colors, dragging, lit } = props;
   const week = useMemo(() => days[0] ?? [], [days]);
   return (
     <div className="kasten-cal-hourweek" style={{ "--hour": `${HOUR_PX}px` } as CSSProperties}>
       <div className="kasten-cal-hourweek-in">
         <WeekGrid {...props} hours />
-        <HourBody week={week} today={today} items={items} tasks={tasks} mentions={mentions} made={made} events={events} colors={colors} dragging={dragging} />
+        <HourBody week={week} today={today} items={items} tasks={tasks} mentions={mentions} made={made} events={events} colors={colors} dragging={dragging} lit={lit} />
       </div>
     </div>
   );
 }
 
-type BodyProps = Pick<GridProps, "today" | "items" | "tasks" | "mentions" | "made" | "events" | "colors" | "dragging"> & { week: readonly string[] };
+type BodyProps = Pick<GridProps, "today" | "items" | "tasks" | "mentions" | "made" | "events" | "colors" | "dragging" | "lit"> & { week: readonly string[] };
 
 /** The minutes since midnight now. */
 const minutesNow = (now: Date) => now.getHours() * 60 + now.getMinutes();
 
-function HourBody({ week, today, items, tasks, mentions, made, events, colors, dragging }: BodyProps) {
+function HourBody({ week, today, items, tasks, mentions, made, events, colors, dragging, lit }: BodyProps) {
   const columns = useMemo(
     () => week.map((day) => placeBlocks(splitDay(dayEntries(items.get(day), tasks.get(day), mentions.get(day), made.get(day), events.get(day))).timed)),
     [week, items, tasks, mentions, made, events],
@@ -70,7 +72,7 @@ function HourBody({ week, today, items, tasks, mentions, made, events, colors, d
         ))}
       </div>
       {week.map((day, col) => (
-        <HourColumn key={day} day={day} weekend={col >= 5} today={day === today} placed={columns[col]!} now={day === today ? minutesNow(now) : null} colors={colors} dragging={dragging} />
+        <HourColumn key={day} day={day} weekend={col >= 5} today={day === today} placed={columns[col]!} now={day === today ? minutesNow(now) : null} colors={colors} dragging={dragging} over={lit !== null && lit.start <= day && day <= lit.end} />
       ))}
     </div>
   );
@@ -85,11 +87,25 @@ interface ColumnProps {
   now: number | null;
   colors: ReadonlyMap<string, string>;
   dragging: string | null;
+  /** An event is being carried over the day. */
+  over: boolean;
 }
 
-const HourColumn = memo(function HourColumn({ day, weekend, today, placed, now, colors, dragging }: ColumnProps) {
+const HourColumn = memo(function HourColumn({ day, weekend, today, placed, now, colors, dragging, over }: ColumnProps) {
+  const actions = useContext(ActionsContext);
+  // Only an event of a subscribed calendar is taken here: a note's date is moved on the day's cell above.
+  const onlyEvents = (take: (drag: DragEvent<HTMLElement>) => void) => (drag: DragEvent<HTMLElement>) => carriesEvent(drag) && take(drag);
   return (
-    <div role="group" aria-label={`${fullDay(day)}, by the hour`} data-day={day} className={`kasten-cal-hours-col${weekend ? " is-weekend" : ""}${today ? " is-today" : ""}`}>
+    <div
+      role="group"
+      aria-label={`${fullDay(day)}, by the hour`}
+      data-day={day}
+      className={`kasten-cal-hours-col${weekend ? " is-weekend" : ""}${today ? " is-today" : ""}${over ? " is-over" : ""}`}
+      onDragEnter={onlyEvents((drag) => actions?.dragOver(day, drag))}
+      onDragOver={onlyEvents((drag) => actions?.dragOver(day, drag))}
+      onDragLeave={(drag) => actions?.dragLeave(day, drag)}
+      onDrop={onlyEvents((drag) => actions?.drop(day, drag))}
+    >
       {placed.map((block) => (
         <div
           key={entryKey(block.entry)}

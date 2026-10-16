@@ -38,6 +38,7 @@ fn agent(k: &Kasten, s: &Session, op: AgentOp) -> serde_json::Value {
         Outcome::PendingReview { proposal, .. } => {
             k.accept_proposal(&proposal, "you", NOW).unwrap()
         }
+        Outcome::Staged { .. } => unreachable!("agent_run never stages"),
     }
 }
 

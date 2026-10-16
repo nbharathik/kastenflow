@@ -1,8 +1,8 @@
 // The right panel beside an open page: the page's details in one tab (its
 // properties, outline, links and facts, one under the other) and its history in
-// the other. Ctrl+. shows or hides it; Ctrl+Shift+H opens it on History. The
-// chat is the window's own, docked at the right (ChatDock), not a tab of each
-// page.
+// the next and its comments in the third. Ctrl+. shows or hides it;
+// Ctrl+Shift+H opens it on History. The chat is the window's own, docked at
+// the right (ChatDock), not a tab of each page.
 
 import "./panel.css";
 
@@ -13,6 +13,10 @@ import type { NoteMeta, VaultClient } from "../../lib/vault/types";
 import type { PageSession } from "../workspace/page/page-session";
 import { keyTitle } from "../shortcuts/store";
 import { usePaneId } from "../workspace/pane-context";
+import { HighlightsSection } from "../annotations/HighlightsSection";
+import type { HighlightsModel } from "../annotations/use-text-highlights";
+import { CommentsTab } from "../pages/comments/CommentsTab";
+import type { CommentsEditor } from "../pages/comments/use-comments";
 import { HistoryTab } from "./history/HistoryTab";
 import { LinksTab } from "./links/LinksTab";
 import { Outline, PageFacts } from "./outline/Outline";
@@ -33,9 +37,15 @@ export interface RightPanelProps {
   session: PageSession;
   /** Starts the page again on a note, after a change the session cannot adopt. */
   onReload: Reload;
+  /** The page's editor, for the Comments tab to place comments in its words and to show them. */
+  editor?: RefObject<CommentsEditor | null>;
+  /** Counts the times the editor became ready. */
+  ready?: number;
+  /** The highlights on a page kept from the web, listed in the Details tab. */
+  highlights?: HighlightsModel;
 }
 
-export function RightPanel({ note, body, root, client, session, onReload }: RightPanelProps) {
+export function RightPanel({ note, body, root, client, session, onReload, editor, ready = 0, highlights }: RightPanelProps) {
   const paneId = usePaneId();
   const tab = usePanelTab(paneId);
   const width = usePanelWidth(paneId);
@@ -57,10 +67,12 @@ export function RightPanel({ note, body, root, client, session, onReload }: Righ
             <PropertiesTab note={note} page={page} />
             <Outline root={root} />
             <LinksTab note={note} page={page} />
+            {highlights && editor && <HighlightsSection model={highlights} editor={editor} ready={ready} />}
             <PageFacts note={note} root={root} />
           </>
         )}
         {tab === "history" && <HistoryTab note={note} body={body} page={page} />}
+        {tab === "comments" && editor && <CommentsTab client={client} path={session.path} editor={editor} ready={ready} body={body} />}
       </div>
     </aside>
   );

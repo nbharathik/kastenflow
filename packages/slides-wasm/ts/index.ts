@@ -9,6 +9,7 @@ export type { ExportOptions, ExportWarning, PptxExport } from "./export.ts";
 export { importPptx, planImport, renamePictures, similarRuns } from "./import.ts";
 export type { ImportMode, ImportOptions, ImportPlan, ImportReport, ImportWarning, ImportedPicture, ImportedPptx, KeptObject, PlannedOperation } from "./import.ts";
 export type { LintOptions } from "./lint.ts";
-export { pageBlocks, pageBody, pageFingerprint, pageLink, pageSection, pageSections } from "./pages.ts";
+export { draftStoryboard, pageBlocks, pageBody, pageFingerprint, pageLink, pageMadeOf, pageSection, pageSections } from "./pages.ts";
+export type { StoryPage } from "./pages.ts";
 export { citationOrder, closestReference, referenceList, referencesVersion, setReferences, subscribeReferences } from "./references.ts";
 export type * from "./generated/index.ts";

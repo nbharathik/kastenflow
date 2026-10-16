@@ -1,5 +1,3 @@
-use serde_json::json;
-
 use super::*;
 
 #[test]
@@ -75,73 +73,66 @@ fn a_refusal_says_whether_signing_in_again_is_the_way_on() {
     }
 }
 
-fn id_token(claims: &serde_json::Value) -> String {
-    let part = |value: &serde_json::Value| URL_SAFE_NO_PAD.encode(value.to_string());
-    format!(
-        "{}.{}.signature",
-        part(&json!({"alg": "RS256"})),
-        part(claims)
-    )
-}
-
 #[test]
-fn the_id_token_names_the_account_and_is_checked_for_this_sign_in() {
-    let claims = json!({
-        "iss": "https://auth.openai.com", "aud": "oaiapp_abc", "sub": "user-1",
-        "exp": 2_000_000_000u64, "nonce": "n-1", "email": " me@example.com "
-    });
-    let token = id_token(&claims);
-    let who = identity(&token, "oaiapp_abc", Some("n-1"), 1_900_000_000).unwrap();
-    assert_eq!(
-        who,
-        Identity {
-            email: Some("me@example.com".into())
-        }
-    );
-    // Without a nonce to compare (a refresh), the rest is still checked.
-    assert!(identity(&token, "oaiapp_abc", None, 1_900_000_000).is_ok());
-
-    let with = |key: &str, value: serde_json::Value| {
-        let mut changed = claims.clone();
-        changed[key] = value;
-        id_token(&changed)
-    };
-    let cases = [
+fn only_a_verdict_on_the_token_itself_ends_the_sign_in() {
+    // Spent, by its code or in words, as a client error.
+    for (status, body) in [
+        (400, r#"{"error":"invalid_grant"}"#),
+        (401, r#"{"error":"invalid_client"}"#),
+        (403, r#"{"error":"invalid_grant"}"#),
+        (400, r#"{"error":"unauthorized_client"}"#),
         (
-            "another issuer",
-            with("iss", json!("https://evil.example")),
-            Some("n-1"),
+            400,
+            r#"{"error":{"code":"refresh_token_revoked","message":"Revoked"}}"#,
         ),
         (
-            "another client",
-            with("aud", json!("oaiapp_other")),
-            Some("n-1"),
+            400,
+            r#"{"error":{"message":"Your refresh token has expired. Please sign in again."}}"#,
         ),
         (
-            "another client",
-            with("aud", json!(["a", "b"])),
-            Some("n-1"),
+            400,
+            r#"{"error":{"message":"Your refresh token has already been used to generate a new access token."}}"#,
         ),
-        ("expired", with("exp", json!(1_000_000_000u64)), Some("n-1")),
-        ("another sign-in", token.clone(), Some("n-2")),
-        ("no account", with("sub", json!("")), Some("n-1")),
-        ("no claims", "only-one-part".to_owned(), None),
-        ("unreadable", "a.!!!.c".to_owned(), None),
-    ];
-    for (why, token, nonce) in cases {
-        let err = identity(&token, "oaiapp_abc", nonce, 1_900_000_000).unwrap_err();
-        assert!(err.contains(why), "{why}: {err}");
+    ] {
+        assert!(
+            matches!(refusal(status, body), Refused::Invalid(_)),
+            "{status} {body}"
+        );
     }
-    // An audience list that names this client is fine; no email is fine.
-    let listed = id_token(
-        &json!({"iss": ISSUER, "aud": ["x", "oaiapp_abc"], "sub": "u", "exp": 2_000_000_000u64}),
+    // Not a verdict on the token: a page in the way, a rate limit, a server
+    // that fails (whatever it calls it), a request that was wrong.
+    for (status, body) in [
+        (403, "<html><title>Just a moment...</title></html>"),
+        (401, ""),
+        (408, r#"{"error":"invalid_grant"}"#),
+        (429, r#"{"error":"invalid_grant"}"#),
+        (500, r#"{"error":"invalid_grant"}"#),
+        (503, ""),
+        (
+            400,
+            r#"{"error":"invalid_request","error_description":"Missing parameter"}"#,
+        ),
+        (
+            400,
+            r#"{"error":{"message":"The refresh token field is required"}}"#,
+        ),
+    ] {
+        assert!(
+            matches!(refusal(status, body), Refused::Unavailable(_)),
+            "{status} {body}"
+        );
+    }
+    // A reason in words has no empty brackets.
+    let Refused::Invalid(words) = refusal(
+        400,
+        r#"{"error":{"message":"Your refresh token has expired"}}"#,
+    ) else {
+        panic!()
+    };
+    assert!(
+        words.starts_with("ChatGPT no longer accepts this sign-in: Your refresh token has expired"),
+        "{words}"
     );
-    assert_eq!(
-        identity(&listed, "oaiapp_abc", None, 1).unwrap().email,
-        None
-    );
-    // A nonce the token lacks fails when one is expected.
-    assert!(identity(&listed, "oaiapp_abc", Some("n"), 1).is_err());
 }
 
 #[test]

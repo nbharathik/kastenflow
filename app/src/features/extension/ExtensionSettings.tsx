@@ -6,6 +6,7 @@ import { Button } from "../../ui/Button";
 import { Disclosure } from "../../ui/Disclosure";
 import { Block, Group, Note, Row, Switch } from "../workspace/views/settings/parts";
 import { extensionBackend } from "./backend";
+import { FolderRow } from "./FolderRow";
 import { PairingRow } from "./PairingRow";
 import { useExtension } from "./store";
 import { DEFAULT_PORT } from "./types";
@@ -59,11 +60,12 @@ export function ExtensionSettings({ pollMs = 1500 }: { pollMs?: number }) {
         </Button>
       </Row>
       <PairingRow pollMs={pollMs} />
+      {available && <FolderRow />}
       <Block id="extension.install" titled>
         <Disclosure id="settings-extension-steps" title="Show the steps">
           <ol className="kasten-extension-steps text-13 text-muted">
             <li>Open chrome://extensions (edge://extensions in Edge) and turn on Developer mode.</li>
-            <li>Choose Load unpacked, and pick the browser-extension folder from KastenFlow&rsquo;s source download. Its README has the details.</li>
+            <li>Choose Load unpacked, and pick the extension folder that KastenFlow carries (Show extension folder, above, opens it). Its README has the details.</li>
             <li>Pin the extension, open it, press Pair here and type the code into it.</li>
             <li>Then press its button on a page, or right-click a page, a selection, a link or a picture and choose Send to KastenFlow.</li>
           </ol>

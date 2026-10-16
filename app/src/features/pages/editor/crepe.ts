@@ -2,12 +2,15 @@
 // escaping fix, and Notion's blocks and menus.
 
 import { Crepe } from "@milkdown/crepe";
+import { editorViewCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node } from "@milkdown/kit/prose/model";
 
+import { annotationPaint } from "../../annotations/paint";
 import { agentActionsCtx, agentMarks, type AgentActions } from "./blocks/agent-marks";
 import { aiPlugin } from "./ai/ai";
 import { findPlugin } from "./find/find";
+import { citePlugin } from "./cite/decorate";
 import { calloutSchema, remarkCallout, wrapInCalloutCommand } from "./blocks/callout";
 import { calloutView } from "./blocks/callout-view";
 import { imageBlock } from "./blocks/image-block";
@@ -33,6 +36,7 @@ import { gutter } from "./menus/gutter";
 import { blockHandle } from "./menus/handle";
 import { notionKeymap } from "./menus/keymap";
 import { embedSpots } from "./menus/embed-spot";
+import { setLocationCopier } from "./menus/location-link";
 import { mentionMenu } from "./menus/mention";
 import { placeholder } from "./menus/placeholder";
 import { fileLinks } from "./file-links";
@@ -122,7 +126,9 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
     .use(smartCtx)
     .use(smartPageCtx)
     .use([agentActionsCtx, agentMarks])
+    .use(annotationPaint)
     .use(findPlugin)
+    .use(citePlugin)
     .use(aiPlugin)
     .use(imageBlock)
     .use(pasteFiles)
@@ -141,5 +147,7 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
   const { onUpdate } = options;
   if (onUpdate) crepe.on((api) => api.updated((ctx, doc) => onUpdate(ctx, doc)));
   await crepe.create();
+  // The block menu's "Copy link to this location" asks the page, which knows what it is.
+  setLocationCopier(crepe.editor.ctx.get(editorViewCtx), options.links?.copyLocation);
   return crepe;
 }

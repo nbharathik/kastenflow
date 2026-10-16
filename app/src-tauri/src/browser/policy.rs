@@ -23,6 +23,19 @@ pub fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
+/// The id of the one web preview a deck's editor or a presentation opens. It
+/// is a browser webview like a tab (same profile, same rules, no commands) but
+/// no tab may take its id, so a tab's commands can never act on it.
+pub const PREVIEW: &str = "preview";
+
+/// The preview's label.
+pub const PREVIEW_LABEL: &str = "web-preview";
+
+/// A tab id: fit for a label, and not the preview's.
+pub fn tab_id(id: &str) -> bool {
+    valid_id(id) && id != PREVIEW
+}
+
 /// The most an address the tab navigates to may hold.
 const MAX_URL: usize = 4096;
 
@@ -148,5 +161,20 @@ mod tests {
         }
         assert!(!valid_id(&"a".repeat(65)));
         assert!(valid_id(&"a".repeat(64)));
+    }
+
+    #[test]
+    fn the_preview_is_a_browser_webview_whose_id_no_tab_may_have() {
+        assert_eq!(PREVIEW_LABEL, format!("{PREFIX}{PREVIEW}"));
+        // Its label names a browser webview, so the guard holds it to the browser's rules.
+        assert_eq!(id_of(PREVIEW_LABEL), Some(PREVIEW));
+        assert!(valid_id(PREVIEW));
+        assert!(!tab_id(PREVIEW));
+        // Only that exact name is reserved.
+        for tab in ["previews", "preview2", "Preview", "my-preview", "t1abc"] {
+            assert!(tab_id(tab), "{tab}");
+        }
+        assert!(!tab_id(""));
+        assert!(!tab_id("a b"));
     }
 }

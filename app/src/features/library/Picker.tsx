@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } fr
 
 import { Icon } from "../../ui/Icon";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
+import { useOccludesElement } from "../browser/occlusion";
 
 export interface PickerOption {
   key: string;
@@ -55,8 +56,11 @@ export function Picker({ label, placeholder, options, onPick, create, empty = "N
   const [active, setActive] = useState(0);
   const [asking, setAsking] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const id = useId();
   useReturnFocus();
+  // A browser tab's page beside the list steps aside while it is open.
+  useOccludesElement(box);
   const close = useRef(onClose);
   useEffect(() => {
     close.current = onClose;
@@ -92,6 +96,7 @@ export function Picker({ label, placeholder, options, onPick, create, empty = "N
 
   return (
     <div
+      ref={box}
       role="dialog"
       aria-label={label}
       className="absolute bottom-full left-0 z-40 mb-2 flex w-72 flex-col overflow-hidden rounded-xl bg-(--notion-menu-bg) text-13 text-ink shadow-(--notion-shadow) starting:translate-y-1 starting:opacity-0 transition"

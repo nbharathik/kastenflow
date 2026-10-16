@@ -27,6 +27,10 @@ const TURN_ICON =
 const AI_ICON =
   '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4M22 4h-4"/></svg>';
 
+// A line icon (a lightbulb), drawn with its own fill so the toolbar's filled-icon style leaves it open.
+const EXPLAIN_ICON =
+  '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6M10 22h4"/></svg>';
+
 const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const shortcut = (keys: string) => (mac ? keys.replace("Ctrl+", "⌘").replace("Shift+", "⇧") : keys);
 
@@ -96,7 +100,10 @@ export const buildToolbar: NonNullable<ToolbarFeatureConfig["buildToolbar"]> = (
   const latex = functions.findIndex((item) => item.key === "latex");
   if (latex >= 0) functions.splice(latex, 1);
 
-  builder.addGroup("kasten-ai", "AI").addItem("kasten-ai", { icon: AI_ICON, label: "Ask AI", active: () => false, onRun: (ctx) => void openAi(ctx.get(editorViewCtx), "ask") });
+  builder
+    .addGroup("kasten-ai", "AI")
+    .addItem("kasten-ai", { icon: AI_ICON, label: "Ask AI", active: () => false, onRun: (ctx) => void openAi(ctx.get(editorViewCtx), "ask") })
+    .addItem("kasten-explain", { icon: EXPLAIN_ICON, label: "Explain", active: () => false, onRun: (ctx: Ctx) => void openAi(ctx.get(editorViewCtx), "explain") });
   // "Ask AI" leads, as in Notion; build() hands back the builder's own list.
   const groups = builder.build();
   groups.unshift(groups.pop()!);

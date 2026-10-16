@@ -101,6 +101,120 @@ impl Rng {
     }
 }
 
+/// Adds `decks` slide decks of eight slides to a vault, half in the first
+/// projects' `decks/` folders and half in `library/`, each slide with a title,
+/// some text and, on every other slide, a picture named under `assets/`.
+/// Deterministic for a given seed.
+pub fn generate_decks(root: &Path, decks: usize, seed: u64) -> Result<()> {
+    let mut rng = Rng(seed);
+    for d in 0..decks {
+        let folder = if d % 2 == 0 {
+            format!("projects/p{}/decks", d % 20)
+        } else {
+            "library".to_owned()
+        };
+        fs::create_dir_all(root.join(&folder))?;
+        let slides: Vec<serde_json::Value> = (0..8)
+            .map(|s| {
+                let mut elements = vec![
+                    serde_json::json!({
+                        "id": format!("e-{d}t{s}"),
+                        "placeholder": "title",
+                        "text": { "paragraphs": [{ "runs": [{ "t": rng.sentence(4) }] }] },
+                        "type": "text",
+                    }),
+                    serde_json::json!({
+                        "id": format!("e-{d}b{s}"),
+                        "placeholder": "body",
+                        "text": { "paragraphs": [
+                            { "runs": [{ "t": rng.sentence(9) }] },
+                            { "runs": [{ "t": rng.sentence(7) }] },
+                        ] },
+                        "type": "text",
+                    }),
+                ];
+                if s % 2 == 1 {
+                    elements.push(serde_json::json!({
+                        "id": format!("e-{d}p{s}"),
+                        "type": "image",
+                        "src": format!("assets/pic-{}.png", rng.below(40)),
+                        "x": 480, "y": 148, "w": 400, "h": 300,
+                    }));
+                }
+                serde_json::json!({ "id": format!("s-{d}n{s}"), "layout": "title-body", "elements": elements })
+            })
+            .collect();
+        let deck = serde_json::json!({
+            "format": "kasten-deck",
+            "formatVersion": 1,
+            "id": format!("d-{d:08x}"),
+            "title": format!("Deck {d} {}", rng.word()),
+            "size": { "w": 960, "h": 540 },
+            "slides": slides,
+        });
+        let mut text = serde_json::to_string_pretty(&deck).unwrap_or_default();
+        text.push('\n');
+        fs::write(root.join(format!("{folder}/deck-{d}.deck")), text)?;
+    }
+    Ok(())
+}
+
+/// Adds `count` projects (`projects/q0` and on) to a vault, each with a status,
+/// a health, a review day, a few `task` notes, a few `project-update` notes and
+/// a note of to-dos with days. Deterministic for a given seed.
+pub fn generate_projects(root: &Path, count: usize, seed: u64) -> Result<()> {
+    let mut rng = Rng(seed);
+    let statuses = ["Active", "Paused", "Done", "Active"];
+    let healths = ["On track", "At risk", "Blocked"];
+    for q in 0..count {
+        let dir = root.join(format!("projects/q{q}"));
+        fs::create_dir_all(dir.join("cards"))?;
+        fs::create_dir_all(dir.join("pages"))?;
+        let archived = if q % 7 == 6 { "  archived: true\n" } else { "" };
+        fs::write(
+            dir.join("_project.md"),
+            format!(
+                "---\nid: {}\ntitle: Quarter project {q}\ntype: project\ntags: [project]\nprops:\n  summary: {}\n  status: {}\n  health: {}\n  review_after: 2026-{:02}-{:02}\n{archived}---\n- [ ] {} @2026-{:02}-{:02}\n- [x] {}\n",
+                ulid_at(1_781_000_000_000 + q as u64),
+                rng.sentence(8),
+                statuses[q % statuses.len()],
+                healths[q % healths.len()],
+                1 + rng.below(12),
+                1 + rng.below(28),
+                rng.sentence(5),
+                1 + rng.below(12),
+                1 + rng.below(28),
+                rng.sentence(4),
+            ),
+        )?;
+        for t in 0..6 {
+            let status = ["Todo", "Doing", "Done"][t % 3];
+            fs::write(
+                dir.join(format!("cards/task-{t}.md")),
+                format!(
+                    "---\nid: {}\ntitle: Task {q} {t}\ntype: card\ntags: [task]\nprops:\n  status: {status}\n  due: 2026-{:02}-{:02}\n---\n{}\n",
+                    ulid_at(1_782_000_000_000 + (q * 100 + t) as u64),
+                    1 + rng.below(12),
+                    1 + rng.below(28),
+                    rng.sentence(6),
+                ),
+            )?;
+        }
+        for u in 0..3 {
+            fs::write(
+                dir.join(format!("pages/update-{u}.md")),
+                format!(
+                    "---\nid: {}\ntitle: Update {q} {u}\ntype: page\ntags: [project-update]\nprops:\n  date: 2026-0{}-1{u}\n---\n## Progress\n\n{}\n",
+                    ulid_at(1_783_000_000_000 + (q * 100 + u) as u64),
+                    1 + rng.below(9),
+                    rng.sentence(10),
+                ),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// Writes `notes` notes and `boards` boards under `root`.
 pub fn generate_vault(root: &Path, notes: usize, boards: usize, seed: u64) -> Result<()> {
     let mut rng = Rng(seed);

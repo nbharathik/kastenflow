@@ -34,6 +34,7 @@ fn selection(html: &str) -> WebCapture {
         text: None,
         via: "browser".to_owned(),
         tags: Vec::new(),
+        snapshot_of: None,
     }
 }
 
@@ -111,6 +112,7 @@ fn makes_the_tags_database_once_and_leaves_a_changed_one_alone() {
         "  - {key: site, type: text}\n",
         "  - {key: captured, type: date}\n",
         "  - {key: status, type: select, options: [New, Read, Filed]}\n",
+        "  - {key: reading, type: select, options: [Unread, Reading, Finished]}\n",
         "  - {name: All, type: table, sort: [{key: captured, dir: desc}]}\n",
         "  - {name: By site, type: table, sort: [{key: site, dir: asc}, {key: captured, dir: desc}]}\n",
         "  - {name: This week, type: calendar, date: captured}\n",

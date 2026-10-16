@@ -28,7 +28,7 @@ use std::fmt;
 use serde_json::Value;
 
 pub use images::{Kind as ImageKind, base64_encode, dimensions, sniff};
-pub use instructions::instructions;
+pub use instructions::{Facts, instructions, instructions_for};
 pub use memory::{MemoryStore, hash_of};
 pub use session::Agent;
 pub use specs::{ToolSpec, tools};

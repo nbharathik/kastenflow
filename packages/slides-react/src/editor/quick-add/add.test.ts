@@ -86,6 +86,22 @@ describe("T adds a text box at once", () => {
     expect([second?.x, second?.y]).not.toEqual([first?.x, first?.y]);
   });
 
+  it("goes to where the pointer last was on the slide once it has gone off it (to a menu, the filmstrip), snapped and held inside as at the pointer", async () => {
+    const { session, context, at, elements, ui } = await open(true);
+    session.elements.insert([shape("rect", { x: 500, y: 300, w: 120, h: 120 })]);
+    session.select([]);
+    at(497, 100);
+    pointerOf(ui).left();
+    expect(pointerOf(ui).slidePoint()).toBeNull();
+    dispatchKey(press("t"), context, "stage");
+    expect(elements().at(-1)).toMatchObject({ type: "text", x: 500, y: 100 });
+    context.session.stopEditing();
+    at(955, 539);
+    pointerOf(ui).left();
+    dispatchKey(press("t"), context, "stage");
+    expect(elements().at(-1)).toMatchObject({ x: 660, y: 484 });
+  });
+
   it("keeps clear of what the slide already has", async () => {
     const { session, context, elements } = await open();
     session.elements.insert([textBox({ x: 48, y: 40, w: 864, h: 360 }, "Body")]);

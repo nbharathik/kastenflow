@@ -27,6 +27,8 @@ export type ChoiceAction =
   | { type: "deck" }
   /** Opens the menu of diagrams to show in the page, and a new one (its editor opens at once). */
   | { type: "diagram" }
+  /** Opens the menu of papers in the bibliography and writes `[@key]` for the one picked. */
+  | { type: "cite" }
   /** Starts two sections and draws the page as slide-like cards (`layout: sections`). */
   | { type: "smart" };
 
@@ -101,6 +103,7 @@ export const BLOCK_CHOICES: Choice[] = [
   { key: "diagram", label: "Diagram", icon: "icon:diagram", description: "Show a diagram in the page, or draw a new one.", keywords: ["diagram", "drawio", "flowchart", "flow", "chart", "architecture", "uml", "sketch", "draw"], section: ADVANCED, action: { type: "diagram" } },
   { key: "board", label: "Whiteboard", icon: "icon:board", description: "Embed a whiteboard to work on in the page.", keywords: ["board", "canvas", "whiteboard", "embed", "diagram", "draw"], section: ADVANCED, action: { type: "link", mode: "board" } },
   { key: "deck", label: "Deck", icon: "icon:present", description: "Show a slide deck in the page, slide by slide.", keywords: ["deck", "slides", "slideshow", "presentation", "powerpoint", "talk"], section: ADVANCED, action: { type: "deck" } },
+  { key: "citation", label: "Citation", icon: "icon:book", hint: "[@", description: "Cite a paper from your references, such as [@key].", keywords: ["citation", "cite", "reference", "bibliography", "paper", "source", "pandoc", "bibtex", "[@"], section: ADVANCED, action: { type: "cite" } },
   { key: "smart-page", label: "Smart page", icon: "icon:layout", description: "Cut the page into sections you can present, one slide each.", keywords: ["smart", "sections", "cards", "frames", "layout", "present", "slides", "talk"], section: ADVANCED, action: { type: "smart" } },
 ];
 

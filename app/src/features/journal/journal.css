@@ -238,6 +238,13 @@
   font-weight: 700;
 }
 
+/* A day lit while an event of a subscribed calendar is carried over it. */
+.is-event-over {
+  background: var(--color-soft);
+  outline: 1px dashed var(--color-accent);
+  outline-offset: -1px;
+}
+
 .kasten-mini-dot {
   display: inline-block;
   width: 4px;

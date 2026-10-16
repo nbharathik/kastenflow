@@ -12,7 +12,24 @@ use super::{Cx, Op, Scope, op_types};
 use crate::canonical::check_structure;
 use crate::error::{Error, Result};
 use crate::ids::SLIDE;
-use crate::model::{Deck, Slide};
+use crate::model::{Deck, Extra, Size, Slide};
+use crate::resize::{Fit, checked, scale_slide};
+
+/// How far to refit what comes from a deck whose slides are `from` units to this deck's `to`: no
+/// change at all when nothing is said, and a refusal when what is said is not a slide size.
+pub(super) fn from_size_fit(op: &str, from: Option<&Size>, to: &Size) -> Result<Fit> {
+    let Some(from) = from else {
+        return Ok(Fit { sx: 1.0, sy: 1.0 });
+    };
+    let (w, h) = checked(from.w, from.h)
+        .map_err(|message| Error::bad_input(op, format!("`fromSize`: {message}")))?;
+    let from = Size {
+        w,
+        h,
+        extra: Extra::new(),
+    };
+    Ok(Fit::between(&from, to))
+}
 
 op_types! {
     /// Adds slides that were made elsewhere.
@@ -22,6 +39,9 @@ op_types! {
         /// The slide to add them after (and the backup slides stacked under it); the end when absent.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub after: Option<String>,
+        /// The size of the slides of the deck they were made in, when it is not this deck's. They are then refitted to this deck as a change of page size refits a deck: boxes stretch with the slide, type, lines and corners follow the width, and pictures and anything turned keep their shape.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub from_size: Option<Size>,
     }
 
     pub struct AddedSlides {
@@ -33,13 +53,14 @@ op_types! {
 impl Op for AddSlides {
     type Output = AddedSlides;
     const NAME: &'static str = "add_slides";
-    const ABOUT: &'static str = "Add whole slides that were made elsewhere, such as the ones of an imported PowerPoint file, after a slide or at the end. Each needs a layout the theme has. A slide keeps its id and its elements' ids unless they are taken.";
+    const ABOUT: &'static str = "Add whole slides that were made elsewhere, such as the ones of an imported PowerPoint file, after a slide or at the end. Each needs a layout the theme has. A slide keeps its id and its elements' ids unless they are taken. Give `fromSize` (the page size of the deck they come from) to refit them to this deck's page size.";
 
     fn scope(&self, _: &Deck) -> Scope {
         Scope::default().with_order()
     }
 
     fn run(self, cx: &mut Cx) -> Result<AddedSlides> {
+        let fit = from_size_fit(Self::NAME, self.from_size.as_ref(), &cx.deck.size)?;
         let mut at = match &self.after {
             Some(id) => {
                 let i = cx.deck.index_of(id).ok_or_else(|| Error::no_slide(id))?;
@@ -75,6 +96,7 @@ impl Op for AddSlides {
             slide.extra.remove(crate::marks::KEY);
             taken.insert(slide.id.clone());
             assign_ids(&mut slide.elements, &mut HashSet::new(), cx.ids, true);
+            scale_slide(&mut slide, &cx.deck.theme, &fit);
             made.push(slide.id.clone());
             cx.deck.slides.insert(at, slide);
             at += 1;

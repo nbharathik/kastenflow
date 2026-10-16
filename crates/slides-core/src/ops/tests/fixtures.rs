@@ -10,12 +10,13 @@ use std::path::PathBuf;
 use serde_json::{Value, json};
 
 use super::composite_deck::composites;
+use super::fixtures_v1::highlight_citations;
 use super::{add, bytes, engine, first_slide, text_box};
 use crate::canonical;
 use crate::marks::{Author, stamp};
 use crate::ops::Engine;
 
-fn dir() -> PathBuf {
+pub(super) fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/decks")
 }
 
@@ -208,6 +209,7 @@ fn all() -> Vec<(&'static str, Engine)> {
         ("four-three.deck", four_three()),
         ("composites.deck", composites()),
         ("agent-marks.deck", agent_marks()),
+        ("highlight-citations.deck", highlight_citations()),
     ]
 }
 

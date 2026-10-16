@@ -17,17 +17,25 @@ pub const INSTRUCTIONS: &str = "KastenFlow is the user's notes vault: Markdown c
 Capture quick thoughts to the inbox with `capture`. Link related notes by writing [[Their title]], or [[their/path|Their title]] when several notes share the title. \
 Change one section with `replace_section` or add with `append` instead of rewriting a note; `propose_edit` sends a full rewrite to the user for review. \
 Brainstorm on whiteboards. Nothing is ever deleted: `trash_note` moves notes to the trash. \
-Diagrams (flowcharts, architecture, sketches) are draw.io XML: read one with `get_diagram`, make one with `create_diagram`, change it with `update_diagram` \
-(send the whole XML and keep the ids of cells you do not change); `trash_diagram` always waits for the user. \
+Diagrams (flowcharts, architecture, sketches) are draw.io files you draw with typed steps, never with XML: make one with `diagram_new` (from a spec, a Mermaid flowchart or a template), \
+read one with `diagram_describe`, change it with `diagram_edit` (add_node, add_edge, update, move, group, delete, layout…), check it with `diagram_lint` and `diagram_preview`, keep a picture with `diagram_export`, \
+and look shapes up by name with `diagram_find_shapes`. `get_diagram`, `create_diagram` and `update_diagram` read and write the raw XML; prefer the typed tools. `trash_diagram` always waits for the user. \
 Slide decks are built and changed with the deck tools (`create_deck`, or `deck_from_note` to start from a note): \
 run `lint_deck` after every batch of changes and fix what it reports. What you make in a deck is marked for the user until they accept it. \
 Some writes come back as `pending_review` with a proposal id; the user decides those. Locked notes are read-only.";
 
 /// What the server tells an agent on connecting: how to work in the vault,
-/// then in its slide decks.
+/// then in its slide decks, then how to draw diagrams (the text of the
+/// `kasten-diagrams` skill, written from the style catalogue).
 fn instructions() -> &'static str {
     static TEXT: OnceLock<String> = OnceLock::new();
-    TEXT.get_or_init(|| format!("{INSTRUCTIONS}\n\n{}", crate::decks::instructions()))
+    TEXT.get_or_init(|| {
+        format!(
+            "{INSTRUCTIONS}\n\n{}\n\n{}",
+            crate::decks::instructions(),
+            kasten_core::diagrams::presets::instructions()
+        )
+    })
 }
 
 /// Sessions for HTTP, where a request may come without a connection: a
@@ -88,6 +96,7 @@ impl KastenServer {
             + Self::write_tools()
             + Self::board_tools()
             + Self::diagram_tools()
+            + Self::diagram_ai_tools()
             + Self::deck_tools()
     }
 
@@ -120,6 +129,19 @@ impl KastenServer {
                     .or_insert_with(|| (Session::start(&client, now), now.millis));
                 entry.1 = now.millis;
                 entry.0.clone()
+            }
+        }
+    }
+
+    /// The client's session if it has made a change, and none otherwise:
+    /// looking starts no session.
+    pub fn peek_session(&self, context: &RequestContext<RoleServer>) -> Option<Session> {
+        match &self.sessions {
+            Sessions::Own(slot) => slot.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+            Sessions::Shared(all) => {
+                let key = session_key(context, &client_name(context));
+                let all = all.lock().unwrap_or_else(|p| p.into_inner());
+                all.get(&key).map(|(session, _)| session.clone())
             }
         }
     }

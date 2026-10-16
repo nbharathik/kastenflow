@@ -1,6 +1,8 @@
 // Generated from slides-core by its tests. Do not edit.
 import type { AcceptMarks } from "./AcceptMarks";
 import type { Accepted } from "./Accepted";
+import type { AcknowledgeSource } from "./AcknowledgeSource";
+import type { Acknowledged } from "./Acknowledged";
 import type { AddCitation } from "./AddCitation";
 import type { AddDiagram } from "./AddDiagram";
 import type { AddElements } from "./AddElements";
@@ -10,6 +12,7 @@ import type { AddPageSlides } from "./AddPageSlides";
 import type { AddSection } from "./AddSection";
 import type { AddSlide } from "./AddSlide";
 import type { AddSlides } from "./AddSlides";
+import type { AddStoryboardSlides } from "./AddStoryboardSlides";
 import type { AddedCitation } from "./AddedCitation";
 import type { AddedDiagram } from "./AddedDiagram";
 import type { AddedElements } from "./AddedElements";
@@ -18,15 +21,19 @@ import type { AddedPageContents } from "./AddedPageContents";
 import type { AddedPageSlides } from "./AddedPageSlides";
 import type { AddedSlide } from "./AddedSlide";
 import type { AddedSlides } from "./AddedSlides";
+import type { AddedStoryboard } from "./AddedStoryboard";
 import type { AlignElements } from "./AlignElements";
 import type { ApplyTemplate } from "./ApplyTemplate";
 import type { ApplyTheme } from "./ApplyTheme";
 import type { BuildSteps } from "./BuildSteps";
 import type { BuiltSteps } from "./BuiltSteps";
+import type { ClearCells } from "./ClearCells";
 import type { CollapseSlides } from "./CollapseSlides";
 import type { Collapsed } from "./Collapsed";
+import type { DeleteColumns } from "./DeleteColumns";
 import type { DeleteElements } from "./DeleteElements";
 import type { DeleteLayout } from "./DeleteLayout";
+import type { DeleteRows } from "./DeleteRows";
 import type { DeleteSlides } from "./DeleteSlides";
 import type { DesignedLayout } from "./DesignedLayout";
 import type { DistributeElements } from "./DistributeElements";
@@ -43,6 +50,9 @@ import type { GroupElements } from "./GroupElements";
 import type { Grouped } from "./Grouped";
 import type { ImportLayouts } from "./ImportLayouts";
 import type { ImportedLayouts } from "./ImportedLayouts";
+import type { InsertColumns } from "./InsertColumns";
+import type { InsertRows } from "./InsertRows";
+import type { MergeCells } from "./MergeCells";
 import type { MoveLayout } from "./MoveLayout";
 import type { MoveSlides } from "./MoveSlides";
 import type { PageSize } from "./PageSize";
@@ -59,6 +69,8 @@ import type { ResetSlides } from "./ResetSlides";
 import type { SaveLayout } from "./SaveLayout";
 import type { SavedLayout } from "./SavedLayout";
 import type { SetBackground } from "./SetBackground";
+import type { SetCellFill } from "./SetCellFill";
+import type { SetCells } from "./SetCells";
 import type { SetLayout } from "./SetLayout";
 import type { SetLayoutDesign } from "./SetLayoutDesign";
 import type { SetLayoutOutput } from "./SetLayoutOutput";
@@ -73,9 +85,11 @@ import type { SetStepStates } from "./SetStepStates";
 import type { SetText } from "./SetText";
 import type { SetTitle } from "./SetTitle";
 import type { SetTransition } from "./SetTransition";
+import type { TableSize } from "./TableSize";
 import type { TransformElements } from "./TransformElements";
 import type { UngroupElement } from "./UngroupElement";
 import type { Ungrouped } from "./Ungrouped";
+import type { UnmergeCells } from "./UnmergeCells";
 import type { UpdatePageContents } from "./UpdatePageContents";
 import type { UpdatedPageContents } from "./UpdatedPageContents";
 
@@ -120,6 +134,8 @@ export interface OpMap {
   add_page_contents: { input: AddPageContents; output: AddedPageContents };
   update_page_contents: { input: UpdatePageContents; output: UpdatedPageContents };
   add_page_slides: { input: AddPageSlides; output: AddedPageSlides };
+  add_storyboard_slides: { input: AddStoryboardSlides; output: AddedStoryboard };
+  acknowledge_source: { input: AcknowledgeSource; output: Acknowledged };
   patch_elements: { input: PatchElements; output: null };
   transform_elements: { input: TransformElements; output: null };
   delete_elements: { input: DeleteElements; output: null };
@@ -134,6 +150,15 @@ export interface OpMap {
   set_text: { input: SetText; output: null };
   set_rich_text: { input: SetRichText; output: null };
   format_paragraphs: { input: FormatParagraphs; output: null };
+  set_cells: { input: SetCells; output: TableSize };
+  clear_cells: { input: ClearCells; output: null };
+  insert_rows: { input: InsertRows; output: null };
+  delete_rows: { input: DeleteRows; output: null };
+  insert_columns: { input: InsertColumns; output: null };
+  delete_columns: { input: DeleteColumns; output: null };
+  merge_cells: { input: MergeCells; output: null };
+  unmerge_cells: { input: UnmergeCells; output: null };
+  set_cell_fill: { input: SetCellFill; output: null };
   replace_all: { input: ReplaceAll; output: Replaced };
   accept_marks: { input: AcceptMarks; output: Accepted };
 }
@@ -180,6 +205,8 @@ export const OP_NAMES = [
   "add_page_contents",
   "update_page_contents",
   "add_page_slides",
+  "add_storyboard_slides",
+  "acknowledge_source",
   "patch_elements",
   "transform_elements",
   "delete_elements",
@@ -194,6 +221,15 @@ export const OP_NAMES = [
   "set_text",
   "set_rich_text",
   "format_paragraphs",
+  "set_cells",
+  "clear_cells",
+  "insert_rows",
+  "delete_rows",
+  "insert_columns",
+  "delete_columns",
+  "merge_cells",
+  "unmerge_cells",
+  "set_cell_fill",
   "replace_all",
   "accept_marks",
 ] as const;

@@ -7,6 +7,7 @@ fn cite(keys: &[&str], format: Option<CitationStyle>, w: f64, h: f64) -> Citatio
         base: Base::new("e-cite").place(64.0, 480.0, w, h),
         keys: keys.iter().map(|k| (*k).to_owned()).collect(),
         format,
+        links: false,
         extra: Extra::new(),
     }
 }

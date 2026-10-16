@@ -33,27 +33,28 @@ fn convert_shapes(imp: &mut Importer, env: &Env, part: &PartCx, nodes: &[Node]) 
     elements
 }
 
-fn part_of_layout(env: &Env, layout: usize, slide: &str) -> PartCx {
+/// The layout as a part being read; `slide` is the slide a warning is about, none for the layout itself.
+fn part_of_layout(env: &Env, layout: usize, slide: Option<&str>) -> PartCx {
     let info = &env.layouts[layout];
     PartCx {
         name: info.part.clone(),
         rels: info.rels.clone(),
         declarations: Vec::new(),
         map: info.map.clone(),
-        slide: Some(slide.to_owned()),
+        slide: slide.map(str::to_owned),
         layout: Some(layout),
         in_master: true,
     }
 }
 
-fn part_of_master(env: &Env, master: usize, slide: &str) -> PartCx {
+fn part_of_master(env: &Env, master: usize, slide: Option<&str>) -> PartCx {
     let info = &env.masters[master];
     PartCx {
         name: info.part.clone(),
         rels: info.rels.clone(),
         declarations: Vec::new(),
         map: info.map.clone(),
-        slide: Some(slide.to_owned()),
+        slide: slide.map(str::to_owned),
         layout: None,
         in_master: true,
     }
@@ -74,8 +75,10 @@ fn without_ids(node: &Node) -> Node {
     copy
 }
 
-/// The shapes a layout (and, for a master other than the first, its master) draws under a slide's own.
-fn decorations(imp: &mut Importer, env: &Env, layout: usize, slide: &str) -> Vec<Element> {
+/// The shapes a layout (and, for a master other than the first, its master) draws under a slide's
+/// own, converted once for the layout: they become the layout's own decoration, and a slide of the
+/// layout keeps only the shapes it has itself.
+fn decoration(imp: &mut Importer, env: &Env, layout: usize) -> Vec<Element> {
     let info = &env.layouts[layout];
     let mut out = Vec::new();
     // A program that saves one master per layout (LibreOffice does) repeats the first master's shapes.
@@ -91,7 +94,7 @@ fn decorations(imp: &mut Importer, env: &Env, layout: usize, slide: &str) -> Vec
                     .all(|(a, b)| without_ids(a) == without_ids(b))
         });
     if info.master != 0 && !info.hide_master && !repeats_first {
-        let part = part_of_master(env, info.master, slide);
+        let part = part_of_master(env, info.master, None);
         out.extend(convert_shapes(
             imp,
             env,
@@ -99,10 +102,16 @@ fn decorations(imp: &mut Importer, env: &Env, layout: usize, slide: &str) -> Vec
             &env.masters[info.master].decorations,
         ));
     }
-    let part = part_of_layout(env, layout, slide);
+    let part = part_of_layout(env, layout, None);
     out.extend(convert_shapes(imp, env, &part, &info.decorations));
-    lock(&mut out);
     out
+}
+
+/// What each layout of the file draws, in the order of the layouts: one list of elements for each.
+pub fn layout_decorations(imp: &mut Importer, env: &Env) -> Vec<Vec<Element>> {
+    (0..env.layouts.len())
+        .map(|layout| decoration(imp, env, layout))
+        .collect()
 }
 
 /// The elements a master draws on every slide, for the theme.
@@ -110,8 +119,7 @@ pub fn master_elements(imp: &mut Importer, env: &Env) -> Vec<Element> {
     let Some(master) = env.masters.first() else {
         return Vec::new();
     };
-    let mut part = part_of_master(env, 0, "");
-    part.slide = None;
+    let part = part_of_master(env, 0, None);
     let mut out = convert_shapes(imp, env, &part, &master.decorations);
     lock(&mut out);
     out
@@ -176,13 +184,13 @@ fn effective_background(
     }
     let info = &env.layouts[layout];
     if let Some(bg) = &info.background {
-        let part = part_of_layout(env, layout, slide);
+        let part = part_of_layout(env, layout, Some(slide));
         let mut cx = Cx::new(imp, env, &part);
         return background(&mut cx, bg);
     }
     let master = env.masters.get(info.master)?;
     let bg = master.background.as_ref()?;
-    let part = part_of_master(env, info.master, slide);
+    let part = part_of_master(env, info.master, Some(slide));
     let mut cx = Cx::new(imp, env, &part);
     background(&mut cx, bg)
 }
@@ -256,11 +264,7 @@ pub fn convert(imp: &mut Importer, env: &Env, part: &str, id: &str, keep_markers
     };
     let root = &doc.root;
 
-    let mut elements = if env.layouts.is_empty() {
-        Vec::new()
-    } else {
-        decorations(imp, env, layout, id)
-    };
+    let mut elements = Vec::new();
     let map = root
         .at(&["p:clrMapOvr", "a:overrideClrMapping"])
         .map(ColorMap::from_node)

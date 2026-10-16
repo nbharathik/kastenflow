@@ -246,7 +246,7 @@ pub struct MeaningStatus {
     pub running: bool,
 }
 
-fn status_of(kasten: &Kasten, state: &MeaningState) -> Result<MeaningStatus, String> {
+pub(crate) fn status_of(kasten: &Kasten, state: &MeaningState) -> Result<MeaningStatus, String> {
     let chosen = kasten.config().ai.embeddings;
     let model = chosen.as_ref().map(|e| e.model.clone()).unwrap_or_default();
     let status = kasten.embed_status(&model).map_err(|e| e.to_string())?;

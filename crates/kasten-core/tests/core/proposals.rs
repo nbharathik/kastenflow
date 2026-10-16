@@ -29,7 +29,7 @@ fn open() -> (common::TempVault, Kasten, Session) {
 fn proposed(k: &Kasten, s: &Session, op: &AgentOp) -> String {
     match k.agent_run(s, op, NOW).unwrap() {
         Outcome::PendingReview { proposal, .. } => proposal,
-        Outcome::Done { result } => panic!("expected a proposal, got {result}"),
+        other => panic!("expected a proposal, got {other:?}"),
     }
 }
 

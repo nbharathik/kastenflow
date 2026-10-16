@@ -23,14 +23,31 @@ test("website tags deploy independently of installer releases", () => {
   assert.match(workflow("release"), /tags: \["v\*"\]/);
 });
 
-test("ordinary changes retain quick checks while platform matrices require a release tag", () => {
+test("ordinary changes retain quick checks while platform matrices need a release tag or a run by hand", () => {
   const ci = workflow("ci");
   assert.match(ci, /push:\s*\n\s+branches: \[main\]/);
   assert.match(ci, /^  pull_request:/m);
+  assert.match(ci, /^  workflow_dispatch:/m);
   assert.doesNotMatch(ci, /^\s+tags:/m);
   for (const name of ["rust", "frontend"]) {
     const job = ci.split(new RegExp(`^  ${name}:`, "m"))[1]?.split(/^  \w+:/m)[0];
     assert.ok(job, `${name} job exists`);
-    assert.match(job, /if: startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+    assert.match(job, /^    if: startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.event_name == 'workflow_dispatch'\r?$/m);
   }
+});
+
+test("a push to main never cancels a full run started by hand", () => {
+  assert.match(workflow("ci"), /group: ci-\$\{\{ github\.event_name \}\}-\$\{\{ github\.ref \}\}/);
+});
+
+test("the Intel Mac build runs on an Intel Mac, not cross-built on Apple silicon", () => {
+  assert.match(workflow("release"), /name: macos-x64, os: macos-15-intel, target: x86_64-apple-darwin/);
+});
+
+test("a full Rust run names every failure and gives Windows longer to finish", () => {
+  const rust = workflow("ci").split(/^  rust:/m)[1]?.split(/^  \w+:/m)[0];
+  assert.ok(rust, "rust job exists");
+  assert.match(rust, /cargo test --workspace --locked --no-fail-fast/);
+  const [, windows, others] = rust.match(/timeout-minutes: \$\{\{ matrix\.os == 'windows-latest' && (\d+) \|\| (\d+) \}\}/) ?? [];
+  assert.ok(Number(windows) > Number(others), "Windows gets more minutes than Linux and macOS");
 });

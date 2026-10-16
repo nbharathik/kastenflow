@@ -1,4 +1,7 @@
+import { isPageEmbedElement } from "../../embed/kinds.ts";
 import { zoomSelectedEmbed } from "../../embed/zoom.ts";
+import { embedUrl } from "../../present/live-url.ts";
+import { openPreview } from "../preview/preview-store.ts";
 import { selectedElements } from "../session/scope.ts";
 import type { Command } from "./types.ts";
 
@@ -12,7 +15,25 @@ const enabled: Command["enabled"] = (state) => {
   return chosen.length === 1 && chosen[0]?.type === "embed" && !chosen[0].locked;
 };
 
+/** The web address of the embed that is the whole of the selection, when it is a web page (a page of the host is live already). */
+const webAddress = (state: Parameters<typeof selectedElements>[0]): string | null => {
+  const chosen = selectedElements(state);
+  const only = chosen.length === 1 ? chosen[0] : undefined;
+  return only?.type === "embed" && !isPageEmbedElement(only) ? embedUrl(only.url) : null;
+};
+
 export const embedCommands: Command[] = [
+  {
+    id: "embed.preview-live",
+    label: "Preview live",
+    icon: "globe",
+    // The page beside the slide, in a view the host draws; without one, the address opens in the person's own browser.
+    enabled: (state) => webAddress(state) !== null,
+    run: ({ session }) => {
+      const address = webAddress(session.state);
+      if (address) openPreview(session, address);
+    },
+  },
   {
     id: "embed.zoom-in",
     label: "Zoom the page in",

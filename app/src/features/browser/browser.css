@@ -162,6 +162,19 @@
   word-break: break-word;
 }
 
+/* "Already saved on 2026-09-01 · Open · Save another snapshot" */
+.kasten-browser-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-selected);
+  color: var(--color-ink);
+}
+
 .kasten-browser-foot {
   display: flex;
   flex-wrap: wrap;

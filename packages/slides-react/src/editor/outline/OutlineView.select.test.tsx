@@ -62,9 +62,10 @@ describe("the words of a field, again as plain text", () => {
     expect(ghostOf(container, 1, "body").textContent).toBe("A subtitle");
   });
 
-  it("are not made for a slide that has no text to use as a title", async () => {
+  it("are not made for a slide that has things on it but no text to use as a title", async () => {
     const { container, session } = await setup({ slides: 1 });
     act(() => void session.slides.add({ layout: "blank" }));
+    act(() => void session.elements.insert([{ type: "shape", id: "", shape: "rect", x: 10, y: 10, w: 100, h: 100 } as never]));
     const rows = container.querySelectorAll(".ks-ol-row");
     expect(rows).toHaveLength(2);
     expect(rows[1]!.querySelector(".ks-ol-ghost")).toBeNull();

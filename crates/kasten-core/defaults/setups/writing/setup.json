@@ -1,0 +1,7 @@
+{
+  "icon": "✍️",
+  "name": "Writing",
+  "summary": "An outline, a draft, a style sheet and a structure board for something you are writing.",
+  "home": "pages/outline.md",
+  "props": {"status": "Active"}
+}

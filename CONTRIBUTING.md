@@ -104,6 +104,7 @@ change how something looks.
 | `crates/kasten-mcp` | The MCP server that lets AI agents work in a vault, within guardrails |
 | `crates/slides-core`, `crates/slides-cli` | KastenFlow Slides' engine and its `slides` command; Apache-2.0 |
 | `crates/slides-pptx`, `crates/slides-render`, `crates/slides-assets` | PowerPoint files in and out; slides drawn by a headless Chrome or Chromium; picture sidecars, sizes and thumbnails shared with KastenFlow; Apache-2.0 |
+| `crates/slides-bib` | The BibTeX reader and span scanner that Slides' citations and the vault's bibliography share, with no dependencies; Apache-2.0 |
 | `packages` | KastenFlow Slides in TypeScript and WebAssembly: the canvas, the editor and the WebAssembly build; Apache-2.0, and they never import KastenFlow |
 | `app/src-tauri` | The desktop app's Rust side: Tauri commands over kasten-core |
 | `app/src` | The window: React, by feature folder |

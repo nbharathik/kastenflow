@@ -2,6 +2,8 @@
 // view goes, what the page does, and what a capture holds until the person
 // confirms it. The app's commands are in src-tauri/src/browser.
 
+import type { CapturedBefore } from "../../lib/vault/collection-types";
+
 /** Where a tab's native view goes, in physical pixels of the window. */
 export interface Bounds {
   x: number;
@@ -33,6 +35,8 @@ export interface Previewed {
   site: string;
   excerpt: string;
   bytes: number;
+  /** The notes already kept from this page, the first saved first; none for a page not saved before. */
+  existing?: CapturedBefore[];
 }
 
 /** Where a confirmed capture goes. */
@@ -59,7 +63,10 @@ export interface BrowserBackend {
   close(id: string): Promise<void>;
   nav(id: string, nav: Nav): Promise<void>;
   capture(id: string, kind: "selection" | "page"): Promise<Previewed>;
-  confirm(token: string, where: Where, title?: string | null): Promise<Saved>;
+  /** What the page in tab `id` says about itself in its tags (for "Save as paper"): its address, title and the tags as JSON text the page wrote. Absent in a stand-in that has no pages. */
+  pageMeta?(id: string): Promise<{ url: string; title: string; meta: string }>;
+  /** Keeps the capture held under `token`. A card for a page already saved is refused unless `again` is true, which keeps it as a snapshot of the first. */
+  confirm(token: string, where: Where, title?: string | null, again?: boolean): Promise<Saved>;
   discard(token: string): Promise<void>;
   clearData(): Promise<void>;
   /** Listens to every tab's events; resolves to how to stop. */

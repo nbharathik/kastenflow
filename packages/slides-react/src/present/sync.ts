@@ -13,6 +13,8 @@ export type PresentMessage =
   /** The deck as the audience sees it, the addresses of its pictures, and where the audience is. `since` is when the presentation began (milliseconds). */
   | { type: "deck"; deck: Deck; images: Record<string, string>; state: RevealState; since: number }
   | { type: "state"; state: RevealState }
+  /** The talk was started as a rehearsal: the presenter's view starts timing it. Said again with every deck, so a window that opens late hears it. */
+  | { type: "rehearse" }
   | { type: "bye" };
 
 export interface PresentSync {
@@ -30,6 +32,7 @@ export function readMessage(data: unknown): PresentMessage | null {
   const message = data as Record<string, unknown>;
   switch (message.type) {
     case "hello":
+    case "rehearse":
     case "bye":
       return { type: message.type };
     case "state": {

@@ -24,10 +24,10 @@ afterEach(cleanup);
 const pane = () => useWorkspace.getState().layout.focus;
 
 describe("Right panel", () => {
-  it("shows the details in one tab and the history in the other, and remembers which", async () => {
+  it("shows the details in one tab, the history in the next and the comments in the third, and remembers which", async () => {
     const { panel } = await openWithPanel(vault, PATH, "history");
     const tabs = within(panel).getByRole("tablist", { name: "Panel" });
-    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Details", "History"]);
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Details", "History", "Comments"]);
     fireEvent.click(within(tabs).getByRole("tab", { name: "Details" }));
     expect(within(tabs).getByRole("tab", { name: "Details" }).getAttribute("aria-selected")).toBe("true");
     // Properties, outline and links, one under the other. (The page footer

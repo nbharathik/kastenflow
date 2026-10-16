@@ -16,10 +16,21 @@ const COMMANDS: &[&str] = &[
     "browser_capture",
     "browser_capture_confirm",
     "browser_capture_discard",
+    "browser_page_meta",
     "browser_enabled",
     "set_browser_enabled",
     "browser_clear_data",
+    "browser_child_focus",
+    "preview_open",
+    "preview_bounds",
+    "preview_nav",
+    "preview_hide",
+    "preview_show",
+    "preview_close",
 ];
+
+/// The labels of browser webviews: tabs, and the one preview.
+const WEBVIEWS: &[&str] = &["web-t1abc", "web-1", "web-x_y-Z", "web-preview"];
 
 fn url(text: &str) -> Url {
     Url::parse(text).unwrap()
@@ -27,7 +38,7 @@ fn url(text: &str) -> Url {
 
 #[test]
 fn a_browser_webview_calls_nothing_and_no_other_window_calls_the_browser() {
-    for window in ["web-t1abc", "web-1", "web-x_y-Z"] {
+    for window in WEBVIEWS {
         for command in COMMANDS.iter().chain(&[
             "list_notes",
             "read_note",
@@ -52,7 +63,7 @@ fn a_browser_webview_calls_nothing_and_no_other_window_calls_the_browser() {
 #[test]
 fn a_browser_webview_goes_where_the_policy_says_and_the_main_window_still_goes_nowhere() {
     let embeds = Embeds::default();
-    for window in ["web-t1abc", "web-9"] {
+    for window in ["web-t1abc", "web-9", "web-preview"] {
         for ok in [
             "https://example.com/a",
             "http://localhost:3000/",
@@ -139,17 +150,47 @@ fn the_main_capability_names_its_webview_and_no_capability_reaches_a_browser_web
 }
 
 #[test]
+fn every_browser_command_the_window_may_call_is_registered() {
+    let handlers = include_str!("../handlers.rs");
+    for command in COMMANDS {
+        assert!(
+            handlers.contains(&format!("::{command},")),
+            "{command} is not in the handler list"
+        );
+    }
+}
+
+#[test]
+fn the_preview_has_no_tab_and_a_tab_has_no_preview() {
+    // The preview's webview is one of the browser's (so the policy and the guard hold it) ...
+    assert!(crate::browser::policy::id_of("web-preview").is_some());
+    assert!(!may_navigate("web-preview", &url("file:///C:/x"), None));
+    assert!(may_navigate(
+        "web-preview",
+        &url("https://example.com/"),
+        None
+    ));
+    // ... but a tab's commands refuse its id, whatever the window asks.
+    assert!(super::label_of("preview").is_err());
+    assert!(super::label_of("web-preview").is_ok());
+}
+
+#[test]
 fn what_the_app_tells_is_told_to_the_main_window_alone() {
     // Events for the app's own view of the vault, the chat and the search by
     // meaning go to `main` only; a plain broadcast would also reach any
     // other webview in the process.
     for (name, text) in [
+        ("keys", include_str!("keys.rs")),
+        ("preview", include_str!("preview.rs")),
         ("runtime", include_str!("../runtime.rs")),
         ("backup", include_str!("../backup/mod.rs")),
         ("chat", include_str!("../chat/commands.rs")),
+        ("chat state", include_str!("../chat/state.rs")),
         ("meaning", include_str!("../meaning/mod.rs")),
         ("tray", include_str!("../tray.rs")),
         ("write", include_str!("../chat/write.rs")),
+        ("write prompt", include_str!("../chat/write_prompt.rs")),
     ] {
         assert!(!text.contains(".emit("), "{name} broadcasts an event");
     }

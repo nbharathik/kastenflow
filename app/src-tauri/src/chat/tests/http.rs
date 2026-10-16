@@ -14,6 +14,7 @@ use kasten_mcp::tools::specs;
 use serde_json::{Value, json};
 
 use super::block_on;
+use super::flaky::{Act, serve_acts};
 use super::streams::{CLAUDE, VLLM};
 use crate::chat::http::HttpModel;
 use crate::chat::model::{Call, Message, Model, Stop};
@@ -228,7 +229,9 @@ fn refusals_and_broken_streams_are_errors_in_words() {
     // A stream that ends without saying how it ended keeps what was said.
     let cut = &VLLM[..VLLM.find("\"tool_calls\"").unwrap()];
     let whole = cut.rsplit_once("data:").unwrap().0;
-    let (base, server) = serve(200, vec![whole.into()], Duration::ZERO);
+    // It is asked for again, four times in all, and then reported.
+    let acts = (0..4).map(|_| Act::Trail(whole.to_owned())).collect();
+    let (base, server) = serve_acts(acts);
     let model = HttpModel::new(
         client(),
         &provider("openai", &base),
@@ -246,8 +249,9 @@ fn refusals_and_broken_streams_are_errors_in_words() {
     );
     assert_eq!(failure.partial.unwrap().text, "Let me look.");
     let asked = server.join().unwrap();
+    assert_eq!(asked.len(), 4);
     assert_eq!(
-        header(&asked.head, "authorization"),
+        header(&asked[0].head, "authorization"),
         Some("Bearer sk-local")
     );
 

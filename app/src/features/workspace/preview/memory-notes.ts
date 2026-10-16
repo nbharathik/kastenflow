@@ -43,7 +43,7 @@ export class MemoryNotes {
   private readonly links = new WeakMap<object, Set<string>>();
   private readonly starters: Record<string, string>;
   /** The `.bib` files the preview started with, by path: the bibliography its decks cite from. They are samples, so they are not saved with the vault. */
-  protected readonly bibliography: Record<string, string>;
+  protected readonly bibFiles: Record<string, string>;
 
   constructor(
     seed: Record<string, string>,
@@ -56,7 +56,7 @@ export class MemoryNotes {
     const pick = (test: (path: string) => boolean) => Object.entries(seed).filter(([p]) => test(p));
     // The samples' templates are the starter set a saved preview may lack.
     this.starters = Object.fromEntries(pick((p) => p.startsWith("templates/") && p.endsWith(".md")));
-    this.bibliography = Object.fromEntries(pick((p) => p.endsWith(".bib") && !p.split("/").some((part) => part.startsWith("."))).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+    this.bibFiles = Object.fromEntries(pick((p) => p.endsWith(".bib") && !p.split("/").some((part) => part.startsWith("."))).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
     this.data = parsed ?? {
       files: Object.fromEntries(pick((p) => p.endsWith(".md")).map(([p, text]) => [p, { text, modified: now() }])),
       trash: {},
@@ -181,7 +181,10 @@ export class MemoryNotes {
     // A title in use may take other notes' links: they keep going where they went.
     const listed = await this.list();
     const before = listed.some((n) => n.kind !== "template" && titleKey(n.title) === titleKey(title)) ? listed : null;
-    const made = this.put(path, prefix + body);
+    // A body given replaces the template's, as the core's create does.
+    const given = note.body ?? "";
+    const content = given.trim() === "" ? body : given.endsWith("\n") ? given : `${given}${eol}`;
+    const made = this.put(path, prefix + content);
     if (before) this.keep(before, await this.list());
     return this.get(made.meta.path);
   }

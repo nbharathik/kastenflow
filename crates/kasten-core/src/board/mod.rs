@@ -30,7 +30,10 @@ use crate::error::{Error, Result};
 
 pub use change::BoardChange;
 pub use edit::{Added, FileItem, Layout};
-pub use files::{boards_referencing, create_board, read_board, relink_boards, write_board};
+pub use files::{
+    board_text, boards_referencing, create_board, plan_board, read_board, relink_boards,
+    write_board,
+};
 pub(crate) use style::document_with as json_document;
 pub use view::{BoardView, Drawing, EdgeView, NodeView, file_title, view};
 

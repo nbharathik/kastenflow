@@ -12,8 +12,8 @@ import { useWorkspace } from "../workspace/store";
 import DiagramHost from "./DiagramHost";
 import { setEditorBackend, useDiagramEditor, type EditorInfo } from "./editor";
 import { useDiagramHost } from "./host-store";
-import { editDiagramPicture, pickDiagramPicture, pictureOf } from "./slides";
-import { useDiagrams } from "./store";
+import { diagramRevision, drawDiagramPicture, editDiagramPicture, pickDiagramPicture, pictureOf, watchDiagrams } from "./slides";
+import { diagramChanged, useDiagrams } from "./store";
 
 // The PNG itself is drawn by the editor, off screen; picture.test.ts says how. Here it is a stand-in.
 const diagramPng = vi.hoisted(() => vi.fn());
@@ -68,7 +68,8 @@ describe("the picture of a diagram for a slide", () => {
     await setup();
     const picture = await pictureOf(client, flow);
     expect(diagramPng).toHaveBeenCalledWith(client, flow, { scale: 2, maxSide: 4096 });
-    expect(picture).toEqual({ path: "assets/login-flow.png", source: flow, name: "Login flow", width: 3, height: 2 });
+    // `rev` is the version of the diagram the picture was drawn from: the deck keeps it, to tell when the diagram has changed since.
+    expect(picture).toEqual({ path: "assets/login-flow.png", source: flow, name: "Login flow", width: 3, height: 2, rev: (await vault.diagram(flow)).hash });
     expect(await vault.asset(picture.path)).toMatchObject({ source: "file", caption: "Diagram: Login flow", tags: ["diagram"] });
   });
 
@@ -85,6 +86,45 @@ describe("the picture of a diagram for a slide", () => {
     diagramPng.mockRejectedValue(new Error("This diagram has no picture yet. Install the diagram editor to draw it"));
     await expect(pictureOf(client, flow)).rejects.toThrow("Install the diagram editor");
     expect(await vault.assets()).toEqual([]);
+  });
+});
+
+describe("the version of a diagram, for pictures that may be out of date", () => {
+  it("is the diagram file's hash: it changes when the diagram is saved, and is not known for a diagram that is gone", async () => {
+    await setup();
+    const first = await diagramRevision(client, flow);
+    expect(first).toBe((await vault.diagram(flow)).hash);
+    await vault.saveDiagram(flow, withBox("Box"), SVG, first!);
+    const second = await diagramRevision(client, flow);
+    expect(second).not.toBe(first);
+    expect(await diagramRevision(client, "library/Gone.drawio")).toBeUndefined();
+  });
+
+  it("is what a picture drawn after the change holds, so the picture is current again", async () => {
+    await setup();
+    const before = await pictureOf(client, flow);
+    await vault.saveDiagram(flow, withBox("Box"), SVG, before.rev!);
+    expect(await diagramRevision(client, flow)).not.toBe(before.rev);
+    const after = await pictureOf(client, flow);
+    expect(await diagramRevision(client, flow)).toBe(after.rev);
+  });
+
+  it("draws the picture again without opening the editor", async () => {
+    await setup();
+    const drawn = await drawDiagramPicture(client, flow);
+    expect(drawn).toMatchObject({ source: flow, name: "Login flow" });
+    expect(useDiagramHost.getState().modal).toBeNull();
+  });
+
+  it("is told when a diagram changes, until it stops listening", async () => {
+    await setup();
+    const heard = vi.fn();
+    const stop = watchDiagrams(heard);
+    diagramChanged(flow);
+    expect(heard).toHaveBeenCalledTimes(1);
+    stop();
+    diagramChanged(flow);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });
 

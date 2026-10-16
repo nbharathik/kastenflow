@@ -60,6 +60,35 @@ describe("the pointer over the slide", () => {
     expect(track.slidePoint()).toEqual({ x: 5, y: 6 });
   });
 
+  it("is remembered as the last spot on the slide after the pointer has gone off it, to a menu or the filmstrip", () => {
+    const track = new PointerTrack();
+    track.attach(page);
+    expect(track.lastSlidePoint()).toBeNull();
+    track.moved(300, 250);
+    track.left();
+    expect(track.slidePoint()).toBeNull();
+    expect(track.lastSlidePoint()).toEqual({ x: 100, y: 100 });
+    // Where the page is when asked: it may have been scrolled or zoomed since.
+    const scrolled = new PointerTrack();
+    let left = 100;
+    scrolled.attach((cx, cy) => ({ x: cx - left, y: cy }));
+    scrolled.moved(400, 10);
+    scrolled.left();
+    left = 60;
+    expect(scrolled.lastSlidePoint()).toEqual({ x: 340, y: 10 });
+  });
+
+  it("has no last spot once that place is off the slide, or without a canvas to read it", () => {
+    const track = new PointerTrack();
+    track.moved(300, 250);
+    expect(track.lastSlidePoint()).toBeNull();
+    let shown = true;
+    track.attach((cx, cy) => (shown ? { x: cx, y: cy } : null));
+    expect(track.lastSlidePoint()).toEqual({ x: 300, y: 250 });
+    shown = false;
+    expect(track.lastSlidePoint()).toBeNull();
+  });
+
   it("is one track for each window", () => {
     const one = new EditorUi();
     const other = new EditorUi();

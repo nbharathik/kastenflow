@@ -4,10 +4,12 @@
 
 use std::collections::BTreeMap;
 
+use kasten_core::{Instant, ulid_at};
 use serde_json::{Map, Value, json};
 
 use super::call_item;
 use crate::chat::chatgpt::words;
+use crate::chat::errors::StreamError;
 use crate::chat::model::{Reply, Stop, ToolCall};
 use crate::chat::sse::SseEvent;
 
@@ -42,6 +44,10 @@ pub struct Stream {
     ended: Option<Ended>,
     /// Some of the text was a refusal.
     refused: bool,
+    /// A function call came whole: its item is done.
+    call_done: bool,
+    /// What the last error event meant.
+    error: Option<StreamError>,
 }
 
 fn string(value: &Value, key: &str) -> String {
@@ -157,6 +163,7 @@ impl Stream {
                 if let Some(whole) = item["namespace"].as_str() {
                     *namespace = Some(whole.to_owned());
                 }
+                self.call_done = true;
                 None
             }
             (Item::Reasoning(kept), Some("reasoning")) => {
@@ -201,10 +208,23 @@ impl Stream {
             self.ended = Some(Ended::Full);
             return Ok(None);
         }
-        Err(words::stream_failure(
+        let message = error["message"].as_str().unwrap_or_default();
+        self.error = Some(StreamError::of(
             code,
-            error["message"].as_str().unwrap_or_default(),
-        ))
+            error["type"].as_str().unwrap_or_default(),
+            message,
+        ));
+        Err(words::stream_failure(code, message))
+    }
+
+    /// What the error event that ended the stream meant.
+    pub fn error(&self) -> Option<StreamError> {
+        self.error.clone()
+    }
+
+    /// Whether a function call came whole (its item is done).
+    pub fn call_done(&self) -> bool {
+        self.call_done
     }
 
     /// Whether the server said the answer is over.
@@ -233,8 +253,14 @@ impl Stream {
                     arguments,
                     namespace,
                 } if !cancelled && !name.is_empty() => {
+                    // A call with no id could not be answered: the next request
+                    // would be refused. It gets one, as chat completions' do.
                     let call = ToolCall {
-                        id: call_id,
+                        id: if call_id.is_empty() {
+                            format!("call_{}", ulid_at(Instant::now().millis).to_lowercase())
+                        } else {
+                            call_id
+                        },
                         name,
                         arguments,
                     };

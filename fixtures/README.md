@@ -23,6 +23,13 @@ Everything tests read lives here. Tests never touch a real vault.
   and write. The tests of the Slides packages open them and re-save them
   unchanged; `cargo test -p slides-core write_fixtures -- --ignored` writes
   them again when the format changes on purpose.
+- `mcp-setup.json`: the lines that point an agent at a vault (the Claude Code command,
+  the `mcpServers` entry, the HTTP command, the address and the token's place), for a
+  few programs and vaults. `kasten-mcp --setup` and Settings → AI agents are both
+  tested against it, so what the program prints and what the app shows cannot drift.
+- `oidc/`: two throwaway RSA key pairs (private halves as DER, public halves as
+  JWKS) that the tests of Sign in with ChatGPT sign and check ID tokens with, in
+  place of OpenAI's keys. For tests only; see its README.
 
 Git never converts line endings under this folder (`.gitattributes`:
 `fixtures/** -text`), so the bytes on disk are the bytes under test. Add a new

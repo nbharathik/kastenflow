@@ -24,7 +24,11 @@ const highlights = () => import("../features/sources/HighlightsHome");
 const importView = () => import("../features/import/ImportView");
 const graph = () => import("../features/graph/GraphView");
 const projectOverview = () => import("../features/projects/overview/ProjectOverview");
+const projectsHub = () => import("../features/projects/hub/ProjectsHub");
 const browser = () => import("../features/browser/BrowserView");
+const collections = () => import("../features/collections/CollectionsView");
+const references = () => import("../features/references/ReferencesView");
+const reviewScreens = () => import("../features/review-screens/ReviewScreens");
 /** A project page's home; the page loads it itself, this only fetches it early. */
 const projectHome = () => import("../features/projects/ProjectHome");
 
@@ -50,8 +54,16 @@ export const ImportView = lazy(() => importView().then((m) => ({ default: m.Impo
 export const GraphView = lazy(() => graph().then((m) => ({ default: m.GraphView })));
 /** The full-screen project overview, with its tabs and saved tables. */
 export const ProjectOverview = lazy(() => projectOverview().then((m) => ({ default: m.ProjectOverview })));
+/** The Projects hub: every project as a card, with its status and figures. */
+export const ProjectsHub = lazy(() => projectsHub().then((m) => ({ default: m.ProjectsHub })));
 /** The browser tab: a native web view over a placeholder, with its bar and capture. */
 export const BrowserView = lazy(() => browser().then((m) => ({ default: m.BrowserView })));
+/** Saved searches: a list of collections and the open one's results. */
+export const CollectionsView = lazy(() => collections().then((m) => ({ default: m.CollectionsView })));
+/** The bibliography: every reference in a table, with its edit, its citations and its rename. */
+export const ReferencesView = lazy(() => references().then((m) => ({ default: m.ReferencesView })));
+/** The daily and weekly review: what waits, read from the vault, changing nothing by being open. */
+export const ReviewScreens = lazy(() => reviewScreens().then((m) => ({ default: m.ReviewScreens })));
 
 /** The views preloaded, most used first. */
 const PRELOADED = [projectHome, library, tasks, calendar, boardsHome, tagsHome, tagDatabase, chat, highlights, settings, history, review, trash];

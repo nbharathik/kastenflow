@@ -28,3 +28,8 @@ export function searchChip(query: string): Chip {
   const q = query.trim();
   return { kind: "search", label: `“${q}”`, ref: [q] };
 }
+
+/** A diagram as the tools would describe it: its cells with their ids and the checks' findings. `page` names one page of a diagram that has several. */
+export function diagramChip(diagram: { path: string; title: string }, page?: string): Chip {
+  return { kind: "diagram", label: diagram.title, ref: page ? [diagram.path, page] : [diagram.path] };
+}

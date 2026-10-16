@@ -156,6 +156,42 @@ preview, the tool and the selection first; a field, a menu, a dialog and a host'
 the deck and unmounting the editor leave it. A host whose panes contain their layout (`container-type`) must lift that while the
 editor is full screen, or the fixed editor is framed by the pane (KastenFlow does, in `slides.css`).
 
+### Where the keys go (`focus/`)
+
+The editor hears its shortcuts where the focus is inside it, so anything that drops the focus on the page (a deck just opened, a menu or
+a dialog that closed on a place that is gone, a window that came back) used to leave Delete, Ctrl+Z and the copy and paste keys dead
+until a click. Everything that gives the focus back goes through `focus/home.ts`: `giveFocusBack(before, root)` returns it to where it
+was if that place can still take it, else `focusHome(root)` (the slide of the view shown). The editor has three props for the host:
+`autoFocus`, `focusKey` (each new value that is not false takes the keys again) and `routeOrphanKeys` (a predicate; while it says this
+editor is in use, keys and clipboard events that fall on the page go to it, `focus/orphan-keys.ts`; never from a field, a dialog or a
+presentation, and never plain typing). `focus/focus-audit.test.tsx` has one test for each way the keys used to go dead.
+
+### Web pages beside the slide (`preview/`, `present/WebPreviewPanel.tsx`)
+
+`host.webPreview` is a view the host draws (a native web view) and this package places: a peek at the right (dragged wider, kept as
+`ks-web-preview-width`), in the middle, or over the window, with a toolbar of named icon buttons. Escape steps back one size at a
+time, then closes, and is heard before a presentation could end on it. In a presentation a web link opens it; in the editor, Preview
+live does (the chip over a selected web page, the element menu, the palette). `ui/covers.ts` is how a dialog or menu tells the
+preview to hide its view while it is open. A host without one opens the address outside, and the editor shows a selected web page in a
+frame in the page, watched by `present/web-frame.ts`: a refused, slow or offline page gets a card that says so and never an
+address probe. The filmstrip's width (160 to 360, dragged by its edge or with the arrow keys, kept as `ks-filmstrip-width`) sets the
+size of the thumbnails (`filmstrip/model.ts` `thumbWidth`).
+
+### Before leaving (`preflight/`), pages kept in step (`sources/`), rehearsals (`present/rehearsal*`)
+
+`runPreflight(session, host, format)` is the check before an export or a presentation: the lint rules that matter on the way out, the
+pictures and pages the host no longer holds, what a still file cannot show, and a list of what the format changes in the deck
+(`reductions.ts`, read from the deck). `defaultActions(session, host, ui)` sends `exportAs`, `png` and `present` through it
+(`preflight/gate.ts`): a clean deck goes on at once, anything else opens the preflight dialog with Show, Cancel and "… anyway". The PDF
+dialog shows the same panel. Nothing is fetched from the web unless the person asks.
+
+`sources/review.ts` compares each element that is kept in step with a page (`source.sync`) with the page as the host reads it now, by the
+fingerprint it was made from (`source.hash`) and, for slides a storyboard made, by `pageMadeOf` against `source.made`: Tools → Review
+sources… updates the ones as they were made, and asks keep or replace for the ones changed on both sides (`acknowledge_source` keeps).
+
+A rehearsal (`present/rehearsal.ts`) is a pure model told the time with every call; the presenter's view times the position it is
+given and never moves it. Runs are kept by `host.rehearsals` (a `RehearsalStore`), else in the page's local storage (the last ten).
+
 ### Lint (`lint/`) — problems found while editing
 
 `lintOf(session)` is the session's `LintService`. A change to the deck costs it a comparison of the slides with the

@@ -179,4 +179,28 @@ describe("presenting in reveal.js", () => {
     // What it applied was not said back.
     expect(heard.filter((h) => h === "state:2")).toHaveLength(0);
   });
+
+  it("says a rehearsal with every deck it gives the presenter's window, and nothing of one otherwise; it shows nothing of it itself", async () => {
+    const [mine, theirs] = memorySyncPair();
+    const heard: string[] = [];
+    theirs.subscribe((m) => heard.push(m.type));
+    await show(deckOf(slide("a"), slide("b")), { sync: mine, rehearse: true });
+    await wait();
+    expect(heard.slice(0, 2)).toEqual(["deck", "rehearse"]);
+    // A window that opens late asks, and hears it again with the deck.
+    theirs.post({ type: "hello" });
+    await wait();
+    expect(heard.filter((type) => type === "rehearse")).toHaveLength(2);
+    expect(host.querySelector(".ks-pv-rehearsal, .ks-pv-summary")).toBeNull();
+
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    const [quiet, listener] = memorySyncPair();
+    const other: string[] = [];
+    listener.subscribe((m) => other.push(m.type));
+    await show(deckOf(slide("a")), { sync: quiet });
+    await wait();
+    expect(other).toContain("deck");
+    expect(other).not.toContain("rehearse");
+  });
 });

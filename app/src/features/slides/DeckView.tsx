@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
 import { useWorkspace } from "../workspace/store";
+import { useDeckFocus } from "./deck-focus";
 import { onDeckFiles } from "./events";
 import { type KastenHost, kastenHost } from "./kasten-host";
 import { PagePickerHost } from "./PagePicker";
@@ -16,6 +17,8 @@ export function DeckView({ path }: { path: string }) {
   const toast = useWorkspace((s) => s.toast);
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const editing = useRef<{ session: EditorSession; ui: EditorUi } | null>(null);
+  // The deck has the keys when it is shown and whenever its pane comes back into use, so Delete, Undo, Copy and Paste work without a click.
+  const { autoFocus, focusKey, routeOrphanKeys } = useDeckFocus(path);
 
   useEffect(() => {
     let live = true;
@@ -56,6 +59,9 @@ export function DeckView({ path }: { path: string }) {
         key={path}
         text={loaded.text}
         host={loaded.host}
+        autoFocus={autoFocus}
+        focusKey={focusKey}
+        routeOrphanKeys={routeOrphanKeys}
         onError={(message) => toast(message)}
         onSession={(session, ui) => {
           editing.current = session && ui ? { session, ui } : null;

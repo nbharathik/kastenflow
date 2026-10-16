@@ -67,31 +67,8 @@
   text-shadow: 0 0 12px var(--color-canvas);
 }
 
-.kasten-page-editor .kasten-board-embed-open,
-.kasten-page-editor .kasten-board-embed-present {
-  padding: 2px 6px;
-  border-radius: var(--radius);
-  color: var(--notion-text-2);
-  font-size: var(--text-12);
-  font-weight: 500;
-
-  &:hover {
-    background: var(--color-hover);
-    color: var(--notion-text);
-  }
-}
-
-/* Both buttons in the head show on hover, as the page embed's "Open" does. */
-.kasten-page-editor .kasten-board-embed-present {
-  opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-standard);
-}
-
-.kasten-page-editor .kasten-board-embed:hover .kasten-board-embed-present,
-.kasten-page-editor .kasten-board-embed[data-active="true"] .kasten-board-embed-present,
-.kasten-page-editor .kasten-board-embed-present:focus-visible {
-  opacity: 1;
-}
+/* Open and Present in the head are icon tools (embed-tools.css): they show on hover,
+   on keyboard focus and while the board is worked on. */
 
 .kasten-page-editor .kasten-board-embed-grip {
   position: absolute;

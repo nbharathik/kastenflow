@@ -141,6 +141,20 @@ describe("the editor's own way of presenting", () => {
     await until(() => expect(heard).toContain("bye"));
   });
 
+  it("opens the presenter's window for a rehearsal even when only the rehearsal was asked for, and says it is one with the deck", async () => {
+    const [mine, theirs] = memorySyncPair();
+    const heard: string[] = [];
+    theirs.subscribe((m) => heard.push(m.type));
+    const openPresenter = vi.fn(async () => mine);
+    defaultActions(session(), host({ openPresenter })).present?.("start", { rehearse: true });
+    await until(ready);
+    expect(openPresenter).toHaveBeenCalledTimes(1);
+    theirs.post({ type: "hello" });
+    await until(() => expect(heard).toContain("rehearse"));
+    // It still shows the audience's window, and moves only when someone moves it.
+    expect(shown()).toBe("a");
+  });
+
   it("says so when the presenter's window would not open, and still presents", async () => {
     const notify = vi.fn();
     defaultActions(session(), host({ openPresenter: async () => null, notify })).present?.("start", { presenter: true });

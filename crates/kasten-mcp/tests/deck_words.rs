@@ -129,6 +129,47 @@ fn a_call_that_waits_or_fails_says_what_it_set_out_to_do() {
 }
 
 #[test]
+fn each_table_operation_has_words_of_its_own_before_and_after() {
+    let (_v, k, s) = open();
+    let made = call(&k, &s, "create_deck", json!({"outline": OUTLINE})).unwrap();
+    let path = made["result"]["deck"].as_str().unwrap().to_owned();
+    let ops = [
+        ("set_cells", "fill cells in", "Filled cells in"),
+        ("clear_cells", "clear cells in", "Cleared cells in"),
+        ("set_cell_fill", "colour cells in", "Coloured cells in"),
+        ("insert_rows", "add rows to", "Added rows to"),
+        ("delete_rows", "remove rows from", "Removed rows from"),
+        ("insert_columns", "add columns to", "Added columns to"),
+        (
+            "delete_columns",
+            "remove columns from",
+            "Removed columns from",
+        ),
+        ("merge_cells", "merge cells in", "Merged cells in"),
+        (
+            "unmerge_cells",
+            "split merged cells in",
+            "Split merged cells in",
+        ),
+    ];
+    let mut said = std::collections::BTreeSet::new();
+    for (op, before, after) in ops {
+        let input = json!({"deck": "Tool use"});
+        assert_eq!(
+            action(op, &input).unwrap(),
+            format!("{before} “Tool use”"),
+            "{op}"
+        );
+        let answer = json!({"status": "done", "result": {"deck": path, "changed": true}});
+        let got = told(&k, op, &input, &answer).unwrap();
+        assert_eq!(got.summary, format!("{after} “Tool use”"), "{op}");
+        assert_eq!(got.paths, [path.as_str()], "{op}");
+        // Each says something different, so the history of a table reads as what was done to it.
+        assert!(said.insert(got.summary), "{op} repeats another's words");
+    }
+}
+
+#[test]
 fn a_deck_made_from_a_note_is_told_with_where_it_came_from() {
     let (v, k, s) = open();
     std::fs::write(

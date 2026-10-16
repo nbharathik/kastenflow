@@ -4,6 +4,7 @@
 import type { Deck } from "@kasten-slides/wasm";
 import { createRoot } from "react-dom/client";
 
+import { editorOf, giveFocusBack, lastEditorRoot } from "../editor/focus/home.ts";
 import type { ImageUrl } from "../render/index.ts";
 import type { Matte } from "./matte.ts";
 import { PresentMode, type PresentModeProps } from "./PresentMode.tsx";
@@ -21,6 +22,8 @@ export interface PresentRequest {
   sync?: PresentSync | null;
   /** What the S key does. */
   onPresenter?: () => void;
+  /** The talk is a rehearsal: the presenter's window starts timing it. */
+  rehearse?: boolean;
   /** What the F key does; the page's own full screen when left out. */
   fullscreen?: () => void;
   /** What the host gives the slides to do with its own pages (a presentation's links to them, and the pages a deck embeds). */
@@ -68,7 +71,8 @@ export function openPresentation(request: PresentRequest): Presentation {
       root.unmount();
       host.remove();
       for (const node of held) node.inert = false;
-      if (returnTo?.isConnected) returnTo.focus({ preventScroll: true });
+      // Where the keys were; and when that place is gone (a menu row the show was started from) the editor's home, not the page.
+      giveFocusBack(returnTo, editorOf(returnTo) ?? lastEditorRoot());
       props.onClosed?.();
     });
   }

@@ -1,0 +1,39 @@
+/* The cells picked in a table: a frame turned with the table, and in it the block of cells picked and the cell the keys move from. Drawn
+   over the slide, never in it, so they are in no thumbnail, no presentation and no export. */
+.ks-cell-frame {
+  position: absolute;
+  pointer-events: none;
+}
+.ks-cell-range {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--ks-accent);
+  background: var(--ks-soft);
+}
+.ks-cell-range.is-editing {
+  background: transparent;
+}
+/* In a block of several cells the one the keys move from has a ring of its own, the cell that Enter or F2 would open. */
+.ks-cell-focus {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--ks-accent);
+  box-shadow: inset 0 0 0 1px var(--ks-canvas);
+  background: transparent;
+}
+
+/* The layer the cell is written in is the size of the table; only the cell takes the pointer, so a press on another cell reaches that cell. */
+.ks-cell-layer,
+.ks-cell-layer > .ks-fill {
+  pointer-events: none;
+}
+.ks-cell-layer .ks-cell-editor {
+  pointer-events: auto;
+}
+
+/* The header row of a table is drawn in bold without bold being written in its words; the open cell of that row is bold the same way.
+   The paragraphs set their weight themselves, so it is forced here. */
+.ks-cell-layer .ks-cell-header,
+.ks-cell-layer .ks-cell-header * {
+  font-weight: 700 !important;
+}

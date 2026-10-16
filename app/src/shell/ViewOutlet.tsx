@@ -7,7 +7,7 @@ import { Home } from "../features/home/Home";
 import { Inbox } from "../features/inbox/Inbox";
 import { JournalView } from "../features/journal/JournalView";
 import { howFromView, useWorkspace, type Place } from "../features/workspace/store";
-import { BoardsHome, BrowserView, CalendarView, ChatView, DiagramsHome, DiagramView, GraphView, HighlightsHome, History, ImportView, LibraryView, PdfReader, ProjectOverview, Review, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
+import { BoardsHome, BrowserView, CalendarView, ChatView, CollectionsView, DiagramsHome, DiagramView, GraphView, HighlightsHome, History, ImportView, LibraryView, PdfReader, ProjectOverview, ProjectsHub, ReferencesView, Review, ReviewScreens, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
 import { ViewBoundary } from "../ui/ViewBoundary";
 
 /** Renders a tab's place; views load their code when first opened. */
@@ -32,7 +32,8 @@ function View({ place }: { place: Place }) {
       // editor and caret; another page reloads inside it.
       return <LazyNotePage client={client} path={place.path!} />;
     case "inbox":
-      return <Inbox />;
+      // The path "triage" opens the Inbox in triage mode.
+      return <Inbox triage={place.path === "triage"} />;
     case "journal":
       return <JournalView path={place.path} />;
     case "boards":
@@ -70,9 +71,19 @@ function View({ place }: { place: Place }) {
       return <GraphView key={place.path ?? ""} path={place.path} />;
     case "overview":
       return place.path ? <ProjectOverview key={place.path} path={place.path} /> : <Home />;
+    case "projects":
+      return <ProjectsHub />;
     case "web":
       // Not keyed by address: the page moves the tab's address as it goes, and keeps its view.
       return <BrowserView place={place} />;
+    case "collections":
+      // Not keyed by file: a rename moves the open collection, and the list keeps its place.
+      return <CollectionsView path={place.path} />;
+    case "references":
+      return <ReferencesView />;
+    case "reviews":
+      // The path is the kind of review: "daily" (the default) or "weekly".
+      return <ReviewScreens path={place.path} />;
     default:
       return <Home />;
   }

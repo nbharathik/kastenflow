@@ -234,3 +234,107 @@
     color: var(--notion-text);
   }
 }
+
+/* The provider's models, under the model's field. */
+.kasten-chat-models {
+  display: flex;
+  flex-direction: column;
+}
+
+.kasten-chat-model-list {
+  max-height: 12rem;
+  margin: 2px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+
+  & [role="option"] {
+    padding: 5px 8px;
+    border-radius: var(--radius-lg);
+    color: var(--notion-text);
+    font-family: var(--notion-font-code);
+    font-size: var(--text-12);
+    overflow-wrap: anywhere;
+    cursor: pointer;
+
+    &:hover,
+    &[data-active] {
+      background: var(--notion-hover);
+    }
+
+    &[aria-selected="true"] {
+      color: var(--notion-accent);
+      font-weight: 500;
+    }
+  }
+}
+
+.kasten-chat-model-note {
+  margin: 4px 8px 0;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+  line-height: 1.4;
+}
+
+/* The settings button beside the model, and the popover it opens. */
+.kasten-chat .kasten-chat-settings-button {
+  padding: 0 6px;
+
+  &[data-set] {
+    color: var(--notion-accent);
+  }
+}
+
+.kasten-chat-settings {
+  gap: 10px;
+  padding: 10px;
+}
+
+.kasten-chat-setting-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  color: var(--notion-text);
+  font-family: var(--notion-font-code);
+  font-size: var(--text-12);
+  overflow-wrap: anywhere;
+
+  & small {
+    color: var(--notion-text-3);
+    font-family: inherit;
+  }
+}
+
+.kasten-chat-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+
+  & small {
+    color: var(--notion-text-3);
+    line-height: 1.4;
+  }
+
+  & input[type="number"] {
+    height: 28px;
+    padding: 0 8px;
+    border-radius: var(--radius-lg);
+    outline: none;
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font-size: var(--text-12);
+
+    &:focus {
+      box-shadow: inset 0 0 0 1px var(--notion-accent);
+    }
+  }
+}
+
+.kasten-chat-setting-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}

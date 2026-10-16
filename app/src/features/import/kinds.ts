@@ -46,6 +46,17 @@ export const KINDS: readonly KindInfo[] = [
     example: "~/Documents/Heptabase-Backup",
   },
   {
+    id: "bundle",
+    name: "KastenFlow bundle",
+    icon: lineIcon("project"),
+    brings: "A project exported from KastenFlow: its pages, whiteboards, decks, pictures, PDFs, tags and the works it cites.",
+    steps: [
+      "Use the folder an export made: the one with kastenflow-bundle.json in it.",
+      "Nothing already in this vault is overwritten: a project, picture or tag that clashes is renamed or kept, and the preview says which.",
+    ],
+    example: "~/Documents/seaside-trip-bundle",
+  },
+  {
     id: "markdown",
     name: "Markdown folder",
     icon: lineIcon("folder"),

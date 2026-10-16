@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, type DragEvent, type KeyboardEvent, type LiHTMLAttributes, type ReactNode } from "react";
 
 import { startNewBoard, useBoards } from "../features/boards/store";
+import { useDiagrams } from "../features/diagrams/store";
 import { openOverview } from "../features/projects/overview/open";
 import { startNewDeck, useDecks } from "../features/slides/store";
 import { dragNotes } from "../features/workspace/drag";
@@ -16,6 +17,7 @@ import { useShell } from "../lib/store";
 import type { NoteMeta } from "../lib/vault/types";
 import { ProjectBoards } from "./BoardRows";
 import { ProjectDecks } from "./DeckRows";
+import { ProjectDiagrams } from "./DiagramRows";
 import { DROP_INTO, useNestDrop } from "./drop-into";
 import { Icon } from "../ui/Icon";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
@@ -124,6 +126,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
   const [renaming, setRenaming] = useState(false);
   const hasBoards = useBoards((s) => note.kind === "project" && s.list.some((b) => b.project === note.project));
   const hasDecks = useDecks((s) => note.kind === "project" && s.list.some((d) => d.project === note.project));
+  const hasDiagrams = useDiagrams((s) => note.kind === "project" && s.list.some((d) => d.project === note.project));
   // The page this one is inside, to take it out again.
   const holder = useWorkspace((s) => (note.parent ? treeOf(s.notes).byId.get(note.parent) : undefined));
   const nestDrop = useNestDrop(note);
@@ -275,7 +278,8 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
           <RowList notes={children} depth={depth + 1} listKey={note.path} />
           {note.kind === "project" && note.project && <ProjectBoards project={note.project} depth={depth + 1} />}
           {note.kind === "project" && note.project && <ProjectDecks project={note.project} depth={depth + 1} />}
-          {children.length === 0 && !(note.kind === "project" && (hasBoards || hasDecks)) && (
+          {note.kind === "project" && note.project && <ProjectDiagrams project={note.project} depth={depth + 1} />}
+          {children.length === 0 && !(note.kind === "project" && (hasBoards || hasDecks || hasDiagrams)) && (
             <li className="py-1 text-13 text-muted" style={{ paddingLeft: `${30 + (depth + 1) * 14}px` }}>
               No pages inside
             </li>

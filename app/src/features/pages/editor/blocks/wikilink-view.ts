@@ -123,6 +123,8 @@ class WikiLinkView implements NodeView {
 
   stopEvent(event: Event): boolean {
     if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target)) return true;
+    // A head's icon tool is a button the keyboard presses: the editor leaves its keys alone.
+    if (event.type === "keydown" && event.target instanceof Element && event.target.closest(".kasten-embed-tool")) return true;
     return event.type === "mousedown" || event.type === "click";
   }
 

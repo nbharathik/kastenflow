@@ -10,7 +10,7 @@ use std::fs;
 use common::{NOW, dev_vault};
 use kasten_core::deck::{self, DeckSaved};
 use kasten_core::history::Actor;
-use kasten_core::{Error, Kasten, content_hash};
+use kasten_core::{DeckEdit, Error, Kasten, SaveDecksRequest, content_hash};
 use serde_json::json;
 
 const PROJECT: &str = "photo-organiser";
@@ -363,6 +363,169 @@ fn a_person_saves_in_batches_and_an_agent_commits_at_once() {
     assert_eq!(last.summary, "deck: edit Tool use");
     assert!(last.agent);
     assert!(k.pending_edits().is_empty());
+}
+
+/// Three decks in the vault, and a request to retitle each, as the dialog of "every deck" would make it after looking.
+fn three_decks(k: &Kasten) -> (Vec<String>, Vec<String>, SaveDecksRequest) {
+    let mut paths = Vec::new();
+    let mut before = Vec::new();
+    let mut edits = Vec::new();
+    for (n, title) in ["Alpha", "Beta", "Gamma"].into_iter().enumerate() {
+        let text = deck_text(title, n + 1);
+        let path = k
+            .create_deck(&Actor::Human, title, None, &text, NOW)
+            .unwrap();
+        edits.push(DeckEdit {
+            path: path.clone(),
+            base_hash: content_hash(&text),
+            text: deck_text(&format!("{title} without numbers"), n + 1),
+        });
+        paths.push(path);
+        before.push(text);
+    }
+    let request = SaveDecksRequest {
+        message: "slides: turn off slide numbers in 3 decks".to_owned(),
+        edits,
+    };
+    (paths, before, request)
+}
+
+fn on_disk(t: &common::TempVault, path: &str) -> String {
+    fs::read_to_string(t.vault.root().join(path)).unwrap()
+}
+
+#[test]
+fn save_decks_is_all_or_none_and_one_commit() {
+    let (t, k) = open();
+    let (paths, before, request) = three_decks(&k);
+    let log = k.log(None, 500).unwrap().len();
+
+    // One of them is not a deck any more: nothing is written, nothing is committed.
+    let mut broken = request.clone();
+    broken.edits[2].text = "{ nope".to_owned();
+    assert!(
+        invalid(k.save_decks(&Actor::Human, &broken, NOW)).starts_with("Not a KastenFlow deck")
+    );
+    // One of them is not there: the same.
+    let mut gone = request.clone();
+    gone.edits[1].path = "library/gone.deck".to_owned();
+    assert!(k.save_decks(&Actor::Human, &gone, NOW).is_err());
+    for (path, was) in paths.iter().zip(&before) {
+        assert_eq!(&on_disk(&t, path), was, "{path}");
+    }
+    assert_eq!(k.log(None, 500).unwrap().len(), log);
+
+    let saved = k.save_decks(&Actor::Human, &request, NOW).unwrap();
+    assert_eq!(saved.paths, paths);
+    let commit = saved.commit.clone().expect("a commit");
+    assert_eq!(
+        k.log(None, 500).unwrap().len(),
+        log + 1,
+        "one commit for all of them"
+    );
+    let newest = &k.log(None, 1).unwrap()[0];
+    assert_eq!(
+        (newest.id.as_str(), newest.summary.as_str()),
+        (commit.as_str(), "slides: turn off slide numbers in 3 decks")
+    );
+    assert!(!newest.agent);
+    for (path, edit) in paths.iter().zip(&request.edits) {
+        assert_eq!(on_disk(&t, path), edit.text, "{path}");
+        assert_eq!(k.deck(path).unwrap().hash, content_hash(&edit.text));
+    }
+}
+
+#[test]
+fn a_deck_that_stays_the_same_is_not_written_and_a_request_that_changes_nothing_commits_nothing() {
+    let (t, k) = open();
+    let (paths, before, mut request) = three_decks(&k);
+    request.edits[1].text = before[1].clone();
+    let saved = k.save_decks(&Actor::Human, &request, NOW).unwrap();
+    assert_eq!(saved.paths, [paths[0].clone(), paths[2].clone()]);
+    assert_eq!(on_disk(&t, &paths[1]), before[1]);
+
+    // Nothing to change at all.
+    let log = k.log(None, 500).unwrap().len();
+    let same = SaveDecksRequest {
+        message: "slides: nothing".to_owned(),
+        edits: (0..3)
+            .map(|n| DeckEdit {
+                path: paths[n].clone(),
+                base_hash: k.deck(&paths[n]).unwrap().hash,
+                text: k.deck(&paths[n]).unwrap().text,
+            })
+            .collect(),
+    };
+    let saved = k.save_decks(&Actor::Human, &same, NOW).unwrap();
+    assert!(saved.paths.is_empty() && saved.commit.is_none());
+    assert_eq!(k.log(None, 500).unwrap().len(), log);
+}
+
+#[test]
+fn a_stale_hash_refuses_everything() {
+    let (t, k) = open();
+    let (paths, before, request) = three_decks(&k);
+    // Another window (an agent, a sync) saved the second deck after the preview.
+    let theirs = deck_text("Beta, changed elsewhere", 2);
+    fs::write(t.vault.root().join(&paths[1]), &theirs).unwrap();
+    let log = k.log(None, 500).unwrap().len();
+    let why = invalid(k.save_decks(&Actor::Human, &request, NOW));
+    assert!(why.contains("changed since"), "{why}");
+    assert_eq!(
+        on_disk(&t, &paths[0]),
+        before[0],
+        "the others are left as they were"
+    );
+    assert_eq!(on_disk(&t, &paths[1]), theirs);
+    assert_eq!(on_disk(&t, &paths[2]), before[2]);
+    assert_eq!(k.log(None, 500).unwrap().len(), log);
+}
+
+#[test]
+fn an_agent_is_refused() {
+    let (t, k) = open();
+    let (paths, before, request) = three_decks(&k);
+    let agent = Actor::Agent {
+        client: "claude-code".into(),
+        session: "01SESSION".into(),
+    };
+    let why = invalid(k.save_decks(&agent, &request, NOW));
+    assert!(why.contains("person"), "{why}");
+    for (path, was) in paths.iter().zip(&before) {
+        assert_eq!(&on_disk(&t, path), was);
+    }
+}
+
+#[test]
+fn a_request_that_cannot_be_met_is_refused_before_anything_is_read() {
+    let (_t, k) = open();
+    let (_paths, _before, request) = three_decks(&k);
+    let mut twice = request.clone();
+    twice.edits[1].path = twice.edits[0].path.clone();
+    assert!(invalid(k.save_decks(&Actor::Human, &twice, NOW)).contains("twice"));
+    let mut empty = request.clone();
+    empty.edits.clear();
+    assert!(invalid(k.save_decks(&Actor::Human, &empty, NOW)).contains("Nothing"));
+    let mut unnamed = request.clone();
+    unnamed.message = "  ".to_owned();
+    assert!(invalid(k.save_decks(&Actor::Human, &unnamed, NOW)).contains("message"));
+    let mut elsewhere = request;
+    elsewhere.edits[0].path = "library/note.md".to_owned();
+    assert!(k.save_decks(&Actor::Human, &elsewhere, NOW).is_err());
+}
+
+#[test]
+fn undo_commit_restores_every_deck() {
+    let (t, k) = open();
+    let (paths, before, request) = three_decks(&k);
+    let saved = k.save_decks(&Actor::Human, &request, NOW).unwrap();
+    let commit = saved.commit.unwrap();
+    let undone = k.undo_commit(&commit, NOW).unwrap();
+    assert_eq!(undone.reverted, [commit]);
+    assert!(undone.conflict.is_none());
+    for (path, was) in paths.iter().zip(&before) {
+        assert_eq!(&on_disk(&t, path), was, "{path}");
+    }
 }
 
 #[test]

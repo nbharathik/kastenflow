@@ -7,10 +7,11 @@ import type { Command } from "./types.ts";
 const said = (session: EditorSession, message: string): void => session.host.notify?.(message);
 
 /** What "Update from page" told the person. */
-export function reportUpdate(session: EditorSession, done: { updated: number; missing: number; same: number }): void {
+export function reportUpdate(session: EditorSession, done: { updated: number; missing: number; same: number; edited?: number }): void {
   const parts: string[] = [];
   if (done.updated > 0) parts.push(done.updated === 1 ? "Updated from the page." : `Updated ${done.updated} from their pages.`);
   if (done.missing > 0) parts.push(done.missing === 1 ? "A page could not be found." : `${done.missing} pages could not be found.`);
+  if (done.edited) parts.push(done.edited === 1 ? "A slide you had changed was left alone: Tools → Review sources… lets you keep it or replace it." : `${done.edited} slides you had changed were left alone: Tools → Review sources… lets you keep or replace them.`);
   if (parts.length === 0) parts.push(done.same > 0 ? "Already up to date." : "Nothing here came from a page.");
   said(session, parts.join(" "));
 }
@@ -37,6 +38,14 @@ export const pageCommands: Command[] = [
     icon: "refresh-cw",
     enabled: (_state, _ui, host) => host.readPage !== undefined,
     run: async ({ session }) => reportUpdate(session, await updateFromPages(session)),
+  },
+  {
+    // The slides made from pages, looked at again once the pages have changed: updated, kept as they are, or replaced, as the person chooses.
+    id: "page.review-sources",
+    label: "Review sources…",
+    icon: "list",
+    enabled: (_state, _ui, host) => host.readPage !== undefined,
+    run: ({ ui }) => ui.openDialog("review-sources"),
   },
   {
     id: "page.break-link",

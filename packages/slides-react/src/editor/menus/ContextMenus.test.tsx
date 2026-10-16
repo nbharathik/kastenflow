@@ -201,7 +201,7 @@ describe("on the empty slide", () => {
     insert(shape("rect", { x: 10, y: 10, w: 100, h: 100 }));
     act(() => session.select([]));
     open("canvas");
-    expect(names()).toEqual(["Paste", "Paste in place", "Select all", "Change layout…", "Change background…", "Speaker notes", "Snap to guides"]);
+    expect(names()).toEqual(["Paste", "Paste in place", "Select all", "Change layout…", "Change background…", "Save slide as layout…", "Reset slide to layout", "Speaker notes", "Snap to guides"]);
     expect(row(/^Speaker notes/).getAttribute("aria-checked")).toBe("true");
     expect(row(/^Snap to guides/).getAttribute("aria-checked")).toBe("true");
 
@@ -227,7 +227,7 @@ describe("on a slide in the filmstrip", () => {
   it("adds, duplicates and deletes slides", async () => {
     const { session, open } = await setup();
     open("slide");
-    expect(names()).toEqual(["Cut", "Copy", "Paste", "New slide", "Duplicate slide", "Delete slide", "Select all slides", "Skip slide", "Backup slide", "Move slide", "Change layout…", "Change background…", "Add section here", "Rename section", "Remove section"]);
+    expect(names()).toEqual(["Cut", "Copy", "Paste", "New slide", "Duplicate slide", "Delete slide", "Select all slides", "Skip slide", "Backup slide", "Move slide", "Change layout…", "Change background…", "Save slide as layout…", "Reset slide to layout", "Add section here", "Rename section", "Remove section"]);
     fireEvent.click(row(/^New slide/));
     expect(session.deck.slides).toHaveLength(2);
     open("slide");

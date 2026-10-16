@@ -59,7 +59,9 @@ pub fn list(kasten: &Kasten, keys: &dyn KeyStore) -> Vec<ChatProvider> {
         .providers
         .into_iter()
         .map(|p| ChatProvider {
-            // A keychain that cannot be read holds no key the chat could use.
+            // The keychain the app hands in answers a read that fails from what it
+            // last saw (steady.rs), so a hiccup does not show as "no key" or as
+            // signed out; one that never answered holds no key the chat could use.
             has_key: if Kind::of(&p.kind) == Ok(Kind::ChatGpt) {
                 chatgpt::signed_in(keys)
             } else {

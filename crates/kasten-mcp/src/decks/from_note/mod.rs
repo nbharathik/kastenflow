@@ -14,14 +14,17 @@
 mod body;
 mod outline;
 mod plan;
+mod storyboard;
 mod text;
 
 use kasten_core::Kasten;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use slides_core::agent::{Agent, MemoryStore, Store, ToolError, ToolOutput, ToolResult, ToolSpec};
+use slides_core::page::StoryEntry;
 
 use super::store::KastenStore;
+use crate::tools::locked;
 use plan::{Plan, Source};
 
 /// The arguments of the tool.
@@ -34,6 +37,15 @@ struct Options {
     theme: Option<String>,
     #[serde(default)]
     title: Option<String>,
+    /// Answer the slides the note would make as a storyboard, and make nothing.
+    #[serde(default)]
+    draft: bool,
+    /// The heading level a storyboard is cut at (1 to 6); 0 or absent for the level that suits the note.
+    #[serde(default)]
+    split: u8,
+    /// A storyboard, drafted and changed: the deck is made from it.
+    #[serde(default)]
+    storyboard: Option<Vec<StoryEntry>>,
 }
 
 /// The most problems the answer lists.
@@ -43,7 +55,7 @@ const MOST_PROBLEMS: usize = 8;
 pub(super) fn spec() -> ToolSpec {
     ToolSpec {
         name: "deck_from_note".to_owned(),
-        description: "Makes a new deck from a note of the vault and returns where it is and what lint thinks of it. The note's headings become slides: the list under a heading is the slide, the note's prose under it becomes the speaker notes. Its pictures become picture slides placed at their own proportions, and the citation keys it uses ([@key], \\cite{key}) that the vault's .bib files know become the slide's footer, with a references slide at the end. `include_linked` also turns the notes it links to into sections. Layouts are chosen for what is on each slide. Use it to start a talk from what the person already wrote, then refine slide by slide with the other deck tools and lint after every batch; a note that has no headings gives one slide. Like create_deck it never replaces a deck, and it is held to the same limits and review.".to_owned(),
+        description: "Makes a new deck from a note of the vault and returns where it is and what lint thinks of it. The note's headings become slides: the list under a heading is the slide, the note's prose under it becomes the speaker notes. Its pictures become picture slides placed at their own proportions, and the citation keys it uses ([@key], \\cite{key}) that the vault's .bib files know become the slide's footer, with a references slide at the end. `include_linked` also turns the notes it links to into sections. Layouts are chosen for what is on each slide. Use it to start a talk from what the person already wrote, then refine slide by slide with the other deck tools and lint after every batch; a note that has no headings gives one slide. Like create_deck it never replaces a deck, and it is held to the same limits and review. To plan the slides first, call it with `draft: true`: it makes nothing and answers the storyboard, one entry for each section of the note (title, point, evidence, notes, layout, and the section it came from); change the entries (reorder, merge, drop, rewrite) and call it again with `storyboard` set to them to make the deck, whose slides remember the sections they came from so the person can bring them up to date when the note changes.".to_owned(),
         input_schema: json!({
             "type": "object",
             "properties": {
@@ -51,7 +63,25 @@ pub(super) fn spec() -> ToolSpec {
                 "include_linked": { "type": "boolean", "description": "Also make sections of the notes it links to (the first six, a few slides each). Off by default." },
                 "title": { "type": "string", "description": "The deck's title, if not the note's." },
                 "theme": { "type": "string", "description": "Light (default), Dark, Serif, Lecture, Minimal, Bold, Modern, Academic, Pitch, Dark Studio or Warm Paper." },
-                "project": { "type": "string", "description": "The project to make the deck in, as list_notes names a note's project (its folder under projects/). Without one the deck goes to the library." }
+                "project": { "type": "string", "description": "The project to make the deck in, as list_notes names a note's project (its folder under projects/). Without one the deck goes to the library." },
+                "draft": { "type": "boolean", "description": "Only draft: answer the storyboard (the slides the note would make) and make no deck. Off by default." },
+                "split": { "type": "integer", "minimum": 0, "maximum": 6, "description": "With `draft`: the heading level a slide starts at (1 to 6); 0 or left out for the level that suits the note." },
+                "storyboard": {
+                    "type": "array",
+                    "description": "The entries of a draft, changed as you like, to make the deck from instead of the note's own headings.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": { "type": "string", "description": "The slide's title." },
+                            "point": { "type": "string", "description": "The sentence the slide makes; it leads the slide's words." },
+                            "evidence": { "type": "array", "items": { "type": "string" }, "description": "What backs the point up, one Markdown block each: a list item (nested ones indented by two spaces), a picture, a table, code." },
+                            "notes": { "type": "string", "description": "What the speaker says, as Markdown." },
+                            "layout": { "type": "string", "description": "title-body, title-only or section; left out lets the content choose." },
+                            "sources": { "type": "array", "description": "The sections of the note it came from, as the draft gave them; leave them as they are.", "items": { "type": "object" } }
+                        },
+                        "required": ["title"]
+                    }
+                }
             },
             "required": ["note"],
             "additionalProperties": false
@@ -120,14 +150,31 @@ pub(super) fn run(kasten: &Kasten, store: &mut KastenStore<'_>, args: &Value) ->
             "`note` names the note to make the deck from: its title, its path (such as projects/talk/pages/plan.md) or its id.",
         ));
     }
-    let path = kasten
-        .resolve(&options.note)
-        .map_err(|e| ToolError::new(e.to_string()))?;
+    // A chat that previews its changes makes the deck from the notes as they will be saved.
+    let staged = store.stage.map(|set| locked(set).clone());
     let refs = store.references();
     let source = Source {
         kasten,
         refs: refs.as_ref(),
+        staged: staged.as_ref(),
     };
+    let path = source
+        .resolve(&options.note)
+        .map_err(|e| ToolError::new(e.to_string()))?;
+    // A storyboard first (`draft`), or a deck made from one (`storyboard`).
+    if options.draft {
+        return storyboard::draft(&source, &path, options.split);
+    }
+    if let Some(entries) = options.storyboard {
+        return storyboard::build(
+            &source,
+            store,
+            &path,
+            options.title.as_deref(),
+            options.theme.as_deref(),
+            entries,
+        );
+    }
     let mut plan = plan::of_deck(&source, &path, options.include_linked).map_err(ToolError::new)?;
     if let Some(title) = options.title.as_deref().filter(|t| !t.trim().is_empty()) {
         plan.title = title.trim().to_owned();
@@ -140,7 +187,7 @@ pub(super) fn run(kasten: &Kasten, store: &mut KastenStore<'_>, args: &Value) ->
         let Some(picture) = &planned.picture else {
             continue;
         };
-        match kasten.read_asset(&picture.src) {
+        match source.asset(&picture.src) {
             Ok(bytes) => {
                 scratch.assets.insert(picture.src.clone(), bytes);
             }

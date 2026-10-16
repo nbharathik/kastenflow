@@ -339,3 +339,270 @@ Notes:
     );
     let _ = (k, Value::Null);
 }
+
+// ---- the storyboard: draft, change, make
+
+fn draft_of(k: &Kasten, s: &Session) -> Vec<Value> {
+    let drafted = call(
+        k,
+        s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "draft": true}),
+    )
+    .unwrap();
+    assert_eq!(drafted["status"], json!("done"), "{drafted}");
+    drafted["result"]["entries"].as_array().unwrap().clone()
+}
+
+#[test]
+fn a_draft_answers_the_storyboard_and_makes_nothing() {
+    let (v, k, s) = open();
+    let before = k.log(None, 1).unwrap()[0].id.clone();
+    let drafted = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "draft": true}),
+    )
+    .unwrap();
+    let result = &drafted["result"];
+    assert_eq!(result["note"], json!("library/retrieval-talk.md"));
+    let entries = result["entries"].as_array().unwrap();
+    assert_eq!(result["slides"], json!(entries.len()));
+    let titles: Vec<&str> = entries
+        .iter()
+        .map(|e| e["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        titles,
+        [
+            "Retrieval talk",
+            "Why retrieval?",
+            "The pipeline",
+            "References"
+        ]
+    );
+    // The point is the first sentence, the evidence the list and the pictures, the notes the prose.
+    let why = &entries[1];
+    assert_eq!(
+        why["point"],
+        json!("Retrieval cuts hallucinations because the model can quote what it found.")
+    );
+    assert_eq!(
+        why["evidence"][0],
+        json!("- Models know what they were trained on")
+    );
+    assert!(
+        why["notes"]
+            .as_str()
+            .unwrap()
+            .contains("This paragraph is for the speaker.")
+    );
+    let pipeline = &entries[2];
+    assert_eq!(pipeline["media"], json!(true));
+    assert!(
+        pipeline["evidence"]
+            .to_string()
+            .contains("../assets/wide.png"),
+        "{pipeline}"
+    );
+    // Each entry says where it came from, so the slide can be brought up to date.
+    assert_eq!(
+        why["sources"][0]["page"],
+        json!("library/retrieval-talk.md")
+    );
+    assert_eq!(why["sources"][0]["section"], json!("Why retrieval?"));
+    assert!(
+        why["sources"][0]["markdown"]
+            .as_str()
+            .unwrap()
+            .starts_with("## Why retrieval?")
+    );
+    // Nothing was made: no deck, no commit.
+    assert!(!v.0.join("library/retrieval-talk.deck").exists());
+    assert_eq!(k.log(None, 1).unwrap()[0].id, before);
+}
+
+#[test]
+fn a_draft_can_be_cut_at_another_heading_level() {
+    let (_v, k, s) = open();
+    let deeper = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Method notes", "draft": true, "split": 2}),
+    )
+    .unwrap();
+    let titles: Vec<String> = deeper["result"]["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["title"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(titles, ["Method notes", "Setup", "Analysis"]);
+    let bad = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "No such note", "draft": true}),
+    )
+    .unwrap_err();
+    assert!(bad.contains("No note called"), "{bad}");
+}
+
+#[test]
+fn a_storyboard_makes_the_deck_the_caller_changed_and_the_slides_remember_their_sections() {
+    let (v, k, s) = open();
+    let mut entries = draft_of(&k, &s);
+    // Drop the references, rename one slide, and say a point of our own.
+    entries.retain(|e| e["title"] != json!("References"));
+    entries[1]["title"] = json!("Why look things up?");
+    entries[2]["point"] = json!("Four steps.");
+    let made = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "storyboard": entries, "title": "Retrieval, planned"}),
+    )
+    .unwrap();
+    assert_eq!(made["status"], json!("done"), "{made}");
+    let done = &made["result"];
+    assert_eq!(done["deck"], json!("library/retrieval-planned.deck"));
+    assert_eq!(done["pictures"], json!(1));
+    assert_eq!(done["lint"]["errors"], json!(0), "{}", done["lint"]);
+
+    let deck = deck_at(&v, done["deck"].as_str().unwrap());
+    assert_eq!(deck.title, "Retrieval, planned");
+    assert_eq!(
+        deck.slides.len(),
+        4,
+        "the cover and a slide for each entry that was kept"
+    );
+    let title_of = |i: usize| {
+        deck.slides[i]
+            .elements
+            .iter()
+            .find(|e| e.base().placeholder.as_deref() == Some("title"))
+            .map(words)
+            .unwrap_or_default()
+    };
+    assert_eq!(
+        [title_of(1), title_of(2), title_of(3)],
+        ["Retrieval talk", "Why look things up?", "The pipeline"]
+    );
+    // The words of a slide are one element that remembers its section, and what it said when it was made.
+    let why = deck.slides[2]
+        .elements
+        .iter()
+        .find(|e| e.base().source.is_some())
+        .expect("a source");
+    let source = why.base().source.as_ref().unwrap();
+    assert_eq!(source.page, "library/retrieval-talk.md");
+    assert_eq!(source.section.as_deref(), Some("Why retrieval?"));
+    assert!(source.sync, "it still says what its section says");
+    assert!(source.hash.is_some() && source.made.is_some());
+    assert!(words(why).contains("Models know what they were trained on"));
+    assert!(
+        deck.slides[2]
+            .notes
+            .contains("This paragraph is for the speaker.")
+    );
+    // The picture is the vault's file, not the note's spelling of its path.
+    let pipeline = deck.slides[3]
+        .elements
+        .iter()
+        .find(|e| e.base().source.is_some())
+        .unwrap();
+    let Element::Group(group) = pipeline else {
+        panic!("words and a picture are a group")
+    };
+    assert!(
+        group
+            .children
+            .iter()
+            .any(|c| matches!(c, Element::Image(i) if i.src == "assets/wide.png"))
+    );
+}
+
+#[test]
+fn a_storyboard_that_is_changed_says_it_is_not_kept_in_step_and_a_missing_picture_is_left_out_and_said()
+ {
+    let (v, k, s) = open();
+    let mut entries = draft_of(&k, &s);
+    entries[1]["evidence"] = json!([
+        "- Only this",
+        "![gone](../assets/nowhere.png)",
+        "![far](https://example.com/a.png)"
+    ]);
+    let made = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "storyboard": entries}),
+    )
+    .unwrap();
+    let done = &made["result"];
+    let warnings = done["warnings"].to_string();
+    assert!(warnings.contains("nowhere.png"), "{warnings}");
+    assert!(
+        warnings.contains("example.com"),
+        "the picture from the web is left out and said: {warnings}"
+    );
+    let whats: Vec<&str> = done["omitted"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["what"].as_str().unwrap())
+        .collect();
+    assert!(
+        whats.contains(&"picture") && whats.contains(&"update"),
+        "{whats:?}"
+    );
+    let deck = deck_at(&v, done["deck"].as_str().unwrap());
+    let rewritten = deck.slides[2]
+        .elements
+        .iter()
+        .find(|e| e.base().source.is_some())
+        .unwrap();
+    assert!(!rewritten.base().source.as_ref().unwrap().sync);
+}
+
+#[test]
+fn a_storyboard_is_one_write_by_the_agent_and_needs_entries() {
+    let (_v, k, s) = open();
+    let entries = draft_of(&k, &s);
+    let before = k.log(None, 1).unwrap()[0].id.clone();
+    let made = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "storyboard": entries}),
+    )
+    .unwrap();
+    let path = made["result"]["deck"].as_str().unwrap();
+    let commits = k.log(Some(path), 10).unwrap();
+    assert_eq!(commits.len(), 1, "{commits:?}");
+    assert_eq!(commits[0].op.as_deref(), Some("deck_from_note"));
+    assert_ne!(k.log(None, 1).unwrap()[0].id, before);
+    let none = call(
+        &k,
+        &s,
+        "deck_from_note",
+        json!({"note": "Retrieval talk", "storyboard": []}),
+    )
+    .unwrap_err();
+    assert!(none.contains("draft"), "{none}");
+}
+
+#[test]
+fn the_tool_lists_draft_and_storyboard() {
+    let tool = specs()
+        .into_iter()
+        .find(|s| s.name == "deck_from_note")
+        .unwrap();
+    for key in ["draft", "split", "storyboard"] {
+        assert!(tool.input_schema["properties"][key].is_object(), "{key}");
+    }
+    assert_eq!(tool.input_schema["required"], json!(["note"]));
+    assert!(tool.description.contains("draft: true"));
+}

@@ -7,6 +7,7 @@
 //   size, code, font   a run's own `font` sits inside `code`, so it wins over the code font
 //   bold, italic, math
 //   script, caps, spacing   raised or lowered words are smaller than the size around them
+//   highlight          inside code, so a highlight is drawn instead of the ground inline code has
 //   color, link        the link's colour sits inside the run's own, so a link is always the theme's link colour
 //   underline, strike  inside the colour, so a line is drawn in the colour of its text
 //   field, extra       nothing to see
@@ -18,21 +19,21 @@ import { type Css, ptToPx, px } from "./css.ts";
 import { SCRIPT_SIZE, scriptTop } from "./metrics.ts";
 import { codeBackground, isSize } from "./text-style.ts";
 
-export const MARK_ORDER = ["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "color", "link", "underline", "strike", "field", "extra"] as const;
+export const MARK_ORDER = ["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "highlight", "color", "link", "underline", "strike", "field", "extra"] as const;
 
 export type MarkName = (typeof MARK_ORDER)[number];
 
 /** A mark with the value it carries, if it carries one. */
 export type MarkInput =
   | { name: "size" | "spacing"; value: number }
-  | { name: "font" | "color" | "link" | "field" | "extra" | "script"; value: string }
+  | { name: "font" | "color" | "highlight" | "link" | "field" | "extra" | "script"; value: string }
   | { name: "code" | "bold" | "italic" | "math" | "underline" | "strike" | "smallCaps" | "allCaps" };
 
 /** The attribute a valued mark keeps its value in. */
-export const MARK_ATTR = { size: "value", spacing: "value", script: "value", font: "value", color: "value", link: "href", field: "name", extra: "json" } as const;
+export const MARK_ATTR = { size: "value", spacing: "value", script: "value", font: "value", color: "value", highlight: "value", link: "href", field: "name", extra: "json" } as const;
 
 /** The fields of a run the format defines; anything else in a run is kept as it is. */
-export const RUN_KEYS: ReadonlySet<string> = new Set(["t", "b", "i", "u", "s", "color", "size", "font", "link", "code", "math", "field", "script", "smallCaps", "allCaps", "spacing"]);
+export const RUN_KEYS: ReadonlySet<string> = new Set(["t", "b", "i", "u", "s", "color", "highlight", "size", "font", "link", "code", "math", "field", "script", "smallCaps", "allCaps", "spacing"]);
 
 /** The marks whose value is a number. */
 export const NUMBER_MARKS: ReadonlySet<string> = new Set(["size", "spacing"]);
@@ -61,6 +62,7 @@ export function markInputsOf(run: Run): MarkInput[] {
   if (run.smallCaps) out.push({ name: "smallCaps" });
   if (run.allCaps) out.push({ name: "allCaps" });
   if (typeof run.spacing === "number" && Number.isFinite(run.spacing) && run.spacing !== 0) out.push({ name: "spacing", value: run.spacing });
+  if (text(run.highlight)) out.push({ name: "highlight", value: run.highlight });
   if (text(run.color)) out.push({ name: "color", value: run.color });
   if (text(run.link)) out.push({ name: "link", value: run.link });
   if (run.u) out.push({ name: "underline" });
@@ -108,6 +110,11 @@ export function wrapOf(theme: Theme, input: MarkInput): Wrap {
       return span({ textTransform: "uppercase" });
     case "spacing":
       return span({ letterSpacing: px(ptToPx(input.value)) });
+    case "highlight": {
+      // A colour behind the words, like a marker pen. A value that is not a colour draws nothing.
+      const hex = hexOf(theme, input.value);
+      return span(hex ? { background: hex } : {});
+    }
     case "color": {
       const hex = hexOf(theme, input.value);
       return span(hex ? { color: hex } : {});

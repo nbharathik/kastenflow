@@ -5,9 +5,11 @@
 
 use std::time::Duration;
 
+use kasten_core::clip::Existing;
 use kasten_core::{Instant, NoteFile};
 use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use serde::Serialize;
 use tauri::State;
 
 use crate::chat::address::private;
@@ -152,22 +154,47 @@ pub(crate) async fn page_bytes(chat: &ChatState, url: &str) -> Result<(String, V
     Ok((landed, bytes))
 }
 
+/// What clipping a page did: it was kept, or it was already saved and the
+/// person has not said to keep it again.
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ClipOutcome {
+    Saved { note: Box<NoteFile> },
+    Existing { existing: Vec<Existing> },
+}
+
+/// Keeps a web page's article as an Inbox card. A page that is already saved
+/// is not saved again unless `again` is true: the answer is then the notes it
+/// is saved in, and nothing is written. With `again`, the new card is a
+/// snapshot that points back at the first one.
 #[tauri::command]
 pub async fn clip_url(
     vault: State<'_, OpenVault>,
     chat: State<'_, ChatState>,
     url: String,
-) -> Result<NoteFile, String> {
+    again: Option<bool>,
+) -> Result<ClipOutcome, String> {
     let kasten = vault.require()?;
     let url = address(&url)?;
     let (landed, bytes) = page_bytes(&chat, &url).await?;
+    let again = again.unwrap_or(false);
     // Reading the page is work for a thread of its own, and a slip in it
     // is an answer, not a crash.
     tauri::async_runtime::spawn_blocking(move || {
         crate::crash::caught(|| {
+            let found = kasten.captured(&landed).map_err(|e| e.to_string())?;
+            if !found.is_empty() && !again {
+                return Ok(ClipOutcome::Existing {
+                    existing: found.iter().map(Existing::from).collect(),
+                });
+            }
+            let first = found.first().map(|note| note.path.as_str());
             let page = String::from_utf8_lossy(&bytes);
             kasten
-                .clip(&HUMAN, &landed, &page, Instant::now())
+                .clip_snapshot(&HUMAN, &landed, &page, first, Instant::now())
+                .map(|note| ClipOutcome::Saved {
+                    note: Box::new(note),
+                })
                 .map_err(|e| e.to_string())
         })
     })

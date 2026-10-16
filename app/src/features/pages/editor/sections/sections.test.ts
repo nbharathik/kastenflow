@@ -84,16 +84,22 @@ describe("where a page splits", () => {
     expect(sectionTitle(editor.doc, sectionsOf(editor.doc)[0]!)).toBe("One.");
   });
 
-  it("shows a divider's section title only on hover, and its button folds the section", () => {
+  it("draws a divider as a line with two icons and no words; the title is only a tooltip", () => {
     editor.open(PAGE);
     const dividers = [...editor.view.dom.querySelectorAll<HTMLElement>(".kasten-divider:not(.is-nested)")];
     expect(dividers).toHaveLength(3);
     // The one inside the toggle is only a line.
     expect(editor.view.dom.querySelectorAll(".kasten-divider.is-nested")).toHaveLength(1);
-    expect(dividers[0]!.querySelector(".kasten-divider-title")!.textContent).toBe("");
-    dividers[0]!.dispatchEvent(new MouseEvent("mouseenter"));
-    expect(dividers[0]!.querySelector(".kasten-divider-title")!.textContent).toBe("Plan");
+    // Icons only: no title element and no text in the buttons, however the section is named.
+    expect(dividers[0]!.querySelector(".kasten-divider-title")).toBeNull();
     const button = dividers[0]!.querySelector<HTMLButtonElement>(".kasten-divider-fold")!;
+    const present = dividers[0]!.querySelector<HTMLButtonElement>(".kasten-divider-present")!;
+    expect(dividers[0]!.querySelector(".kasten-divider-tools")!.textContent).toBe("");
+    expect(button.title).toBe("Fold this section");
+    dividers[0]!.dispatchEvent(new MouseEvent("mouseenter"));
+    expect(button.title).toBe("Fold “Plan”");
+    expect(present.title).toBe("Present from “Plan”");
+    expect(present.getAttribute("aria-label")).toBe("Present from here");
     expect(button.getAttribute("aria-label")).toBe("Fold section");
     button.click();
     expect(hidden().map((node) => node.textContent)).toEqual(["Plan", "Book the guesthouse."]);

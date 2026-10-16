@@ -29,6 +29,8 @@ export interface FormatState {
   strike: Tri;
   code: Tri;
   color: string | "mixed" | null;
+  /** The colour behind the words, a theme colour or `#rrggbb`; null where there is none. */
+  highlight: string | "mixed" | null;
   size: number | "mixed" | null;
   font: string | "mixed" | null;
   align: Align | "mixed";
@@ -120,6 +122,7 @@ export function formatStateOf(state: EditorState, ctx: EditorContext): FormatSta
     strike: agree(samples.map((s) => has(s, "strike")), false),
     code: agree(samples.map((s) => has(s, "code")), false),
     color: agree(samples.map((s) => textOf(s, "color", "value")), null),
+    highlight: agree(samples.map((s) => textOf(s, "highlight", "value")), null),
     size: agree(
       samples.map((s) => {
         const size = valueOf(s, "size", "value");

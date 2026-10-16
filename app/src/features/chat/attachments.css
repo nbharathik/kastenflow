@@ -1,0 +1,231 @@
+/* Attachments: chips in the box's row of context, the popover that shows one,
+   the strip under a sent question, and the box lit while files are dragged
+   over it. Colours, sizes and radii come from the theme's tokens. */
+
+.kasten-chat-attachment {
+  &[data-state="error"] {
+    max-width: 360px;
+    background: var(--notion-red-bg);
+    color: var(--notion-red);
+
+    & .kasten-chat-chip-icon {
+      color: inherit;
+    }
+  }
+
+  & .kasten-chat-warn {
+    flex: none;
+    color: var(--notion-orange);
+  }
+}
+
+.kasten-chat-thumb {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.kasten-chat-chip.kasten-chat-attachment .kasten-chat-as-text {
+  display: inline-grid;
+  width: auto;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  white-space: nowrap;
+}
+
+/* The popover: placed by the chip, over everything. */
+.kasten-chat-viewer-place {
+  position: fixed;
+  z-index: 60;
+}
+
+.kasten-popup.kasten-chat-viewer {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  max-height: min(60vh, 420px);
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  font-size: var(--text-13);
+}
+
+.kasten-chat-viewer-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--notion-line-soft);
+  color: var(--notion-text-2);
+}
+
+.kasten-chat-viewer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--notion-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-chat-viewer-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  color: var(--notion-text-2);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}
+
+.kasten-chat-viewer-body {
+  min-height: 0;
+  padding: 10px 12px;
+  overflow: auto;
+
+  & img {
+    display: block;
+    max-width: 100%;
+    max-height: 40vh;
+    margin: 0 auto;
+    border-radius: var(--radius-lg);
+  }
+
+  & pre {
+    margin: 0;
+    font-family: var(--notion-font-code);
+    font-size: var(--text-12);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+}
+
+.kasten-chat-viewer-note {
+  margin: 0;
+  padding: 4px 12px 8px;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+  line-height: 1.45;
+}
+
+.kasten-chat-viewer-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-bottom: 8px;
+
+  &:empty {
+    display: none;
+  }
+
+  & > button {
+    height: 26px;
+    margin: 0 12px;
+    padding: 0 10px;
+    border-radius: var(--radius-lg);
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font-size: var(--text-12);
+    font-weight: 500;
+
+    &:hover {
+      background: var(--notion-press);
+    }
+  }
+
+  & > label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 12px;
+    color: var(--notion-text-2);
+    font-size: var(--text-12);
+  }
+}
+
+/* The strip under a sent question: pictures small, files as chips. */
+.kasten-chat-sent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 100%;
+  margin-bottom: 6px;
+}
+
+.kasten-chat-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--notion-hover);
+  color: var(--notion-text-2);
+
+  &:hover {
+    background: var(--notion-press);
+    color: var(--notion-text);
+  }
+
+  &[data-kind="image"] {
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+
+    & img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &[data-kind="text"] {
+    max-width: 240px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-12);
+
+    & span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+/* The box while files are dragged over it. */
+.kasten-chat-composer[data-dragging] {
+  background: color-mix(in srgb, var(--notion-accent) 6%, var(--notion-menu-bg));
+  box-shadow:
+    0 0 0 1px var(--notion-accent),
+    0 0 0 4px color-mix(in srgb, var(--notion-accent) 13%, transparent);
+
+  &::after {
+    content: "Drop to attach";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--notion-accent) 6%, var(--notion-menu-bg));
+    color: var(--notion-accent);
+    font-size: var(--text-13);
+    font-weight: 500;
+    pointer-events: none;
+  }
+}

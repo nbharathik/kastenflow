@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use serde::Serialize;
 
 use super::civil::{Local, iso_day};
+use super::future::{Changes, key};
 use super::parse::{Event, Feed, first_url};
 use super::recur;
 use super::rule::{Rule, Until};
@@ -59,12 +60,13 @@ pub struct Window {
 }
 
 /// How long one occurrence of an event lasts.
-struct Shape {
-    all_day: bool,
+#[derive(Clone, Copy)]
+pub(super) struct Shape {
+    pub(super) all_day: bool,
     /// Seconds, for an event with a time.
-    seconds: i64,
+    pub(super) seconds: i64,
     /// Days, at least one, for an all-day event.
-    days: i64,
+    pub(super) days: i64,
 }
 
 /// The occurrences an event has had cut out of its series: moved ones by
@@ -92,7 +94,7 @@ impl Taken {
     }
 }
 
-fn shape_of(event: &Event, zones: &Zones) -> Option<Shape> {
+pub(super) fn shape_of(event: &Event, zones: &Zones) -> Option<Shape> {
     let days_of = |seconds: i64| (seconds + 86_399) / 86_400;
     if event.start.is_date() {
         let days = match (&event.end, event.duration) {
@@ -226,13 +228,16 @@ impl Collector<'_> {
         true
     }
 
-    /// Places a moment of a series, unless it was cut out of it.
+    /// Places a moment of a series, unless it was cut out of it. What was
+    /// cut out is matched against the series' own times; a change that holds
+    /// from some occurrence on then moves and renames what is left.
     fn instance(
         &mut self,
         event: &Event,
         shape: &Shape,
         when: &When,
         taken: &Taken,
+        changes: &Changes,
         seen: &mut HashSet<i64>,
     ) -> bool {
         let mut moment = None;
@@ -247,6 +252,15 @@ impl Collector<'_> {
         }
         if !seen.insert(moment.map_or(when.at.day, |m| m.epoch)) {
             return false;
+        }
+        if let Some(change) = changes.at(key(when, moment)) {
+            if change.event.cancelled {
+                return false;
+            }
+            return match change.apply(when, moment, self.zones) {
+                Some((moved, found)) => self.place(change.event, &change.shape, &moved, found),
+                None => false,
+            };
         }
         self.place(event, shape, when, moment)
     }
@@ -263,11 +277,17 @@ impl Collector<'_> {
         let Some(shape) = shape_of(master, self.zones) else {
             return;
         };
+        // A change that holds "from here on" rewrites the occurrences after
+        // it; the rest of the overrides are single moved or cancelled ones.
+        let (later, mut single): (Vec<&Event>, Vec<&Event>) =
+            overrides.iter().copied().partition(|e| e.this_and_future);
+        let changes = Changes::new(master, &shape, &later, self.zones);
+        single.extend(&changes.single);
         let mut taken = Taken::default();
         for when in &master.exdates {
             taken.add(when, shape.all_day, self.zones);
         }
-        for moved in overrides {
+        for moved in &single {
             if let Some(original) = &moved.recurrence_id {
                 taken.add(original, shape.all_day, self.zones);
             }
@@ -280,14 +300,18 @@ impl Collector<'_> {
             } else {
                 shape.seconds
             };
-            // Far enough back that no occurrence that reaches the range is missed.
-            let floor = Local::from_seconds(self.window.from * 86_400 - span - 2 * 86_400);
+            // Far enough back that no occurrence that reaches the range is
+            // missed, and far enough on that none is: a change may move
+            // later occurrences either way.
+            let pad = changes.pad();
+            let floor = Local::from_seconds(self.window.from * 86_400 - span - pad - 2 * 86_400);
+            let last = self.window.to + 2 + (pad + 86_399) / 86_400;
             recur::each(rule, master.start.at, Some(floor), |moment| {
                 if made >= MAX_PER_EVENT {
                     self.truncated = true;
                     return false;
                 }
-                if moment.day > self.window.to + 2 {
+                if moment.day > last {
                     return false;
                 }
                 // A series with a `COUNT` is counted from its start: the
@@ -299,7 +323,7 @@ impl Collector<'_> {
                 if past_until(rule, &when, self.zones) {
                     return false;
                 }
-                if self.instance(master, &shape, &when, &taken, &mut seen) {
+                if self.instance(master, &shape, &when, &taken, &changes, &mut seen) {
                     made += 1;
                 }
                 true
@@ -308,9 +332,9 @@ impl Collector<'_> {
         // The start is always the first occurrence, and `RDATE`s are extra ones.
         let extra = std::iter::once(&master.start).chain(&master.rdates);
         for when in extra {
-            self.instance(master, &shape, when, &taken, &mut seen);
+            self.instance(master, &shape, when, &taken, &changes, &mut seen);
         }
-        for moved in overrides.iter().filter(|e| !e.cancelled) {
+        for moved in single.iter().filter(|e| !e.cancelled) {
             self.single(moved);
         }
     }

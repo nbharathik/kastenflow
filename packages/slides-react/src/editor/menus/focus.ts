@@ -2,6 +2,7 @@
 
 import { type FocusEvent, type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
 
+import { canTakeFocus, editorOf, focusHome, lastEditorRoot } from "../focus/home.ts";
 import type { EditorUi } from "../ui-state.ts";
 
 /**
@@ -16,10 +17,11 @@ export function useReturnFocus(ui: EditorUi) {
     remember(event: FocusEvent): void {
       if (event.relatedTarget instanceof HTMLElement) before.current = event.relatedTarget;
     },
-    /** Gives the focus back. */
+    /** Gives the focus back; to the editor's home when the place it was is gone, and not to the page. */
     restore(): void {
       if (ui.state.text) ui.state.text.focus();
-      else if (before.current?.isConnected) before.current.focus({ preventScroll: true });
+      else if (canTakeFocus(before.current)) before.current.focus({ preventScroll: true });
+      else focusHome(editorOf(before.current) ?? lastEditorRoot());
     },
   };
 }

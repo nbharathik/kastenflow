@@ -6,6 +6,7 @@ mod breaks;
 mod content;
 mod contrast;
 mod geometry;
+mod links;
 mod probes;
 mod speed;
 mod text;
@@ -248,13 +249,18 @@ fn lint_slide_gives_what_the_deck_report_holds_for_that_slide() {
 }
 
 #[test]
-fn the_table_of_rules_has_fourteen_rules_and_every_issue_names_one() {
+fn the_table_of_rules_has_fifteen_rules_and_every_issue_names_one() {
     let rules = super::rules();
-    assert_eq!(rules.len(), 14);
+    assert_eq!(rules.len(), 15);
     let mut names: Vec<&str> = rules.iter().map(|r| r.name).collect();
     names.sort_unstable();
     names.dedup();
-    assert_eq!(names.len(), 14);
+    assert_eq!(names.len(), 15);
+    assert!(
+        rules
+            .iter()
+            .any(|r| r.name == "broken-link" && r.severity == Severity::Error)
+    );
     assert!(
         rules.windows(2).all(|w| w[0].severity <= w[1].severity),
         "errors, then warnings, then info"

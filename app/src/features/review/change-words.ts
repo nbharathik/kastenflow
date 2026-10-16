@@ -35,6 +35,7 @@ const PLAIN: Record<string, [string, IconName]> = {
   asset: ["Added a file", "attach"],
   source: ["Added a PDF", "book"],
   highlight: ["Highlighted", "highlight"],
+  comment: ["Commented", "chat"],
   accept: ["Kept an agent’s writing", "check"],
   propose: ["Proposed", "agent"],
   external: ["Changed outside KastenFlow", "external"],
@@ -97,6 +98,17 @@ export function describeChange(summary: string): ChangeWords {
       const rest = text.replace(/^(create|edit) /, "");
       const at = rest.indexOf(" § ");
       return at < 0 ? words(made ? "Made a deck" : "Edited a deck", "present", rest) : words("Edited a deck", "present", rest.slice(0, at), rest.slice(at + 3));
+    }
+    case "diagram": {
+      // "create Flow", "edit Flow", "import Flow", "preview Flow" (the picture drawn again), and from an agent "edit Flow § add a cache".
+      const [, what = "edit", rest = text] = /^(create|edit|import|preview) (.*)$/s.exec(text) ?? [];
+      const at = rest.indexOf(" § ");
+      const subject = at < 0 ? rest : rest.slice(0, at);
+      const why = at < 0 ? null : rest.slice(at + 3);
+      if (what === "create") return words("Made a diagram", "diagram", subject, why);
+      if (what === "import") return words("Imported a diagram", "diagram", subject, why);
+      if (what === "preview") return words("Drew the picture of a diagram again", "diagram", subject, why ?? "the diagram itself is as it was");
+      return words("Changed a diagram", "diagram", subject, why);
     }
     case "template": {
       const at = text.lastIndexOf(" from ");

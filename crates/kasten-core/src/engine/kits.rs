@@ -148,7 +148,7 @@ fn stock(path: &str, bytes: &[u8]) -> bool {
 }
 
 /// `text` with each `{{id:name}}` replaced by the id made for `name`.
-fn with_ids(text: &str, ids: &mut HashMap<String, String>, now: Instant) -> String {
+pub(super) fn with_ids(text: &str, ids: &mut HashMap<String, String>, now: Instant) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find("{{id:") {

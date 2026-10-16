@@ -91,6 +91,11 @@ const RULES: &[Rule] = &[
                 "a half-built restore in the hidden folder Kasten made for it",
             ),
             (
+                "crates/kasten-core/src/engine/stage/mod.rs",
+                1,
+                "a chat's staged changes in the local cache, never vault content",
+            ),
+            (
                 "crates/kasten-core/benches/core.rs",
                 2,
                 "the benchmark's own generated vault under the system temp folder",
@@ -165,6 +170,11 @@ const RULES: &[Rule] = &[
                 "app/src-tauri/src/diagrams/clean.rs",
                 1,
                 "a download of the diagram editor that did not check out: a file the installer wrote in the app's own data folder, never anything in the vault",
+            ),
+            (
+                "app/src-tauri/src/chat/store/remove.rs",
+                1,
+                "the app's own copy of a chat the person deleted, of an attachment they took off a message or whose last chat they deleted, or the half-written temporary file of a save that failed: files in the app's data folder, never anything in the vault, and never on a cap, a timer or at start; only a plain file under the folder it is given",
             ),
             (
                 "app/src-tauri/src/calendars/store.rs",

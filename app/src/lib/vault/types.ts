@@ -1,325 +1,53 @@
 // The vault as the frontend sees it: the shapes kasten-core's ops return
-// (serde, camelCase) and the client every view talks to.
+// (serde, camelCase) and the client every view talks to. The shapes live in
+// the `*-types.ts` files beside this one and are re-exported from here.
 
 import type { AgentMark, ChangedFile, Proposal, SessionInfo, Undone } from "./agent-types";
+import type { AnnotationOps } from "./annotation-types";
 import type { AssetOps } from "./asset-types";
 import type { BoardAdded, BoardApplied, BoardChange, BoardInfo, BoardView } from "./board-types";
-import type { DeckFile, DeckInfo, DeckSaved } from "./deck-types";
+import type { BundleOps } from "./bundle-types";
+import type { CollectionOps } from "./collection-types";
+import type { DeckFile, DeckInfo, DeckSaved, DecksSaved, SaveDecksRequest } from "./deck-types";
 import type { DiagramOps } from "./diagram-types";
 import type { GraphOps } from "./graph-types";
+import type { HealthOps } from "./health-types";
 import type { ImportOps } from "./import-types";
+import type {
+  Backlink,
+  DayMention,
+  Hit,
+  MetaField,
+  NewNote,
+  NoteFile,
+  NoteMeta,
+  Placed,
+  RelatedNote,
+  Renamed,
+  Saved,
+  TaskRow,
+  Trashed,
+} from "./note-types";
+import type { ProjectOps } from "./project-types";
+import type { ReferenceOps } from "./reference-types";
 import type { ReplaceOps } from "./replace-types";
+import type { Revision, RevisionOps } from "./revision-types";
 import type { SourceOps } from "./source-types";
+import type { BackupStatus, CommitInfo, Emptied, VaultConfig, VaultRestore, VaultStatus, VerifyReport } from "./status-types";
+import type { AddedKit, KitInfo, NoteStats, PropDef, TagSchema, TagView } from "./tag-types";
 
-export type NoteKind = "page" | "card" | "journal" | "project" | "highlight" | "chat";
+// Notes: see note-types.ts.
+export type { Backlink, DayMention, Hit, MetaField, NewNote, NoteFile, NoteKind, NoteMeta, Placed, RelatedNote, Renamed, Saved, TaskRow, Trashed } from "./note-types";
 
-export interface NoteMeta {
-  /** Vault-relative path; the note's handle in every call. */
-  path: string;
-  id: string | null;
-  title: string;
-  /** `page`, `card`, `journal`, `project` or `template`. */
-  kind: string;
-  icon: string | null;
-  cover: string | null;
-  /** Id of the parent page, for sub-pages. */
-  parent: string | null;
-  /** Folder name under `projects/`. */
-  project: string | null;
-  tags: string[];
-  /** Last change, in milliseconds since the Unix epoch. */
-  modified: number;
-  /** `created` and `updated` from the frontmatter, as written. */
-  created: string | null;
-  updated: string | null;
-  /** The first readable text, for cards and previews. */
-  excerpt: string;
-  words: number;
-  /** Tag property values. */
-  props: Record<string, unknown>;
-  /** Read-only for agents. */
-  locked: boolean;
-}
+// History, backup, settings and the check: see status-types.ts.
+export type { BackupFileStatus, BackupState, BackupStatus, CommitInfo, Emptied, Problem, VaultConfig, VaultRestore, VaultStatus, VerifyReport } from "./status-types";
 
-export interface NoteFile {
-  meta: NoteMeta;
-  text: string;
-  /** Pass back when saving, so changes made meanwhile are noticed. */
-  hash: string;
-}
-
-/** A note after an op that can move files: every [from, to] move the op
- * made, its sub-pages' included, and the other notes whose links it
- * rewrote. */
-export interface Placed extends NoteFile {
-  moves: [string, string][];
-  relinked: string[];
-}
-
-export type Saved =
-  | { status: "written"; note: NoteFile }
-  | { status: "unchanged"; note: NoteFile }
-  | { status: "conflict"; copy: string; note: NoteFile }
-  /** The file changed elsewhere on other lines; both edits were kept. */
-  | { status: "merged"; note: NoteFile };
-
-export interface NewNote {
-  kind: NoteKind;
-  title: string;
-  /** The local day, YYYY-MM-DD. */
-  date: string;
-  project?: string | null;
-  /** Path of the parent page. */
-  parent?: string | null;
-  template?: string | null;
-  icon?: string | null;
-  /** Tags to add, and property values checked against their schemas: all
-   * in the one commit that makes the note. */
-  tags?: string[];
-  props?: Record<string, unknown>;
-  /** What the page says, written with it in the same commit: a draft's
-   * first typing. */
-  body?: string;
-}
-
-export interface Hit {
-  path: string;
-  title: string;
-  icon: string | null;
-  snippet: string;
-  score: number;
-}
-
-/** A note that links a day (`[[2026-10-01]]`) outside a to-do. */
-export interface DayMention {
-  day: string;
-  path: string;
-  title: string;
-  icon: string | null;
-  /** `page`, `card`, `journal` or `project`, as in `NoteMeta`. */
-  kind: string;
-  /** The line that holds the link. */
-  snippet: string;
-  /** The time, `HH:MM`, written directly after the link
-   * (`[[2026-10-07]] 09:00`), if any. */
-  at?: string | null;
-}
-
-export interface Backlink {
-  path: string;
-  title: string;
-  icon: string | null;
-  snippet: string;
-}
-
-/** A note about the same things as another (the core's related notes). */
-export interface RelatedNote {
-  path: string;
-  title: string;
-  icon: string | null;
-  /** Up to three words both notes use, the most telling first. */
-  shared: string[];
-  /** One links to the other already. */
-  linked: boolean;
-}
-
-export interface Renamed {
-  note: NoteFile;
-  /** Other notes whose links now name the new title. */
-  relinked: string[];
-}
-
-export interface Trashed {
-  trashed: string;
-  original: string;
-  title: string;
-  when: string;
-  /** How many sub-pages went to the trash with it; they come back with it. */
-  inside: number;
-}
-
-export interface TaskRow {
-  path: string;
-  title: string;
-  icon: string | null;
-  /** Line in the body, from 0. */
-  line: number;
-  done: boolean;
-  text: string;
-  /** The day the task names, YYYY-MM-DD (a day that exists on the calendar). */
-  due: string | null;
-  /** The time, `HH:MM` (24 hours), that directly follows that day link or
-   * `@date` (`[[2026-10-07]] 09:00`), if any. */
-  at?: string | null;
-}
-
-/** What restoring the whole vault did. */
-export interface VaultRestore {
-  /** Files written back to their old text. */
-  written: string[];
-  /** Where files made after the point went, under `.trash/`. */
-  trashed: string[];
-  /** The commit the restore made, which undo takes back whole. */
-  commit: string | null;
-}
-
-export interface CommitInfo {
-  id: string;
-  summary: string;
-  message: string;
-  author: string;
-  /** Milliseconds since the Unix epoch. */
-  time: number;
-  agent: boolean;
-  session: string | null;
-  op: string | null;
-  /** Who accepted the agent's proposal. */
-  approvedBy: string | null;
-  /** The commit this one undoes. */
-  undoes: string | null;
-  /** It joins two lines of history, as getting the latest does; it can't
-   * be undone as one change. */
-  merge?: boolean;
-}
-
-/** `unconfirmed`: the vault names a remote no one confirmed on this
- * computer, so nothing is pushed there yet. */
-export type BackupState = "off" | "ok" | "stale" | "failing" | "unconfirmed";
-
-export interface BackupStatus {
-  state: BackupState;
-  lastPush: number | null;
-  failures: number;
-  lastError: string | null;
-  /** The last push was refused because the backup has changes this
-   * computer lacks: get the latest first. */
-  behind?: boolean;
-}
-
-/** How the backup files in a sync or disk folder stand. */
-export interface BackupFileStatus {
-  state: BackupState;
-  lastWritten: number | null;
-  path: string | null;
-  /** The newest file holds every commit there is now. */
-  current: boolean;
-  failures: number;
-  lastError: string | null;
-}
-
-export interface VaultStatus {
-  name: string;
-  root: string;
-  /** Whether the vault keeps git history. */
-  history: boolean;
-  remote: string | null;
-  backup: BackupStatus;
-  /** Edits waiting for their commit. */
-  pending: number;
-  /** The folder backup files go to on this computer (desktop only). */
-  backupFolder?: string | null;
-  backupFile?: BackupFileStatus | null;
-  /** This computer's name, which its backup files carry. */
-  computer?: string;
-  /** A Get latest stopped part way and waits to be finished. */
-  unfinished?: boolean;
-  /** The sync app whose folder holds the vault (OneDrive, Dropbox…), if any. */
-  synced?: string | null;
-}
-
-/** What emptying the trash did; undoing `commit` brings it all back. */
-export interface Emptied {
-  removed: number;
-  /** Files kept because history does not hold them as they are. */
-  kept: string[];
-  commit: string | null;
-}
-
-/** `.kasten/config.yaml`, as the core reads it. */
-export interface VaultConfig {
-  name: string;
-  git: { remote: string | null; push_delay_seconds: number; push_interval_minutes: number };
-  guardrails: Record<string, number>;
-  ai: {
-    providers: { name: string; kind: string; base_url: string; model: string }[];
-    /** Search by meaning: the provider and model that make notes' vectors. */
-    embeddings?: { provider: string; model: string } | null;
-  };
-  /** The template new journal days start from, by name; none means "journal". */
-  journal_template?: string | null;
-}
-
-export interface Problem {
-  kind: string;
-  path: string | null;
-  detail: string;
-}
-
-export interface VerifyReport {
-  notes: number;
-  boards: number;
-  decks: number;
-  gitObjects: number;
-  problems: Problem[];
-}
-
-/** How connected a note is (Card Library). */
-export interface NoteStats {
-  path: string;
-  /** Notes linking to it. */
-  backlinks: number;
-  /** Links it makes. */
-  links: number;
-  /** Boards showing it. */
-  boards: number;
-}
-
-/** A property in a tag's schema, `tags/<name>.yaml`. */
-export interface PropDef {
-  key: string;
-  /** text, number, select, multi_select, date, checkbox, url or relation. */
-  type: string;
-  options: string[];
-}
-
-export interface TagSchema {
-  name: string;
-  color: string | null;
-  properties: PropDef[];
-  /** Views as written: {name, type: table | kanban | list | calendar, ...}. */
-  views: Record<string, unknown>[];
-  path: string;
-}
-
-export type TagViewKind = "table" | "kanban" | "list" | "calendar" | "gallery";
-
-/** How a view narrows its notes: `is`, `is_not`, `contains`, `empty`,
- * `not_empty`, `before` or `after` (dates) against `value`. */
-export interface ViewFilter {
-  key: string;
-  op: "is" | "is_not" | "contains" | "empty" | "not_empty" | "before" | "after";
-  value?: unknown;
-}
-
-/** A tag database view as saved in the tag's YAML. */
-export interface TagView {
-  name: string;
-  type: TagViewKind;
-  /** Kanban: the select property whose options are the columns. */
-  group_by?: string;
-  /** Calendar: the date property it places notes by. */
-  date?: string;
-  sort?: { key: string; dir: "asc" | "desc" }[];
-  filter?: ViewFilter[];
-  /** Table: the properties shown, in order. */
-  columns?: string[];
-  /** Keys other tools wrote stay as they were. */
-  [key: string]: unknown;
-}
+// Tags, their schemas and views, starter kits: see tag-types.ts.
+export type { AddedKit, KitInfo, NoteStats, PropDef, TagSchema, TagView, TagViewKind, ViewFilter } from "./tag-types";
 
 // Sources and highlights: see source-types.ts.
 export type { Highlight, HighlightColor, HighlightEdit, NewHighlight, PdfRect, SourceHighlights, SourceInfo, SourceOps } from "./source-types";
-export type { ImportKind, ImportOps, ImportOptions, ImportSummary, Imported } from "./import-types";
+export type { ImportConflict, ImportConflictKind, ImportKind, ImportOps, ImportOptions, ImportSummary, Imported } from "./import-types";
 
 // Find and replace across a page and its sub-pages: see replace-types.ts.
 export type { Expected, FindSpec, MatchSample, NoteMatches, ReplaceOps, ReplaceRequest, Replaced } from "./replace-types";
@@ -332,7 +60,8 @@ export type { GraphEdge, GraphKind, GraphNode, GraphOps, GraphScope, VaultGraph 
 export type { AgentMark, AgentOp, ChangedFile, Proposal, SessionInfo, Undone } from "./agent-types";
 
 // Slide decks: see deck-types.ts.
-export type { DeckFile, DeckInfo, DeckSaved } from "./deck-types";
+export type { DeckEdit, DeckFile, DeckInfo, DeckSaved, DecksSaved, SaveDecksRequest } from "./deck-types";
+export { saveDecksWasStale } from "./deck-types";
 
 // Diagrams (a `.drawio` source and its `.drawio.svg` picture): see diagram-types.ts.
 export type { DiagramFile, DiagramInfo, DiagramMoved, DiagramOps, DiagramPreview, DiagramSaved } from "./diagram-types";
@@ -343,6 +72,19 @@ export type { AddedAsset, AssetEdit, AssetInfo, AssetOps, AssetSourceName, Asset
 // Whiteboards: see board-types.ts.
 export type { BoardAdded, BoardApplied, BoardChange, BoardDrawing, BoardEdge, BoardEnd, BoardInfo, BoardNode, BoardSide, BoardSource, BoardView, LineStyle, ShapeKind, SourceBranch } from "./board-types";
 
+// Projects, saved collections, annotations, references, bundles, the health
+// report and the vault's revision: see project-, collection-, annotation-,
+// reference-, bundle-, health- and revision-types.ts.
+export type { AppliedSetup, NextAction, ProjectHealth, ProjectOps, ProjectStateChange, ProjectStatus, ProjectSummary, SetupInfo, SetupPlan, SetupTarget, TaskCounts } from "./project-types";
+export type { CollectionOps } from "./collection-types";
+export type { AnnotationOps, CommentAnchor, CommentResolved, NewComment, NewTextHighlight, PageComment, TextAnchor, TextHighlight, TextHighlightColor, TextHighlightEdit } from "./annotation-types";
+export type { Adopted, BibEntry, BibFile, Bibliography, CitingDeck, CitingPage, Duplicate, EntryRef, KeyHints, KeyRenamePlan, KeyRenamed, KeyUses, MatchKind, NewReference, PlannedDeck, PlannedPage, ReferenceMatch, ReferenceOps, ReferenceSaved, SkippedKey } from "./reference-types";
+export { ENTRY_TYPES, FIELD_ORDER, MANAGED_BIB } from "./reference-types";
+export type { BundleExported, BundleFile, BundleFileKind, BundleOps, BundlePlan, BundleProject } from "./bundle-types";
+export { BUNDLE_MANIFEST } from "./bundle-types";
+export type { Health, HealthCounts, HealthOps, LastCheck, MeaningHealth } from "./health-types";
+export type { Revision, RevisionArea, RevisionOps } from "./revision-types";
+
 /** What the core tells the window while it runs. */
 export interface VaultEvents {
   /** Files changed outside Kasten (another app, an agent, a sync tool). */
@@ -350,10 +92,25 @@ export interface VaultEvents {
   /** The clock committed edits or pushed a backup. */
   committed(): void;
   error(message: string): void;
+  /** The vault's change counters moved (after any change, whoever made it). */
+  revised?(revision: Revision): void;
 }
 
 /** Every vault operation the app uses. Each maps to one kasten-core op. */
-export interface VaultClient extends SourceOps, ImportOps, AssetOps, ReplaceOps, GraphOps, DiagramOps {
+export interface VaultClient
+  extends SourceOps,
+    ImportOps,
+    AssetOps,
+    ReplaceOps,
+    GraphOps,
+    DiagramOps,
+    ProjectOps,
+    CollectionOps,
+    AnnotationOps,
+    ReferenceOps,
+    BundleOps,
+    HealthOps,
+    RevisionOps {
   /** `vault` for a folder on disk through the core, `preview` in a plain browser. */
   readonly kind: "vault" | "preview";
   /** Where the notes live, for the status bar. */
@@ -479,6 +236,8 @@ export interface VaultClient extends SourceOps, ImportOps, AssetOps, ReplaceOps,
   createDeck(title: string, project: string | null, text: string): Promise<string>;
   /** Saves a deck if the file is still the one read (`baseHash`); if it changed, the text goes to a copy beside it. */
   saveDeck(path: string, text: string, baseHash: string): Promise<DeckSaved>;
+  /** Saves several decks together, all or none, as one change that `undoCommit` takes back whole. Every deck must be as it was when its new text was worked out (`baseHash`), or nothing is written. Save open decks first. */
+  saveDecks(request: SaveDecksRequest): Promise<DecksSaved>;
   /** The slide templates kept in the vault (`templates/slides/`), by title. They are decks to read and save like any (`deck`, `saveDeck`, `trash`), and are not among `decks()`. */
   deckTemplates(): Promise<DeckInfo[]>;
   /** Saves a deck's look as a template (the Slides engine makes `text`); resolves to its path. Only a person does this: an assistant cannot write a template. */
@@ -501,31 +260,4 @@ export interface VaultClient extends SourceOps, ImportOps, AssetOps, ReplaceOps,
   agentMarked(paths: string[]): Promise<string[]>;
   /** Listens for the core's events; returns how to stop. */
   watch?(events: VaultEvents): () => void;
-}
-
-/** The frontmatter keys `setMeta` changes. */
-export type MetaField = "title" | "icon" | "cover" | "font" | "width" | "text" | "locked" | "opens" | "layout";
-
-/** A starter kit the app offers (kasten-core `KitInfo`). */
-export interface KitInfo {
-  id: string;
-  /** An emoji, as its home page has. */
-  icon: string;
-  name: string;
-  summary: string;
-  /** The page that explains it, opened once it is added. */
-  home: string;
-  recommended: boolean;
-  /** Where each of its files goes in the vault. */
-  files: string[];
-}
-
-/** What adding a starter kit did (kasten-core `AddedKit`). */
-export interface AddedKit {
-  home: string;
-  written: string[];
-  /** The vault's own files at the kit's paths, left as they were. */
-  kept: string[];
-  /** Its commit, for Undo; none in the browser preview. */
-  commit: string | null;
 }

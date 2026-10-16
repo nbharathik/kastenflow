@@ -7,7 +7,7 @@ import type { Fragment, Node } from "@milkdown/kit/prose/model";
 import { Slice } from "@milkdown/kit/prose/model";
 import { TextSelection, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 
-import type { WriteAction } from "../../../chat/types";
+import type { ExplainScope, WriteAction } from "../../../chat/types";
 import type { AiRange } from "./ai";
 import { blockEnd } from "./ai";
 
@@ -29,12 +29,20 @@ function withoutBlankLines(markdown: string): string {
     .trim();
 }
 
-/** The page around `range`, for `action`; `serialize` writes Markdown. */
-export function pageText(doc: Node, action: WriteAction, range: AiRange, serialize: (doc: Node) => string): PageText {
+/** The page around `range`, for `action`; `serialize` writes Markdown. Explain
+ * with the whole-page `scope` sends all the text on each side; the
+ * backend cuts it to fit. */
+export function pageText(doc: Node, action: WriteAction, range: AiRange, serialize: (doc: Node) => string, scope: ExplainScope = "nearby"): PageText {
   const before = doc.textBetween(0, range.from, "\n\n", " ");
   const after = doc.textBetween(range.to, doc.content.size, "\n\n", " ");
   const selection = action === "summarize" ? serialize(doc) : range.to > range.from ? serialize(doc.cut(range.from, range.to)) : "";
-  return { selection: withoutBlankLines(selection), before: before.slice(-AROUND), after: after.slice(0, AROUND) };
+  const whole = action === "explain" && scope === "page";
+  return { selection: withoutBlankLines(selection), before: whole ? before : before.slice(-AROUND), after: whole ? after : after.slice(0, AROUND) };
+}
+
+/** The whole page as Markdown, without the blank lines the editor writes. */
+export function wholePage(doc: Node, serialize: (doc: Node) => string): string {
+  return withoutBlankLines(serialize(doc));
 }
 
 /** The answer without a code fence around the whole of it, which models

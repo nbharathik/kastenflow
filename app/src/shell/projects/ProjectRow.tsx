@@ -1,7 +1,9 @@
 import { memo, useMemo, type DragEvent, type KeyboardEvent } from "react";
 
 import { editorKeys } from "../../features/shortcuts/catalog";
+import { askToExport } from "../../features/projects/export/request";
 import { homeItem } from "../../features/projects/home-menu";
+import { statusOfProps } from "../../features/projects/state/status";
 import { setArchived } from "../../features/workspace/project-actions";
 import { projectKey } from "../../features/workspace/project-order";
 import type { NoteMeta } from "../../lib/vault/types";
@@ -9,6 +11,7 @@ import { Icon } from "../../ui/Icon";
 import { DROP_INTO } from "../drop-into";
 import { TreeRow, type RowExtras } from "../PageTree";
 import { PinMark } from "../PinMark";
+import { StatusDot } from "./StatusDot";
 
 /** What a row asks of its list; the same object for the list's life. */
 export interface ListActions {
@@ -44,13 +47,19 @@ export const ProjectRow = memo(function ProjectRow({ note, index, pinned, up, do
   const key = projectKey(note);
   const extras = useMemo<RowExtras>(
     () => ({
-      badge: pinned ? <PinMark /> : null,
+      badge: (
+        <>
+          <StatusDot status={statusOfProps(note.props)} />
+          {pinned ? <PinMark /> : null}
+        </>
+      ),
       menu: [
         "divider",
         { label: pinned ? "Unpin" : "Pin to top", icon: <Icon name="pin" className="size-4" />, onSelect: () => actions.pin(key) },
         ...(up ? [{ label: "Move up", icon: <Icon name="chevron-up" className="size-4" />, hint: editorKeys("Alt+↑"), onSelect: () => actions.move(index, index - 1) }] : []),
         ...(down ? [{ label: "Move down", icon: <Icon name="chevron-down" className="size-4" />, hint: editorKeys("Alt+↓"), onSelect: () => actions.move(index, index + 1) }] : []),
         homeItem(note),
+        { label: "Export project…", icon: <Icon name="upload" className="size-4" />, onSelect: () => askToExport(note.project) },
         { label: "Archive project", icon: <Icon name="archive" className="size-4" />, onSelect: () => void setArchived(note, true) },
       ],
       item: {

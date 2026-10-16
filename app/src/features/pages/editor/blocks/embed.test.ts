@@ -98,6 +98,20 @@ describe("note embeds", () => {
     expect(links.open).toHaveBeenCalledWith("Trip plan", "here");
   });
 
+  it("has an icon to open the page, named, with the page in its tooltip, that the keyboard reaches", async () => {
+    const { links } = provider({ value: "1" });
+    await open("![[Trip plan]]\n", links);
+    await settle();
+    const tool = root!.querySelector<HTMLButtonElement>(".kasten-embed-head .kasten-embed-open")!;
+    expect(tool.tagName).toBe("BUTTON");
+    expect(tool.textContent).toBe("");
+    expect(tool.getAttribute("aria-label")).toBe("Open page");
+    expect(tool.title).toBe("Open “Trip plan”");
+    // Enter on the focused button is a click: the header's handler opens the page.
+    tool.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, detail: 0 }));
+    expect(links.open).toHaveBeenCalledWith("Trip plan", "here");
+  });
+
   it("makes a page not written yet only from a click, not a press", async () => {
     const { links } = provider({ value: "1" });
     links.create = vi.fn(async () => null);

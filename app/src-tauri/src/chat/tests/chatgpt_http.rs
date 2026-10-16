@@ -165,7 +165,11 @@ fn a_feature_the_server_refuses_is_dropped_and_remembered() {
         asked[3].json().get("include").is_none(),
         "and so does the next request"
     );
-    assert!(!account.shape().reasoning);
+    assert!(!account.shape_for("gpt-6.1-sol").reasoning);
+    assert!(
+        account.shape_for("another-model").reasoning,
+        "what a model turned down is about that model"
+    );
 }
 
 #[test]

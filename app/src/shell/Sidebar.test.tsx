@@ -72,7 +72,7 @@ function mount() {
 beforeEach(() => {
   localStorage.clear();
   forgetRowLimits();
-  usePrefs.setState({ navPinned: null, moreViews: false, foldedSections: [], favourites: [], pinnedPages: [], sidebarShowCards: false, newTabs: false, pageLinksOpen: "here", rightReplaces: true });
+  usePrefs.setState({ navPinned: null, moreViews: false, foldedSections: [], favourites: [], pinnedPages: [], pinnedProjects: [], sidebarShowCards: false, newTabs: false, pageLinksOpen: "here", rightReplaces: true });
   useBoards.setState({ list: [] });
   useDecks.setState({ list: [] });
   useShell.setState({ sidebarOpen: true, namingProject: false });
@@ -233,6 +233,66 @@ describe("opening from the sidebar", () => {
     expect(state().place).toEqual({ view: "slides" });
     expect(useDecks.getState().creating).toBe(true);
     expect(useDecks.getState().draftProject).toBe("small");
+  });
+});
+
+describe("the Projects hub from the Projects heading", () => {
+  const hubButton = () => within(region("Projects")).getByRole("button", { name: "All projects" });
+
+  it("has a small named button beside the heading that opens the hub, and the heading still folds", () => {
+    mount();
+    expect(hubButton().tagName).toBe("BUTTON");
+    expect(hubButton().getAttribute("aria-current")).toBeNull();
+    fireEvent.click(hubButton());
+    expect(state().place).toEqual({ view: "projects" });
+    expect(hubButton().getAttribute("aria-current")).toBe("page");
+    // Folding is the heading's own button.
+    fireEvent.click(within(region("Projects")).getByRole("button", { name: "Projects" }));
+    expect(usePrefs.getState().foldedSections).toContain("Projects");
+    expect(hubButton()).toBeTruthy();
+  });
+
+  it("opens in a tab with Ctrl, beside with Ctrl+Alt and in a tab with the middle button, as a view's row does", () => {
+    mount();
+    fireEvent.click(hubButton(), { ctrlKey: true });
+    expect(state().layout.panes[0]!.tabs.map((t) => t.place.view)).toEqual(["home", "projects"]);
+    fireEvent.click(hubButton(), { ctrlKey: true, altKey: true });
+    expect(state().layout.panes).toHaveLength(2);
+    expect(state().place).toEqual({ view: "projects" });
+    act(() => state().focusPane(state().layout.panes[0]!.id));
+    fireEvent(hubButton(), new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
+    expect(state().layout.panes.flatMap((p) => p.tabs.map((t) => t.place.view)).filter((v) => v === "projects").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("is reachable by keyboard: a button in the tab order, with a name and a tooltip", () => {
+    mount();
+    expect(hubButton().tabIndex).toBe(0);
+    expect(hubButton().getAttribute("title")).toMatch(/^All projects/);
+  });
+});
+
+describe("the dot on a paused or finished project's row", () => {
+  it("shows a quiet dot named for the status on a paused or done project, and none on an active one", () => {
+    useWorkspace.setState({
+      notes: [
+        note("projects/big/_project.md", { title: "Big project", id: "big" }),
+        note("projects/small/_project.md", { title: "Small project", id: "small", props: { status: "Paused" } }),
+        note("projects/done/_project.md", { title: "Finished one", id: "done", props: { status: "done" } }),
+        note("projects/odd/_project.md", { title: "Odd one", id: "odd", props: { status: "someday" } }),
+      ],
+    });
+    mount();
+    const marks = within(region("Projects")).getAllByRole("img").map((el) => el.getAttribute("aria-label"));
+    expect(marks.sort()).toEqual(["Done", "Paused"]);
+    const row = within(region("Projects")).getByRole("button", { name: "Small project" }).closest("[data-row-path]")!;
+    expect(within(row as HTMLElement).getByRole("img", { name: "Paused" })).toBeTruthy();
+  });
+
+  it("keeps the pin beside it", () => {
+    usePrefs.setState({ pinnedProjects: ["small"] });
+    useWorkspace.setState({ notes: [note("projects/small/_project.md", { title: "Small project", id: "small", props: { status: "Paused" } })] });
+    mount();
+    expect(within(region("Projects")).getAllByRole("img").map((el) => el.getAttribute("aria-label")).sort()).toEqual(["Paused", "Pinned"]);
   });
 });
 

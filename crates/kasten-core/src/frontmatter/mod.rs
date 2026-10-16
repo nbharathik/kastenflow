@@ -189,6 +189,22 @@ pub fn check_yaml(prefix: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Every key of a prefix's YAML as JSON, for readers whose keys are their
+/// own (an AI action's `needs`). No frontmatter reads as no keys; a block
+/// that is not a map of keys, or does not parse, is an error with the
+/// parser's words.
+pub fn read_map(prefix: &str) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    let yaml = yaml_of(prefix);
+    if yaml.trim().is_empty() {
+        return Ok(serde_json::Map::new());
+    }
+    match serde_saphyr::from_str::<serde_json::Value>(yaml).map_err(|e| e.to_string())? {
+        serde_json::Value::Object(map) => Ok(map),
+        serde_json::Value::Null => Ok(serde_json::Map::new()),
+        _ => Err("The frontmatter is not a list of keys".to_owned()),
+    }
+}
+
 /// Whether a prefix's YAML reads as a map of keys, or there is none.
 pub fn yaml_ok(prefix: &str) -> bool {
     let yaml = yaml_of(prefix);

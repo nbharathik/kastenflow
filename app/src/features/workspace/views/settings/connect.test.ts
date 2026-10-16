@@ -1,6 +1,49 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { appServer, claudeCodeCommand, httpCommand, httpUrl, mcpConfig, tokenPath, urlConfig } from "./connect";
+
+// What `kasten-mcp --setup` prints too: the program and Settings are both tested against this one file.
+interface SetupCase {
+  name: string;
+  command: string;
+  args: string[];
+  vault: string;
+  claudeCode: string;
+  mcpConfig: unknown;
+  httpCommand: string;
+}
+interface SetupFixture {
+  url: string;
+  urlConfig: unknown;
+  tokenPaths: [string, string][];
+  cases: SetupCase[];
+}
+const FIXTURE = [join(process.cwd(), "fixtures"), join(process.cwd(), "..", "fixtures")].map((dir) => join(dir, "mcp-setup.json")).find((file) => existsSync(file))!;
+const fixture: SetupFixture = JSON.parse(readFileSync(FIXTURE, "utf8"));
+
+describe("the lines shared with kasten-mcp --setup", () => {
+  it("has the cases the program is tested with", () => {
+    expect(fixture.cases.length).toBeGreaterThanOrEqual(4);
+  });
+
+  for (const c of fixture.cases) {
+    it(`says what the program says: ${c.name}`, () => {
+      const server = { command: c.command, args: c.args };
+      expect(claudeCodeCommand(c.vault, server)).toBe(c.claudeCode);
+      expect(JSON.parse(mcpConfig(c.vault, server))).toEqual(c.mcpConfig);
+      expect(httpCommand(c.vault, server)).toBe(c.httpCommand);
+    });
+  }
+
+  it("says where clients reach the server and where the token is", () => {
+    expect(httpUrl()).toBe(fixture.url);
+    expect(JSON.parse(urlConfig())).toEqual(fixture.urlConfig);
+    for (const [vault, path] of fixture.tokenPaths) expect(tokenPath(vault)).toBe(path);
+  });
+});
 
 describe("connecting agents", () => {
   it("quotes the vault for a shell, spaces and quotes included", () => {

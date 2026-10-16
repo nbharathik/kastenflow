@@ -2,218 +2,61 @@
 //! emitter that sends `chat-event`s to the window. Keychain and vault work
 //! runs off the async threads.
 
-use std::collections::BTreeSet;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::Arc;
 
-use kasten_core::config::Provider;
 use kasten_core::{Instant, Kasten, NoteFile};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
-use super::address;
-use super::chatgpt::{self, SIGN_IN_FIRST};
+use super::capabilities;
 use super::check::{self, ProviderCheck};
-use super::clients;
-use super::http::{HttpModel, Kind};
+use super::http::HttpModel;
 use super::providers::{self, ChatProvider, ProviderInput};
-use super::threads::{self, Chats};
-use super::write::Writes;
-use super::{ChatEvent, ChatRequest, ChatTurn, Events};
-use crate::app_settings::AppSettings;
+use super::state::blocking;
+use super::threads::{self, Profile};
+use super::{ChatEvent, ChatRequest, ChatTurn, EventKind, Events};
 use crate::closing::MAIN;
 use crate::commands::notes::{HUMAN, OpenVault};
-use crate::secrets::KeyStore;
+use crate::notify::Notice;
 
-/// The chat's part of the app's state.
-pub struct ChatState {
-    pub chats: Chats,
-    keys: Arc<dyn KeyStore>,
-    /// Made on first use, so starting the app loads no TLS.
-    http: OnceLock<Result<reqwest::Client, String>>,
-    /// The client for web pages, which follows redirects (clients::web_client).
-    web: OnceLock<Result<reqwest::Client, String>>,
-    /// The one for a page asked for on the local network.
-    local_web: OnceLock<Result<reqwest::Client, String>>,
-    /// The AI providers' addresses confirmed for the open vault.
-    origins: Mutex<Origins>,
-    /// The editor's AI answers under way.
-    pub writes: Writes,
-    /// The ChatGPT account on this computer, whatever vault is open.
-    chatgpt: Arc<chatgpt::Account>,
-}
+pub use super::state::ChatState;
 
-/// The AI providers' addresses confirmed for the open vault on this
-/// computer, and where that is recorded.
-#[derive(Default)]
-struct Origins {
-    settings: Option<PathBuf>,
-    folder: String,
-    confirmed: BTreeSet<String>,
-}
-
-impl ChatState {
-    pub fn new(keys: Arc<dyn KeyStore>) -> ChatState {
-        ChatState {
-            chats: Chats::default(),
-            chatgpt: Arc::new(chatgpt::Account::new(Arc::clone(&keys))),
-            keys,
-            http: OnceLock::new(),
-            web: OnceLock::new(),
-            local_web: OnceLock::new(),
-            origins: Mutex::new(Origins::default()),
-            writes: Writes::default(),
-        }
-    }
-
-    /// The ChatGPT account, which signs its provider's requests.
-    pub(crate) fn chatgpt(&self) -> Arc<chatgpt::Account> {
-        Arc::clone(&self.chatgpt)
-    }
-
-    fn origins(&self) -> MutexGuard<'_, Origins> {
-        self.origins.lock().unwrap_or_else(|p| p.into_inner())
-    }
-
-    /// Reads the addresses confirmed for the vault in `folder` from the
-    /// app's settings in `settings`, as the vault opens.
-    pub fn know_vault(&self, settings: Option<PathBuf>, folder: String) {
-        let confirmed = settings
-            .as_deref()
-            .map(|dir| AppSettings::load(dir).confirmed_origins(&folder))
-            .unwrap_or_default();
-        *self.origins() = Origins {
-            settings,
-            folder,
-            confirmed,
-        };
-    }
-
-    /// Whether notes may go where `provider`'s requests go.
-    pub(crate) fn confirmed(&self, provider: &Provider) -> bool {
-        address::known_address(provider).unwrap_or(false)
-            || address::origin_of(provider)
-                .is_ok_and(|origin| self.origins().confirmed.contains(&origin))
-    }
-
-    /// Refuses a provider whose address the person has not confirmed on
-    /// this computer: the vault's config names it, and a vault someone
-    /// shares could name any server.
-    pub(crate) fn check_origin(&self, provider: &Provider) -> Result<(), String> {
-        if self.confirmed(provider) {
-            return Ok(());
-        }
-        Err(format!(
-            "This vault's settings send “{}” to {}. KastenFlow sends notes there only once you confirm it: open Settings, AI providers, and choose Confirm.",
-            provider.name,
-            address::origin_of(provider)?
-        ))
-    }
-
-    /// Confirms `provider`'s address for the open vault, and records it in
-    /// the app's settings.
-    pub(crate) fn confirm_origin(&self, provider: &Provider) -> Result<(), String> {
-        let origin = address::origin_of(provider)?;
-        let mut origins = self.origins();
-        if !origins.confirmed.insert(origin.clone()) {
-            return Ok(());
-        }
-        if let Some(dir) = origins.settings.clone() {
-            AppSettings::update(&dir, |settings| {
-                settings.confirm_origin(&origins.folder, &origin)
-            })
-            .map_err(|e| format!("Could not keep the provider's address: {e}"))?;
-        }
-        Ok(())
-    }
-
-    /// The system keychain (or, in tests, memory).
-    pub(crate) fn keys(&self) -> Arc<dyn KeyStore> {
-        Arc::clone(&self.keys)
-    }
-
-    /// The client for providers' APIs.
-    pub(crate) fn http(&self) -> Result<reqwest::Client, String> {
-        self.http.get_or_init(clients::client).clone()
-    }
-
-    /// The client for web pages: the clipper and the update check.
-    pub(crate) fn web(&self) -> Result<reqwest::Client, String> {
-        self.web.get_or_init(clients::web_client).clone()
-    }
-
-    /// The client for a page the person asked for on this computer or the
-    /// local network.
-    pub(crate) fn local_web(&self) -> Result<reqwest::Client, String> {
-        self.local_web
-            .get_or_init(clients::local_web_client)
-            .clone()
-    }
-
-    /// The key kept for `provider` at the address its requests go to.
-    pub(crate) async fn key(&self, provider: &Provider) -> Result<Option<String>, String> {
-        let keys = Arc::clone(&self.keys);
-        let provider = provider.clone();
-        blocking(move || address::key_for(keys.as_ref(), &provider)).await
-    }
-
-    /// `model` (else the provider's own) of the provider called `provider`,
-    /// with its key from the keychain: what a turn, or any one-off request
-    /// such as a brainstorm, asks.
-    pub(crate) async fn model(
-        &self,
-        kasten: &Kasten,
-        provider: &str,
-        model: &str,
-    ) -> Result<HttpModel, String> {
-        let provider = providers::find(kasten, provider)?;
-        self.check_origin(&provider)?;
-        self.model_of(&provider, model).await
-    }
-
-    /// The model of `provider` (its address already confirmed): a key
-    /// from the keychain, or for ChatGPT the signed-in account, whose
-    /// token each request asks for afresh.
-    pub(crate) async fn model_of(
-        &self,
-        provider: &Provider,
-        model: &str,
-    ) -> Result<HttpModel, String> {
-        let kind = Kind::of(&provider.kind)?;
-        if kind == Kind::ChatGpt {
-            let account = self.chatgpt();
-            if !account.status().await.signed_in {
-                return Err(SIGN_IN_FIRST.to_owned());
-            }
-            return Ok(HttpModel::new(self.http()?, provider, None, model)?.with_account(account));
-        }
-        let key = match (kind, self.key(provider).await) {
-            (_, Ok(key)) => key,
-            // A local server may need no key; the Anthropic API always does.
-            (Kind::OpenAi, Err(_)) => None,
-            (_, Err(err)) => return Err(err),
-        };
-        HttpModel::new(self.http()?, provider, key, model)
-    }
-}
-
-/// Sends a turn's events to the window.
+/// Sends a turn's events to the window, and tells the person of a turn that
+/// ended while the window was not in front.
 struct Window(AppHandle);
 
 impl Events for Window {
     fn emit(&self, event: ChatEvent) {
         // To the main window only: the browser tab's webviews never hear a chat.
         let _ = self.0.emit_to(MAIN, "chat-event", &event);
+        if let Some(notice) = notice_for(&event) {
+            crate::notify::tell(&self.0, notice);
+        }
     }
 }
 
-async fn blocking<T, F>(work: F) -> Result<T, String>
-where
-    T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
-{
-    tauri::async_runtime::spawn_blocking(work)
-        .await
-        .map_err(crate::crash::joined)?
+/// The system notice a turn's ending earns, in fixed words: never the
+/// words of a note or of the answer.
+pub(crate) fn notice_for(event: &ChatEvent) -> Option<Notice> {
+    match event.kind {
+        EventKind::Done if event.stopped != Some(true) => Some(Notice::ChatAnswered),
+        EventKind::Paused => Some(Notice::ChatNeedsYou),
+        EventKind::Error => Some(Notice::ChatFailed),
+        _ => None,
+    }
+}
+
+/// What the table knows of the model: its window, and whether it reads pictures.
+fn profile_of(model: &HttpModel) -> Profile {
+    let route = capabilities::route_of(model.kind(), model.url());
+    Profile::of(&capabilities::lookup(route, model.model_name()))
+}
+
+/// The app is closing: every turn is stopped and its thread saved as
+/// interrupted, so it can be picked up again.
+pub fn interrupt_chats(app: &AppHandle) {
+    if let Some(state) = app.try_state::<ChatState>() {
+        state.chats.interrupt_all();
+    }
 }
 
 /// The providers with whether each one's address is confirmed here.
@@ -230,7 +73,7 @@ pub async fn chat_providers(
     state: State<'_, ChatState>,
 ) -> Result<Vec<ChatProvider>, String> {
     let kasten = vault.require()?;
-    let keys = Arc::clone(&state.keys);
+    let keys = state.keys();
     let list = blocking(move || Ok(providers::list(&kasten, keys.as_ref()))).await?;
     Ok(marked(&state, list))
 }
@@ -244,7 +87,7 @@ pub async fn save_chat_provider(
     key: Option<String>,
 ) -> Result<Vec<ChatProvider>, String> {
     let kasten = vault.require()?;
-    let keys = Arc::clone(&state.keys);
+    let keys = state.keys();
     let name = provider.name.trim().to_owned();
     let saved = Arc::clone(&kasten);
     let list = blocking(move || providers::save(&saved, keys.as_ref(), provider, key)).await?;
@@ -261,7 +104,7 @@ pub async fn confirm_chat_provider(
 ) -> Result<Vec<ChatProvider>, String> {
     let kasten = vault.require()?;
     state.confirm_origin(&providers::find(&kasten, &name)?)?;
-    let keys = Arc::clone(&state.keys);
+    let keys = state.keys();
     let list = blocking(move || Ok(providers::list(&kasten, keys.as_ref()))).await?;
     Ok(marked(&state, list))
 }
@@ -273,7 +116,7 @@ pub async fn remove_chat_provider(
     name: String,
 ) -> Result<Vec<ChatProvider>, String> {
     let kasten = vault.require()?;
-    let keys = Arc::clone(&state.keys);
+    let keys = state.keys();
     let list = blocking(move || providers::remove(&kasten, keys.as_ref(), &name)).await?;
     Ok(marked(&state, list))
 }
@@ -307,8 +150,48 @@ pub async fn chat_send(
     let model = state
         .model(&kasten, &request.provider, &request.model)
         .await?;
+    // What the person set is checked against what this model takes; a
+    // setting it does not take is said in words, and nothing is sent.
+    let refused = state.chatgpt().effort_refused(model.model_name());
+    let model = capabilities::apply(model, request.settings.as_ref(), refused)?;
+    let profile = profile_of(&model);
     let events: Arc<dyn Events> = Arc::new(Window(app));
-    let (turn, work) = threads::send(&state.chats, kasten, events, model, request)?;
+    // A message sent while the chat works is composed here, which reads the vault.
+    let chats = state.chats.clone();
+    let (turn, work) =
+        blocking(move || threads::send_with(&chats, kasten, events, model, request, profile))
+            .await?;
+    tauri::async_runtime::spawn(work);
+    Ok(turn)
+}
+
+/// Lets a paused, interrupted or failed chat go on from where it is, with a
+/// fresh budget; the same model and settings as its last message.
+#[tauri::command]
+pub async fn chat_continue(
+    app: AppHandle,
+    vault: State<'_, OpenVault>,
+    state: State<'_, ChatState>,
+    id: String,
+) -> Result<ChatTurn, String> {
+    let kasten = vault.require()?;
+    let chats = state.chats.clone();
+    let facts = {
+        let (chats, kasten, id) = (chats.clone(), Arc::clone(&kasten), id.clone());
+        blocking(move || {
+            chats
+                .resume_facts(&id, &kasten)
+                .ok_or_else(|| "There is no saved chat with that name".to_owned())
+        })
+        .await?
+    };
+    let model = state.model(&kasten, &facts.provider, &facts.model).await?;
+    let refused = state.chatgpt().effort_refused(model.model_name());
+    let model = capabilities::apply(model, facts.settings.as_ref(), refused)?;
+    let profile = profile_of(&model);
+    let events: Arc<dyn Events> = Arc::new(Window(app));
+    let (turn, work) =
+        blocking(move || threads::resume_with(&chats, kasten, events, model, &id, profile)).await?;
     tauri::async_runtime::spawn(work);
     Ok(turn)
 }
@@ -319,10 +202,34 @@ pub fn chat_stop(state: State<'_, ChatState>, chat: String) {
     state.chats.stop(&chat);
 }
 
-/// Forgets the chat's conversation; its next turn starts a new session.
+/// Forgets the chat's conversation; its next turn starts a new session. What
+/// the chat staged and the person never applied goes with it.
 #[tauri::command(async)]
-pub fn chat_reset(state: State<'_, ChatState>, chat: String) {
-    state.chats.reset(&chat);
+pub fn chat_reset(vault: State<'_, OpenVault>, state: State<'_, ChatState>, chat: String) {
+    let kasten = vault.require().ok();
+    // A saved chat that was not opened this run has its staged changes to throw away too.
+    if let Some(kasten) = &kasten {
+        state.chats.ensure_loaded(&chat, kasten);
+    }
+    if let Some(changes) = state.chats.reset(&chat)
+        && let Some(kasten) = &kasten
+    {
+        let set = changes.lock().unwrap_or_else(|p| p.into_inner()).clone();
+        let _ = kasten.discard_changes(&set);
+    }
+    // Its saved copy goes with it, or the next window would bring it back.
+    state.chats.forget_saved(&chat);
+}
+
+/// Takes the chat back to its first `keep` questions, for asking the last
+/// one again or asking it another way. How many questions it has now.
+#[tauri::command(async)]
+pub fn chat_rewind(
+    state: State<'_, ChatState>,
+    chat: String,
+    keep: usize,
+) -> Result<usize, String> {
+    state.chats.rewind(&chat, keep)
 }
 
 /// Saves a chat's transcript to `chats/` as the person. `date` (an addition

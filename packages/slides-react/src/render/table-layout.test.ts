@@ -3,7 +3,7 @@
 import type { TableCell, TableRow } from "@kasten-slides/wasm";
 import { describe, expect, it } from "vitest";
 
-import { layoutTable, MOST_COLUMNS, MOST_PLACES, MOST_ROWS } from "./table-layout.ts";
+import { cellAt, cellRect, layoutTable, MOST_COLUMNS, MOST_PLACES, MOST_ROWS, placeAt } from "./table-layout.ts";
 
 const cell = (extra: Partial<TableCell> = {}): TableCell => ({ text: { paragraphs: [] }, ...extra });
 const row = (cells: TableCell[], height?: number): TableRow => ({ cells, ...(height === undefined ? {} : { height }) });
@@ -104,5 +104,87 @@ describe("layoutTable", () => {
 
   it("lays out a table with nothing in it", () => {
     expect(layoutTable({ columns: [], rows: [] }, 100, 100)).toEqual({ columns: [], rows: [], cells: [] });
+  });
+});
+
+/** A 3 x 3 table, 300 x 90, with a cell over the first two columns of row 0 and one over rows 1 and 2 of column 2. */
+const merged = () =>
+  layoutTable(
+    {
+      columns: [100, 100, 100],
+      rows: [row([cell({ colSpan: 2 }), cell()], 20), row([cell(), cell(), cell({ rowSpan: 2 })], 30), row([cell(), cell()], 40)],
+    },
+    300,
+    90,
+  );
+
+describe("placeAt", () => {
+  it("finds the place under a point, in the table's own units", () => {
+    const layout = merged();
+    expect(placeAt(layout, 10, 5)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, 250, 5)).toEqual({ row: 0, col: 2 });
+    expect(placeAt(layout, 150, 25)).toEqual({ row: 1, col: 1 });
+    expect(placeAt(layout, 10, 80)).toEqual({ row: 2, col: 0 });
+  });
+
+  it("answers a point on a line between cells with the cell after it, as a pointer pressed there would pick", () => {
+    const layout = merged();
+    expect(placeAt(layout, 100, 5)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, 150, 20)).toEqual({ row: 1, col: 1 });
+  });
+
+  it("answers the first place of a merged cell wherever in it the point is", () => {
+    const layout = merged();
+    expect(placeAt(layout, 150, 5)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, 99, 19)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, 250, 80)).toEqual({ row: 1, col: 2 });
+    expect(placeAt(layout, 250, 40)).toEqual({ row: 1, col: 2 });
+  });
+
+  it("takes the far edges as inside, and anything past them as outside", () => {
+    const layout = merged();
+    expect(placeAt(layout, 300, 90)).toEqual({ row: 1, col: 2 });
+    expect(placeAt(layout, 150, 90)).toEqual({ row: 2, col: 1 });
+    expect(placeAt(layout, 0, 0)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, -1, 10)).toBeNull();
+    expect(placeAt(layout, 10, -0.5)).toBeNull();
+    expect(placeAt(layout, 301, 10)).toBeNull();
+    expect(placeAt(layout, 10, 91)).toBeNull();
+  });
+
+  it("clamps to the table when asked to, for a drag that leaves it", () => {
+    const layout = merged();
+    expect(placeAt(layout, -50, -50, true)).toEqual({ row: 0, col: 0 });
+    expect(placeAt(layout, 900, 900, true)).toEqual({ row: 1, col: 2 });
+    expect(placeAt(layout, 150, 900, true)).toEqual({ row: 2, col: 1 });
+  });
+
+  it("answers nothing for a table with nothing in it", () => {
+    expect(placeAt(layoutTable({ columns: [], rows: [] }, 100, 100), 10, 10)).toBeNull();
+    expect(placeAt(layoutTable({ columns: [], rows: [] }, 100, 100), 10, 10, true)).toBeNull();
+  });
+});
+
+describe("cellRect and cellAt", () => {
+  it("gives the area a cell covers, from the table's top left", () => {
+    const layout = merged();
+    expect(cellRect(layout, { row: 0, col: 0 })).toEqual({ x: 0, y: 0, w: 200, h: 20 });
+    expect(cellRect(layout, { row: 1, col: 2 })).toEqual({ x: 200, y: 20, w: 100, h: 70 });
+    expect(cellRect(layout, { row: 2, col: 1 })).toEqual({ x: 100, y: 50, w: 100, h: 40 });
+  });
+
+  it("gives the whole merged cell for a place it covers", () => {
+    const layout = merged();
+    expect(cellRect(layout, { row: 0, col: 1 })).toEqual({ x: 0, y: 0, w: 200, h: 20 });
+    expect(cellRect(layout, { row: 2, col: 2 })).toEqual({ x: 200, y: 20, w: 100, h: 70 });
+  });
+
+  it("finds the laid cell that covers a place, and none for a place outside the table", () => {
+    const layout = merged();
+    expect(cellAt(layout, { row: 0, col: 1 })).toMatchObject({ row: 0, col: 0, colSpan: 2 });
+    expect(cellAt(layout, { row: 2, col: 2 })).toMatchObject({ row: 1, col: 2, rowSpan: 2 });
+    expect(cellAt(layout, { row: 3, col: 0 })).toBeNull();
+    expect(cellAt(layout, { row: 0, col: -1 })).toBeNull();
+    expect(cellRect(layout, { row: 5, col: 5 })).toBeNull();
   });
 });

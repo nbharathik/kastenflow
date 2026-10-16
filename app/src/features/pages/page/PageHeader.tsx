@@ -56,11 +56,11 @@ export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleRead
       {background && (
         <div className="kasten-page-cover" style={{ background }}>
           <div className="kasten-page-cover-actions">
-            <button type="button" onClick={() => setPicker("cover")}>
-              Change cover
+            <button type="button" aria-label="Change cover" title="Change cover" onClick={() => setPicker("cover")}>
+              <Icon name="image" className="size-4" />
             </button>
-            <button type="button" onClick={() => onChange("cover", null)}>
-              Remove
+            <button type="button" aria-label="Remove cover" title="Remove cover" onClick={() => onChange("cover", null)}>
+              <Icon name="close" className="size-4" />
             </button>
           </div>
           {picker === "cover" && (
@@ -101,19 +101,20 @@ export function PageHeader({ meta, onChange, onEnterBody, onTitleDone, titleRead
           </div>
         )}
         <div className="kasten-page-controls">
+          {/* Icons, no words: the name and the tooltip say what each does. "In … · Move" keeps its words: it says where the page is. */}
           {!glyph && (
-            <button type="button" onClick={() => onChange("icon", randomEmoji())}>
-              <Icon name="smile" className="size-4" /> Add icon
+            <button type="button" className="is-icon" aria-label="Add icon" title="Add icon" onClick={() => onChange("icon", randomEmoji())}>
+              <Icon name="smile" className="size-4" />
             </button>
           )}
           {!background && (
-            <button type="button" onClick={() => onChange("cover", randomCover())}>
-              <Icon name="image" className="size-4" /> Add cover
+            <button type="button" className="is-icon" aria-label="Add cover" title="Add cover" onClick={() => onChange("cover", randomCover())}>
+              <Icon name="image" className="size-4" />
             </button>
           )}
           {onAddProperty && (
-            <button type="button" onClick={onAddProperty}>
-              <Icon name="list-plus" className="size-4" /> Add property
+            <button type="button" className="is-icon" aria-label="Add property" title="Add property" onClick={onAddProperty}>
+              <Icon name="list-plus" className="size-4" />
             </button>
           )}
           {place && (

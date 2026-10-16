@@ -87,6 +87,28 @@ export const ENTRIES: SettingEntry[] = [
       "sign in chatgpt openai subscription plus pro account login",
     ],
   ]),
+  ...make(
+    "ai",
+    [
+      ["budgetRounds", "Steps in one go", "How many times the assistant may ask the model, one step after another, before it pauses. A pause keeps everything it has done; Continue lets it go on.", "limit pause continue budget agent chat steps rounds"],
+      ["budgetCalls", "Tool calls in one go", "How many times the assistant may use its tools (read, search, change notes) before it pauses and waits for Continue.", "limit pause continue budget agent chat tools calls"],
+      ["budgetMinutes", "Minutes in one go", "How long one answer may run before it pauses and waits for Continue.", "limit pause continue budget agent chat time duration"],
+    ],
+    "Agent limits",
+  ),
+  ...make(
+    "ai",
+    [
+      [
+        "report",
+        "Connection report",
+        "The last requests to your AI providers: how far each got, how it ended, the tries it took and how long. It holds no keys, tokens, prompts or answers, so it can be copied into a message when a chat or a sign-in does not work.",
+        "connection errors diagnostics retry requests failed network timeout copy clear",
+        { jump: true },
+      ],
+    ],
+    "Connection report",
+  ),
   ...make("agents", [
     ["claude", "Connect Claude Code", "Run this once in a terminal.", "mcp command cli claude code"],
     ["config", "Claude Desktop, Cursor and other MCP apps", "Add this to the app's MCP settings (its mcpServers).", "mcp json config cursor"],
@@ -99,9 +121,11 @@ export const ENTRIES: SettingEntry[] = [
     ...SHOW_OPTIONS.map((o): Spec => [`show.${o.key}`, o.label, o.detail, "show days calendar"]),
     ["feeds", "Subscribed calendars", "Their events show in the Calendar and on Home, read-only. Nothing is written to your notes and nothing is sent back to the calendar.", "google outlook ics ical feed subscribe refresh", { card: "Subscribed calendars", jump: true, only: "desktop" }],
     ["subscribe", "Subscribe to a calendar", "Paste the calendar's address; KastenFlow checks it before keeping it.", "google outlook ics ical webcal url", { card: "Subscribed calendars" }],
+    ["reviewReminder", "Weekly review reminder", "A banner on Home once the chosen day has come, until the weekly review is marked done. Off until you switch it on. A review not done is only a date, never an error.", "review weekly reminder banner routine look back", { card: "Reviews" }],
+    ["reviewDay", "Reminder day", "The day of the week the banner first shows.", "review weekly weekday monday friday", { card: "Reviews" }],
   ]),
   ...make("browser", [
-    ["enabled", "Use the browser", "Adds Browser to the sidebar and the new tab menu.", "web internet turn on"],
+    ["enabled", "Use the browser", "Adds Browser to the sidebar and the new tab menu, and lets a slide show a web page beside it.", "web internet turn on slides preview"],
     ["engine", "Search engine", "What the address box searches with, when what you type is not an address.", "google duckduckgo bing"],
     ["addEngine", "Add a search engine", "A name and an address with %s where the words go.", "custom url", { jump: true }],
     ["favourites", "Favourite sites", "Shown on the start page of a new browser tab.", "bookmarks start page", { jump: true }],
@@ -114,11 +138,13 @@ export const ENTRIES: SettingEntry[] = [
     ["port", "Port", "KastenFlow listens here on 127.0.0.1. The extension asks for the same port (in its own popup, under Advanced).", "network address"],
     ["pair", "Pair an extension", "Make a code in KastenFlow, then type it into the extension's popup. It works once.", "code connect chrome edge"],
     ["paired", "Paired extensions", "The extensions that can add captures, each with a way to revoke it.", "revoke unpair"],
-    ["install", "Put the extension in Chrome or Edge", "Load it unpacked from KastenFlow's source download, pin it, then pair.", "install developer mode load unpacked steps", { jump: true }],
+    ["folder", "Extension folder", "KastenFlow carries the extension's files, kept up to date with each update. In Chrome or Edge, Load unpacked picks this folder.", "files show folder open install unpacked load", { only: "desktop" }],
+    ["install", "Put the extension in Chrome or Edge", "Load it unpacked from the folder KastenFlow carries, pin it, then pair.", "install developer mode load unpacked steps", { jump: true }],
   ]),
   ...make("vault", [
     ["location", "Notes live in", "Every page is a Markdown file in this folder.", "folder path directory where"],
-    ["import", "Import notes", "From Obsidian, Notion, Heptabase or a folder of Markdown, as a project you can undo.", "obsidian notion heptabase markdown migrate"],
+    ["import", "Import notes", "From Obsidian, Notion, Heptabase, a folder of Markdown or a KastenFlow project bundle, as a project you can undo.", "obsidian notion heptabase markdown migrate bundle"],
+    ["export", "Export a project", "A copy of one project as a folder outside the vault: its pages, whiteboards, decks, pictures, PDFs, tags and the works it cites. You see what goes in first. Credentials, history, chats and the trash never do. Import brings it back into any vault.", "bundle share send copy folder package give away", { only: "desktop" }],
     ["switch", "Switch vault", "Open another folder, or make a new vault; the window restarts on it.", "open another folder new vault change", { only: "desktop" }],
     ["copy", "Copy vault settings", "The vault's own settings (AI provider addresses, agent limits, the journal template) as text. Keys are never in it.", "config yaml export json", { only: "desktop" }],
   ]),
@@ -132,6 +158,7 @@ export const ENTRIES: SettingEntry[] = [
     ["token", "Backup token", "A personal access token that can read and write the backup repository. It is checked now and sent to that server only.", "password credentials git", { quiet: true }],
     ["files", "Backup files", "For Dropbox, Google Drive, OneDrive or a disk: a file of the whole vault in their folder, written daily. Not encrypted.", "folder bundle dropbox drive onedrive disk"],
     ["check", "Check the vault", "Looks for broken frontmatter, repeated ids, links to missing pages and damaged history.", "verify problems integrity repair"],
+    ["health", "Vault health", "How the vault stands: saving and indexing, backup, copies kept after outside changes, proposed changes, broken links and missing pictures, and what drawing and the browser need. Looking changes nothing.", "status problems conflicts indexing stale failed saved external proposed diagnose repair missing assets", { card: "Vault health", jump: true }],
   ]),
   ...make("search", [
     ["provider", "Provider", "An OpenAI-compatible one: OpenAI, or a local server such as vLLM or Ollama. Add one under AI providers first.", "embeddings openai vllm ollama", { only: "desktop" }],
@@ -141,7 +168,7 @@ export const ENTRIES: SettingEntry[] = [
   ]),
   ...make("diagrams", [
     ["editor", "Diagram editor", "A separate download, checked against a fixed checksum before it is unpacked. Apache-2.0. It never reaches the network.", "draw.io drawio install remove download flowchart"],
-    ["credit", "Credit", "KastenFlow is not made by, affiliated with or endorsed by the editor's authors. Its licence and notices are kept with the installed copy and in the docs.", "drawio licence apache"],
+    ["credit", "Credit", "The editor's licence and notices are kept with the installed copy and in the docs.", "drawio licence apache"],
   ]),
   ...make("templates", [
     ["count", "Templates", "Pages in the templates folder; {{title}}, {{date}}, {{time}}, {{weekday}}, {{week}}, {{month}} and {{year}} are filled in.", "gallery browse placeholders"],
@@ -152,7 +179,7 @@ export const ENTRIES: SettingEntry[] = [
   ...make("desktop", [
     ["keepRunning", "Keep running when the window closes", "KastenFlow stays in the tray, so quick capture and backups carry on. Quit from the tray icon.", "tray background close", { only: "desktop" }],
     ["capture", "Quick capture", "A small box over any app: type, Tab to choose where it goes, Enter to save.", "shortcut global key hotkey capture", { only: "desktop" }],
-    ["notifications", "Notifications", "Only while KastenFlow is in the background: when a backup starts failing, or a new version is ready. Never a note's words.", "alerts", { only: "desktop" }],
+    ["notifications", "Notifications", "Only while KastenFlow is in the background: when a backup starts failing, a new version is ready, or a chat finished, paused or failed. Never a note's or an answer's words.", "alerts", { only: "desktop" }],
     ["about", "Quick capture and the tray", "Capture from any app with a shortcut, keep KastenFlow in the tray and hear when a backup fails: these come with the desktop app.", "tray capture", { only: "preview" }],
   ]),
   ...make("shortcuts", [

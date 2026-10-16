@@ -7,15 +7,21 @@
 //!
 //! Webviews are made from async commands (a window made from a synchronous
 //! command can deadlock on Windows), at most four live at once, and a command
-//! acts only on a webview this module made.
+//! acts only on a webview this module made. One of the four may be the deck
+//! preview (`preview`): a browser webview like a tab's, with an id of its own.
+//! A view hidden for a long time is closed (`sweep`), and the keys a native
+//! view would swallow are taken while it has the keyboard (`keys`).
 
 mod capture;
 pub(crate) mod flow;
+pub(crate) mod keys;
 pub(crate) mod policy;
+pub(crate) mod preview;
 #[cfg(test)]
 mod rules;
 mod script;
 mod state;
+mod sweep;
 mod view;
 
 use std::collections::HashMap;
@@ -30,6 +36,7 @@ use tokio::sync::oneshot;
 use crate::app_settings::AppSettings;
 use crate::closing::MAIN;
 use capture::{Answer, Kind, Previews, Refused, Sessions, Titled};
+pub use keys::on_window_event;
 use state::Registry;
 use view::{Bounds, Event, tell};
 
@@ -43,6 +50,7 @@ pub struct Browser {
     sessions: Mutex<Sessions>,
     waiters: Mutex<HashMap<String, Waiter>>,
     previews: Mutex<Previews>,
+    keys: Mutex<keys::Keys>,
 }
 
 fn held<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -106,6 +114,7 @@ pub fn start(app: &AppHandle) {
         .map(|dir| AppSettings::load(&dir).browser_on())
         .unwrap_or(false);
     app.state::<Browser>().on.store(on, Ordering::Relaxed);
+    sweep::start(app);
 }
 
 /// A navigation in a browser webview that is a capture's answer: read, then
@@ -124,8 +133,10 @@ pub fn answered<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
     true
 }
 
+/// The label of tab `id`. The preview's id is not a tab's: every tab command
+/// refuses it, so none of them can act on the preview.
 fn label_of(id: &str) -> Result<String, String> {
-    if policy::valid_id(id) {
+    if policy::tab_id(id) {
         Ok(format!("{}{id}", policy::PREFIX))
     } else {
         Err("That is not a browser tab".to_owned())
@@ -174,6 +185,35 @@ fn drop_view(app: &AppHandle, browser: &Browser, id: &str, evicted: bool) {
     } else {
         browser.reg(|r| r.forget(id));
     }
+    keys::refresh(app);
+}
+
+/// Makes the webview of `id` at `url` and `bounds`, closing the one used least
+/// recently when four are alive. Gives the address it shows.
+fn create_view(
+    app: &AppHandle,
+    browser: &Browser,
+    id: &str,
+    url: Url,
+    bounds: Bounds,
+) -> Result<String, String> {
+    let old = browser.reg(|r| r.room_for_one());
+    if let Some(old) = old {
+        drop_view(app, browser, &old, true);
+    }
+    let window = app.get_window(MAIN).ok_or("The window is not there")?;
+    let b = bounds.clamped();
+    let made = view::builder(app, id, url.clone(), view::profile_dir(app)?);
+    window
+        .add_child(
+            made,
+            PhysicalPosition::new(b.x, b.y),
+            PhysicalSize::new(b.width, b.height),
+        )
+        .map_err(|e| format!("The browser could not start: {e}"))?;
+    browser.reg(|r| r.add(id, url.as_str()));
+    keys::refresh(app);
+    Ok(url.to_string())
 }
 
 /// Shows tab `id`'s page at `bounds` (physical pixels of the window), making
@@ -201,28 +241,14 @@ pub fn browser_open(
             view.set_bounds(bounds.rect()).map_err(text)?;
             view.show().map_err(text)?;
             browser.reg(|r| r.touch(&id, true));
+            keys::refresh(&app);
             return Ok(view
                 .url()
                 .map_or_else(|_| wanted.to_string(), |u| u.to_string()));
         }
         browser.reg(|r| r.forget(&id));
     }
-    let old = browser.reg(|r| r.room_for_one());
-    if let Some(old) = old {
-        drop_view(&app, &browser, &old, true);
-    }
-    let window = app.get_window(MAIN).ok_or("The window is not there")?;
-    let b = bounds.clamped();
-    let made = view::builder(&app, &id, wanted.clone(), view::profile_dir(&app)?);
-    window
-        .add_child(
-            made,
-            PhysicalPosition::new(b.x, b.y),
-            PhysicalSize::new(b.width, b.height),
-        )
-        .map_err(|e| format!("The browser could not start: {e}"))?;
-    browser.reg(|r| r.add(&id, wanted.as_str()));
-    Ok(wanted.to_string())
+    create_view(&app, &browser, &id, wanted, bounds)
 }
 
 /// Moves and sizes tab `id`'s webview.
@@ -244,7 +270,8 @@ pub fn browser_bounds(
 pub fn browser_hide(app: AppHandle, browser: State<'_, Browser>, id: String) -> Result<(), String> {
     let view = live(&app, &browser, &id)?;
     view.hide().map_err(text)?;
-    browser.reg(|r| r.hidden(&id));
+    browser.reg(|r| r.hidden(&id, Instant::now()));
+    keys::refresh(&app);
     Ok(())
 }
 
@@ -254,6 +281,7 @@ pub fn browser_show(app: AppHandle, browser: State<'_, Browser>, id: String) -> 
     let view = live(&app, &browser, &id)?;
     view.show().map_err(text)?;
     browser.reg(|r| r.touch(&id, true));
+    keys::refresh(&app);
     Ok(())
 }
 
@@ -321,6 +349,7 @@ pub fn set_browser_enabled(
             drop_view(&app, &browser, &id, false);
         }
         *held(&browser.previews) = Previews::default();
+        keys::reset(&app);
     }
     Ok(on)
 }

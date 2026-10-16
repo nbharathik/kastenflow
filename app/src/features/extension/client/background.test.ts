@@ -97,6 +97,17 @@ describe("a click on the menu", () => {
     expect(lastResult(storage)).toMatchObject({ ok: false, text: "That address cannot be kept: only web pages (http or https) are captured" });
   });
 
+  it("says a page is saved already, and that the popup can keep another snapshot", async () => {
+    const card = { path: "inbox/a.md", title: "Slip-box basics", captured: "2026-09-01" };
+    const { env, storage, badges, fake } = setup({ token: TOKEN }, () => ({ status: 409, body: { error: "Already saved on 2026-09-01", existing: [card] } }));
+    await onMenuClick(env, selection, TAB);
+    expect(badges[0]).toEqual(["!", false]);
+    expect(lastResult(storage).text).toBe("Already saved on 2026-09-01. Nothing was sent: open the extension to save another snapshot.");
+    // The pairing stays, and the request did not ask for a snapshot.
+    expect(storage.data["token"]).toBe(TOKEN);
+    expect(fake.calls[0]!.body).not.toHaveProperty("again");
+  });
+
   it("sends nothing from a page it may not send, and says so", async () => {
     const { env, fake, storage } = setup();
     await onMenuClick(env, { menuItemId: "kasten-page", pageUrl: "chrome://extensions" }, { id: 1, url: "chrome://extensions" });

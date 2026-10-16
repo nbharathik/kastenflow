@@ -19,7 +19,13 @@ describe("the commands for presenting", () => {
     await commandOf("view.present-start").run(context(present));
     await commandOf("view.presenter").run(context(present));
     await commandOf("view.present-scroll").run(context(present));
-    expect(present.mock.calls).toEqual([["current"], ["start"], ["current", { presenter: true }], ["start", { view: "scroll" }]]);
+    await commandOf("view.rehearse").run(context(present));
+    expect(present.mock.calls).toEqual([["current"], ["start"], ["current", { presenter: true }], ["start", { view: "scroll" }], ["start", { presenter: true, rehearse: true }]]);
+  });
+
+  it("has Rehearse, which opens the presenter's view and asks it to time the talk, from the first slide", () => {
+    expect(COMMANDS.get("view.rehearse")?.label).toBe("Rehearse");
+    expect(keysOf("view.rehearse")).toBeUndefined();
   });
 
   it("do nothing where the host has no present action", async () => {

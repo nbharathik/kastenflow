@@ -1,6 +1,6 @@
 //! `kasten import` and `kasten undo`: notes from Obsidian, a Markdown
-//! folder, a Notion export or a Heptabase backup moved in as one commit,
-//! and one commit (such as an import) taken back.
+//! folder, a Notion export, a Heptabase backup or a KastenFlow project bundle
+//! moved in as one commit, and one commit (such as an import) taken back.
 
 use std::path::PathBuf;
 
@@ -18,8 +18,9 @@ fn kind(name: &str) -> Result<ImportKind, String> {
         "markdown" | "md" => Ok(ImportKind::Markdown),
         "notion" => Ok(ImportKind::Notion),
         "heptabase" => Ok(ImportKind::Heptabase),
+        "bundle" => Ok(ImportKind::Bundle),
         other => Err(format!(
-            "Not a kind of import: {other} (obsidian, markdown, notion or heptabase)"
+            "Not a kind of import: {other} (obsidian, markdown, notion, heptabase or bundle)"
         )),
     }
 }
@@ -60,7 +61,7 @@ pub fn import(args: &Args) -> Outcome {
         .positional
         .get(1)
         .map(PathBuf::from)
-        .ok_or_else(|| format!("Which folder? {} import FOLDER [--kind obsidian|markdown|notion|heptabase] [--project TITLE] [--dry-run]", crate::program()))?;
+        .ok_or_else(|| format!("Which folder? {} import FOLDER [--kind obsidian|markdown|notion|heptabase|bundle] [--project TITLE] [--dry-run]", crate::program()))?;
     let options = ImportOptions {
         kind: args.value("--kind").map(kind).transpose()?,
         project: args.value("--project").map(str::to_owned),
@@ -84,6 +85,10 @@ pub fn import(args: &Args) -> Outcome {
         for warning in &plan.warnings {
             say!("  {warning}");
         }
+        // What a bundle's import settles because this vault has the same thing already.
+        for conflict in &plan.conflicts {
+            say!("  {}: {}", conflict.what, conflict.resolution);
+        }
         return Ok(0);
     }
     let done = kasten
@@ -103,6 +108,9 @@ pub fn import(args: &Args) -> Outcome {
     );
     for warning in &s.warnings {
         say!("  {warning}");
+    }
+    for conflict in &s.conflicts {
+        say!("  {}: {}", conflict.what, conflict.resolution);
     }
     if let Some(commit) = &done.commit {
         say!("Undo it with: {} undo {commit}", crate::program());

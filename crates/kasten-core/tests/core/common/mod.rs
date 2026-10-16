@@ -36,6 +36,10 @@ pub fn dev_vault() -> TempVault {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/dev-vault");
     let dir = std::env::temp_dir().join(format!("kasten-test-{}", ulid_at(Instant::now().millis)));
     copy_dir(&source, &dir);
+    // macOS reaches its temporary folder through a link (/var is /private/var), and the index
+    // refuses a path through a link. The engine resolves the folder it opens; so does the copy.
+    #[cfg(unix)]
+    let dir = kasten_core::local_paths::resolve_root(&dir).unwrap();
     TempVault {
         vault: Vault::open(&dir).unwrap(),
         dir,

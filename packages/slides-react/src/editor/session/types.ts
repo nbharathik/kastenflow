@@ -1,5 +1,7 @@
 import type { Deck } from "@kasten-slides/wasm";
 
+import type { CellSelection } from "../table/cells.ts";
+
 /**
  * What a click or drag on the slide does.
  * `select`; `text` draws a text box; `shape:<preset>` draws a shape;
@@ -33,8 +35,13 @@ export interface EditorState {
   readonly inside: readonly string[];
   /** Slide ids selected in the filmstrip; always holds `slideId`. */
   readonly slideSelection: readonly string[];
-  /** The element whose text is being edited. */
+  /** The element whose text is being edited. For a table it is the table, and the cell is the focus of `cells`. */
   readonly editing: string | null;
+  /**
+   * The cells picked in a table, which is then the one element selected. Always cells of a table that is there: it is moved into the table
+   * when rows or columns go and dropped when the selection leaves the table. A table can be edited only with cells picked.
+   */
+  readonly cells: CellSelection | null;
   /** The press that began the edit, where there was one (a click on a text box, a double click): the place in the window, and whether the word there is taken. The caret goes there; null puts it at the end. */
   readonly editFrom: EditStart | null;
   readonly tool: Tool;

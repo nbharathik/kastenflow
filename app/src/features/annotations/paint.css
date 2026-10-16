@@ -1,0 +1,29 @@
+/* Highlights over the words of a page kept from the web. A mark is a
+   decoration: the page's text is not touched. The colours are the PDF
+   reader's and the page's own highlights (styles.css). */
+
+.kasten-text-hl {
+  border-radius: var(--radius-xs);
+  background: var(--color-highlight-yellow);
+  color: inherit;
+
+  &.is-green {
+    background: var(--color-highlight-green);
+  }
+
+  &.is-blue {
+    background: var(--color-highlight-blue);
+  }
+
+  &.is-pink {
+    background: var(--color-highlight-pink);
+  }
+
+  &.is-purple {
+    background: var(--color-highlight-purple);
+  }
+
+  &.is-current {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+}

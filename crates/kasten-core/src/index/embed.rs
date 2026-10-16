@@ -26,7 +26,7 @@ impl Index {
     /// Every note but templates, the latest changed first.
     pub(crate) fn embed_stamps(&self) -> Result<Vec<Stamped>> {
         let mut stmt = self.conn.prepare_cached(
-            "SELECT num, path, modified, size FROM notes WHERE kind != 'template'
+            "SELECT num, path, modified, size FROM notes WHERE kind NOT IN ('template', 'ai-action')
              ORDER BY modified DESC, path",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -53,7 +53,7 @@ impl Index {
         Ok(self
             .conn
             .prepare_cached(
-                "SELECT title, icon, excerpt FROM notes WHERE path = ?1 AND kind != 'template'",
+                "SELECT title, icon, excerpt FROM notes WHERE path = ?1 AND kind NOT IN ('template', 'ai-action')",
             )?
             .query_row([path], |r| {
                 Ok(Shown {

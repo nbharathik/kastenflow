@@ -3,7 +3,7 @@
 
 use kasten_core::frontmatter::split;
 use kasten_core::tag_query::{apply_view, board_columns};
-use kasten_core::{Error, Kasten, NoteMeta, Result};
+use kasten_core::{Error, Kasten, NoteFile, NoteMeta, Result};
 use serde_json::{Value, json};
 
 use super::{as_json, today};
@@ -25,6 +25,15 @@ fn row(meta: &NoteMeta) -> Value {
 
 fn full(kasten: &Kasten, path: &str, with_backlinks: bool) -> Result<Value> {
     let note = kasten.read(path)?;
+    let mut out = note_json(&note);
+    if with_backlinks {
+        out["backlinks"] = json!(kasten.backlinks(&note.meta.path)?);
+    }
+    Ok(out)
+}
+
+/// A note as `read_note` tells it, without its backlinks.
+pub(crate) fn note_json(note: &NoteFile) -> Value {
     let parts = split(&note.text);
     let yaml = parts
         .prefix
@@ -33,7 +42,7 @@ fn full(kasten: &Kasten, path: &str, with_backlinks: bool) -> Result<Value> {
         .trim_end()
         .trim_end_matches("---")
         .trim_matches(['\r', '\n']);
-    let mut out = json!({
+    json!({
         "path": note.meta.path,
         "id": note.meta.id,
         "title": note.meta.title,
@@ -45,11 +54,7 @@ fn full(kasten: &Kasten, path: &str, with_backlinks: bool) -> Result<Value> {
         "updated": note.meta.updated,
         "frontmatter": yaml,
         "body": parts.body,
-    });
-    if with_backlinks {
-        out["backlinks"] = json!(kasten.backlinks(&note.meta.path)?);
-    }
-    Ok(out)
+    })
 }
 
 pub(crate) fn search(k: &Kasten, args: SearchArgs) -> Result<Value> {

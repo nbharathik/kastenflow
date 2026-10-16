@@ -107,7 +107,8 @@ describe("Calendar", () => {
     fireEvent.dragOver(next, { dataTransfer: data });
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(periodTitle(addDays(today, 7), "week")), { timeout: 3000 });
     fireEvent.dragLeave(next, { dataTransfer: data });
-    const target = addDays(today, 8);
+    // The same weekday next week: always inside the week the page turned to (a day more is Monday after the week on a Sunday).
+    const target = addDays(today, 7);
     await act(async () => fireEvent.drop(cell(target), { dataTransfer: data }));
     await expect.poll(() => text("library/ship.md")).toContain(`  due: ${target}\n`);
     expect(within(cell(target)).getByRole("button", { name: "Ship" })).toBeTruthy();

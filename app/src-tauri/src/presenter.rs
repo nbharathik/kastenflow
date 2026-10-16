@@ -21,8 +21,9 @@ const EVENT: &str = "kasten://present";
 const WIDTH: f64 = 1180.0;
 const HEIGHT: f64 = 780.0;
 
-/// The kinds of message the two windows exchange: the presenter asking for the deck, the deck, a position, and a window closing.
-const KINDS: [&str; 4] = ["hello", "deck", "state", "bye"];
+/// The kinds of message the two windows exchange: the presenter asking for the deck, the deck, a position, the talk being a rehearsal,
+/// and a window closing.
+const KINDS: [&str; 5] = ["hello", "deck", "state", "rehearse", "bye"];
 
 /// The most one message may weigh: a deck with its pictures' addresses, and nothing like a picture itself.
 const MAX_BYTES: usize = 32 << 20;

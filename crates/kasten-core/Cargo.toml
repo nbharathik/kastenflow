@@ -17,6 +17,8 @@ serde-saphyr = "1"
 serde_json.workspace = true
 # The pictures' hash, sidecar, size and thumbnails, shared with `slides dev`.
 slides-assets.workspace = true
+# The BibTeX span scanner a `.bib` file is edited with, shared with the Slides reader.
+slides-bib.workspace = true
 
 [dev-dependencies]
 criterion = "0.8.2"

@@ -227,7 +227,8 @@ fn a_link_named_like_a_picture_is_not_followed_in_any_case() {
     let outside = std::env::temp_dir().join(format!("kasten-outside-{}.png", std::process::id()));
     fs::write(&outside, b"outside the vault").unwrap();
     fs::create_dir_all(t.vault.root().join("assets")).unwrap();
-    for name in ["link.png", "Link.PNG"] {
+    // Two names, not one in two cases: a Mac's disk takes `Link.PNG` for `link.png`.
+    for name in ["link.png", "Other.PNG"] {
         std::os::unix::fs::symlink(&outside, t.vault.root().join("assets").join(name)).unwrap();
         assert!(k.read_asset(&format!("assets/{name}")).is_err(), "{name}");
     }

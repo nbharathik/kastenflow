@@ -1,13 +1,18 @@
 // A highlight, clicked: its colour, its comment, and what to do with it:
-// make it a card (or open the card it became), copy its text, or remove it.
-// A new card opens beside the reader, as Heptabase opens cards.
+// make it a card (or open the card it became), copy its text, put it in a page
+// as a quotation, or remove it. A new card opens beside the reader, as
+// Heptabase opens cards.
 
 import { useState } from "react";
 
+import { pdfLink } from "../../../lib/kasten-links";
 import type { Highlight } from "../../../lib/vault/types";
+import { runInChat } from "../../chat/run-action";
 import { useWorkspace } from "../../workspace/store";
 import { COLOR_NAMES, colorOf, HIGHLIGHT_COLORS } from "../colors";
-import { useSources } from "../store";
+import { InsertHighlight } from "../compare/InsertHighlight";
+import { useSources, useSourceTitle } from "../store";
+import { pdfChip } from "./ai-context";
 
 interface Props {
   source: string;
@@ -20,6 +25,7 @@ export function HighlightPop({ source, highlight: h, at, onClose }: Props) {
   const [comment, setComment] = useState(h.comment ?? "");
   const [busy, setBusy] = useState(false);
   const sources = useSources.getState();
+  const title = useSourceTitle(source);
   const saveComment = () => {
     if (comment.trim() !== (h.comment ?? "")) void sources.edit(source, h.id, { comment });
   };
@@ -68,6 +74,24 @@ export function HighlightPop({ source, highlight: h, at, onClose }: Props) {
         <button type="button" onClick={() => void navigator.clipboard?.writeText(h.text).then(() => useWorkspace.getState().toast("Copied the highlight"), () => {})}>
           Copy
         </button>
+        <button
+          type="button"
+          title="Copy a link that opens this PDF at this highlight"
+          onClick={() => void navigator.clipboard?.writeText(pdfLink(source, h.page, h.id)).then(() => useWorkspace.getState().toast("Copied the link to this highlight"), () => {})}
+        >
+          Copy link to this location
+        </button>
+        <button
+          type="button"
+          title="Ask AI to explain this highlight, in the chat"
+          onClick={() => {
+            onClose();
+            void runInChat("explain", [pdfChip(source, title, [h.page], [h.id])]);
+          }}
+        >
+          Explain
+        </button>
+        <InsertHighlight source={source} highlight={{ ...h, comment: comment.trim() || h.comment }} onDone={onClose} />
         <button
           type="button"
           className="is-danger"

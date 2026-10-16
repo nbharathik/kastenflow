@@ -2,8 +2,8 @@
 // link), where it goes (Captures, a project or a page), tags, and Send. Kasten
 // is asked for the places when it opens, so a Kasten that is closed is said at once.
 
-import { build, parseTags, type Built, type What } from "./capture.js";
-import { Kasten } from "./client.js";
+import { build, buildPaper, parseTags, type Built, type What } from "./capture.js";
+import { Kasten, KastenError } from "./client.js";
 import { fill, h } from "./dom.js";
 import type { PageRead } from "./env.js";
 import type { Settings, Target, Targets } from "./model.js";
@@ -93,13 +93,16 @@ function form(env: PopupEnv, root: HTMLElement, settings: Settings, url: string,
     result.setAttribute("role", bad ? "alert" : "status");
     result.hidden = false;
   };
-  const submit = async () => {
+  /** `snapshot` keeps the page although Kasten said it is saved: a second card that points back at the first. */
+  const submit = async (snapshot = false) => {
     const made = built();
     if (typeof made === "string") return say(made, true);
     send.disabled = true;
+    another.hidden = true;
     say("Sending…", false);
     try {
-      const saved = await new Kasten(settings.port, settings.token, env.send).capture(made.request);
+      const request = snapshot ? { ...made.request, again: true } : made.request;
+      const saved = await new Kasten(settings.port, settings.token, env.send).capture(request);
       await saveLastTarget(env.storage, made.request.target ?? { kind: "inbox" });
       say(`Sent to ${saved.place}: ${saved.title}${made.cut ? ". The page was big, so only the start of its text went." : ""}`, false);
       send.hidden = true;
@@ -108,10 +111,38 @@ function form(env: PopupEnv, root: HTMLElement, settings: Settings, url: string,
     } catch (error) {
       const said = await trouble(env, error);
       if (said.unpaired) return again({ text: said.text, bad: true });
-      say(said.text, true);
       send.disabled = !web;
+      if (error instanceof KastenError && error.trouble === "saved") {
+        // Told, not saved: a second card is made only when asked for.
+        say(`${said.text}${error.existing[0] ? ` as “${error.existing[0].title}”` : ""}. Nothing was sent.`, false);
+        another.hidden = false;
+        another.focus();
+        return;
+      }
+      say(said.text, true);
     }
   };
+  /** "Save as paper": the page's own tags go to KastenFlow, which shows a form to check; nothing is kept until it is added there. */
+  const submitPaper = async () => {
+    if (!read?.paper) return;
+    paper.disabled = true;
+    say("Sending…", false);
+    try {
+      const saved = await new Kasten(settings.port, settings.token, env.send).capture(buildPaper({ url, title: titleField.value, tags: read.paper }));
+      say(`Sent to ${saved.place}. Open KastenFlow to check the details and add the paper; nothing is saved until you do.`, false);
+      send.hidden = true;
+      paper.hidden = true;
+      done.hidden = false;
+      done.focus();
+    } catch (error) {
+      const said = await trouble(env, error);
+      if (said.unpaired) return again({ text: said.text, bad: true });
+      paper.disabled = false;
+      say(said.text, true);
+    }
+  };
+  const paper = h("button", { type: "button", hidden: !web || !read?.paper, title: "Send the page's own citation tags to KastenFlow, to check and add as a reference", onclick: () => void submitPaper() }, "Save as paper");
+  const another = h("button", { type: "button", hidden: true, onclick: () => void submit(true) }, "Save another snapshot");
   const done = h("button", { type: "button", class: "primary", hidden: true, onclick: () => env.close() }, "Done");
   const unpair = h("button", { type: "button", class: "quiet", onclick: () => void forgetPairing(env.storage).then(() => again({ text: "Unpaired here. Revoke it in KastenFlow's Settings, under Browser extension, too.", bad: false })) }, "Unpair this browser");
 
@@ -136,7 +167,7 @@ function form(env: PopupEnv, root: HTMLElement, settings: Settings, url: string,
       tags,
       summary,
       result,
-      h("div", { class: "actions" }, send, done),
+      h("div", { class: "actions" }, send, paper, another, done),
     ),
     h("p", { class: "hint" }, `Connected to ${places.vault || "KastenFlow"}. `, unpair),
   );

@@ -172,7 +172,7 @@
   box-shadow: var(--shadow-pop);
 }
 
-/* ---- The top: the title, Present and More ------------------------------ */
+/* ---- The top: the title, and two icons: Present and More ----------------- */
 
 .kasten-actions {
   top: 12px;
@@ -187,18 +187,6 @@
 .kasten-actions .kasten-tool {
   width: 28px;
   height: 28px;
-}
-
-.kasten-action {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px 0 8px;
-  border-radius: var(--radius-lg);
-  color: var(--color-muted);
-  font-size: var(--text-13);
-  font-weight: 500;
 }
 
 /* The title is words, not a bar: no surface of its own. */
@@ -304,14 +292,6 @@ button.kasten-crumb:hover {
 }
 
 @container board (max-width: 520px) {
-  .kasten-action > span {
-    display: none;
-  }
-
-  .kasten-action {
-    padding: 0 6px;
-  }
-
   .kasten-crumbs {
     max-width: calc(100% - 100px);
   }

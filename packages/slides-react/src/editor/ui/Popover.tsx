@@ -1,5 +1,7 @@
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { editorOf, focusedNow, giveFocusBack, lastEditorRoot } from "../focus/home.ts";
+import { holdCover } from "./covers.ts";
 import "./menu.css";
 
 export interface Anchor {
@@ -51,6 +53,19 @@ export function Popover({ anchor, onClose, children, className = "", side, keepF
     // The popover grows out of the corner nearest the thing that opened it.
     setAt({ ...placed, origin: `${flippedLeft ? "right" : "left"} ${up ? "bottom" : "top"}`, up });
   }, [anchor, side]);
+
+  // The focus goes back to where it was when the popover goes (its own opener may be gone by then), else to the editor's home, unless
+  // something else has taken it on purpose. Without this a closed menu drops the keys on the page.
+  useEffect(() => {
+    const before = focusedNow();
+    const editor = editorOf(ref.current) ?? lastEditorRoot();
+    // A web view the host draws natively would cover the popover: it steps aside while this is open.
+    const release = holdCover();
+    return () => {
+      release();
+      giveFocusBack(before, editor);
+    };
+  }, []);
 
   useEffect(() => {
     const outside = (event: PointerEvent) => {

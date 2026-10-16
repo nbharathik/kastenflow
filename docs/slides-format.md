@@ -13,9 +13,16 @@ this page explains what the parts mean.
 
 ## Version
 
-`format` is always `kasten-deck` and `formatVersion` is `1`. A build refuses a
-deck with a newer version and says so. When the version changes, the change is
-listed at the end of this page and older decks are migrated when opened.
+`format` is always `kasten-deck` and `formatVersion` is `1` or `2`. A build
+refuses a deck with a newer version than it reads and says so. When the version
+changes, the change is listed at the end of this page and older decks are
+migrated when opened.
+
+A deck is written as version 1 unless it uses something that came with version 2
+(a run's `highlight`, a citation's `links`, a page source's `made`; see *Format
+changes*). Then, and only then, it is written as version 2. So a deck that does not
+use them is saved as the same bytes by every build, and a build that reads version 1
+only opens it; saving a deck never changes its version without a reason.
 
 Fields a build does not know are kept when it reads a deck and written back,
 so a deck saved by a newer build survives an older one.
@@ -27,7 +34,7 @@ PowerPoint, so exporting never rounds. The size of a deck's slides is `size`
 (`w` and `h`); a slide may be any size from 96 to 5376 units (one to 56 inches)
 each way. The page setup names four: 16:9 (960 x 540), 16:10 (960 x 600), 4:3
 (960 x 720) and 1:1 (720 x 720). The origin is the top left and angles are degrees
-clockwise. Type sizes are in points, as in Google Slides (1 pt is 4/3 units).
+clockwise. Type sizes are in points (1 pt is 4/3 units).
 
 `set_page_size` changes the size of a deck's slides and refits what is in them
 (see *Page size*). A new deck can be made at any size, and with a theme's example
@@ -88,6 +95,10 @@ as one step of undo: every slide's elements, the theme's layouts and its master.
   sides. Undo is always exact.
 - The built-in themes are drawn for 960 x 540 and refitted in the same way when a
   deck of another size takes one (`apply_theme`) or is made in one.
+- Slides and layouts that come from a deck of another size are refitted the same
+  way: `add_slides` and `import_layouts` take `fromSize` (the page size of the deck
+  they were made in) and fit what they bring to this deck's. Without it, or with the
+  same size, nothing is changed.
 
 ### Templates
 
@@ -159,8 +170,9 @@ built-in theme (`apply_theme`) keeps the layouts a person made after the theme's
 
 In a PowerPoint file a layout of your own is a layout of the file: its decoration and
 background are written on the layout, its slots are its placeholders, and slides of it
-point at it. Reading a PowerPoint file still puts what a layout draws on each slide that
-uses it.
+point at it. Reading a PowerPoint file does the same the other way: what a layout draws
+becomes the layout's own `elements` (once, however many slides use it), and a slide keeps
+only the shapes it has itself.
 
 Anywhere a colour is wanted, write a token (`accent2`) so it follows the theme,
 or a hex value (`#1a73e8`) for a colour of its own.
@@ -252,7 +264,15 @@ The types:
   50000 places (columns times rows): the operations that add or change one refuse a
   bigger table, or a span that reaches past the table, in words that say what to
   change, and everything that draws one (the editor, the export) holds itself to
-  the same limits whatever a file claims.
+  the same limits whatever a file claims. A table is changed cell by cell with
+  `set_cells`, `clear_cells` and `set_cell_fill`, and row by row and column by
+  column with `insert_rows`, `delete_rows`, `insert_columns` and `delete_columns`;
+  `merge_cells` joins a block of cells into one (the words of the cells that have
+  any become its paragraphs) and `unmerge_cells` splits it again. Places are counted
+  from 0. A new row or column is as big as the one beside it and the table's box grows
+  by that much, as far as the slide allows; a merged cell that a new row or column
+  falls inside gets longer. A block that takes in only a part of a merged cell is
+  refused, and so is a table with no row or no column left.
 - **`raw`**: what an import could not understand (a chart, a SmartArt diagram, a
   freeform shape, an embedded object, a video), kept as it was. `original` says
   what it was (`pptx:chart`), `xml` is the shape's own XML, `preview` is a picture
@@ -286,9 +306,11 @@ survives a trip through PowerPoint.
 ```
 
 A run has `t` and, when they apply, `b`, `i`, `u`, `s` (bold, italic,
-underline, strike), `color`, `size`, `font`, `link`, `code` and `math`, and
+underline, strike), `color`, `highlight` (a colour behind the words, a theme token
+or `#rrggbb`, like a marker pen), `size`, `font`, `link`, `code` and `math`, and
 `script` (`super` or `sub`), `smallCaps`, `allCaps` and `spacing` (extra space
-between letters, in points). A paragraph has `align`, `list` (`bullet` or
+between letters, in points). Inline `code` has a ground of its own; a `highlight` on
+it is drawn instead. A paragraph has `align`, `list` (`bullet` or
 `number`), `level` (0 to 8), `style`, and spacing (`lineSpacing`,
 `spaceBefore`, `spaceAfter`). No list means a plain paragraph.
 
@@ -406,7 +428,7 @@ composite looks the same in each.
 | `chat` | `messages`: `role` (`system`, `user`, `assistant`, `toolCall`, `toolResult`) and `text` | A bubble for each message. |
 | `token-probs` | `tokens`, `next` (`token` and `p`), `chosen` | Chips for the words so far and a bar for each likely next token. |
 | `card-grid` | `cards` (`title`, `body`), `columns` | Rounded cards in a grid. |
-| `citation` | `keys` (BibTeX keys), `format` (`short`, `numbered`, `full`, `list`) | One small text box. |
+| `citation` | `keys` (BibTeX keys), `format` (`short`, `numbered`, `full`, `list`), `links` | One small text box. |
 | `step-label` | `format` | One text box that says "Step n / N". |
 | `embed` | `url`, `poster`, `title`, `design`, `zoom`, `fit`, `reader` | The poster, or a dashed panel that names the page; for a page of the host, a card with the page's words. |
 | `video` | `src`, `poster`, `autoplay`, `looped` | The poster, or a dark panel, with a play button. |
@@ -494,8 +516,12 @@ writes the LaTeX as italic text, centred in the box, and adds a warning.
   own `keys`, if any, are listed as well). A key the bibliography does not have is
   written as itself with a `?` after it, and lint reports it as an error; with no
   bibliography at all keys are written as they are (`(key1; key2)`) and are not
-  checked. The `add_citation` operation puts keys in a slide's footer citation, the
-  element named `citations`, and makes one along the bottom margin if there is none.
+  checked. With `links` on, each work is a link of its own to where it can be read
+  on the web: its DOI (`https://doi.org/10.…`), else its `url` when that is an
+  `http` or `https` address, else its arXiv page; a work with none of these is
+  not a link, and neither are the separators between works. The `add_citation`
+  operation puts keys in a slide's footer citation, the element named `citations`,
+  and makes one along the bottom margin if there is none.
 - **`step-label`**: one run that stands for the field `stepLabel`, which
   whoever draws the slide fills in with the current step, in the wording of
   `present.stepLabel`. `format` changes only the sample shown while editing.
@@ -565,6 +591,7 @@ and what the deck keeps is in the element's `source`:
 | `sync` | Flag the element when the page changes, so it can be updated. |
 | `hash` | A fingerprint (16 hex digits, FNV-1a) of the Markdown it was made from; it ignores line endings and blank lines at the end. |
 | `markdown` | For an embedded page only: the page's words as read, which is what is drawn where the page cannot be read. |
+| `made` | How the element came to be made from the page. A storyboard writes a fingerprint of what the element said then (16 hex digits of FNV-1a over its words, pictures and looks, but not where it stands, its name, its steps or its link); an element that no longer gives it was changed by hand. Any other text is the host's own word, which the deck keeps and does not read. |
 
 A link to a page is `page:` and the page's path with spaces and the marks of
 Markdown written as `%20` and the like, then `#` and the heading for a section.
@@ -580,6 +607,23 @@ bullets, numbers and to-dos with indents, quotes and callouts, fenced code, tabl
 pictures, block formulas, rules and toggles; what it does not know it keeps as words.
 "Break link" is a `patch_elements` that removes `source`. PowerPoint cannot open a
 page of the host, so an export leaves `page:` links out and says so.
+
+### A storyboard
+
+Before any slide exists, a page can be drafted as a storyboard: one entry for each section at a heading level
+(and one for the words before the first heading), each with a `title` (the heading), a `point` (the first
+sentence of the section's first paragraph), the `evidence` (its list items, pictures, tables, code and formulas,
+one Markdown block each), the `notes` (its prose, for the speaker) and the `sources` it came from. A person
+reorders, merges, splits, drops and rewrites the entries; `add_storyboard_slides` then makes the slides in one step
+of undo. Each slide has the entry's title in its title slot and one element with the point and the evidence, which
+carries a page source with `sync`, the fingerprint of the section's Markdown as `hash`, and `made`. The operation
+answers `omitted`: pictures from the web (a deck keeps only pictures from the host's store), sections merged into a
+slide that remembers only the first, and slides that were rewritten and so are not kept in step.
+
+When the page changes, an element made this way is rebuilt by `update_page_contents` the way it was made (the point
+and the evidence, not the heading). With `keepEdits`, one that was changed by hand since is left alone and the answer
+says `edited`; `acknowledge_source` then sets its `hash` to the page as it reads now, so the slide is kept as it is
+until the page changes again.
 
 ### Steps follow content
 
@@ -615,10 +659,11 @@ takes the section along when all of its slides move.
 
 `slides import deck.pptx -o deck.deck` (and the editor's *Import slides from
 PowerPoint…*) reads a file from PowerPoint, LibreOffice, Keynote, Google Slides
-or python-pptx into a deck: text with its runs and lists, shapes and lines,
+or python-pptx into a deck: text with its runs (a ground behind words becomes a `highlight`, or
+`code` when it is the ground code has) and lists, shapes and lines,
 connectors that name what they join, pictures with their crop and mask, groups,
-tables (with the fills their style gives), notes, hidden slides, sections, and
-the theme, layouts and master. What a deck cannot hold becomes a `raw` element,
+tables (with the fills their style gives, and their merged cells), notes, hidden
+slides, sections, and the theme, layouts and master. What a deck cannot hold becomes a `raw` element,
 and everything else that was changed or left out is listed in the report, which
 names the slide. A file this crate exports imports as the deck it was made from,
 to within half a unit. The slides can be added to a deck (in its own look),
@@ -641,3 +686,10 @@ operation can be undone exactly.
 - **1**: the first version. A layout's `elements` and `background` and the theme's
   `newSlideLayout` were added to it without a new version: an older build keeps what it
   does not know and writes it back, and draws a slide without the layout's decoration.
+- **2**: three fields that change how a deck is drawn or what it stands for, so a build
+  that reads version 1 only refuses a deck that has them rather than show it wrongly: a
+  run's `highlight`, a citation's `links` and a page source's `made`. Nothing else
+  changed, so a version 1 deck needs no migration. A deck
+  is written as version 2 only when it uses one of the three, and as version 1 otherwise;
+  the first save that adds one makes it version 2, and a deck that no longer has any is
+  written as version 1 again.

@@ -1,17 +1,26 @@
 // Tab sets, at the end of a pane's tabs: save the tabs open here under a
-// name and open them all again later, pinned ones pinned (tab-sets.ts).
+// name and open them all again later, pinned ones pinned (tab-sets.ts). A set
+// can keep the window's layout too (its panes, the sidebar and the right
+// panel) and belong to a project, whose card and overview then offer
+// "Resume workspace" (workspaces.ts).
 
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { Popup } from "../features/pages/page/Popup";
 import { usePrefs } from "../features/workspace/prefs";
+import { titleOf } from "../features/workspace/names";
 import { useWorkspace } from "../features/workspace/store";
-import { setOf, withSet, withoutSet, type TabSet } from "../features/workspace/tab-sets";
+import { setOf, setOfWindow, withSet, withoutSet, type TabSet } from "../features/workspace/tab-sets";
 import type { Pane } from "../features/workspace/tabs";
+import { projects } from "../features/workspace/tree";
+import { currentArrangement, resumeSet } from "../features/workspace/workspaces";
 import { IconButton } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 
-const WIDTH = 280;
+const WIDTH = 300;
+
+/** Names to start from; a name is all it is, the arrangement is whatever is open. */
+const ARRANGEMENTS = ["Reading", "Writing", "Presentation prep"] as const;
 
 export function TabSets({ pane }: { pane: Pane }) {
   const [open, setOpen] = useState(false);
@@ -38,43 +47,86 @@ export function TabSets({ pane }: { pane: Pane }) {
 
 function SetsMenu({ pane, onDone }: { pane: Pane; onDone(): void }) {
   const sets = usePrefs((s) => s.tabSets);
+  const notes = useWorkspace((s) => s.notes);
+  const layout = useWorkspace((s) => s.layout);
   const [name, setName] = useState("");
-  const draft = setOf(pane, name || "x");
+  const [withLayout, setWithLayout] = useState(false);
+  const [project, setProject] = useState("");
+  const places = projects(notes);
+  const titleOfFolder = (folder: string | undefined) => {
+    const found = folder ? places.find((p) => p.project === folder) : undefined;
+    return found ? titleOf(found) : folder;
+  };
+  const make = (title: string): TabSet | null => (withLayout ? setOfWindow(layout, title, notes, currentArrangement(), project || undefined) : setOf(pane, title, notes, project || undefined));
+  const draft = make(name || "x");
   const save = () => {
-    const set = setOf(pane, name);
+    const set = make(name);
     if (!set) return;
     usePrefs.getState().set({ tabSets: withSet(usePrefs.getState().tabSets, set) });
     setName("");
   };
   const openSet = (set: TabSet) => {
-    useWorkspace.getState().openTabs(
-      set.tabs.map((t) => t.place),
-      set.tabs.filter((t) => t.pinned).map((t) => t.place),
-    );
+    resumeSet(set);
     onDone();
   };
   return (
     <div className="text-13">
       <p className="px-2 pb-1.5 pt-1 text-12 font-semibold text-muted">Tab sets</p>
       <form
-        className="flex items-center gap-1.5 px-1 pb-2"
+        className="space-y-1.5 px-1 pb-2"
         onSubmit={(e) => {
           e.preventDefault();
           save();
         }}
       >
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={draft ? `Name these ${draft.tabs.length} tabs…` : "Open some pages first"}
-          aria-label="Name for the tabs open here"
-          disabled={!draft}
-          className="h-7 min-w-0 flex-1 rounded-[4px] bg-well px-2 outline-none placeholder:text-faint focus:ring-1 focus:ring-accent/60"
-        />
-        <button type="submit" className="ui-btn is-primary is-sm" disabled={!draft || !name.trim()}>
-          Save
-        </button>
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={draft ? `Name these ${draft.tabs.length} tabs…` : "Open some pages first"}
+            aria-label="Name for the tabs open here"
+            disabled={!draft}
+            className="h-7 min-w-0 flex-1 rounded-[4px] bg-well px-2 outline-none placeholder:text-faint focus:ring-1 focus:ring-accent/60"
+          />
+          <button type="submit" className="ui-btn is-primary is-sm" disabled={!draft || !name.trim()}>
+            Save
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1" aria-label="Names to start from">
+          {ARRANGEMENTS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              aria-label={`Start a set called ${preset}`}
+              className="rounded-full border border-line px-2 py-0.5 text-12 text-muted hover:bg-hover hover:text-ink"
+              onClick={() => {
+                setName(preset);
+                setWithLayout(true);
+              }}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 px-0.5 text-12">
+          <input type="checkbox" checked={withLayout} onChange={(e) => setWithLayout(e.target.checked)} className="size-3.5 accent-[var(--color-accent)]" />
+          Save layout too
+          <span className="text-muted">(all panes, the sidebar and the right panel)</span>
+        </label>
+        {places.length > 0 && (
+          <label className="flex items-center gap-2 px-0.5 text-12">
+            Link to project
+            <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Link to project" className="ui-field h-7 min-w-0 flex-1 text-12">
+              <option value="">None</option>
+              {places.map((p) => (
+                <option key={p.path} value={p.project!}>
+                  {titleOf(p)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </form>
       {sets.length === 0 ? (
         <p className="px-2 pb-2 text-12 leading-snug text-muted">Save the tabs open here to bring them all back together later, pinned ones pinned.</p>
@@ -82,10 +134,13 @@ function SetsMenu({ pane, onDone }: { pane: Pane; onDone(): void }) {
         <ul className="border-t border-line pt-1">
           {sets.map((set) => (
             <li key={set.name} className="group flex items-center rounded-[5px] hover:bg-hover">
-              <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left" onClick={() => openSet(set)} title={`Open ${set.tabs.length} tabs`}>
+              <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left" onClick={() => openSet(set)} title={`Open ${set.tabs.length} tabs${set.layout ? " in the layout they were saved with" : ""}`}>
                 <Icon name="layers" className="size-[15px] text-muted" />
                 <span className="min-w-0 flex-1 truncate">{set.name}</span>
-                <span className="text-12 text-muted">{set.tabs.length} tabs</span>
+                {set.project && <span className="max-w-[7rem] truncate rounded bg-well px-1.5 text-12 text-muted">{titleOfFolder(set.project)}</span>}
+                <span className="text-12 text-muted">
+                  {set.tabs.length} tabs{set.layout ? " · layout" : ""}
+                </span>
               </button>
               <IconButton
                 icon="close"

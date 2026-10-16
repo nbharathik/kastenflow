@@ -31,6 +31,14 @@ export const layoutCommands: Command[] = [
     run: ({ ui }) => ui.openDialog("layouts-manage"),
   },
   {
+    id: "layout.import",
+    label: "Import layouts…",
+    icon: "copy-plus",
+    // Layouts come from another deck of the host's: a host that keeps none (the standalone page) has nothing to bring them from.
+    enabled: (_, __, host) => host.decks !== undefined,
+    run: ({ ui }) => ui.openDialog("import-layouts"),
+  },
+  {
     id: "slide.new-mine",
     label: "New slides use my default layout",
     icon: "star",

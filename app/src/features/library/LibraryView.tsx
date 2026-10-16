@@ -1,6 +1,8 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { Icon } from "../../ui/Icon";
+import { savedSearch } from "../collections/from-search";
+import { SaveCollectionDialog } from "../collections/SaveDialog";
 import { useAgentMarked } from "../review/agent-marked";
 import { titleOf } from "../workspace/names";
 import { captureCard } from "../workspace/overlays/commands";
@@ -42,6 +44,8 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
+  // "Save as collection" asks for a name over the Library.
+  const [saving, setSaving] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const content = useRef<HTMLElement>(null);
   const { filters, sort, mode, group } = prefs;
@@ -218,10 +222,21 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
       </div>
 
       <section ref={content} aria-label="Results" className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-12 pt-1 sm:px-10">
-        {filtering && matched.length > 0 && (
-          <p className="mb-3 text-13 text-muted" aria-live="polite">
-            {matched.length.toLocaleString()} of {cards(rows.length)}
-          </p>
+        {filtering && (
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            {matched.length > 0 && (
+              <p className="text-13 text-muted" aria-live="polite">
+                {matched.length.toLocaleString()} of {cards(rows.length)}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setSaving(true)}
+              className="h-7 rounded-md border border-line bg-raised px-2.5 text-13 font-medium outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              Save as collection
+            </button>
+          </div>
         )}
         {rows.length === 0 ? (
           <EmptyVault />
@@ -280,6 +295,7 @@ export function LibraryView({ onOpen }: LibraryViewProps) {
       </section>
 
       {chosen.length > 0 && <BulkBar rows={chosen} shown={shown.length} tags={tags} tagColors={tagColors} onSelectAll={selectAll} onClear={clear} onDone={done} />}
+      {saving && <SaveCollectionDialog saved={savedSearch(typed, filters, weekStart)} onClose={() => setSaving(false)} />}
     </div>
   );
 }

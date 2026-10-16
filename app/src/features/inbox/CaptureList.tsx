@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type KeyboardEvent } from "react";
 
+import { dayFrom, shortDay } from "../../lib/dates";
 import { useShell } from "../../lib/store";
 import type { NoteMeta } from "../../lib/vault/types";
 import { openMenuHandlers } from "../../shell/open-menu";
@@ -9,6 +10,7 @@ import { iconOf, titleOf } from "../workspace/names";
 import { howFrom, useWorkspace } from "../workspace/store";
 import { BoardAction, TagAction, TOOL } from "./CardActions";
 import { PickedBar } from "./PickedBar";
+import { deferredUntil } from "./queue";
 import { Icon } from "../../ui/Icon";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
 
@@ -124,6 +126,9 @@ function CaptureRow({ card, open, setOpen, picked, picking, onPick, carries }: R
   const active = open?.path === card.path;
   const title = titleOf(card);
   const long = card.words >= LONG_WORDS;
+  // Put off to a later day: triage leaves it out until then.
+  const until = deferredUntil(card);
+  const putOff = until !== null && until > dayFrom(0) ? until : null;
   // The icon gives way to a box to pick the card, on hover or while picking.
   const box = picking ? "" : "hidden group-focus-within:block group-hover:block";
   return (
@@ -139,8 +144,14 @@ function CaptureRow({ card, open, setOpen, picked, picking, onPick, carries }: R
       <button type="button" data-capture={card.path} aria-keyshortcuts="X T B M P D" className="min-w-0 flex-1 rounded-sm text-left" onClick={(e) => openPath(card.path, howFrom(e))} {...openMenuHandlers(card.path)}>
         <span className="block text-14 font-medium leading-[22px] [overflow-wrap:anywhere]">{title}</span>
         {card.excerpt && <span className="mt-0.5 line-clamp-2 block text-13 leading-[20px] text-muted">{card.excerpt}</span>}
-        {(long || card.tags.length > 0) && (
+        {(long || card.tags.length > 0 || putOff) && (
           <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-12 text-muted">
+            {putOff && (
+              <span className="inline-flex items-center gap-1" title="Put off: triage brings it back that day">
+                <Icon name="clock" className="size-3" />
+                Back on {shortDay(putOff)}
+              </span>
+            )}
             {long && (
               <span className="inline-flex items-center gap-1">
                 <Icon name="page" className="size-3" />

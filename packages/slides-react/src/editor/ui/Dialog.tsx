@@ -1,6 +1,8 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "react";
 
+import { editorOf, focusedNow, giveFocusBack, lastEditorRoot } from "../focus/home.ts";
 import { isSelectAllKey, isTextField, selectRegionText } from "../select-all/dom.ts";
+import { holdCover } from "./covers.ts";
 import "./dialog.css";
 
 interface DialogProps {
@@ -24,13 +26,21 @@ export function Dialog({ title, onClose, children, footer, width = 420, side = f
   const titleId = useId();
 
   useEffect(() => {
-    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // What had the focus, and the editor the dialog is in: the opener may be gone when the dialog closes (a menu row, a button that
+    // went with the menu), and then the keys must go back to the editor and not to the page.
+    const before = focusedNow();
+    const editor = editorOf(box.current) ?? lastEditorRoot();
     const first = box.current?.querySelector<HTMLElement>("[data-autofocus], input, textarea, select") ?? box.current?.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus();
     // Nothing that could take the focus yet (a button still disabled, a dialog of words only): the dialog holds it, so that Escape
     // and Ctrl+A reach it, and a press on its text leaves the focus here instead of dropping it on the page.
     if (!box.current?.contains(document.activeElement)) box.current?.focus();
-    return () => before?.focus?.();
+    // A web view the host draws natively would cover the dialog: it steps aside while this is open.
+    const release = holdCover();
+    return () => {
+      release();
+      giveFocusBack(before, editor);
+    };
   }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

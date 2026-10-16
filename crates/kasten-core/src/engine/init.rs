@@ -33,7 +33,7 @@ macro_rules! defaults {
     };
 }
 
-pub const TEMPLATES: [(&str, &str); 58] = defaults!("templates":
+pub const TEMPLATES: [(&str, &str); 59] = defaults!("templates":
     "area.md", "article-notes.md", "blog-post.md", "book-notes.md", "brainstorm.md", "budget.md",
     "bug-report.md", "card.md", "city-guide.md", "content-idea.md", "course-notes.md",
     "daily-planner.md", "decision.md", "evening-reflection.md", "event.md", "experiment.md",
@@ -42,7 +42,8 @@ pub const TEMPLATES: [(&str, &str); 58] = defaults!("templates":
     "map-of-content.md", "meal-plan.md", "meeting-series.md", "meeting.md", "monthly-review.md",
     "morning-pages.md", "newsletter.md", "one-on-one.md", "packing-list.md", "page.md", "paper.md",
     "permanent-note.md", "person.md", "podcast-notes.md", "product-spec.md", "project-brief.md",
-    "project-kickoff.md", "project.md", "quarterly-goals.md", "reading-list.md", "reading.md",
+    "project-kickoff.md", "project-update.md", "project.md", "quarterly-goals.md",
+    "reading-list.md", "reading.md",
     "recipe.md", "retrospective.md", "road-trip.md", "study-plan.md", "thesis-chapter.md",
     "travel.md", "weekly-plan.md", "weekly-review.md", "weekly-status.md", "workout.md",
     "year-in-review.md",
@@ -52,6 +53,16 @@ pub const TAGS: [(&str, &str); 6] = defaults!("tags":
     "capture.yaml", "experiment.yaml", "meeting.yaml", "paper.yaml", "task.yaml", "travel.yaml");
 
 const WELCOME: &str = include_str!("../../defaults/welcome.md");
+
+/// The starter template called `name` (without `.md`) as it ships with the
+/// app, for a vault that lacks it: made before it existed, or one the person
+/// deleted. Only a plain template name is looked up.
+pub fn shipped_template(name: &str) -> Option<&'static str> {
+    TEMPLATES
+        .iter()
+        .find(|(file, _)| file.strip_suffix(".md") == Some(name))
+        .map(|(_, text)| *text)
+}
 
 /// Where the tour of the app goes when someone asks for it.
 pub const TOUR_PATH: &str = "library/welcome-to-kasten.md";

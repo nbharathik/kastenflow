@@ -11,6 +11,8 @@ description = "KastenFlow Slides' core: the deck format, its operations, lint an
 schemars = "1.2"
 serde.workspace = true
 serde_json.workspace = true
+# The BibTeX reader a bibliography is read with; the vault's editing of a `.bib` file shares it.
+slides-bib.workspace = true
 # Code colours: the same in the editor, the command line and exports. The pure-Rust regex
 # engine is used so it builds for WebAssembly.
 syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "default-themes", "regex-fancy"] }

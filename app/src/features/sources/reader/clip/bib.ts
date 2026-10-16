@@ -192,6 +192,11 @@ function workOf(raw: Raw): Work {
   };
 }
 
+/** A work from an entry the vault's bibliography call gave: its fields by lower-case name, as written. */
+export function workOfEntry(entry: { key: string; type: string; fields: Record<string, string> }): Work {
+  return workOf({ key: entry.key, type: entry.type.toLowerCase(), fields: new Map(Object.entries(entry.fields)) });
+}
+
 /** The works of a bibliography, in the order they are written. */
 export function readWorks(text: string): Work[] {
   const source = text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) : text;

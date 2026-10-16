@@ -163,7 +163,7 @@ pub fn get_deck(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolR
         ));
         slides.push(json!({ "n": i + 1, "id": slide.id, "layout": slide.layout, "title": title, "elements": slide.elements.len(), "steps": slide.steps, "hidden": slide.hidden, "errors": e, "warnings": w, "info": n }));
     }
-    let data = json!({ "deck": name, "title": deck.title, "theme": deck.theme.name, "hash": text.hash, "slides": slides });
+    let data = json!({ "deck": name, "title": deck.title, "theme": deck.theme.name, "size": { "w": deck.size.w, "h": deck.size.h }, "hash": text.hash, "slides": slides });
     Ok(ToolOutput {
         text: lines.join("\n"),
         data: Some(data),

@@ -7,6 +7,7 @@ import { AllSelection, Selection, TextSelection } from "prosemirror-state";
 
 import { type EditorHooks, type MountedEditor, mountEditor } from "./editor.ts";
 import type { FormatState } from "./format-state.ts";
+import type { CellKeys } from "./keys.ts";
 import { type TextPrefs, textPrefs } from "./prefs.ts";
 import { wholeText, wordAt } from "./selection-info.ts";
 
@@ -22,6 +23,8 @@ export interface SessionCallbacks {
   onDone?: ((text: Text, reason: "escape" | "blur") => void) | undefined;
   onFormat?: ((state: FormatState) => void) | undefined;
   onLinkRequest?: ((current: string | null) => void) | undefined;
+  /** For a cell of a table (see `KeyHooks`). Whether the editor has them is decided when it is made; which ones are called is the newest. */
+  cellKeys?: CellKeys | undefined;
 }
 
 export interface SessionInput {
@@ -106,6 +109,7 @@ export function startSession(input: SessionInput): Session {
     format: (state) => input.callbacks().onFormat?.(state),
     linkRequest: (current) => input.callbacks().onLinkRequest?.(current),
     escape: () => finish("escape"),
+    ...(input.callbacks().cellKeys ? { cellKeys: { tab: (back: boolean) => input.callbacks().cellKeys?.tab(back), enter: () => input.callbacks().cellKeys?.enter() } } : {}),
     blur(event) {
       if (keepsFocus(event.relatedTarget) || pressOnToolbar) return;
       finish("blur");

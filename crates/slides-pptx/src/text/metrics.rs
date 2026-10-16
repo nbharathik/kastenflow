@@ -21,3 +21,7 @@ pub const DEFAULT_LINE_SPACING: f64 = 1.0;
 /// Superscript and subscript are set at this share of the type size, and moved by these shares of it (PowerPoint's own).
 pub const SCRIPT_RAISE: f64 = 0.30;
 pub const SCRIPT_LOWER: f64 = 0.25;
+
+/// How much of the text colour is in the ground behind inline code: the editor lays the text colour
+/// over the page at this fraction, and a file gets the colour that makes (the import knows it again).
+pub const CODE_GROUND: f64 = 0.08;

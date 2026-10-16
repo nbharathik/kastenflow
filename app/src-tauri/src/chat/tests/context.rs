@@ -54,6 +54,10 @@ fn chips_reach_the_model_before_the_text() {
             chip("search", "duplicate score", &["duplicate score"]),
         ],
         date: None,
+        settings: None,
+        excerpts: vec![],
+        writes: crate::chat::WriteMode::Direct,
+        attachments: vec![],
     };
     let (_, work) = threads::send(
         &chats,
@@ -147,7 +151,8 @@ fn chips_that_cannot_be_read_say_so() {
     let chips = [
         chip("note", "Gone", &["library/gone.md"]),
         chip("tag", "#paper", &["paper", "No such view"]),
-        chip("pdf", "A paper", &["sources/a.pdf"]),
+        // A kind this version does not know (a PDF is read now: tests/pdf.rs).
+        chip("email", "A mail", &["inbox/a"]),
     ];
     let out = context::expand(&v.kasten, &session, &chips);
     assert!(
@@ -156,7 +161,7 @@ fn chips_that_cannot_be_read_say_so() {
     );
     assert!(out.contains("has no view called"), "{out}");
     assert!(
-        out.contains("<pdf>\n(KastenFlow cannot read this kind of context.)\n</pdf>"),
+        out.contains("<email>\n(KastenFlow cannot read this kind of context.)\n</email>"),
         "{out}"
     );
     assert_eq!(context::expand(&v.kasten, &session, &[]), "");

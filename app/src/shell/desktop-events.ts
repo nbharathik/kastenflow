@@ -27,6 +27,8 @@ export function useDesktopEvents(): void {
     const stops = [
       listen<Captured>("kasten://captured", (e) => captured(e.payload)),
       listen("kasten://get-latest", () => void runGetLatest()),
+      // A paper the browser extension found: the form to check it opens (it loads only now).
+      listen("kasten://paper-draft", (e) => void import("../features/references/from-extension").then((m) => m.paperFromExtension(e.payload))),
     ];
     return () => stops.forEach((stop) => void stop.then((fn) => fn(), () => {}));
   }, []);

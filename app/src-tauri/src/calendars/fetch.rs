@@ -106,11 +106,39 @@ fn words(err: reqwest::Error) -> String {
         }
         source = cause.source();
     }
-    text
+    scrub(&text)
+}
+
+/// A message with every word that is an address left out: the feed's is a
+/// secret, and a proxy's may carry a name and password.
+fn scrub(text: &str) -> String {
+    text.split(' ')
+        .map(|word| if word.contains("://") { "…" } else { word })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Why a request did not get an answer, in words that name the host only.
+fn unreached(host: &str, err: reqwest::Error) -> String {
+    if err.is_timeout() {
+        return format!("{host} did not answer in time. It will be tried again in a while");
+    }
+    let text = words(err);
+    let lower = text.to_ascii_lowercase();
+    // A proxy that fails reads like any other connection failure; say where to look.
+    let hint = if lower.contains("proxy") || lower.contains("tunnel") {
+        ". If this computer uses a proxy, check its settings"
+    } else {
+        ""
+    };
+    format!("Could not reach {host}: {text}{hint}")
 }
 
 fn refused(host: &str, status: StatusCode) -> String {
     match status.as_u16() {
+        407 => format!(
+            "A proxy between this computer and {host} asked for a sign-in. Check this computer's proxy settings"
+        ),
         404 | 410 => format!(
             "{host} has no calendar at that address any more. If it was reset, copy the new address"
         ),
@@ -138,23 +166,31 @@ fn header(response: &reqwest::Response, name: reqwest::header::HeaderName) -> Op
 }
 
 /// Asks for the feed at `url` (already read by `address`), by the client that
-/// suits it, and only for a change when `have` says what we hold.
+/// suits it, and only for a change when `have` says what we hold. The future
+/// can be dropped at any time: the connection is closed and nothing is kept.
 pub async fn get(client: &reqwest::Client, url: &str, have: &Validators) -> Result<Answer, String> {
+    get_within(client, url, have, WAIT).await
+}
+
+/// `get`, giving up when the whole answer has not come in `wait`.
+pub async fn get_within(
+    client: &reqwest::Client,
+    url: &str,
+    have: &Validators,
+    wait: Duration,
+) -> Result<Answer, String> {
     let host = host_of(url);
     let mut request = client
         .get(url)
         .header(ACCEPT, "text/calendar, text/plain;q=0.9, */*;q=0.5")
-        .timeout(WAIT);
+        .timeout(wait);
     if let Some(etag) = &have.etag {
         request = request.header(IF_NONE_MATCH, etag);
     }
     if let Some(modified) = &have.last_modified {
         request = request.header(IF_MODIFIED_SINCE, modified);
     }
-    let mut response = request
-        .send()
-        .await
-        .map_err(|e| format!("Could not reach {host}: {}", words(e)))?;
+    let mut response = request.send().await.map_err(|e| unreached(&host, e))?;
     let status = response.status();
     if status == StatusCode::NOT_MODIFIED {
         return Ok(Answer::Unchanged);
@@ -173,11 +209,13 @@ pub async fn get(client: &reqwest::Client, url: &str, have: &Validators) -> Resu
         last_modified: header(&response, LAST_MODIFIED),
     };
     let mut bytes = Vec::new();
-    while let Some(piece) = response
-        .chunk()
-        .await
-        .map_err(|e| format!("The calendar from {host} stopped coming: {}", words(e)))?
-    {
+    while let Some(piece) = response.chunk().await.map_err(|e| {
+        if e.is_timeout() {
+            format!("The calendar from {host} took too long to arrive. It will be tried again in a while")
+        } else {
+            format!("The calendar from {host} stopped coming: {}", words(e))
+        }
+    })? {
         if bytes.len() + piece.len() > MAX_FEED {
             return Err(too_big(&host));
         }
@@ -212,3 +250,7 @@ pub async fn get(client: &reqwest::Client, url: &str, have: &Validators) -> Resu
 #[cfg(test)]
 #[path = "fetch_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "fetch_failure_tests.rs"]
+mod failure_tests;

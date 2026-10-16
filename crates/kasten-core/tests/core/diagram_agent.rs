@@ -65,7 +65,7 @@ fn done(outcome: Outcome) -> Value {
 fn proposed(k: &Kasten, s: &Session, op: &AgentOp) -> (String, String) {
     match k.agent_run(s, op, NOW).unwrap() {
         Outcome::PendingReview { proposal, reason } => (proposal, reason),
-        Outcome::Done { result } => panic!("expected a proposal, got {result}"),
+        other => panic!("expected a proposal, got {other:?}"),
     }
 }
 

@@ -8,6 +8,7 @@ import { chooseZoom } from "../../../../lib/zoom";
 import { resetChat, scriptedChat } from "../../../chat/test-kit";
 import { COMMANDS } from "../../overlays/commands";
 import { usePrefs } from "../../prefs";
+import { commandHits } from "./command-search";
 import { GROUPS, HEADINGS } from "./index";
 import { openSettingsAt, useSettingsJump } from "./jump";
 import { Settings } from "./Settings";
@@ -64,6 +65,36 @@ describe("the two panes", () => {
     first.unmount();
     render(<Settings />);
     expect(title()).toBe("Pages");
+  });
+
+  it("remembers where each group was scrolled to, and goes back there, also when the window is opened again", () => {
+    const first = render(<Settings />);
+    const main = () => document.querySelector<HTMLElement>(".kasten-set-main")!;
+    main().scrollTop = 120;
+    fireEvent.scroll(main());
+    fireEvent.click(item("Pages"));
+    expect(main().scrollTop).toBe(0);
+    main().scrollTop = 40;
+    fireEvent.scroll(main());
+    fireEvent.click(item("Appearance"));
+    expect(main().scrollTop).toBe(120);
+    fireEvent.click(item("Pages"));
+    expect(main().scrollTop).toBe(40);
+    expect(JSON.parse(localStorage.getItem("kasten.settings")!).scroll).toEqual({ appearance: 120, pages: 40 });
+    first.unmount();
+    render(<Settings />);
+    expect(title()).toBe("Pages");
+    expect(main().scrollTop).toBe(40);
+    // The group and the folds are still kept in the same record.
+    expect(JSON.parse(localStorage.getItem("kasten.settings")!)).toMatchObject({ group: "pages", folded: [] });
+  });
+
+  it("keeps a position that is not a number or not a group out of what it reads", () => {
+    localStorage.setItem("kasten.settings", JSON.stringify({ group: "pages", scroll: { pages: "far", nowhere: 10, appearance: -5, boards: 30 } }));
+    render(<Settings />);
+    expect(document.querySelector<HTMLElement>(".kasten-set-main")!.scrollTop).toBe(0);
+    fireEvent.click(item("Whiteboards"));
+    expect(document.querySelector<HTMLElement>(".kasten-set-main")!.scrollTop).toBe(30);
   });
 
   it("gives each group a header with its icon, a one-line blurb and, for some, a ? with more", () => {
@@ -148,8 +179,11 @@ describe("searching", () => {
     render(<Settings />);
     type("zoom");
     expect(title()).toBe("Search results");
-    expect(screen.getByText("1 setting in 1 group")).toBeTruthy();
-    expect(listed()).toEqual(["General", "Appearance1"]);
+    // The zoom commands are found too, in the Keyboard shortcuts group.
+    const zoomKeys = commandHits(["zoom"]).length;
+    expect(zoomKeys).toBeGreaterThan(0);
+    expect(screen.getByText(`1 setting and ${zoomKeys} ${zoomKeys === 1 ? "shortcut" : "shortcuts"} in 2 groups`)).toBeTruthy();
+    expect(listed()).toEqual(["General", "Appearance1", "System", `Keyboard shortcuts${zoomKeys}`]);
     // The row is drawn as it is on its page, and no other row is.
     expect(screen.getByRole("radiogroup", { name: "Interface size" })).toBeTruthy();
     expect(screen.queryByRole("radiogroup", { name: "Theme" })).toBeNull();
@@ -171,7 +205,7 @@ describe("searching", () => {
     render(<Settings />);
     type("calendar");
     const groups = listed();
-    expect(groups).toContain("Calendar7");
+    expect(groups).toContain("Calendar9");
     expect(groups.some((g) => g?.startsWith("Pages"))).toBe(true);
     expect(within(nav()).queryByRole("button", { name: /^Sidebar/ })).toBeNull();
     // The Calendar group is drawn with its own settings.
@@ -185,12 +219,37 @@ describe("searching", () => {
   it("shows a setting too big to draw as a line that opens its group at it", () => {
     render(<Settings />);
     type("key");
-    expect(listed()).toEqual(expect.arrayContaining(["Keyboard shortcuts2", expect.stringMatching(/^AI providers\d$/)]));
+    expect(listed()).toEqual(expect.arrayContaining([expect.stringMatching(/^Keyboard shortcuts\d$/), expect.stringMatching(/^AI providers\d$/)]));
     fireEvent.click(screen.getByRole("button", { name: "Open Change a command's keys in Keyboard shortcuts" }));
     expect(search().value).toBe("");
     expect(title()).toBe("Keyboard shortcuts");
     expect(document.getElementById("setting-shortcuts-editor")!.classList.contains("is-flash")).toBe(true);
     expect(screen.getByRole("searchbox", { name: "Find a command" })).toBeTruthy();
+  });
+
+  it("finds a shortcut command by its name, and a click goes to its row in the key editor", () => {
+    render(<Settings />);
+    type("unfold all");
+    expect(title()).toBe("Search results");
+    expect(header().querySelector(".kasten-set-blurb")!.textContent).toBe("1 shortcut in 1 group");
+    expect(listed()).toEqual(["System", "Keyboard shortcuts1"]);
+    // The found command is a line with its key; the key editor itself is not drawn in the results.
+    const line = screen.getByRole("button", { name: "Open the key for Unfold all sections in Keyboard shortcuts" });
+    expect(screen.queryByRole("searchbox", { name: "Find a command" })).toBeNull();
+    fireEvent.click(line);
+    expect(search().value).toBe("");
+    expect(title()).toBe("Keyboard shortcuts");
+    const row = document.getElementById("setting-shortcuts-key-unfold-sections")!;
+    expect(row.classList.contains("is-flash")).toBe(true);
+    expect(row.textContent).toContain("Unfold all sections");
+    expect(within(row).getByRole("button", { name: "Change the key for Unfold all sections" })).toBeTruthy();
+  });
+
+  it("says nothing of shortcuts when no command's name has the words", () => {
+    render(<Settings />);
+    type("interface size");
+    expect(screen.getByText("1 setting in 1 group")).toBeTruthy();
+    expect(listed()).toEqual(["General", "Appearance1"]);
   });
 
   it("says when nothing matches, and Clear brings the group back", () => {
@@ -298,7 +357,7 @@ describe("a narrow window", () => {
     expect(title()).toBe("Calendar");
     // The search is still there, and the drop-down lists what it found.
     type("zoom");
-    expect([...(screen.getByRole("combobox", { name: "Settings group" }) as HTMLSelectElement).options].map((o) => o.textContent)).toEqual(["Appearance (1)"]);
+    expect([...(screen.getByRole("combobox", { name: "Settings group" }) as HTMLSelectElement).options].map((o) => o.textContent)).toEqual(["Appearance (1)", `Keyboard shortcuts (${commandHits(["zoom"]).length})`]);
   });
 });
 

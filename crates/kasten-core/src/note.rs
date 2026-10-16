@@ -58,11 +58,17 @@ pub fn content_hash(text: &str) -> String {
     format!("{hash:016x}")
 }
 
+/// The kind of an AI action: a Markdown file in `templates/ai/` that the app
+/// runs on a page. It is not a template for new pages, and it is left out of
+/// the lists of notes (`Kasten::list`), search and to-dos.
+pub const AI_ACTION: &str = "ai-action";
+
 /// The kind a note's folder implies when its frontmatter names none.
 fn kind_from_path(path: &str) -> &'static str {
     let parts: Vec<&str> = path.split('/').collect();
     match parts.as_slice() {
         ["journal", ..] => "journal",
+        ["templates", "ai", _, ..] => AI_ACTION,
         ["templates", ..] => "template",
         ["inbox", ..] => "card",
         ["chats", ..] => "chat",
@@ -91,10 +97,14 @@ pub fn meta_with_extract(
     let front = Front::read(parts.prefix);
     let mut body = crate::extract::extract_titled(parts.body, Front::text(&front.title).as_deref());
     let from_path = kind_from_path(path);
-    let kind = if from_path == "template" {
+    // A template or an AI action is so by its folder; no other note can
+    // claim the kind of an action by what its frontmatter says.
+    let kind = if from_path == "template" || from_path == AI_ACTION {
         from_path.to_owned()
     } else {
-        Front::text(&front.kind).unwrap_or_else(|| from_path.to_owned())
+        Front::text(&front.kind)
+            .filter(|kind| kind != AI_ACTION)
+            .unwrap_or_else(|| from_path.to_owned())
     };
     let project = match path.split('/').collect::<Vec<_>>().as_slice() {
         ["projects", name, _, ..] => Some((*name).to_owned()),
@@ -187,6 +197,21 @@ mod tests {
             "journal"
         );
         assert_eq!(meta_for("chats/2026-09-24-plans.md", "", 0).kind, "chat");
+    }
+
+    #[test]
+    fn an_ai_action_is_so_by_its_folder_alone() {
+        assert_eq!(meta_for("templates/ai/outline.md", "", 0).kind, AI_ACTION);
+        assert_eq!(
+            meta_for("templates/ai/outline.md", "---\ntype: page\n---\n", 0).kind,
+            AI_ACTION
+        );
+        // Not a template named `ai`, and not a page that says so.
+        assert_eq!(meta_for("templates/ai.md", "", 0).kind, "template");
+        assert_eq!(
+            meta_for("library/x.md", "---\ntype: ai-action\n---\n", 0).kind,
+            "page"
+        );
     }
 
     #[test]

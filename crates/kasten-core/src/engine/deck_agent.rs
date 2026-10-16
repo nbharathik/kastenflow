@@ -55,7 +55,7 @@ fn upper_first(text: &str) -> String {
 }
 
 /// A deck's title, or its file's name when it has none.
-fn title_or_name(text: &str, path: &str) -> String {
+pub(super) fn title_or_name(text: &str, path: &str) -> String {
     deck::head_of(text)
         .ok()
         .and_then(|head| head.title)

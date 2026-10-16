@@ -2,20 +2,45 @@
 //! that answers from a script, and a list the turn's events go to. Nothing
 //! here reaches a network beyond 127.0.0.1 or a real keychain.
 
+mod action_prompts;
+mod actions;
+mod attach;
+mod budget;
+mod changes;
 mod chatgpt;
 mod chatgpt_flow;
 mod chatgpt_http;
+mod chatgpt_keys;
 mod check;
+mod check_stages;
+mod compact;
+mod connection;
 mod context;
 mod decks;
+mod diagrams;
 mod drafts;
+mod events;
+mod failures;
+mod flaky;
+mod forget;
 mod http;
+mod learned;
+mod models_list;
+mod pdf;
+mod pictures;
 mod providers;
+mod renewal;
 mod requests;
 mod responses;
 mod responses_request;
+mod retries;
+mod rounds;
 mod script;
+mod settings;
+mod steering;
 mod stops;
+mod store;
+mod stream_errors;
 mod streams;
 mod summary;
 mod turns;
@@ -34,6 +59,26 @@ use serde_json::Value;
 
 use super::model::{Call, Failure, Message, Model, Reply, Stop, ToolCall};
 use super::{ChatEvent, EventKind, Events};
+
+/// A scratch folder under the system's temp folder, removed when dropped:
+/// where a test keeps the app's data (saved chats, attachments).
+pub struct Scratch(pub PathBuf);
+
+impl Scratch {
+    pub fn new() -> Scratch {
+        let dir =
+            std::env::temp_dir().join(format!("kasten-data-{}", ulid_at(Instant::now().millis)));
+        fs::create_dir_all(&dir).unwrap();
+        Scratch(dir)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        // Only the test's own scratch folder.
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
 
 /// A copy of `fixtures/dev-vault`, removed when dropped.
 pub struct Vault {
@@ -63,6 +108,9 @@ fn copy_dir(from: &Path, to: &Path) {
 
 /// The dev vault, copied, with history on unless `history` is false.
 pub fn vault_with(history: bool) -> Vault {
+    // A test that runs the deck tools is not about drawing: no browser is started for it, whatever
+    // the machine has (one started by a test would outlive it).
+    kasten_mcp::decks::render::pretend_no_browser(true);
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/dev-vault");
     let dir = std::env::temp_dir().join(format!("kasten-chat-{}", ulid_at(Instant::now().millis)));
     copy_dir(&source, &dir);
@@ -97,6 +145,9 @@ pub enum Step {
     Fail(&'static str),
     /// Streams this text, then waits until the turn is stopped.
     Hang(&'static str),
+    /// Answers with calls whose arguments are written as given, which may be
+    /// cut off in the middle (a call that ran into the length limit).
+    Raw(&'static str, Vec<(&'static str, &'static str)>, Stop),
 }
 
 /// A model that answers from a script and keeps what it was sent.
@@ -152,6 +203,25 @@ impl Model for Arc<Fake> {
                         id: format!("call_{n}_{i}"),
                         name: name.to_owned(),
                         arguments: input.to_string(),
+                    })
+                    .collect();
+                Ok(Reply {
+                    text: words.to_owned(),
+                    calls,
+                    stop,
+                    blocks: None,
+                    items: None,
+                })
+            }
+            Step::Raw(words, calls, stop) => {
+                text(words);
+                let calls = calls
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (name, arguments))| ToolCall {
+                        id: format!("call_{n}_{i}"),
+                        name: name.to_owned(),
+                        arguments: arguments.to_owned(),
                     })
                     .collect();
                 Ok(Reply {

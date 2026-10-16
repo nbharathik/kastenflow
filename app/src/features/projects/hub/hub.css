@@ -1,0 +1,259 @@
+/* The Projects hub: a calm page of cards. An 8px grid, hairline edges, one
+   card look. Nothing moves on hover, and all colour comes from the theme's
+   tokens. The cards and rows are in cards.css, the status marks in
+   ../state/state.css and the New project dialog in new-project.css. */
+
+.kasten-hub {
+  container: kasten-hub / inline-size;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+.kasten-hub-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+}
+.kasten-hub-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The title and "New project". */
+.kasten-hub-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+.kasten-hub-bar h1 {
+  font-size: var(--text-28);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 36px;
+}
+.kasten-hub-total {
+  color: var(--color-faint);
+  font-size: var(--text-13);
+}
+
+/* The counts: four buttons that narrow the list. */
+.kasten-hub-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+.kasten-hub-stat {
+  display: flex;
+  min-width: 0;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-xl);
+  background: var(--color-panel);
+  color: var(--color-muted);
+  text-align: left;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-stat:hover:not(:disabled) {
+  background: var(--color-well);
+}
+.kasten-hub-stat:disabled {
+  cursor: default;
+}
+.kasten-hub-stat[aria-pressed="true"] {
+  background: var(--color-selected);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+.kasten-hub-stat-value {
+  color: var(--color-ink);
+  font-size: var(--text-20);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+}
+.kasten-hub-stat:disabled .kasten-hub-stat-value {
+  color: var(--color-faint);
+}
+.kasten-hub-stat[data-tone="danger"] .kasten-hub-stat-value,
+.kasten-hub-stat[data-tone="danger"] > svg {
+  color: var(--color-danger);
+}
+.kasten-hub-stat-label {
+  overflow: hidden;
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Search, the status chips, Archived, the sort and the layout. */
+.kasten-hub-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 16px;
+}
+.kasten-hub-chipset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.kasten-hub-filter {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  font-weight: 500;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-filter:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+.kasten-hub-filter[aria-pressed="true"] {
+  background: var(--color-selected);
+  color: var(--color-ink);
+}
+.kasten-hub-filter-count {
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+}
+.kasten-hub-focus {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  background: var(--color-well);
+  color: var(--color-ink);
+  font-size: var(--text-12);
+  font-weight: 500;
+}
+.kasten-hub-focus:hover {
+  background: var(--color-selected);
+}
+/* The sort is the library's drop-down: as tall as the chips beside it. */
+.kasten-hub-tools button[aria-haspopup="listbox"] {
+  height: 28px;
+  max-width: 14rem;
+}
+.kasten-hub-find {
+  display: flex;
+  min-width: 8rem;
+  flex: 0 1 220px;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 8px;
+  border-radius: var(--radius);
+  background: var(--color-canvas);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+.kasten-hub-find:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent),
+    0 0 0 3px var(--color-soft);
+}
+.kasten-hub-find input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  font-size: var(--text-13);
+  outline: none;
+}
+.kasten-hub-find input::placeholder {
+  color: var(--color-faint);
+}
+.kasten-hub-find-clear {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+}
+.kasten-hub-find-clear:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-hub-foot-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+.kasten-hub-link {
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  color: var(--color-muted);
+}
+.kasten-hub-link:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+/* Nothing to list: one sentence and one way on. */
+.kasten-hub-empty {
+  display: flex;
+  max-width: 28rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 64px auto;
+  color: var(--color-muted);
+  font-size: var(--text-14);
+  text-align: left;
+}
+.kasten-hub-empty h2 {
+  color: var(--color-ink);
+  font-size: var(--text-20);
+  font-weight: 600;
+}
+.kasten-hub-empty .ui-btn {
+  margin-top: 8px;
+}
+.kasten-hub-empty.is-small {
+  margin: 32px 0;
+  font-size: var(--text-13);
+}
+.kasten-hub-empty-mark {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: var(--radius-2xl);
+  background: var(--color-panel);
+  color: var(--color-muted);
+}
+
+/* A narrow pane: the counts go two by two. */
+@container kasten-hub (max-width: 900px) {
+  .kasten-hub-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container kasten-hub (max-width: 560px) {
+  .kasten-hub-page {
+    padding-inline: 16px;
+  }
+}

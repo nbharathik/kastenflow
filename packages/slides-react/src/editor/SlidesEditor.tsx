@@ -7,6 +7,8 @@ import { clearSelection, isBareBackground } from "./canvas/outside.ts";
 import { copyEvent, pasteEvent, useNativeClipboard } from "./clipboard/events.ts";
 import { dispatchKey } from "./commands/index.ts";
 import { Dialogs } from "./dialogs/Dialogs.tsx";
+import { focusHome, forgetEditor, noteEditor } from "./focus/home.ts";
+import { useOrphanKeys } from "./focus/orphan-keys.ts";
 import { watchFullScreen } from "./full-screen.ts";
 import { GridView } from "./grid/GridView.tsx";
 import type { SlidesHost } from "./host.ts";
@@ -17,6 +19,7 @@ import { OutlineView } from "./outline/OutlineView.tsx";
 import { Filmstrip } from "./filmstrip/Filmstrip.tsx";
 import { GalleryDrawer } from "./gallery/GalleryDrawer.tsx";
 import { PanelHost } from "./panels/PanelHost.tsx";
+import { EditorWebPreview } from "./preview/EditorWebPreview.tsx";
 import { EditorSession, type SessionOptions } from "./session/session.ts";
 import { TitleBar } from "./titlebar/TitleBar.tsx";
 import { Toolbar } from "./toolbar/Toolbar.tsx";
@@ -38,10 +41,20 @@ export interface SlidesEditorProps {
   /** `light` or `dark`; left out, the system's choice. */
   theme?: "light" | "dark";
   className?: string;
+  /** The editor takes the keys (the focus goes to the slide) as soon as it is shown: a deck that was just opened should not need a click before Delete or Ctrl+Z work. */
+  autoFocus?: boolean;
+  /** Takes the keys again each time this changes to a new value that is not false, null or undefined: the host's way to say "this deck was just brought back" (its tab shown again, its pane focused). */
+  focusKey?: unknown;
+  /**
+   * Whether this editor is the one in use, asked when a key or a clipboard event falls on the page itself (nothing has the focus). If it is, the key goes to the
+   * editor as if the slide had had the focus. Left out, such keys are not routed. A host answers true for the focused pane's active deck while none of its own
+   * dialogs or presentations is open.
+   */
+  routeOrphanKeys?: () => boolean;
 }
 
 /** The whole deck editor: menus, toolbar, filmstrip, the slide, notes and panels. */
-export function SlidesEditor({ text, host, actions, onSession, onError, theme, className = "" }: SlidesEditorProps): JSX.Element {
+export function SlidesEditor({ text, host, actions, onSession, onError, theme, className = "", autoFocus, focusKey, routeOrphanKeys }: SlidesEditorProps): JSX.Element {
   const [made, setMade] = useState<{ session: EditorSession; ui: EditorUi } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -66,7 +79,7 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
   }, [host]);
 
   useEffect(() => {
-    if (made) made.ui.actions = { ...defaultActions(made.session, host), ...actions };
+    if (made) made.ui.actions = { ...defaultActions(made.session, host, made.ui), ...actions };
   }, [made, actions, host]);
 
   // The first code block a person opens is not made to wait for the engine's first-use work: it is done once the editor has painted and the page is idle.
@@ -87,17 +100,40 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
       </div>
     );
   }
-  return <Workspace session={made.session} ui={made.ui} className={classNames} theme={theme} />;
+  return <Workspace session={made.session} ui={made.ui} className={classNames} theme={theme} autoFocus={autoFocus} focusKey={focusKey} routeOrphanKeys={routeOrphanKeys} />;
+}
+
+export interface WorkspaceProps {
+  session: EditorSession;
+  ui: EditorUi;
+  className?: string;
+  theme?: "light" | "dark" | undefined;
+  autoFocus?: boolean | undefined;
+  focusKey?: unknown;
+  routeOrphanKeys?: (() => boolean) | undefined;
 }
 
 /** The editor once its session exists. Also the way to show an editor for a session made elsewhere (tests). */
-export function Workspace({ session, ui, className = "ks-editor", theme }: { session: EditorSession; ui: EditorUi; className?: string; theme?: "light" | "dark" }): JSX.Element {
+export function Workspace({ session, ui, className = "ks-editor", theme, autoFocus, focusKey, routeOrphanKeys }: WorkspaceProps): JSX.Element {
   const view = useUiState(ui);
   const density = useChromeValue(ui, (state) => state.density);
   const context = useMemo(() => ({ session, ui }), [session, ui]);
   const root = useRef<HTMLDivElement>(null);
   // The keys of copy, cut and paste make the browser's events only where the page says they may (`beforecopy` and the like).
   useNativeClipboard(root, context);
+  // Keys that fall on the page itself go to this editor while the host says it is the one in use; a deck that was just opened has the keys.
+  useOrphanKeys(root, context, routeOrphanKeys);
+  useEffect(() => {
+    const element = root.current;
+    noteEditor(element);
+    return () => forgetEditor(element);
+  }, []);
+  useEffect(() => {
+    if (autoFocus) focusHome(root.current);
+  }, [autoFocus]);
+  useEffect(() => {
+    if (focusKey) focusHome(root.current);
+  }, [focusKey]);
 
   // Full screen: the page's own follows the mode, and leaving the editor (unmounting it) leaves full screen.
   useEffect(() => watchFullScreen(ui), [ui]);
@@ -130,7 +166,11 @@ export function Workspace({ session, ui, className = "ks-editor", theme }: { ses
         const target = event.target;
         if (target instanceof HTMLElement && isBareBackground(target) && (target.closest(".ks-titlebar") || target.matches(".ks-side-panel, .ks-sp-tabs, .ks-sp-body"))) clearSelection(session, event);
       }}
-      onFocus={(event) => ui.areas.noteFocus(event.target)}
+      onFocus={(event) => {
+        // The editor whose own place took the focus is the one in use (an editor inside this one, the layout designer, is its own).
+        if (event.target instanceof Element && event.target.closest(".ks-editor") === root.current) noteEditor(root.current);
+        ui.areas.noteFocus(event.target);
+      }}
       onBlur={(event) => ui.areas.noteBlur(event.target, event.relatedTarget)}
     >
       <header className="ks-top">
@@ -147,6 +187,7 @@ export function Workspace({ session, ui, className = "ks-editor", theme }: { ses
           {view.view === "edit" ? <NotesPane session={session} ui={ui} /> : null}
         </main>
         <PanelHost session={session} ui={ui} />
+        <EditorWebPreview session={session} />
       </div>
       <Dialogs session={session} ui={ui} />
       <ContextMenus session={session} ui={ui} />

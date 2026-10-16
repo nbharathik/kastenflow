@@ -32,6 +32,8 @@ function chipText(chip: ContextChip, names: Names): string {
       return `tag view \`#${chip.ref[0] ?? ""}\`${chip.ref[1] ? ` · ${chip.ref[1]}` : ""}`;
     case "search":
       return `search “${chip.ref[0] ?? ""}”`;
+    case "attachment":
+      return chip.ref[1] ?? chip.label;
     default:
       return chip.label;
   }
@@ -64,13 +66,18 @@ function answerMarkdown(answer: Answer, names: Names): string {
   };
   for (const part of answer.parts) {
     if (part.kind === "tool") tools.push(toolLine(part, names));
-    else if (part.text.trim()) {
+    else if (part.kind === "steer") {
+      // Something said while it worked.
+      endTools();
+      out.push(`> **You, meanwhile:** ${part.text.trim().replace(/\n/g, "\n> ")}`);
+    } else if (part.text.trim()) {
       endTools();
       out.push(part.text.trim());
     }
   }
   endTools();
   if (answer.status === "stopped") out.push("*Stopped.*");
+  if (answer.status === "paused") out.push("*Paused: it stopped short and can be continued.*");
   if (answer.status === "error") out.push(`*The answer stopped with an error: ${answer.error ?? "unknown"}*`);
   return out.join("\n\n");
 }
@@ -91,6 +98,7 @@ export function transcript(thread: Thread, names: Names, now = new Date()): stri
       blocks.push("## You");
       if (grounded && grounded !== context) blocks.push(`*${grounded}*`);
       context = grounded;
+      if (message.attachments?.length) blocks.push(`*Attached: ${message.attachments.map((a) => a.name).join(", ")}*`);
       blocks.push(message.text.trim());
     } else {
       blocks.push(`## ${message.provider}`);

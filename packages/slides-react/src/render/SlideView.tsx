@@ -2,7 +2,7 @@ import { type Deck, type Element, type Slide, citationOrder, expandComposite, re
 import { type CSSProperties, type JSX, memo, useMemo, useSyncExternalStore } from "react";
 
 import { colorOf, fontStack, layoutOf } from "../theme/index.ts";
-import type { ImageUrl, RenderCx, SlideMode } from "./context.ts";
+import type { HiddenCell, ImageUrl, RenderCx, SlideMode } from "./context.ts";
 import { ElementView } from "./ElementView.tsx";
 import { classes } from "./format.ts";
 import "../theme/fonts.css";
@@ -23,6 +23,8 @@ export interface SlideViewProps {
   imageUrl?: ImageUrl;
   /** The element whose text is not drawn, because an editor draws it over the slide. */
   hideTextOf?: string | null;
+  /** The cell of a table whose words an editor draws over the slide: only that cell's are left out. Give an object that stays the same between renders. */
+  hideCell?: HiddenCell | null;
   className?: string;
   style?: CSSProperties;
 }
@@ -71,7 +73,7 @@ const showsSlideNumber = (element: Element): boolean =>
  * positioned in slide units, and takes its colours and fonts from the deck's
  * theme.
  */
-export const SlideView = memo(function SlideView({ deck, slide, number, count, step, mode = "present", imageUrl, hideTextOf = null, className, style }: SlideViewProps): JSX.Element {
+export const SlideView = memo(function SlideView({ deck, slide, number, count, step, mode = "present", imageUrl, hideTextOf = null, hideCell = null, className, style }: SlideViewProps): JSX.Element {
   const { theme, size } = deck;
   const stepLabel = stepLabelOf(deck, slide, step);
   const layout = layoutOf(theme, slide.layout);
@@ -128,7 +130,7 @@ export const SlideView = memo(function SlideView({ deck, slide, number, count, s
         <ElementView key={`layout:${element.id}`} element={element} cx={masterCx} hideTextOf={null} />
       ))}
       {elements.map((element) => (
-        <ElementView key={element.id} element={element} cx={cx} hideTextOf={hideTextOf} />
+        <ElementView key={element.id} element={element} cx={cx} hideTextOf={hideTextOf} hideCell={hideCell} />
       ))}
     </div>
   );

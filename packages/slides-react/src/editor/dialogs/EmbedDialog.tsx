@@ -74,7 +74,7 @@ export function EmbedDialog({ session, onClose }: DialogProps): JSX.Element {
           </label>
           <input id={`${uid}-title`} className="ks-input" autoComplete="off" placeholder="What the page is called" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={enter} />
         </div>
-        <p className="ks-dg-note">It shows live when you present. Elsewhere it is a picture and a link, so give it a poster from the format options.</p>
+        <p className="ks-dg-note">It shows live when you present. Elsewhere it is a picture and a link, so give it a poster from the format options: a picture you choose or paste, since the app does not take pictures of web pages.</p>
       </div>
     </Dialog>
   );

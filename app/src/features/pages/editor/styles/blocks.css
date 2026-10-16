@@ -160,10 +160,6 @@
   &:hover {
     border-color: var(--notion-line);
     box-shadow: 0 1px 4px rgb(15 15 15 / 0.06);
-
-    & .kasten-embed-open {
-      opacity: 1;
-    }
   }
 
   &.ProseMirror-selectednode {
@@ -174,7 +170,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 4px 12px;
     border-bottom: 1px solid var(--notion-line-soft);
     color: var(--notion-text-2);
     font-size: var(--text-14);
@@ -188,13 +184,6 @@
     color: var(--notion-text);
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  & .kasten-embed-open {
-    font-size: var(--text-12);
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-standard);
   }
 
   & .kasten-embed-body {

@@ -6,26 +6,19 @@ import { create } from "zustand";
 
 import { reportStartup } from "../../lib/api";
 import { isDay, isoDay } from "../../lib/dates";
-import { localStamp } from "../templates/template-vars";
 import { useShell } from "../../lib/store";
 import type { NoteMeta, VaultClient } from "../../lib/vault/types";
-import { boardTitle, useBoards } from "../boards/store";
-import { deckTitle, useDecks } from "../slides/store";
-import { titleOfPath } from "../diagrams/names";
-import { useDiagrams } from "../diagrams/store";
-import { dropDraft, isDraft, madeOf, newDraft, nowAt } from "./drafts";
+import { isDraft } from "./drafts";
 import { wayToOpen } from "./go-how";
 import { directoryOf } from "./links";
-import { titleOf } from "./names";
-import { putBack, spotOf } from "./placing";
 import { loadRecent, MAX_RECENT, saveRecent } from "./recent";
 import { merged, patched, upserted } from "./note-list";
-import { flushOpenPage, reloadOpenPage } from "./page/open-page";
 import { usePeek } from "../peek/store";
 import { usePrefs } from "./prefs";
 import { derive, layoutSlice, loadLayout } from "./store-layout";
+import { noteActions } from "./store-notes";
 import * as tabs from "./tabs";
-import { findByTitle, noteAt, withSubPages } from "./tree";
+import { findByTitle, noteAt } from "./tree";
 import { withDrafts } from "./with-drafts";
 
 export type { Place, ViewId } from "./tabs";
@@ -39,8 +32,6 @@ export type { Draft, Toast, WorkspaceState } from "./store-types";
 const JOURNAL_DAY = /^journal\/\d{4}\/\d{4}-\d{2}-\d{2}\.md$/;
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
-/** A notice's Undo, which runs the op that takes the change back. */
-const undo = (run: () => Promise<unknown>) => ({ label: "Undo", run: () => void run() });
 let nextToast = 1;
 
 export const useWorkspace = create<WorkspaceState>()((set, get) => {
@@ -69,6 +60,14 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
   const saved = loadLayout();
   const { apply, actions } = layoutSlice(set as never, get);
+  const noteOps = noteActions(set, get, {
+    attempt,
+    upsert,
+    apply,
+    edited: () => {
+      edits++;
+    },
+  });
   return {
     client: null,
     problem: null,
@@ -82,6 +81,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     navigated: false,
     toasts: [],
     ...actions,
+    ...noteOps,
 
     async connect({ client: vault, problem, choose }) {
       // New pages are drafts until written in: the client makes them then,
@@ -196,171 +196,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       get().toast(`No page called “${target}” yet`, { label: "Create it", run: () => void get().create({ kind: "page", title: target }) });
     },
 
-    async create(draft, open = true) {
-      const note = await attempt((c) => c.create({ date: localStamp(), ...draft }));
-      if (!note) return null;
-      upsert(note.meta);
-      if (open) get().openPath(note.meta.path);
-      return note;
-    },
-
-    newPage(spec = {}, how) {
-      get().go({ view: "page", path: newDraft({ kind: "page", title: "", ...spec }) }, how);
-    },
-
     async openJournal(date = isoDay(new Date()), how) {
       // The page is made on writing, not on looking (JournalView).
       get().go({ view: "journal", path: `journal/${date.slice(0, 4)}/${date}.md` }, how);
-    },
-
-    async ensureJournal(date = isoDay(new Date())) {
-      const day = await attempt((c) => c.journal(date));
-      if (!day) return null;
-      upsert(day.meta);
-      return day.meta.path;
-    },
-
-    async applyTemplate(path, template) {
-      const note = await attempt((c) => c.applyTemplate(path, template, localStamp()));
-      if (note) upsert(note.meta);
-      return note;
-    },
-
-    async takeTour() {
-      const path = await attempt((c) => c.addTour());
-      if (!path) return;
-      const found = await attempt((c) => c.notesAt([path]));
-      if (found?.[0]) upsert(found[0]);
-      get().openPath(path);
-    },
-
-    async trash(path, quiet = false) {
-      // A draft never written in just closes; one that was goes as its page.
-      if (isDraft(path)) {
-        if (!madeOf(path)) {
-          dropDraft(path);
-          apply(tabs.forgetPath(get().layout, path));
-          return null;
-        }
-        path = nowAt(path);
-      }
-      const board = path.endsWith(".canvas");
-      const deck = path.endsWith(".deck");
-      // A diagram goes with its picture, which is not a page of its own.
-      const diagram = path.endsWith(".drawio");
-      const title = board ? boardTitle(useBoards.getState().list, path) : deck ? deckTitle(useDecks.getState().list, path) : diagram ? titleOfPath(path) : (noteAt(get().notes, path)?.title ?? path);
-      // Its sub-pages go with it, as in the core.
-      const going = board || deck || diagram ? [path] : withSubPages(get().notes, path);
-      // Typing waiting to be written goes into the note before it goes.
-      await flushOpenPage();
-      const trashed = await attempt((c) => c.trash(path));
-      if (!trashed) return null;
-      const gone = new Set(going);
-      going.forEach((p) => usePrefs.getState().moveFavourite(p, null));
-      edits++;
-      set((s) => ({
-        notes: s.notes.filter((n) => !gone.has(n.path)),
-        recent: s.recent.filter((p) => !gone.has(p)),
-      }));
-      apply(going.reduce((layout, p) => tabs.forgetPath(layout, p), get().layout));
-      for (const p of going) if (get().stack.includes(p)) get().closeInStack(p);
-      if (board) void useBoards.getState().load();
-      if (deck) void useDecks.getState().load();
-      if (diagram) void useDiagrams.getState().load();
-      const along = going.length === 2 ? " and its sub-page" : going.length > 2 ? ` and ${going.length - 1} sub-pages` : "";
-      if (!quiet) get().toast(`Moved “${title}”${along} to the trash`, { label: "Undo", run: () => void get().restore(trashed) });
-      return trashed;
-    },
-
-    async restore(trashed) {
-      if (trashed.endsWith(".deck")) {
-        const path = await attempt((c) => c.restoreDeck(trashed));
-        if (!path) return;
-        await useDecks.getState().load();
-        get().toast(`Restored “${deckTitle(useDecks.getState().list, path)}”`, { label: "Open", run: () => get().openPath(path) });
-        return;
-      }
-      if (trashed.endsWith(".drawio") || trashed.endsWith(".drawio.svg")) {
-        const path = await attempt((c) => c.restoreDiagram(trashed));
-        if (!path) return;
-        await useDiagrams.getState().load();
-        get().toast(`Restored “${titleOfPath(path)}”`, { label: "Open", run: () => get().openPath(path) });
-        return;
-      }
-      if (trashed.endsWith(".canvas")) {
-        const path = await attempt((c) => c.restoreBoard(trashed));
-        if (!path) return;
-        await useBoards.getState().load();
-        get().toast(`Restored “${boardTitle(useBoards.getState().list, path)}”`, { label: "Open", run: () => get().openPath(path) });
-        return;
-      }
-      const note = await attempt((c) => c.restore(trashed));
-      if (!note) return;
-      upsert(note.meta);
-      // Sub-pages that went with it came back too.
-      await get().refresh();
-      get().toast(`Restored “${note.meta.title}”`, { label: "Open", run: () => get().openPath(note.meta.path) });
-    },
-
-    noteChanged(meta) {
-      upsert(meta);
-    },
-
-    async rename(path, title) {
-      const was = noteAt(get().notes, path)?.title;
-      await flushOpenPage();
-      const renamed = await attempt((c) => c.rename(path, title));
-      if (!renamed) return;
-      await get().renamed(path, renamed);
-      if (was !== undefined) get().toast(`Renamed “${was || "Untitled"}” to “${title}”`, undo(() => get().rename(renamed.note.meta.path, was)));
-    },
-
-    async duplicate(path) {
-      await flushOpenPage();
-      const note = await attempt((c) => c.duplicate(path));
-      if (!note) return;
-      upsert(note.meta);
-      get().openPath(note.meta.path);
-      get().toast(`Made “${titleOf(note.meta)}”`, undo(() => get().trash(note.meta.path)));
-    },
-
-    async move(path, project, quiet = false) {
-      const spot = spotOf(get().notes, path);
-      await flushOpenPage();
-      const note = await attempt((c) => c.move(path, project));
-      if (!note) return null;
-      await get().renamed(path, { note, relinked: note.relinked }, note.moves);
-      if (quiet) return note.meta.path;
-      const where = project ? (get().notes.find((n) => n.kind === "project" && n.project === project)?.title ?? project) : "Pages";
-      get().toast(`Moved “${titleOf(note.meta)}” to ${where}`, spot ? { label: "Undo", run: () => void putBack(note.meta.path, spot) } : undefined);
-      return note.meta.path;
-    },
-
-    async convert(path, kind) {
-      const was = noteAt(get().notes, path)?.kind;
-      await flushOpenPage();
-      const note = await attempt((c) => c.convert(path, kind));
-      if (!note) return;
-      if (note.moves.length > 0) await get().renamed(path, { note, relinked: note.relinked }, note.moves);
-      else upsert(note.meta);
-      const back = was === "card" || was === "page" ? was : null;
-      get().toast(`“${note.meta.title}” is a ${kind} now`, back ? undo(() => get().convert(note.meta.path, back)) : undefined);
-    },
-
-    async renamed(from, { note, relinked }, moves = []) {
-      // The note and every sub-page that moved with it, by path.
-      const moved = new Map<string, string>(moves);
-      moved.set(from, note.meta.path);
-      for (const [path, to] of moved) usePrefs.getState().moveFavourite(path, to);
-      const recent = get().recent.map((p) => moved.get(p) ?? p);
-      saveRecent(recent);
-      edits++;
-      set((s) => ({ notes: s.notes.filter((n) => !moved.has(n.path)), recent }));
-      get().followMoves(moved);
-      upsert(note.meta);
-      // Pages open on notes whose links the op rewrote show the new text.
-      for (const path of relinked) reloadOpenPage(path);
-      await get().refresh();
     },
 
     toast(text, action) {

@@ -1,0 +1,957 @@
+{
+  "format": "kasten-deck",
+  "formatVersion": 1,
+  "id": "d-uvb8mcq8",
+  "present": {
+    "slideNumbers": true,
+    "stepLabel": "Step {n} / {total}"
+  },
+  "size": {
+    "h": 540,
+    "w": 960
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "id": "e-tkdd2wtd",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Every shape"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-8hncowh9",
+          "placeholder": "subtitle",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-r2ek2hel",
+      "layout": "title"
+    },
+    {
+      "elements": [
+        {
+          "children": [
+            {
+              "h": 90,
+              "id": "shape-0",
+              "shape": "rect",
+              "style": {
+                "fill": {
+                  "alpha": 0.25,
+                  "color": "accent1"
+                },
+                "radius": 12,
+                "stroke": {
+                  "color": "accent1",
+                  "width": 2
+                }
+              },
+              "text": {
+                "paragraphs": [
+                  {
+                    "align": "center",
+                    "runs": [
+                      {
+                        "b": true,
+                        "t": "rect"
+                      }
+                    ]
+                  }
+                ],
+                "valign": "middle"
+              },
+              "type": "shape",
+              "w": 160,
+              "x": 60,
+              "y": 60
+            },
+            {
+              "h": 90,
+              "id": "shape-1",
+              "shape": "roundRect",
+              "style": {
+                "fill": {
+                  "alpha": 0.25,
+                  "color": "accent2"
+                },
+                "radius": 12,
+                "stroke": {
+                  "color": "accent2",
+                  "width": 2
+                }
+              },
+              "text": {
+                "paragraphs": [
+                  {
+                    "align": "center",
+                    "runs": [
+                      {
+                        "b": true,
+                        "t": "roundRect"
+                      }
+                    ]
+                  }
+                ],
+                "valign": "middle"
+              },
+              "type": "shape",
+              "w": 160,
+              "x": 270,
+              "y": 60
+            }
+          ],
+          "h": 90,
+          "id": "e-zvi7yq6m",
+          "type": "group",
+          "w": 370,
+          "x": 60,
+          "y": 60
+        },
+        {
+          "h": 90,
+          "id": "shape-2",
+          "shape": "ellipse",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent3"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent3",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "ellipse"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 480,
+          "y": 60
+        },
+        {
+          "h": 90,
+          "id": "shape-3",
+          "shape": "triangle",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent4"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent4",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "triangle"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 690,
+          "y": 60
+        },
+        {
+          "h": 90,
+          "id": "shape-4",
+          "shape": "rtTriangle",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent5"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent5",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "rtTriangle"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 60,
+          "y": 190
+        },
+        {
+          "h": 90,
+          "id": "shape-5",
+          "shape": "diamond",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent6"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent6",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "diamond"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 270,
+          "y": 190
+        },
+        {
+          "h": 90,
+          "id": "shape-6",
+          "shape": "chevron",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent1"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent1",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "chevron"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 480,
+          "y": 190
+        },
+        {
+          "h": 90,
+          "id": "shape-7",
+          "shape": "rightArrow",
+          "style": {
+            "fill": {
+              "alpha": 0.25,
+              "color": "accent2"
+            },
+            "radius": 12,
+            "stroke": {
+              "color": "accent2",
+              "width": 2
+            }
+          },
+          "text": {
+            "paragraphs": [
+              {
+                "align": "center",
+                "runs": [
+                  {
+                    "b": true,
+                    "t": "rightArrow"
+                  }
+                ]
+              }
+            ],
+            "valign": "middle"
+          },
+          "type": "shape",
+          "w": 160,
+          "x": 690,
+          "y": 190
+        },
+        {
+          "h": 0,
+          "id": "line-1",
+          "style": {
+            "endArrow": "triangle",
+            "stroke": {
+              "color": "text2",
+              "dash": "dash",
+              "width": 3
+            }
+          },
+          "type": "line",
+          "w": 300,
+          "x": 60,
+          "y": 340
+        },
+        {
+          "from": {
+            "el": "shape-0",
+            "side": "bottom"
+          },
+          "h": 40,
+          "id": "link-1",
+          "route": "elbow",
+          "style": {
+            "endArrow": "triangle",
+            "stroke": {
+              "color": "text2",
+              "width": 1.5
+            }
+          },
+          "to": {
+            "el": "shape-5",
+            "side": "top"
+          },
+          "type": "connector",
+          "w": 210,
+          "x": 140,
+          "y": 150
+        },
+        {
+          "alt": "A figure",
+          "h": 120,
+          "id": "image-1",
+          "mask": "roundRect",
+          "src": "assets/figure.png",
+          "type": "image",
+          "w": 200,
+          "x": 700,
+          "y": 340
+        },
+        {
+          "columns": [
+            200,
+            200
+          ],
+          "h": 90,
+          "headerRow": true,
+          "id": "table-1",
+          "rows": [
+            {
+              "cells": [
+                {
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "b": true,
+                            "t": "Name"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "b": true,
+                            "t": "Value"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "cells": [
+                {
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "alpha"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "text": {
+                    "paragraphs": [
+                      {
+                        "runs": [
+                          {
+                            "t": "1"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "type": "table",
+          "w": 400,
+          "x": 60,
+          "y": 380
+        }
+      ],
+      "id": "s-6nc7hb5w",
+      "layout": "blank"
+    }
+  ],
+  "theme": {
+    "colors": {
+      "accent1": "#1a73e8",
+      "accent2": "#ea4335",
+      "accent3": "#fbbc04",
+      "accent4": "#34a853",
+      "accent5": "#ff6d01",
+      "accent6": "#46bdc6",
+      "bg1": "#ffffff",
+      "bg2": "#f1f3f4",
+      "text1": "#202124",
+      "text2": "#5f6368"
+    },
+    "dimmedOpacity": 0.25,
+    "fonts": {
+      "body": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      },
+      "code": {
+        "fallback": [
+          "Consolas",
+          "monospace"
+        ],
+        "family": "Roboto Mono"
+      },
+      "heading": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      }
+    },
+    "highlight": {
+      "color": "accent1",
+      "width": 2
+    },
+    "layouts": [
+      {
+        "label": "Title",
+        "name": "title",
+        "placeholders": [
+          {
+            "h": 148,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 140
+          },
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 304
+          }
+        ]
+      },
+      {
+        "label": "Section",
+        "name": "section",
+        "placeholders": [
+          {
+            "h": 108,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 172
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 296
+          }
+        ]
+      },
+      {
+        "label": "Title + body",
+        "name": "title-body",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title only",
+        "name": "title-only",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          }
+        ]
+      },
+      {
+        "label": "Two columns",
+        "name": "two-columns",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Title + image",
+        "name": "title-image",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 344,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Image + caption",
+        "name": "image-caption",
+        "placeholders": [
+          {
+            "h": 400,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add caption",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 448
+          }
+        ]
+      },
+      {
+        "label": "Code",
+        "name": "code",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 344,
+            "kind": "text",
+            "prompt": "Click to add code",
+            "role": "code",
+            "style": "code",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 148
+          }
+        ]
+      },
+      {
+        "label": "Comparison",
+        "name": "comparison",
+        "placeholders": [
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 832,
+            "x": 64,
+            "y": 36
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 64,
+            "y": 148
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label2",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 400,
+            "x": 496,
+            "y": 148
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 64,
+            "y": 200
+          },
+          {
+            "h": 292,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 400,
+            "x": 496,
+            "y": 200
+          }
+        ]
+      },
+      {
+        "label": "Big number",
+        "name": "big-number",
+        "placeholders": [
+          {
+            "h": 176,
+            "kind": "text",
+            "prompt": "Click to add number",
+            "role": "number",
+            "style": "big-number",
+            "valign": "bottom",
+            "w": 832,
+            "x": 64,
+            "y": 144
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 832,
+            "x": 64,
+            "y": 328
+          }
+        ]
+      },
+      {
+        "label": "Quote",
+        "name": "quote",
+        "placeholders": [
+          {
+            "h": 232,
+            "kind": "text",
+            "prompt": "Click to add quote",
+            "role": "quote",
+            "style": "quote",
+            "valign": "bottom",
+            "w": 768,
+            "x": 96,
+            "y": 124
+          },
+          {
+            "h": 48,
+            "kind": "text",
+            "prompt": "Click to add attribution",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 768,
+            "x": 96,
+            "y": 372
+          }
+        ]
+      },
+      {
+        "label": "Blank",
+        "name": "blank",
+        "placeholders": []
+      }
+    ],
+    "master": [
+      {
+        "h": 24,
+        "id": "master-number",
+        "text": {
+          "paragraphs": [
+            {
+              "align": "right",
+              "runs": [
+                {
+                  "field": "slideNumber",
+                  "t": "‹#›"
+                }
+              ],
+              "style": "caption"
+            }
+          ]
+        },
+        "type": "text",
+        "w": 80,
+        "x": 860,
+        "y": 500
+      }
+    ],
+    "name": "Light",
+    "textStyles": {
+      "big-number": {
+        "bold": true,
+        "color": "accent1",
+        "font": "heading",
+        "size": 96
+      },
+      "body": {
+        "color": "text1",
+        "font": "body",
+        "lineSpacing": 1.15,
+        "size": 22,
+        "spaceAfter": 6
+      },
+      "caption": {
+        "color": "text2",
+        "font": "body",
+        "size": 14
+      },
+      "citation": {
+        "color": "text2",
+        "font": "body",
+        "size": 10
+      },
+      "code": {
+        "color": "text1",
+        "font": "code",
+        "size": 16
+      },
+      "display": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 44
+      },
+      "quote": {
+        "color": "text1",
+        "font": "heading",
+        "italic": true,
+        "size": 32
+      },
+      "subtitle": {
+        "color": "text2",
+        "font": "body",
+        "size": 20
+      },
+      "title": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 36
+      }
+    }
+  },
+  "title": "Every shape"
+}

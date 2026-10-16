@@ -1,0 +1,46 @@
+/* The slides to review after their pages changed. */
+
+.ks-rv-note {
+  margin: 0;
+  color: var(--ks-ink-2);
+}
+
+.ks-rv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ks-rv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius-md);
+}
+
+.ks-rv-row.is-missing {
+  opacity: 0.7;
+}
+
+.ks-rv-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ks-rv-slide {
+  font-weight: 600;
+}
+
+.ks-rv-page,
+.ks-rv-state {
+  color: var(--ks-ink-2);
+  font-size: 12px;
+}

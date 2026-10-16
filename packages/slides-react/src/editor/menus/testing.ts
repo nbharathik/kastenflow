@@ -37,6 +37,7 @@ export function fakeTextBox(format: Partial<FormatState> = {}): TextHandle & { c
     toggleStrike: vi.fn(),
     toggleCode: vi.fn(),
     setColor: vi.fn(),
+    setHighlight: vi.fn(),
     setSize: vi.fn(),
     stepSize: vi.fn(),
     setFont: vi.fn(),

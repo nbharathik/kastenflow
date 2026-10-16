@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "presenter",
-  "description": "The presenter's window: it hears the presenting window and nothing more. What it says goes through presenter_post, and the app's own commands are closed to it (guard.rs).",
+  "description": "The presenter's window: it hears the presenting window and nothing more. What it says goes through presenter_post, and the app's own commands are closed to it but the two that read and keep a rehearsal (guard.rs).",
   "windows": ["presenter"],
   "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
 }

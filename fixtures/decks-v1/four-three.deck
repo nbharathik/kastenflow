@@ -1,0 +1,606 @@
+{
+  "format": "kasten-deck",
+  "formatVersion": 1,
+  "id": "d-avwo607m",
+  "present": {
+    "slideNumbers": false,
+    "stepLabel": "Step {n} / {total}"
+  },
+  "size": {
+    "h": 540,
+    "w": 720
+  },
+  "slides": [
+    {
+      "elements": [
+        {
+          "id": "e-lpzn9x16",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "Four by three"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-unsiekui",
+          "placeholder": "subtitle",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-ko05eeke",
+      "layout": "title"
+    },
+    {
+      "elements": [
+        {
+          "id": "e-3zc0f27y",
+          "placeholder": "title",
+          "text": {
+            "paragraphs": [
+              {
+                "runs": [
+                  {
+                    "t": "An older screen"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        },
+        {
+          "id": "e-lqz67hrn",
+          "placeholder": "body",
+          "text": {
+            "paragraphs": [
+              {
+                "list": "bullet",
+                "runs": [
+                  {
+                    "t": "720 by 540 units"
+                  }
+                ]
+              }
+            ]
+          },
+          "type": "text"
+        }
+      ],
+      "id": "s-2tuoq1sn",
+      "layout": "title-body"
+    }
+  ],
+  "theme": {
+    "colors": {
+      "accent1": "#0b5cad",
+      "accent2": "#c0392b",
+      "accent3": "#d68910",
+      "accent4": "#1e8449",
+      "accent5": "#7d3c98",
+      "accent6": "#148f77",
+      "bg1": "#ffffff",
+      "bg2": "#e6e8eb",
+      "text1": "#1f2933",
+      "text2": "#52606d"
+    },
+    "dimmedOpacity": 0.25,
+    "fonts": {
+      "body": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      },
+      "code": {
+        "fallback": [
+          "Consolas",
+          "monospace"
+        ],
+        "family": "Roboto Mono"
+      },
+      "heading": {
+        "fallback": [
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "family": "Inter"
+      }
+    },
+    "highlight": {
+      "color": "accent1",
+      "width": 1.5
+    },
+    "layouts": [
+      {
+        "hideMaster": true,
+        "label": "Title",
+        "name": "title",
+        "placeholders": [
+          {
+            "h": 148,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 624,
+            "x": 48,
+            "y": 140
+          },
+          {
+            "h": 96,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 304
+          }
+        ]
+      },
+      {
+        "hideMaster": true,
+        "label": "Section",
+        "name": "section",
+        "placeholders": [
+          {
+            "h": 108,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "display",
+            "valign": "bottom",
+            "w": 624,
+            "x": 48,
+            "y": 172
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add subtitle",
+            "role": "subtitle",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 296
+          }
+        ]
+      },
+      {
+        "label": "Title + body",
+        "name": "title-body",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 328,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 164
+          }
+        ]
+      },
+      {
+        "label": "Title only",
+        "name": "title-only",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          }
+        ]
+      },
+      {
+        "label": "Two columns",
+        "name": "two-columns",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 328,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 300,
+            "x": 48,
+            "y": 164
+          },
+          {
+            "h": 328,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 300,
+            "x": 372,
+            "y": 164
+          }
+        ]
+      },
+      {
+        "label": "Title + image",
+        "name": "title-image",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 328,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 300,
+            "x": 48,
+            "y": 164
+          },
+          {
+            "h": 328,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 300,
+            "x": 372,
+            "y": 164
+          }
+        ]
+      },
+      {
+        "label": "Image + caption",
+        "name": "image-caption",
+        "placeholders": [
+          {
+            "h": 364,
+            "kind": "image",
+            "prompt": "Click to add image",
+            "role": "image",
+            "style": "caption",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add caption",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 448
+          }
+        ]
+      },
+      {
+        "label": "Code",
+        "name": "code",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 328,
+            "kind": "text",
+            "prompt": "Click to add code",
+            "role": "code",
+            "style": "code",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 164
+          }
+        ]
+      },
+      {
+        "label": "Comparison",
+        "name": "comparison",
+        "placeholders": [
+          {
+            "h": 80,
+            "kind": "text",
+            "prompt": "Click to add title",
+            "role": "title",
+            "style": "title",
+            "valign": "middle",
+            "w": 624,
+            "x": 48,
+            "y": 72
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 300,
+            "x": 48,
+            "y": 164
+          },
+          {
+            "h": 44,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label2",
+            "style": "subtitle",
+            "valign": "bottom",
+            "w": 300,
+            "x": 372,
+            "y": 164
+          },
+          {
+            "h": 276,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body",
+            "style": "body",
+            "valign": "top",
+            "w": 300,
+            "x": 48,
+            "y": 216
+          },
+          {
+            "h": 276,
+            "kind": "text",
+            "list": "bullet",
+            "prompt": "Click to add text",
+            "role": "body2",
+            "style": "body",
+            "valign": "top",
+            "w": 300,
+            "x": 372,
+            "y": 216
+          }
+        ]
+      },
+      {
+        "label": "Big number",
+        "name": "big-number",
+        "placeholders": [
+          {
+            "h": 176,
+            "kind": "text",
+            "prompt": "Click to add number",
+            "role": "number",
+            "style": "big-number",
+            "valign": "bottom",
+            "w": 624,
+            "x": 48,
+            "y": 160
+          },
+          {
+            "h": 72,
+            "kind": "text",
+            "prompt": "Click to add label",
+            "role": "label",
+            "style": "subtitle",
+            "valign": "top",
+            "w": 624,
+            "x": 48,
+            "y": 344
+          }
+        ]
+      },
+      {
+        "label": "Quote",
+        "name": "quote",
+        "placeholders": [
+          {
+            "h": 232,
+            "kind": "text",
+            "prompt": "Click to add quote",
+            "role": "quote",
+            "style": "quote",
+            "valign": "bottom",
+            "w": 576,
+            "x": 72,
+            "y": 140
+          },
+          {
+            "h": 48,
+            "kind": "text",
+            "prompt": "Click to add attribution",
+            "role": "caption",
+            "style": "caption",
+            "valign": "top",
+            "w": 576,
+            "x": 72,
+            "y": 388
+          }
+        ]
+      },
+      {
+        "label": "Blank",
+        "name": "blank",
+        "placeholders": []
+      }
+    ],
+    "master": [
+      {
+        "h": 56,
+        "id": "master-bar",
+        "shape": "rect",
+        "style": {
+          "fill": {
+            "color": "bg2"
+          }
+        },
+        "type": "shape",
+        "w": 720,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "alt": "Logo",
+        "h": 30,
+        "id": "master-logo",
+        "src": "",
+        "type": "image",
+        "w": 75,
+        "x": 627,
+        "y": 13
+      },
+      {
+        "h": 24,
+        "id": "master-number",
+        "text": {
+          "paragraphs": [
+            {
+              "align": "right",
+              "runs": [
+                {
+                  "field": "slideNumber",
+                  "t": "‹#›"
+                }
+              ],
+              "style": "caption"
+            }
+          ]
+        },
+        "type": "text",
+        "w": 60,
+        "x": 645,
+        "y": 500
+      }
+    ],
+    "name": "Lecture",
+    "textStyles": {
+      "big-number": {
+        "bold": true,
+        "color": "accent1",
+        "font": "heading",
+        "size": 72
+      },
+      "body": {
+        "color": "text1",
+        "font": "body",
+        "lineSpacing": 1.15,
+        "size": 16.5,
+        "spaceAfter": 4.5
+      },
+      "caption": {
+        "color": "text2",
+        "font": "body",
+        "size": 10.5
+      },
+      "citation": {
+        "color": "text2",
+        "font": "body",
+        "size": 7.5
+      },
+      "code": {
+        "color": "text1",
+        "font": "code",
+        "size": 12
+      },
+      "display": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 33
+      },
+      "quote": {
+        "color": "text1",
+        "font": "heading",
+        "italic": true,
+        "size": 24
+      },
+      "subtitle": {
+        "color": "text2",
+        "font": "body",
+        "size": 15
+      },
+      "title": {
+        "bold": true,
+        "color": "text1",
+        "font": "heading",
+        "size": 27
+      }
+    }
+  },
+  "title": "Four by three"
+}

@@ -68,8 +68,8 @@ export function takeProvidersJump(): boolean {
   return wanted;
 }
 
-/** A new chat in the dock, about `note`. */
+/** A new chat in the dock, about `note` alone: it does not follow the page in front. */
 export function askAboutPage(note: NoteMeta): void {
-  useChat.getState().start({ context: [noteChip(note)], open: true });
+  useChat.getState().start({ context: [noteChip(note)], open: true, follow: false });
   useShell.getState().toggleChat(true);
 }

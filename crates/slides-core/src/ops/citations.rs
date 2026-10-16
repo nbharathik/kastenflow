@@ -165,6 +165,7 @@ impl Op for AddCitation {
             base,
             keys: keys.clone(),
             format: self.format,
+            links: false,
             extra: Extra::new(),
         }));
         Ok(AddedCitation {

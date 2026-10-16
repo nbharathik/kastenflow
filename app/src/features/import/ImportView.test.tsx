@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { ImportOptions, ImportSummary, Imported, Undone } from "../../lib/vault/types";
@@ -68,6 +68,7 @@ describe("the Import view", () => {
       expect.stringContaining("Obsidian"),
       expect.stringContaining("Notion"),
       expect.stringContaining("Heptabase"),
+      expect.stringContaining("KastenFlow bundle"),
       expect.stringContaining("Markdown folder"),
     ]);
     fireEvent.click(within(kinds).getByRole("radio", { name: /Notion/ }));
@@ -148,6 +149,48 @@ describe("the Import view", () => {
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Undo the import" })));
     expect((await screen.findByRole("alert")).textContent).toContain("projects/field-notes/pages/welcome.md changed since the import");
     expect(screen.getByRole("region", { name: "Imported" })).toBeTruthy();
+  });
+
+  it("shows what a bundle settles before it writes, unfolded, and one notice undoes the whole import", async () => {
+    await open();
+    const bundle: ImportSummary = {
+      ...PLAN,
+      kind: "bundle",
+      project: "Seaside trip",
+      warnings: [],
+      conflicts: [
+        { kind: "project", what: "projects/trip", resolution: "Imported as projects/trip-2: this vault has a project there." },
+        { kind: "id", what: "01J8Z3K6Q2M4X7V9B1C5D8E0F2", resolution: "Given a new id: this vault has a note with it." },
+        { kind: "asset", what: "assets/map.png", resolution: "Kept as assets/map-2.png: a different file is there." },
+        { kind: "tag", what: "place", resolution: "This vault's tag schema is kept." },
+        { kind: "key", what: "lecun2015deep", resolution: "Renamed lecun2015deep-2: your bibliography has another entry with it." },
+      ],
+    };
+    vault.planImport = async () => bundle;
+    fireEvent.click(screen.getByRole("radio", { name: /KastenFlow bundle/ }));
+    expect(screen.getByRole("list", { name: "Getting the folder from KastenFlow bundle" }).textContent).toContain("kastenflow-bundle.json");
+    fireEvent.change(folder(), { target: { value: "~/Documents/trip-bundle" } });
+    await act(async () => fireEvent.click(look()));
+    const plan = await screen.findByRole("region", { name: "What will come in" });
+    expect(plan.textContent).toContain("This is a KastenFlow project bundle");
+    const known = plan.querySelector("details")!;
+    expect(known.open).toBe(true);
+    expect(within(known as HTMLElement).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "projects/trip: Imported as projects/trip-2: this vault has a project there.",
+      "01J8Z3K6Q2M4X7V9B1C5D8E0F2: Given a new id: this vault has a note with it.",
+      "assets/map.png: Kept as assets/map-2.png: a different file is there.",
+      "place: This vault's tag schema is kept.",
+      "lecun2015deep: Renamed lecun2015deep-2: your bibliography has another entry with it.",
+    ]);
+    // Nothing is written until Import; then one notice with Undo takes the whole import back, and the card stands down.
+    expect(vault.undone).toEqual([]);
+    await act(async () => fireEvent.click(within(plan).getByRole("button", { name: /^Import 8 notes/ })));
+    await screen.findByRole("region", { name: "Imported" });
+    const notice = useWorkspace.getState().toasts.at(-1)!;
+    expect(notice.action?.label).toBe("Undo");
+    await act(async () => void notice.action!.run());
+    expect(vault.undone).toEqual(["c0ffee"]);
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Imported" })).toBeNull());
   });
 
   it("explains that the browser preview cannot read folders", async () => {

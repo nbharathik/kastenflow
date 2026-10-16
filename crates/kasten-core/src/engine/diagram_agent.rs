@@ -47,6 +47,7 @@ impl Kasten {
                 }
                 diagrams::check_xml(xml)?;
             }
+            AgentOp::EditDiagram { .. } => self.diagram_edit_refusals(op)?,
             _ => {}
         }
         Ok(())
@@ -65,6 +66,7 @@ impl Kasten {
             AgentOp::Trash { path, .. } if path.ends_with(diagrams::EXT) => {
                 Some("Trashing a diagram always waits for review".to_owned())
             }
+            AgentOp::EditDiagram { .. } => self.diagram_edit_review_reason(session, op, now)?,
             AgentOp::UpdateDiagram { path, xml, .. } if !self.trusted(&session.id, now) => {
                 let current = diagrams::read_diagram(&self.vault, path)?;
                 let (gone, total) = removed_cells(&current.xml, xml);
@@ -90,6 +92,7 @@ impl Kasten {
     /// and after, and in words what the change does.
     pub(super) fn diagram_op_preview(&self, op: &AgentOp) -> Result<Option<Preview>> {
         Ok(match op {
+            AgentOp::EditDiagram { .. } => return self.diagram_edit_preview(op),
             AgentOp::CreateDiagram { title, xml, .. } => {
                 let cells = diagrams::cell_ids(xml).len();
                 Some(Preview {
@@ -149,13 +152,15 @@ impl Kasten {
         now: Instant,
     ) -> Result<Value> {
         match op {
+            AgentOp::EditDiagram { .. } => self.diagram_edit_execute(actor, op, now),
             AgentOp::CreateDiagram {
                 title,
                 project,
                 xml,
                 ..
             } => {
-                let path = self.create_diagram(actor, title, project.as_deref(), some(xml), now)?;
+                let path =
+                    self.create_diagram_drawn(actor, title, project.as_deref(), some(xml), now)?;
                 Ok(json!({ "path": path, "title": title_of(&path) }))
             }
             // Written against the source the agent read: a diagram a person
@@ -163,7 +168,14 @@ impl Kasten {
             AgentOp::UpdateDiagram {
                 path, xml, base, ..
             } => Ok(
-                match self.save_diagram(actor, path, xml, None, &content_hash(base), now)? {
+                match self.save_diagram(
+                    actor,
+                    path,
+                    xml,
+                    diagrams::draft_for(xml).as_deref(),
+                    &content_hash(base),
+                    now,
+                )? {
                     DiagramSaved::Written { diagram } => {
                         json!({ "path": path, "status": "saved", "hash": diagram.hash })
                     }

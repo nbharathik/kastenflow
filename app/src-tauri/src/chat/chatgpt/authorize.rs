@@ -33,6 +33,9 @@ pub struct Endpoints {
     pub token: String,
     /// Not known unless OpenAI's discovery document names it.
     pub revoke: Option<String>,
+    /// The keys the ID token is signed with: the discovery document's
+    /// `jwks_uri`, else the address OpenAI documents.
+    pub jwks: String,
 }
 
 impl Endpoints {
@@ -42,11 +45,12 @@ impl Endpoints {
             authorize: format!("{ISSUER}/api/accounts/authorize"),
             token: format!("{ISSUER}/api/accounts/oauth/token"),
             revoke: None,
+            jwks: format!("{ISSUER}/.well-known/jwks.json"),
         }
     }
 
     /// The endpoints in OpenAI's discovery document, if it is OpenAI's own:
-    /// its issuer, and every address, must be auth.openai.com.
+    /// its issuer, and every address it names, must be auth.openai.com.
     pub fn from_discovery(body: &str) -> Option<Endpoints> {
         let document: Value = serde_json::from_str(body).ok()?;
         if document["issuer"].as_str()? != ISSUER {
@@ -57,19 +61,31 @@ impl Endpoints {
             let origin = Url::parse(address).ok()?.origin().ascii_serialization();
             (origin == ISSUER).then(|| address.to_owned())
         };
+        // Left out, the keys are where OpenAI documents them; named
+        // elsewhere, the whole document is not believed.
+        let jwks = if document.get("jwks_uri").is_none_or(Value::is_null) {
+            Endpoints::official().jwks
+        } else {
+            own("jwks_uri")?
+        };
         Some(Endpoints {
             authorize: own("authorization_endpoint")?,
             token: own("token_endpoint")?,
             revoke: own("revocation_endpoint"),
+            jwks,
         })
     }
 }
 
-/// OpenAI's endpoints from its discovery document, else the documented
-/// ones.
-pub async fn discover(http: &reqwest::Client) -> Endpoints {
+/// Where OpenAI's discovery document is.
+pub const DISCOVERY: &str = "https://auth.openai.com/.well-known/openid-configuration";
+
+/// OpenAI's endpoints from its discovery document at `url`, if it can be
+/// had and is OpenAI's own. None means "not now": the caller uses the
+/// documented endpoints for a while and asks again later.
+pub async fn discover(http: &reqwest::Client, url: &str) -> Option<Endpoints> {
     let asked = http
-        .get(format!("{ISSUER}/.well-known/openid-configuration"))
+        .get(url)
         .header(ACCEPT, "application/json")
         .timeout(WAIT)
         .send()
@@ -79,7 +95,6 @@ pub async fn discover(http: &reqwest::Client) -> Endpoints {
         _ => None,
     };
     body.and_then(|body| Endpoints::from_discovery(&body))
-        .unwrap_or_else(Endpoints::official)
 }
 
 /// What the sign-in page is asked for.

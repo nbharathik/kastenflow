@@ -144,8 +144,27 @@
 
 .kasten-ext-pop-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 6px;
   padding-top: 4px;
+}
+
+/* The keyboard's way to drop the event on a day: a day field and a button. */
+.kasten-ext-pop-day {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 6px;
+}
+.kasten-ext-pop-day input {
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius);
+  background: var(--color-well);
+  color: var(--color-ink);
+  font-size: var(--text-13);
 }
 
 /* An event's time before its title, on Home and in the journal's "On this

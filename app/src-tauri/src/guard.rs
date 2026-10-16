@@ -4,7 +4,8 @@
 //! the app did not catch, is refused, so no page can ever stand in for
 //! Kasten's own. The quick capture window can call only the commands
 //! capturing needs, the presenter's window only the two that pass a
-//! message on and close it, and a window of any other name, none.
+//! message on and close it and the two that read and keep a rehearsal,
+//! and a window of any other name, none.
 //!
 //! One exception to "own pages only": a frame is a navigation too, and the
 //! window cannot tell one from the window's own. While a deck is being
@@ -44,8 +45,14 @@ const CAPTURE_COMMANDS: &[&str] = &[
     "web_title",
 ];
 
-/// What the presenter's window needs: to pass a message to the window that presents, and to close itself.
-const PRESENTER_COMMANDS: &[&str] = &["presenter_post", "presenter_close"];
+/// What the presenter's window needs: to pass a message to the window that presents, to close itself, and, for a rehearsal, to read the
+/// runs of the deck it times and keep the one it has just made (never to clear them).
+const PRESENTER_COMMANDS: &[&str] = &[
+    "presenter_post",
+    "presenter_close",
+    "rehearsals",
+    "add_rehearsal",
+];
 
 /// The most embedded origins one presentation may name.
 const MAX_EMBEDS: usize = 64;
@@ -374,11 +381,21 @@ mod tests {
     }
 
     #[test]
-    fn the_presenters_window_only_passes_messages_and_closes() {
+    fn the_presenters_window_only_passes_messages_closes_and_keeps_rehearsals() {
         for command in PRESENTER_COMMANDS {
             assert!(may_call("presenter", command), "{command}");
         }
         for command in [
+            "presenter_post",
+            "presenter_close",
+            "rehearsals",
+            "add_rehearsal",
+        ] {
+            assert!(PRESENTER_COMMANDS.contains(&command), "{command}");
+        }
+        for command in [
+            // A rehearsal is read and kept from this window, never forgotten from it.
+            "clear_rehearsals",
             "empty_trash",
             "read_note",
             "allow_embeds",

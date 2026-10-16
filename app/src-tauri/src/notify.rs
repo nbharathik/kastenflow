@@ -14,8 +14,16 @@ use crate::closing::MAIN;
 pub enum Notice {
     BackupFailing,
     BackupFileFailing,
-    UpdateReady { version: String },
+    UpdateReady {
+        version: String,
+    },
     KeepsRunning,
+    /// A chat finished its answer.
+    ChatAnswered,
+    /// A chat paused and waits for the person to let it go on.
+    ChatNeedsYou,
+    /// A chat could not finish.
+    ChatFailed,
 }
 
 impl Notice {
@@ -38,6 +46,18 @@ impl Notice {
                 } else {
                     "It stays in the tray, and quick capture still works. Quit from the tray icon.".into()
                 },
+            ),
+            Notice::ChatAnswered => (
+                "KastenFlow has an answer",
+                "A chat finished. Open KastenFlow to read it.".into(),
+            ),
+            Notice::ChatNeedsYou => (
+                "KastenFlow is waiting for you",
+                "A chat paused. Open KastenFlow to let it go on.".into(),
+            ),
+            Notice::ChatFailed => (
+                "KastenFlow could not finish a chat",
+                "Open KastenFlow to see why.".into(),
             ),
         }
     }
@@ -110,6 +130,9 @@ mod tests {
             Notice::BackupFailing,
             Notice::BackupFileFailing,
             Notice::KeepsRunning,
+            Notice::ChatAnswered,
+            Notice::ChatNeedsYou,
+            Notice::ChatFailed,
         ] {
             let (title, body) = notice.words();
             assert!(title.starts_with("KastenFlow "), "{title}");

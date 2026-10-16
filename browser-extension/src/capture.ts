@@ -3,7 +3,7 @@
 // picture) as requests.
 
 import type { MenuClick, PageRead, ReadTab, Tab } from "./env.js";
-import type { CaptureRequest, Target } from "./model.js";
+import type { CaptureRequest, PaperTags, Target } from "./model.js";
 import { isWebPage } from "./page.js";
 
 /** The most a request's JSON may be: under the 2 MB Kasten takes. */
@@ -85,6 +85,15 @@ export function build({ url, title, read, what, target, tags }: BuildOptions): B
     return { request: { ...base, text }, kept: last.kept, cut: true };
   }
   return { request: base, kept: "link", cut: false };
+}
+
+/** The request "Save as paper" sends: the page's address and title with its tags and nothing of its text. Tags are dropped from the end, never the request refused, if the page has so many that it would not fit. */
+export function buildPaper({ url, title, tags }: { url: string; title: string; tags: PaperTags }): CaptureRequest {
+  const base = { url, title: title.trim().slice(0, 300) };
+  let meta = tags.meta;
+  const request = (): CaptureRequest => ({ ...base, paper: { meta, ld: tags.ld } });
+  while (size(request()) > MAX_BYTES && meta.length > 0) meta = meta.slice(0, Math.floor(meta.length / 2));
+  return request();
 }
 
 /** What a picture's capture holds: its address, as a picture, in the page it is on. */

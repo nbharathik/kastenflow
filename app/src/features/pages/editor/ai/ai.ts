@@ -8,10 +8,13 @@ import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/
 import { $prose } from "@milkdown/kit/utils";
 
 import type { WriteAction } from "../../../chat/types";
+import { selectionMenu } from "./context-menu";
 
 /** An opening of the panel. */
 export interface AiOpen {
   action: WriteAction;
+  /** An AI action to run at once (its slug), instead of the panel's own `action`. */
+  slug?: string;
   /** Counts openings, so each starts afresh. */
   opened: number;
   /** Where the panel is drawn, in the page. */
@@ -56,17 +59,22 @@ export function onAiOpen(view: EditorView, listener: (open: AiOpen) => void): ()
 }
 
 /** Opens the panel for `action` on the selection, or at the caret. False
- * where the editor has no panel. */
-export function openAi(view: EditorView, action: WriteAction): boolean {
+ * where the editor has no panel, and for "explain" with nothing selected.
+ * With `slug`, the panel runs that AI action at once on the selection (or,
+ * with none, the page). */
+export function openAi(view: EditorView, action: WriteAction, slug?: string): boolean {
   const listener = listeners.get(view);
   if (!listener) return false;
   const { from, to } = view.state.selection;
+  if (action === "explain" && from === to) return false;
   const host = document.createElement("div");
   host.className = "kasten-ai-host";
   host.contentEditable = "false";
-  const range = action === "ask" ? { from, to } : { from: to, to };
+  // Asking, explaining and actions are about the selection, which stays marked;
+  // continuing and summarizing start where it ends.
+  const range = action === "ask" || action === "explain" || slug ? { from, to } : { from: to, to };
   view.dispatch(view.state.tr.setMeta(key, { open: { ...range, host } } satisfies Meta));
-  listener({ action, opened: ++opened, host });
+  listener({ action, ...(slug ? { slug } : {}), opened: ++opened, host });
   return true;
 }
 
@@ -101,6 +109,10 @@ export const aiPlugin = $prose(
           ];
           if (open.to > open.from) marks.push(Decoration.inline(open.from, open.to, { class: "kasten-ai-range" }));
           return DecorationSet.create(state.doc, marks);
+        },
+        handleDOMEvents: {
+          // Right-click on selected text: Explain and Ask AI beside Copy and Cut.
+          contextmenu: (view, event) => selectionMenu(view, event, (action) => void openAi(view, action)),
         },
       },
     }),

@@ -209,6 +209,8 @@ fn only_the_main_window_may_ask_for_the_extension_settings_and_it_tells_only_the
         "extension_pair_start",
         "extension_pair_cancel",
         "extension_revoke",
+        "extension_folder",
+        "show_extension_folder",
     ] {
         assert!(crate::guard::may_call("main", command), "{command}");
         for window in ["web-t1abc", "capture", "presenter", "other"] {

@@ -50,6 +50,23 @@ mod unix {
             & 0o777
     }
 
+    /// The folder lent out next under `base`, asked for until it is `dir` or five seconds pass. A program another test
+    /// starts holds a copy of every open file until it runs, and a lock goes only with its last copy, so a folder just
+    /// given back can look taken for a moment.
+    fn lent_again(base: &Path, dir: &Path) -> Option<PathBuf> {
+        let until = Instant::now() + Duration::from_secs(5);
+        loop {
+            // Each folder lent here is given back at once, so a wrong one is not kept from the next try.
+            let lent = workplace_in(&[base.to_path_buf()])
+                .map(|s| s.dir.clone())
+                .ok();
+            if lent.as_deref() == Some(dir) || Instant::now() > until {
+                return lent;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
     #[test]
     fn a_conversion_that_makes_a_pdf_gives_its_path_and_the_input_is_kept_private() {
         let dir = private_folder("ok");
@@ -135,12 +152,7 @@ mod unix {
         assert_ne!(second.dir, slot.dir);
         let first = slot.dir.clone();
         drop(slot);
-        assert_eq!(
-            workplace_in(std::slice::from_ref(&base))
-                .map(|s| s.dir.clone())
-                .ok(),
-            Some(first)
-        );
+        assert_eq!(lent_again(&base, &first), Some(first));
     }
 
     #[test]

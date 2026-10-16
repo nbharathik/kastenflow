@@ -1,4 +1,5 @@
-// What a right click offers: on an element, on the empty slide, and on a slide in the filmstrip.
+// What a right click offers: on an element, on the empty slide, on a slide in the filmstrip, on the cells of a table, on the empty room of the
+// filmstrip and on a side panel.
 
 import { copyHere } from "../clipboard/commands.ts";
 import { ungroupable } from "../commands/composites.ts";
@@ -10,6 +11,7 @@ import type { ContextMenuState } from "../ui-state.ts";
 import type { MenuItem } from "../ui/Menu.tsx";
 import { SEPARATOR, commandItem, groups, plainItem, submenu } from "./build.ts";
 import { alignHorizontalItems, alignVerticalItems, distributeItems, orderItems, rotateItems } from "./items-arrange.ts";
+import { cellsItems, filmstripItems, panelItems } from "./items-cells.ts";
 import { moveSlideItems } from "./items-slide.ts";
 
 /** What the menu offers for an assistant's work: accept the selected elements that are marked, and all of it when any of the deck is. */
@@ -65,6 +67,8 @@ function elementItems(ctx: CommandContext): MenuItem[] {
       ...(picked.some((element) => pageOfElement(element) !== null) ? [commandItem("page.open", ctx)] : []),
       ...(picked.some(updatable) ? [commandItem("page.update", ctx)] : []),
       ...(picked.some((element) => element.source != null) ? [commandItem("page.break-link", ctx)] : []),
+      // A web page: show it live beside the slide.
+      ...(commandOf("embed.preview-live").enabled?.(session.state, ui.state, session.host, ctx) ? [commandItem("embed.preview-live", ctx)] : []),
       commandItem("view.format-panel", ctx, { label: "Format options", checked: null, run: () => ui.openPanel("format") }),
       ...(only && (only.type === "text" || only.type === "shape") ? [plainItem("edit-text", "Edit text", () => session.startEditing(only.id), { icon: "text-cursor-input" })] : []),
       commandItem("text.link", ctx, { label: "Link…" }),
@@ -78,6 +82,7 @@ const canvasItems = (ctx: CommandContext): MenuItem[] =>
     [commandItem("edit.paste", ctx), commandItem("edit.paste-in-place", ctx), commandItem("edit.select-all", ctx)],
     ctx.session.state.inside.length > 0 ? [plainItem("exit-group", "Exit group", () => ctx.session.leaveGroup(), { icon: "ungroup" })] : [],
     [commandItem("slide.layout", ctx), commandItem("slide.background", ctx)],
+    [commandItem("slide.save-as-layout", ctx), commandItem("slide.reset-layout", ctx)],
     [commandItem("view.notes", ctx), commandItem("view.snap", ctx)],
   );
 
@@ -94,11 +99,24 @@ const slideItems = (ctx: CommandContext): MenuItem[] =>
     [commandItem("edit.select-all", ctx, { label: "Select all slides" })],
     [commandItem("slide.skip", ctx), commandItem("slide.backup", ctx)],
     [submenu("move", "Move slide", moveSlideItems(ctx), "arrow-up"), commandItem("slide.layout", ctx), commandItem("slide.background", ctx)],
+    [commandItem("slide.save-as-layout", ctx), commandItem("slide.reset-layout", ctx)],
     [commandItem("slide.add-section", ctx), commandItem("slide.rename-section", ctx), commandItem("slide.remove-section", ctx)],
   );
 
 /** The rows of the context menu for `kind`. */
 export function contextItems(kind: ContextMenuState["kind"], ctx: CommandContext): MenuItem[] {
-  if (kind === "element") return elementItems(ctx);
-  return kind === "canvas" ? canvasItems(ctx) : slideItems(ctx);
+  switch (kind) {
+    case "element":
+      return elementItems(ctx);
+    case "canvas":
+      return canvasItems(ctx);
+    case "cells":
+      return cellsItems(ctx);
+    case "filmstrip":
+      return filmstripItems(ctx);
+    case "panel":
+      return panelItems(ctx);
+    default:
+      return slideItems(ctx);
+  }
 }

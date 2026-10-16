@@ -27,6 +27,7 @@ fn done(k: &Kasten, s: &Session, op: AgentOp) -> serde_json::Value {
     match k.agent_run(s, &op, NOW).unwrap() {
         Outcome::Done { result } => result,
         Outcome::PendingReview { reason, .. } => panic!("expected it to run, it waits: {reason}"),
+        Outcome::Staged { .. } => unreachable!("agent_run never stages"),
     }
 }
 

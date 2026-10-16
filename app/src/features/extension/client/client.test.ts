@@ -86,6 +86,25 @@ describe("what goes wrong", () => {
     }
   });
 
+  it("is a page already saved when a 409 names its cards, and a plain refusal when it does not", async () => {
+    const card = { path: "inbox/slip-box-basics.md", title: "Slip-box basics", captured: "2026-09-01" };
+    const saved = await trouble(() => ({ status: 409, body: { error: "Already saved on 2026-09-01", existing: [card, { path: "inbox/slip-box-basics-2.md", title: "Slip-box basics", captured: null }] } }));
+    expect([saved.trouble, saved.message, saved.status]).toEqual(["saved", "Already saved on 2026-09-01", 409]);
+    expect(saved.existing).toEqual([card, { path: "inbox/slip-box-basics-2.md", title: "Slip-box basics", captured: null }]);
+    // The 409 of a full list of paired browsers is not that.
+    const full = await trouble(() => ({ status: 409, body: { error: "Eight browsers are paired" } }));
+    expect([full.trouble, full.existing]).toEqual(["other", []]);
+    // Cards it cannot read make it a plain refusal too.
+    const odd = await trouble(() => ({ status: 409, body: { error: "Already saved", existing: [{ title: 3 }] } }));
+    expect([odd.trouble, odd.existing]).toEqual(["other", []]);
+  });
+
+  it("keep a capture again on request, with the flag as given", async () => {
+    const fake = kasten();
+    await new Kasten(7434, TOKEN, fake.send).capture({ url: "https://example.com/a", again: true });
+    expect(fake.calls[0]!.body).toEqual({ url: "https://example.com/a", again: true });
+  });
+
   it("is said plainly when Kasten gave no reason, or an answer that is not Kasten's", async () => {
     const none = await trouble(() => ({ status: 403, body: {} }));
     expect(none.message).toBe("KastenFlow refused that (403).");

@@ -75,11 +75,16 @@ fn offers_no_tool_that_deletes_or_rewrites_history() {
     let v = vault();
     let mut c = Client::start(&v.0, "claude-code");
     let tools = c.tools();
-    // Two deck tools take a word that sounds worse than what they do: they change a deck, and
-    // what they take out stays in its history (undo brings it back). More than three slides
-    // taken out in ten minutes (removed, or left empty) waits for review, and a deck itself
-    // only ever goes to the trash.
-    const DECK_EDITS: [&str; 2] = ["delete_slides", "delete_elements"];
+    // Some deck tools take a word that sounds worse than what they do: they change a deck, and
+    // what they take out (slides, elements, table rows and columns) stays in its history (undo
+    // brings it back). More than three slides taken out in ten minutes (removed, or left empty)
+    // waits for review, and a deck itself only ever goes to the trash.
+    const DECK_EDITS: [&str; 4] = [
+        "delete_slides",
+        "delete_elements",
+        "delete_rows",
+        "delete_columns",
+    ];
     for name in tools.iter().filter(|n| !DECK_EDITS.contains(&n.as_str())) {
         for word in [
             "delete",

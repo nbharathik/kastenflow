@@ -1,0 +1,364 @@
+/* The hub's cards and rows. Cards far from the screen are left to the browser
+   to skip (`content-visibility`); rows are one fixed height so a long list can
+   be windowed. */
+
+.kasten-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+  list-style: none;
+}
+.kasten-hub-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-card);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 232px;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-card:hover {
+  border-color: var(--color-line-hover);
+  box-shadow: var(--shadow-hover);
+}
+/* The button under the card: where the keyboard lands, drawn as a ring inside the card. */
+.kasten-hub-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+.kasten-hub-hit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+.kasten-hub-card-body {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 10px;
+}
+.kasten-hub-head {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+}
+.kasten-hub-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  font-size: var(--text-16);
+}
+.kasten-hub-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--text-14);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-hub-pin {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--color-faint);
+}
+.kasten-hub-more {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  opacity: 0;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-card:hover .kasten-hub-more,
+.kasten-hub-row:hover .kasten-hub-more,
+.kasten-hub-more:focus-visible,
+.kasten-hub-more[aria-expanded="true"],
+:is(.kasten-hub-card, .kasten-hub-row):focus-within .kasten-hub-more {
+  opacity: 1;
+}
+.kasten-hub-more:hover {
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.kasten-hub-marks {
+  display: flex;
+  min-height: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.kasten-hub-flag {
+  display: inline-flex;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.kasten-hub-flag.is-review {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 45%, transparent);
+  color: var(--color-warning);
+}
+.kasten-hub-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  line-height: 1.45;
+}
+
+.kasten-hub-figures {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kasten-hub-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.kasten-hub-track {
+  display: block;
+  height: 4px;
+  min-width: 48px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--color-well);
+}
+.kasten-hub-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--motion-slow) var(--ease-standard);
+}
+.kasten-hub-progress-text {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kasten-hub-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+}
+.kasten-hub-counts .is-overdue {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.kasten-hub-next {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: var(--radius);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-next:hover {
+  background: var(--color-hover);
+}
+.kasten-hub-next > svg {
+  color: var(--color-muted);
+}
+.kasten-hub-next-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-hub-next-label > span:first-child {
+  color: var(--color-muted);
+}
+.kasten-hub-next.is-done .kasten-hub-next-label {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.kasten-hub-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.kasten-hub-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+.kasten-hub-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Holding places while the first answer comes. */
+.kasten-hub-card.is-skeleton {
+  min-height: 188px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  box-shadow: none;
+  content-visibility: visible;
+  cursor: default;
+}
+.kasten-hub-bone {
+  display: block;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-well);
+}
+.kasten-hub-bone.is-title {
+  width: 45%;
+  height: 14px;
+}
+.kasten-hub-bone.is-line {
+  width: 80%;
+}
+.kasten-hub-bone.is-bar {
+  width: 100%;
+  height: 4px;
+  margin-top: auto;
+}
+
+/* The compact list. */
+.kasten-hub-list {
+  margin-top: 20px;
+  list-style: none;
+  border-top: 1px solid var(--color-line);
+}
+.kasten-hub-row {
+  position: relative;
+  display: flex;
+  height: 56px;
+  border-bottom: 1px solid var(--color-line);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-row:hover {
+  background: var(--color-hover);
+}
+.kasten-hub-row .kasten-hub-hit:focus-visible {
+  border-radius: var(--radius-md);
+}
+.kasten-hub-row-body {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 24px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) 9rem 24px;
+  align-items: center;
+  column-gap: 12px;
+  padding: 0 8px;
+}
+.kasten-hub-row-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.kasten-hub-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.kasten-hub-row-title .kasten-hub-title {
+  flex: 0 1 auto;
+}
+.kasten-hub-row-summary {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-hub-row .kasten-hub-marks {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.kasten-hub-row-todos {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.kasten-hub-row-todos .kasten-hub-progress-text {
+  display: none;
+}
+.kasten-hub-row-next {
+  display: flex;
+  min-width: 0;
+}
+.kasten-hub-row-when {
+  overflow: hidden;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A narrow pane: the list gives up its quieter columns. */
+@container kasten-hub (max-width: 900px) {
+  .kasten-hub-row-body {
+    grid-template-columns: 24px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1fr) 24px;
+  }
+  .kasten-hub-row-next,
+  .kasten-hub-row-when {
+    display: none;
+  }
+}
+@container kasten-hub (max-width: 560px) {
+  .kasten-hub-row-body {
+    grid-template-columns: 24px minmax(0, 1fr) 24px;
+  }
+  .kasten-hub-row-body > .kasten-hub-marks,
+  .kasten-hub-row-todos {
+    display: none;
+  }
+}

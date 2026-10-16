@@ -21,6 +21,18 @@ pub struct LinkRow {
 }
 
 impl Index {
+    /// Changes whenever the index's tables do: through this connection (its
+    /// own changes) or through any other connection to the same file (the
+    /// app and the MCP server share one), so a copy of what it holds can
+    /// tell whether it is still current.
+    pub fn stamp(&self) -> (i64, i128) {
+        let version = self
+            .conn
+            .query_row("PRAGMA data_version", [], |r| r.get::<_, i64>(0))
+            .unwrap_or(-1);
+        (version, i128::from(self.conn.total_changes()))
+    }
+
     /// What the link graph is built from: every note outside templates with
     /// what following links needs (path, title, kind and project), by path,
     /// and every link those notes make, a note's links together.
@@ -32,7 +44,7 @@ impl Index {
     pub fn graph_inputs(&self) -> Result<(Vec<NoteMeta>, Vec<LinkRow>)> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT n.num, n.path, n.title, n.kind, n.project FROM notes n
-             WHERE n.kind != 'template' ORDER BY n.path",
+             WHERE n.kind NOT IN ('template', 'ai-action') ORDER BY n.path",
         )?;
         let mut at: HashMap<i64, usize> = HashMap::new();
         let mut notes: Vec<NoteMeta> = Vec::new();

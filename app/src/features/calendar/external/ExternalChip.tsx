@@ -1,12 +1,15 @@
 // An event from a subscribed calendar, on a day: in the calendar's colour,
-// with its time before its title. It is not draggable and has no page to
-// open; a click shows its details (EventPopover), in the Calendar's one
-// popover when there is one, else in a popover of its own.
+// with its time before its title. It has no page to open and does not move:
+// dragged to a day it makes a note for that day (the event stays where it is,
+// and the calendar is never written). A click shows its details
+// (EventPopover), in the Calendar's one popover when there is one, else in a
+// popover of its own.
 
-import { memo, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useContext, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { swatch } from "../../panel/properties/schemas";
-import { toneStyle } from "../actions";
+import { ActionsContext, toneStyle } from "../actions";
+import { carryEvent } from "./event-drag";
 import { EventPopover } from "./EventPopover";
 import { useShowEvent } from "./EventPopoverProvider";
 import { hoursOf } from "./external";
@@ -24,6 +27,7 @@ export const ExternalChip = memo(function ExternalChip({ part, large }: ChipProp
   const calendar = useFeeds((s) => s.list?.find((c) => c.id === event.calendar));
   const tone = useMemo(() => toneStyle(swatch(calendar?.color)), [calendar?.color]);
   const show = useShowEvent();
+  const actions = useContext(ActionsContext);
   const [open, setOpen] = useState(false);
   const chip = useRef<HTMLDivElement>(null);
   const hours = hoursOf(part);
@@ -45,12 +49,15 @@ export const ExternalChip = memo(function ExternalChip({ part, large }: ChipProp
         ref={chip}
         role="button"
         tabIndex={0}
-        draggable={false}
+        draggable
+        onDragStart={(drag) => carryEvent(drag, event)}
+        // Whether or not it landed on a day, the days stop lighting up.
+        onDragEnd={() => actions?.dragEnd()}
         data-chip={`event:${part.key}`}
         aria-haspopup="dialog"
         aria-expanded={show ? undefined : open}
         aria-label={label}
-        title={`${label}\nFrom a subscribed calendar: it only shows here.`}
+        title={`${label}\nFrom a subscribed calendar: it only shows here. Drag it to a day to make a note for that day.`}
         className={`kasten-cal-chip is-event${large ? " is-large" : ""}${event.tentative ? " is-tentative" : ""}`}
         style={tone}
         onClick={(click) => {

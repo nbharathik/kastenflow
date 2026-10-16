@@ -8,6 +8,7 @@ import type { NoteMeta, VaultClient } from "../../../lib/vault/types";
 import { ViewBoundary } from "../../../ui/ViewBoundary";
 import { LazyBoard } from "../../boards/canvas/LazyBoard";
 import { projectTitle, useBoards } from "../../boards/store";
+import { UpdatedBadge } from "../../health/UpdatedBadge";
 import type { LinkProvider } from "../../pages/editor/links";
 import { useWorkspace } from "../store";
 
@@ -36,6 +37,7 @@ export function boardLinks(client: VaultClient, page: () => NoteMeta | undefined
       root.render(
         <ViewBoundary place={path}>
           <LazyBoard path={path} embedded={options?.embedded ?? false} />
+          <UpdatedBadge kind="board" path={path} />
         </ViewBoundary>,
       );
       return () => root.unmount();

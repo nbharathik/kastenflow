@@ -11,7 +11,9 @@ import { useChat } from "../../../chat/store";
 import { isKeyed, type ChatKind, type ChatProvider, type ProviderCheck } from "../../../chat/types";
 import { Button, IconButton } from "../../../../ui/Button";
 import { Icon } from "../../../../ui/Icon";
+import { AgentLimits } from "./AgentLimits";
 import { ChatGptModelForm, ChatGptSignIn } from "./AIChatGpt";
+import { ConnectionReport } from "./ConnectionReport";
 import { Block, Group, Row } from "./parts";
 import { ProviderForm } from "./ProviderForm";
 import { CheckResult } from "./providers/CheckResult";
@@ -38,47 +40,51 @@ export function AIProviders() {
 
   const names = providers?.map((p) => p.name) ?? [];
   return (
-    <Group title="AI providers">
-      <Block id="ai.providers">
-        {problem && (
-          <Row label="The providers could not be read" detail={problem}>
-            {null}
-          </Row>
-        )}
-        {providers === null && <Row label="Reading the providers…">{null}</Row>}
-        {providers?.length === 0 && editing !== NEW && <Row label="No providers yet" detail="Add one to start chatting">{null}</Row>}
-        {providers?.map((provider) =>
-          editing === provider.name ? (
-            isKeyed(provider) ? (
-              <ProviderForm key={provider.name} provider={provider} taken={names} onDone={() => setEditing(null)} />
+    <>
+      <Group title="AI providers">
+        <Block id="ai.providers">
+          {problem && (
+            <Row label="The providers could not be read" detail={problem}>
+              {null}
+            </Row>
+          )}
+          {providers === null && <Row label="Reading the providers…">{null}</Row>}
+          {providers?.length === 0 && editing !== NEW && <Row label="No providers yet" detail="Add one to start chatting">{null}</Row>}
+          {providers?.map((provider) =>
+            editing === provider.name ? (
+              isKeyed(provider) ? (
+                <ProviderForm key={provider.name} provider={provider} taken={names} onDone={() => setEditing(null)} />
+              ) : (
+                <ChatGptModelForm key={provider.name} provider={provider} onDone={() => setEditing(null)} />
+              )
             ) : (
-              <ChatGptModelForm key={provider.name} provider={provider} onDone={() => setEditing(null)} />
-            )
+              <ProviderRow
+                key={provider.name}
+                provider={provider}
+                removing={removing === provider.name}
+                onEdit={() => {
+                  setRemoving(null);
+                  setEditing(provider.name);
+                }}
+                onRemove={(on) => setRemoving(on ? provider.name : null)}
+              />
+            ),
+          )}
+          {editing === NEW ? (
+            <ProviderForm provider={null} taken={names} onDone={() => setEditing(null)} />
           ) : (
-            <ProviderRow
-              key={provider.name}
-              provider={provider}
-              removing={removing === provider.name}
-              onEdit={() => {
-                setRemoving(null);
-                setEditing(provider.name);
-              }}
-              onRemove={(on) => setRemoving(on ? provider.name : null)}
-            />
-          ),
-        )}
-        {editing === NEW ? (
-          <ProviderForm provider={null} taken={names} onDone={() => setEditing(null)} />
-        ) : (
-          <div className="kasten-set-foot">
-            <Button size="sm" icon="plus" disabled={providers === null} onClick={() => setEditing(NEW)}>
-              Add a provider
-            </Button>
-          </div>
-        )}
-      </Block>
-      <ChatGptSignIn providers={providers} />
-    </Group>
+            <div className="kasten-set-foot">
+              <Button size="sm" icon="plus" disabled={providers === null} onClick={() => setEditing(NEW)}>
+                Add a provider
+              </Button>
+            </div>
+          )}
+        </Block>
+        <ChatGptSignIn providers={providers} />
+      </Group>
+      <AgentLimits />
+      <ConnectionReport />
+    </>
   );
 }
 
@@ -121,7 +127,7 @@ function ProviderRow({ provider, removing, onEdit, onRemove }: { provider: ChatP
   };
   const chatgpt = provider.kind === "chatgpt";
   const detail = chatgpt
-    ? `${KINDS.chatgpt} · ${provider.model} · ${provider.hasKey ? "Signed in with ChatGPT" : "Not signed in: choose Continue with ChatGPT below"}`
+    ? `${KINDS.chatgpt} · ${provider.model} · ${provider.hasKey ? "Signed in with ChatGPT" : "Not signed in: use the ChatGPT sign-in below"}`
     : `${KINDS[provider.kind]} · ${provider.model} · ${provider.hasKey ? "Key in your system keychain" : "No key stored"}`;
   if (removing) {
     return (

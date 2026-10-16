@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use hyper::StatusCode;
 use kasten_core::Kasten;
-use kasten_core::clip::{Target, WebCapture};
+use kasten_core::clip::{Existing, Target, WebCapture};
 use kasten_core::history::Actor;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -93,7 +93,32 @@ struct CaptureBody {
     target: Option<TargetBody>,
     #[serde(default)]
     tags: Vec<String>,
+    /// Keep a card even though the page is already saved: it is then a new
+    /// card that points back at the first (a snapshot).
+    #[serde(default)]
+    again: bool,
+    /// "Save as paper": the tags the page describes itself by. Nothing is kept
+    /// for it; the window is handed a form to check and add the paper from.
+    #[serde(default)]
+    paper: Option<PaperBody>,
 }
+
+/// The page's `<meta>` tags and JSON-LD, as the extension read them.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PaperBody {
+    #[serde(default)]
+    meta: Vec<(String, String)>,
+    #[serde(default)]
+    ld: Vec<String>,
+}
+
+/// The most tags, JSON-LD scripts and characters of each that a paper is read from.
+const MOST_TAGS: usize = 400;
+const MOST_LD: usize = 10;
+const TAG_NAME: usize = 100;
+const TAG_VALUE: usize = 6000;
+const LD_SIZE: usize = 100_000;
 
 fn bad(why: &str) -> Reply {
     Reply::no(StatusCode::BAD_REQUEST, why)
@@ -225,13 +250,89 @@ pub(super) fn targets(shared: &Shared) -> Reply {
     }))
 }
 
+/// The answer for a page that is already saved: nothing is written, and the
+/// notes it is saved in are named so the person can choose to save another
+/// snapshot (a request with `"again": true`).
+fn already_saved(found: &[kasten_core::NoteMeta]) -> Reply {
+    let existing: Vec<Existing> = found.iter().map(Existing::from).collect();
+    let when = existing
+        .first()
+        .and_then(|e| e.captured.as_deref())
+        .map(|day| format!(" on {day}"))
+        .unwrap_or_default();
+    Reply {
+        status: StatusCode::CONFLICT,
+        body: json!({ "error": format!("Already saved{when}"), "existing": existing }),
+    }
+}
+
+/// Hands a paper's tags to the window, which reads them as data and shows a
+/// form to check; nothing is written here, so there is nothing to undo.
+fn hand_over(shared: &Shared, url: &str, title: &str, paper: PaperBody) -> Reply {
+    let Some(tell) = shared.papers.as_ref() else {
+        return Reply::no(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "KastenFlow has no window to show a paper in",
+        );
+    };
+    // The address is the browser's own, a whole one: not something typed that is assumed to be https.
+    let address = match tauri::Url::parse(url.trim()) {
+        Ok(parsed)
+            if matches!(parsed.scheme(), "http" | "https")
+                && parsed.host_str().is_some()
+                && parsed.username().is_empty()
+                && parsed.password().is_none() =>
+        {
+            parsed.to_string()
+        }
+        _ => {
+            return Reply::no(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "A paper is saved from a web page: that is not a web address",
+            );
+        }
+    };
+    let too_many = paper.meta.len() > MOST_TAGS
+        || paper.ld.len() > MOST_LD
+        || paper
+            .meta
+            .iter()
+            .any(|(name, value)| name.len() > TAG_NAME || value.len() > TAG_VALUE)
+        || paper.ld.iter().any(|text| text.len() > LD_SIZE);
+    if too_many {
+        return Reply::no(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "That page has more tags than a paper is read from",
+        );
+    }
+    let title: String = title
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(300)
+        .collect();
+    let meta = json!({ "meta": paper.meta, "ld": paper.ld }).to_string();
+    tell(json!({ "url": address, "title": title, "meta": meta }));
+    Reply::ok(json!({
+        "ok": true,
+        "path": "",
+        "title": title,
+        "place": "KastenFlow, to check as a paper",
+    }))
+}
+
 /// Keeps a capture: a card in the inbox or a project, or a quote added to a
-/// page. One commit; a refusal writes nothing.
+/// page. One commit; a refusal writes nothing. A page already saved in a card
+/// is answered with 409 and the cards it is saved in, unless the request says
+/// `again`, which saves a snapshot that points back at the first card. A request
+/// with a `paper` keeps nothing: it hands the page's tags to the window.
 pub(super) fn capture(shared: &Shared, body: &[u8]) -> Reply {
     let request: CaptureBody = match strict(body) {
         Ok(request) => request,
         Err(reply) => return reply,
     };
+    if let Some(paper) = request.paper {
+        return hand_over(shared, &request.url, &request.title, paper);
+    }
     let target = match target_of(request.target) {
         Ok(target) => target,
         Err(reply) => return reply,
@@ -240,14 +341,28 @@ pub(super) fn capture(shared: &Shared, body: &[u8]) -> Reply {
         Ok(kasten) => kasten,
         Err(reply) => return reply,
     };
-    let capture = WebCapture {
+    let mut capture = WebCapture {
         url: request.url,
         title: request.title,
         html: request.html,
         text: request.text,
         via: VIA.to_owned(),
         tags: request.tags,
+        snapshot_of: None,
     };
+    // A page that is already saved is told, not saved again, unless the
+    // person chose a snapshot. (A quote added to a page is not a copy.)
+    if !matches!(target, Target::Page { .. }) {
+        let found =
+            crate::crash::caught(|| kasten.captured(&capture.url).map_err(|e| e.to_string()));
+        match found {
+            Ok(found) if !found.is_empty() && !request.again => {
+                return already_saved(&found);
+            }
+            Ok(found) => capture.snapshot_of = found.first().map(|note| note.path.clone()),
+            Err(why) => return Reply::no(StatusCode::INTERNAL_SERVER_ERROR, why),
+        }
+    }
     let made = crate::crash::caught(|| {
         Ok(kasten.capture_web(
             &Actor::Human,

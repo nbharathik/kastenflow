@@ -64,13 +64,20 @@ describe("the live embeds and videos of a slide", () => {
   });
 });
 
+/** What the browser sends when the page around a frame refuses its address. */
+function refuse(address: string, directive = "frame-src"): void {
+  const event = new Event("securitypolicyviolation", { bubbles: true });
+  Object.assign(event, { effectiveDirective: directive, violatedDirective: directive, blockedURI: address });
+  document.dispatchEvent(event);
+}
+
 describe("an embedded page", () => {
   const item = (extra: Record<string, unknown> = {}) => ({ element: embed(extra), box: { x: 10, y: 20, w: 300, h: 200 }, opacity: 1 });
-  const yes = vi.fn().mockResolvedValue({});
-  const no = vi.fn().mockRejectedValue(new TypeError("refused"));
+  const card = () => host.querySelector<HTMLElement>(".ks-embed-card");
+  const button = (name: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === name);
 
   it("runs in a frame over its box, sandboxed, see-through until it has loaded", async () => {
-    await render(<EmbedFrame item={item()} ask={yes as unknown as typeof fetch} />);
+    await render(<EmbedFrame item={item()} />);
     await settle();
     const frame = host.querySelector<HTMLIFrameElement>("iframe");
     expect(frame?.getAttribute("src")).toBe("http://127.0.0.1:9/demo");
@@ -85,38 +92,119 @@ describe("an embedded page", () => {
   });
 
   it("is given no storage of its own when it is a page of the presentation's own origin", async () => {
-    await render(<EmbedFrame item={item({ url: `${location.origin}/other` })} ask={yes as unknown as typeof fetch} />);
+    await render(<EmbedFrame item={item({ url: `${location.origin}/other` })} />);
     await settle();
     expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe("allow-scripts");
   });
 
-  it("goes away, and leaves the still, when nothing answers at the address", async () => {
-    await render(<EmbedFrame item={item()} ask={no as unknown as typeof fetch} />);
-    await act(async () => void (await new Promise((done) => setTimeout(done, 10))));
-    expect(host.querySelector("iframe")).toBeNull();
+  it("asks the network nothing: no fetch, however long it takes", async () => {
+    vi.useFakeTimers();
+    const fetched = vi.spyOn(globalThis, "fetch");
+    await render(<EmbedFrame item={item()} seconds={3} />);
+    await act(async () => void vi.advanceTimersByTime(20_000));
+    expect(fetched).not.toHaveBeenCalled();
+    fetched.mockRestore();
   });
 
-  it("goes away when the address answers but the page does not load in time", async () => {
+  it("is not removed when it is slow: a card says so, and the page shows if it loads after all (it used to go away after 3 seconds)", async () => {
     vi.useFakeTimers();
-    await render(<EmbedFrame item={item()} seconds={3} ask={yes as unknown as typeof fetch} />);
+    await render(<EmbedFrame item={item()} seconds={3} />);
     await settle();
-    expect(host.querySelector("iframe")).not.toBeNull();
+    expect(card()).toBeNull();
     await act(async () => void vi.advanceTimersByTime(3100));
-    expect(host.querySelector("iframe")).toBeNull();
+    expect(host.querySelector("iframe")).not.toBeNull();
+    expect(card()?.dataset.status).toBe("slow");
+    expect(card()?.textContent).toMatch(/taking a long time/);
+    await act(async () => void host.querySelector("iframe")?.dispatchEvent(new Event("load")));
+    expect(card()).toBeNull();
+    expect(host.querySelector<HTMLIFrameElement>("iframe")?.style.opacity).toBe("1");
+    await act(async () => void vi.advanceTimersByTime(60_000));
+    expect(host.querySelector("iframe")).not.toBeNull();
   });
 
   it("stays when it loads in time", async () => {
     vi.useFakeTimers();
-    await render(<EmbedFrame item={item()} seconds={3} ask={yes as unknown as typeof fetch} />);
+    await render(<EmbedFrame item={item()} seconds={3} />);
     await settle();
     await act(async () => void host.querySelector("iframe")?.dispatchEvent(new Event("load")));
     await act(async () => void vi.advanceTimersByTime(10_000));
     expect(host.querySelector("iframe")).not.toBeNull();
+    expect(card()).toBeNull();
+  });
+
+  it("says plainly that the page is refused when the security policy blocks its frame, even though the frame then 'loads' its error page", async () => {
+    await render(<EmbedFrame item={item()} />);
+    await settle();
+    // The report comes after the frame was inserted; the listener has been there from the start.
+    await act(async () => refuse("http://127.0.0.1:9/demo"));
+    expect(card()?.dataset.status).toBe("blocked");
+    expect(card()?.textContent).toMatch(/can't be shown inside a slide/);
+    await act(async () => void host.querySelector("iframe")?.dispatchEvent(new Event("load")));
+    expect(card()?.dataset.status).toBe("blocked");
+    expect(host.querySelector<HTMLIFrameElement>("iframe")?.style.opacity).toBe("0");
+  });
+
+  it("does not take the refusal of another page for its own", async () => {
+    await render(<EmbedFrame item={item()} />);
+    await settle();
+    await act(async () => refuse("https://other.example/page"));
+    await act(async () => refuse("http://127.0.0.1:9/demo", "script-src"));
+    expect(card()).toBeNull();
+  });
+
+  it("offers to open the page outside on the card, with the host's way if it has one, and always in a small link", async () => {
+    const openUrl = vi.fn();
+    await render(<EmbedFrame item={item()} pages={{ openUrl }} />);
+    await settle();
+    // Nothing is wrong yet, and the link is there anyway: a page that refuses to be framed cannot be told.
+    expect(card()).toBeNull();
+    await act(async () => void button("Not showing? Open externally")?.click());
+    expect(openUrl).toHaveBeenLastCalledWith("http://127.0.0.1:9/demo");
+    await act(async () => refuse("http://127.0.0.1:9/demo"));
+    expect(button("Not showing? Open externally")).toBeUndefined();
+    await act(async () => void button("Open externally")?.click());
+    expect(openUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens it in a window that shares nothing with the slide when the host has no way of its own", async () => {
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
+    await render(<EmbedFrame item={item()} />);
+    await settle();
+    await act(async () => void button("Not showing? Open externally")?.click());
+    expect(opened).toHaveBeenCalledWith("http://127.0.0.1:9/demo", "_blank", "noopener,noreferrer");
+    opened.mockRestore();
+  });
+
+  it("offers the snapshot on the card when the embed has one, and shows the slide's own picture once it is chosen", async () => {
+    await render(<EmbedFrame item={item()} />);
+    await settle();
+    await act(async () => refuse("http://127.0.0.1:9/demo"));
+    await act(async () => void button("Show the snapshot")?.click());
+    expect(host.querySelector(".ks-show-live-item")).toBeNull();
+    // An embed with no snapshot has nothing to go back to.
+    await render(<EmbedFrame key="plain" item={item({ poster: undefined })} />);
+    await settle();
+    await act(async () => refuse("http://127.0.0.1:9/demo"));
+    expect(button("Show the snapshot")).toBeUndefined();
+    expect(button("Open externally")).toBeDefined();
+  });
+
+  it("says it is offline, without loading, and loads when the network is back", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    await render(<EmbedFrame item={item({ url: "https://example.com/x" })} />);
+    await settle();
+    expect(card()?.dataset.status).toBe("offline");
+    expect(host.querySelector("iframe")?.getAttribute("src")).toBeNull();
+    online.mockReturnValue(true);
+    await act(async () => void window.dispatchEvent(new Event("online")));
+    expect(card()).toBeNull();
+    expect(host.querySelector("iframe")?.getAttribute("src")).toBe("https://example.com/x");
+    online.mockRestore();
   });
 
   it("is not there at all for an address that is not a web address", async () => {
     for (const url of ["javascript:alert(1)", "file:///etc/passwd", "data:text/html,x", "", "not a url"]) {
-      await render(<EmbedFrame item={item({ url })} ask={yes as unknown as typeof fetch} />);
+      await render(<EmbedFrame item={item({ url })} />);
       await settle();
       expect(host.querySelector("iframe"), url).toBeNull();
     }

@@ -190,7 +190,7 @@ pub(super) fn filter_sql(filters: &Filters, params: &mut Vec<Box<dyn ToSql>>) ->
             params.push(Box::new(kind.clone()));
             sql.push_str(&format!(" AND n.kind = ?{}", params.len()));
         }
-        None => sql.push_str(" AND n.kind != 'template'"),
+        None => sql.push_str(" AND n.kind NOT IN ('template', 'ai-action')"),
     }
     if let Some(day) = &filters.before {
         params.push(Box::new(day.clone()));

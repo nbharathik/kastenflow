@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
+use super::capabilities::Applied;
+use super::errors::StreamError;
 use super::model::{Call, Message, Reply, Stop, ToolCall, ToolOutput, tool_schema};
 use super::sse::SseEvent;
 
@@ -32,13 +34,23 @@ fn cached() -> Value {
 /// The request. The system prompt and the tools are the same on every
 /// turn of a chat, so both end in a cache breakpoint: later turns read
 /// them from the cache instead of paying for them again.
-pub fn body(model: &str, max_tokens: u32, call: &Call<'_>) -> Value {
+///
+/// `applied` is what the person's settings come to for this model (none,
+/// unless they set some): its longest answer replaces `max_tokens`, and a
+/// thinking budget or a temperature is added (never both: a model takes no
+/// temperature while it thinks).
+pub fn body(model: &str, max_tokens: u32, call: &Call<'_>, applied: &Applied) -> Value {
     let mut body = json!({
         "model": model,
-        "max_tokens": max_tokens,
+        "max_tokens": applied.max_output.unwrap_or(max_tokens),
         "messages": messages(call.messages),
         "stream": true,
     });
+    if let Some(budget) = applied.thinking_budget {
+        body["thinking"] = json!({"type": "enabled", "budget_tokens": budget});
+    } else if let Some(temperature) = applied.temperature {
+        body["temperature"] = json!(temperature);
+    }
     if !call.system.is_empty() {
         body["system"] = json!([{"type": "text", "text": call.system, "cache_control": cached()}]);
     }
@@ -88,6 +100,11 @@ pub fn messages(thread: &[Message]) -> Vec<Value> {
     for message in thread {
         match message {
             Message::User(text) => user(&mut out, json!({"type": "text", "text": text})),
+            Message::UserImages { text, images } => {
+                for block in super::parts::anthropic(text, images) {
+                    user(&mut out, block);
+                }
+            }
             Message::Results(results) => {
                 for result in results {
                     user(&mut out, tool_result(result));
@@ -155,6 +172,10 @@ pub struct Stream {
     blocks: BTreeMap<u64, Block>,
     stop: Option<String>,
     done: bool,
+    /// A tool call's block was closed: it came whole.
+    call_done: bool,
+    /// What the last error event meant.
+    error: Option<StreamError>,
 }
 
 impl Stream {
@@ -225,18 +246,38 @@ impl Stream {
                 }
             }
             "message_stop" => self.done = true,
+            "content_block_stop" => {
+                if matches!(self.blocks.get(&index), Some(Block::Tool { .. })) {
+                    self.call_done = true;
+                }
+            }
             "error" => {
                 let error = &data["error"];
                 let message = error["message"].as_str().unwrap_or("the stream failed");
+                self.error = Some(StreamError::of(
+                    "",
+                    error["type"].as_str().unwrap_or_default(),
+                    message,
+                ));
                 return Err(match error["type"].as_str() {
                     Some(kind) => format!("{message} ({kind})"),
                     None => message.to_owned(),
                 });
             }
-            // message_start, content_block_stop, ping and whatever comes later.
+            // message_start, ping and whatever comes later.
             _ => {}
         }
         Ok(None)
+    }
+
+    /// What the error event that ended the stream meant.
+    pub fn error(&self) -> Option<StreamError> {
+        self.error.clone()
+    }
+
+    /// Whether a tool call's block was closed: the call came whole.
+    pub fn call_done(&self) -> bool {
+        self.call_done
     }
 
     /// Whether the server said the answer is complete.
@@ -260,6 +301,9 @@ impl Stream {
                 Some("max_tokens") => Stop::Length,
                 Some("model_context_window_exceeded") => Stop::Full,
                 Some("refusal") => Stop::Refusal,
+                // A long turn the provider paused: the answer so far goes back
+                // as it is, and the turn goes on.
+                Some("pause_turn") => Stop::Pause,
                 _ => Stop::End,
             }
         };

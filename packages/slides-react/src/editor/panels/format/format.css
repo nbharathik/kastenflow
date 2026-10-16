@@ -154,6 +154,12 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* What can be done to the cells picked in a table: buttons that wrap, two to a line in a narrow panel. */
+.ks-sp-cellbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 .ks-sp-hint {
   margin: 0;
   color: var(--ks-muted);

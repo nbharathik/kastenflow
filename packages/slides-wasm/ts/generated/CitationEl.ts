@@ -9,6 +9,10 @@ import type { Style } from "./Style";
  */
 export type CitationEl = { keys: Array<string>, format?: CitationStyle | null, 
 /**
+ * Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)
+ */
+links?: boolean, 
+/**
  * Unique on its slide. Two slides may share an id on purpose: that is how Morph pairs elements. Left out when adding an element, it is assigned.
  */
 id: string, 

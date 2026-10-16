@@ -64,13 +64,17 @@ describe("Databases inside pages", () => {
     expect(screen.getByRole("tab", { name: /Gallery/ }).getAttribute("aria-selected")).toBe("true");
     await expect.poll(async () => (await schemaOf("paper")).views.map((v) => v.name)).toEqual(["All", "Gallery"]);
 
-    // Properties opens the tag's properties.
-    fireEvent.click(screen.getByRole("button", { name: /^Properties/ }));
+    // Properties opens the tag's properties. It is an icon: the word and the count are its name.
+    const properties = screen.getByRole("button", { name: /^Properties/ });
+    expect(properties.getAttribute("aria-label")).toBe("Properties (1)");
+    expect(properties.textContent).toBe("1");
+    fireEvent.click(properties);
     expect(await screen.findByRole("dialog")).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });
 
-    // New: a note carrying the tag.
-    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    // New is an icon too: a note carrying the tag.
+    expect(screen.getByRole("button", { name: "New note" }).textContent).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
     const field = screen.getByRole("textbox", { name: "New note in #paper" });
     fireEvent.change(field, { target: { value: "Notes on dreams" } });
     await act(async () => fireEvent.submit(field.closest("form")!));
@@ -88,7 +92,7 @@ describe("Databases inside pages", () => {
     const renamed = await vault.rename(page, "Reading list");
     page = renamed.note.meta.path;
     await act(() => useWorkspace.getState().refresh());
-    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
     const field = screen.getByRole("textbox", { name: "New note in #paper" });
     fireEvent.change(field, { target: { value: "Notes on naps" } });
     await act(async () => fireEvent.submit(field.closest("form")!));

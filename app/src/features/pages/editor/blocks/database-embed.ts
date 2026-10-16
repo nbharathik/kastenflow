@@ -11,6 +11,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { findDatabase, linksOf, parseWikiTarget } from "../links";
 import { el, withGlyph } from "../ui/dom";
 import { freshHost } from "./embed-host";
+import { embedTool } from "./embed-tools";
 
 export class DatabaseEmbed {
   private readonly body: HTMLElement;
@@ -23,11 +24,19 @@ export class DatabaseEmbed {
     private readonly ctx: Ctx,
   ) {
     this.title = el("span", "kasten-embed-title");
-    const open = el("button", "kasten-board-embed-open", { type: "button", textContent: "Open ↗", title: "Open the database (Ctrl+click for a new tab)" });
+    // An icon, no words: its name is for screen readers and the tooltip.
+    const open = embedTool("kasten-board-embed-open", "icon:arrow-up-right", "Open database", "Open the database (Ctrl+click for a new tab)");
+    const openDatabase = (how: "here" | "tab") => {
+      if (this.tag) linksOf(this.ctx).openDatabase?.(this.tag, how);
+    };
     open.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (this.tag) linksOf(this.ctx).openDatabase?.(this.tag, event.ctrlKey || event.metaKey || event.button === 1 ? "tab" : "here");
+      openDatabase(event.ctrlKey || event.metaKey || event.button === 1 ? "tab" : "here");
+    });
+    // The keyboard presses the button: Enter and Space arrive as a click that no mouse press came before.
+    open.addEventListener("click", (event) => {
+      if (event.detail === 0) openDatabase(event.ctrlKey || event.metaKey ? "tab" : "here");
     });
     const head = el("span", "kasten-embed-head");
     head.append(withGlyph(el("span", "kasten-embed-icon"), "icon:database", 16), this.title, open);

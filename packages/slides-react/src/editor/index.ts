@@ -1,5 +1,9 @@
 export { SlidesEditor, Workspace } from "./SlidesEditor.tsx";
-export type { SlidesEditorProps } from "./SlidesEditor.tsx";
+export type { SlidesEditorProps, WorkspaceProps } from "./SlidesEditor.tsx";
+export type { DeckInfo, DecksHost } from "./decks-host.ts";
+export { focusHome } from "./focus/home.ts";
+export { useOrphanKeys } from "./focus/orphan-keys.ts";
+export type { PreviewMode, PreviewPlace, PreviewRect, WebPreviewEvent, WebPreviewHandle, WebPreviewHost, WebPreviewState } from "./web-preview-host.ts";
 export type { AiPanelProps, DeckFavourite, DeliveredFile, DiagramPicture, HostImage, HostPage, HostPageSection, HostPageText, ImageEdit, ImageUse, OpenPageWay, PagePanelProps, SaveOutcome, SlidesHost } from "./host.ts";
 export { LayoutPicker } from "./layouts/LayoutPicker.tsx";
 export type { LayoutPickerProps } from "./layouts/LayoutPicker.tsx";

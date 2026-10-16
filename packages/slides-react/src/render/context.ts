@@ -35,6 +35,13 @@ export interface RenderCx {
   readonly master: boolean;
 }
 
+/** The cell of a table whose words an editor draws over the slide: the table, and the first row and column of the cell. */
+export interface HiddenCell {
+  id: string;
+  row: number;
+  col: number;
+}
+
 /** The view of one element: the element, the box it occupies, and how it is drawn. */
 export interface ViewProps<T extends Element["type"]> {
   element: Extract<Element, { type: T }>;
@@ -42,4 +49,6 @@ export interface ViewProps<T extends Element["type"]> {
   cx: RenderCx;
   /** Whether an editor draws this element's text over it, so the view leaves it out. */
   hideText: boolean;
+  /** For a table: the cell whose words an editor draws over it, so the view leaves out those alone. */
+  hideCell?: Omit<HiddenCell, "id"> | null;
 }

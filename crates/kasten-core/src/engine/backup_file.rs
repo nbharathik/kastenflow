@@ -327,7 +327,7 @@ impl Kasten {
         let waiting = record.failures > 0
             && record
                 .last_attempt
-                .is_some_and(|t| now < t + super::commits::backoff(record.failures));
+                .is_some_and(|t| now < t + super::push::backoff(record.failures));
         if waiting {
             return false;
         }

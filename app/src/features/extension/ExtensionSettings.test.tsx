@@ -49,13 +49,23 @@ function app(start: Partial<ExtensionStatus> = {}) {
       me.status = { ...me.status, paired: me.status.paired.filter((p) => p.id !== id) };
       return answer();
     },
+    folder: () => Promise.resolve(FOLDER),
+    showFolder: () => {
+      me.calls.push("show folder");
+      return Promise.resolve(FOLDER);
+    },
   };
   setExtensionBackend(me.backend);
   return me;
 }
 
+/** Where the installed app carries the extension. */
+const FOLDER = "C:/Program Files/KastenFlow/browser-extension";
+
 beforeEach(() => {
   resetExtension();
+  // The steps remember whether they were opened, per browser.
+  localStorage.clear();
 });
 
 afterEach(() => {
@@ -165,6 +175,34 @@ describe("Settings → Browser extension", () => {
     expect(me.calls).toEqual(["port 7500"]);
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("127.0.0.1:7500"));
     expect((screen.getByRole("button", { name: "Change" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows where the app carries the extension's files, and opens that folder from a button", async () => {
+    const me = app();
+    render(<ExtensionSettings />);
+    expect(await screen.findByText(FOLDER)).toBeTruthy();
+    await press("Show extension folder");
+    expect(me.calls).toEqual(["show folder"]);
+    // Load unpacked is pointed at this folder in the steps.
+    fireEvent.click(screen.getByRole("button", { name: /Show the steps/ }));
+    expect(screen.getByText(/pick the extension folder/)).toBeTruthy();
+  });
+
+  it("says so, and offers nothing to press, when this copy of the app carries no extension", async () => {
+    const me = app();
+    me.backend.folder = () => Promise.reject(new Error("The extension's files are not in this copy of KastenFlow"));
+    render(<ExtensionSettings />);
+    expect(await screen.findByText("The extension's files are not in this copy of KastenFlow")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Show extension folder" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("says a folder that could not be shown", async () => {
+    const me = app();
+    me.backend.showFolder = () => Promise.reject(new Error("Could not open the folder: no file manager"));
+    render(<ExtensionSettings />);
+    await screen.findByText(FOLDER);
+    await press("Show extension folder");
+    expect((await screen.findByRole("alert")).textContent).toBe("Could not open the folder: no file manager");
   });
 
   it("says why the door is shut when the port is taken", async () => {

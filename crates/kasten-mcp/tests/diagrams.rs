@@ -96,7 +96,8 @@ fn an_agent_makes_reads_and_changes_a_diagram() {
     let list = call(&k, &s, "list_diagrams", Value::Null).unwrap();
     assert_eq!(list[0]["title"], json!("Login flow"));
     assert_eq!(list[0]["project"], json!("photo-organiser"));
-    assert_eq!(list[0]["preview"], json!("missing"));
+    // A draft picture comes with what an agent makes; the editor draws the exact one later.
+    assert_eq!(list[0]["preview"], json!("draft"));
 
     // By title or by path.
     for name in ["Login flow", "login flow", path.as_str()] {

@@ -11,9 +11,15 @@
 pub mod agent;
 pub mod assets;
 mod atomic;
+pub mod bib;
 pub mod board;
+pub mod bundle;
 pub(crate) mod capture;
+pub mod cite;
 pub mod clip;
+pub mod collections;
+pub mod comments;
+pub mod companions;
 pub mod config;
 pub mod dates;
 pub mod deck;
@@ -56,6 +62,7 @@ pub mod tag_yaml;
 pub mod tags;
 mod template_vars;
 mod templated;
+pub mod text_highlights;
 mod time;
 mod trash;
 mod vault;
@@ -70,15 +77,24 @@ pub use engine::{
     Placed, Problem, QUIET_MS, Report, SessionInfo, Tick, UndoConflict, Undone, VaultRestore,
     computer_name, kits,
 };
+pub use engine::{AppliedSetup, SetupInfo, SetupPlan, SetupTarget, setups};
+pub use engine::{DeckEdit, DecksSaved, MAX_SAVE_DECKS, SaveDecksRequest};
 pub use engine::{
     Expected, MAX_REPLACE_NOTES, MAX_REPLACEMENTS, NoteMatches, ReplaceRequest, Replaced,
 };
+pub use engine::{Health, HealthCounts, HistoryHealth, IndexHealth, LastCheck, TrashHealth};
+pub use engine::{
+    LastUpdate, LatestActivity, NextAction, PROJECT_HEALTHS, PROJECT_STATUSES, ProjectState,
+    ProjectSummary, TaskCounts,
+};
+pub use engine::{MAX_TAGGED, TagAdded};
+pub use engine::{Revision, RevisionArea, area_of, shipped_template};
 pub use error::{Error, Result};
 pub use id::ulid_at;
 pub use lock::WriteLock;
 pub use marks::AgentMark;
 pub use moving::{duplicate_note, move_note, nest_note};
-pub use note::{NoteFile, NoteMeta, content_hash, wiki_links};
+pub use note::{AI_ACTION, NoteFile, NoteMeta, content_hash, wiki_links};
 pub use ops::{Kind, NewNote, Saved, create_note, save_body, set_meta, trash_note};
 pub use rename::{Renamed, rename_note};
 pub use replace::{FindSpec, MatchSample};

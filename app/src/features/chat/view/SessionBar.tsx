@@ -1,9 +1,12 @@
 // Below a thread whose session changed the vault: undo everything the chat
 // did (after asking), or look at it in History. Undo reverts the session's
 // commits newest first as new commits, as the History view's "Undo
-// session" does, and shows what it did the same way.
+// session" does, and shows what it did the same way. Under every thread, the
+// switch for how its writes reach the vault: held back as staged changes to
+// review (the default), or made at once ("Apply directly").
 
 import "../../review/review.css";
+import "../changes/changes.css";
 
 import { useState } from "react";
 
@@ -24,7 +27,30 @@ const decksOf = (thread: Thread): string[] => [
   ...new Set(thread.messages.flatMap((m) => (m.role === "assistant" ? m.parts.flatMap((p) => (p.kind === "tool" && p.result?.ok ? p.result.paths : [])) : [])).filter((p) => p.endsWith(".deck"))),
 ];
 
+/** How the thread's writes reach the vault. */
+function WriteSwitch({ thread }: { thread: Thread }) {
+  const direct = Boolean(thread.direct);
+  return (
+    <div className="kasten-chat-direct">
+      <label>
+        <input type="checkbox" checked={direct} disabled={thread.streaming} onChange={(event) => useChat.getState().setDirect(thread.id, event.target.checked)} />
+        Apply directly
+      </label>
+      <span>{direct ? "Changes are saved as the chat makes them." : "Changes wait for you to review and apply them."}</span>
+    </div>
+  );
+}
+
 export function SessionBar({ thread }: { thread: Thread }) {
+  return (
+    <>
+      <Undo thread={thread} />
+      <WriteSwitch thread={thread} />
+    </>
+  );
+}
+
+function Undo({ thread }: { thread: Thread }) {
   const links = useChatLinks();
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);

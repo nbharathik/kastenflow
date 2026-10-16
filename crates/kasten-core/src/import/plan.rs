@@ -97,6 +97,7 @@ impl Plan {
             files: self.copies.len() + self.pdfs.len(),
             tags: self.tags.len(),
             warnings: self.warnings.sentences(),
+            conflicts: Vec::new(),
         }
     }
 

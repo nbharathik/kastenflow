@@ -57,20 +57,38 @@ fn lists_every_tool_with_an_object_schema() {
         "create_diagram",
         "update_diagram",
         "trash_diagram",
+        "diagram_describe",
+        "diagram_find_shapes",
+        "diagram_lint",
+        "diagram_preview",
+        "diagram_new",
+        "diagram_edit",
+        "diagram_export",
+        "server_status",
     ] {
         assert!(names.contains(&name), "missing {name} in {names:?}");
     }
-    // The 34 tools for notes, tags, boards and diagrams, slides-core's tools for decks, and the one that makes a deck from a note.
+    // The 42 tools for notes, tags, boards and diagrams (server_status and the seven typed diagram tools among
+    // them), slides-core's tools for decks, and the one that makes a deck from a note. A program that cannot
+    // draw slides does not list the two that draw them.
     let decks = slides_core::agent::tools();
-    assert_eq!(specs.len(), 34 + decks.len() + 1, "{names:?}");
+    let drawing = ["render_slide", "render_grid"];
+    let hidden = if cfg!(feature = "render") {
+        0
+    } else {
+        drawing.len()
+    };
+    assert_eq!(specs.len(), 42 + decks.len() + 1 - hidden, "{names:?}");
     assert!(
         names.contains(&"deck_from_note"),
         "missing deck_from_note in {names:?}"
     );
     for deck_tool in &decks {
-        assert!(
+        let listed = cfg!(feature = "render") || !drawing.contains(&deck_tool.name.as_str());
+        assert_eq!(
             names.contains(&deck_tool.name.as_str()),
-            "missing {} in {names:?}",
+            listed,
+            "{} in {names:?}",
             deck_tool.name
         );
     }

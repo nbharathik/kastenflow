@@ -1,0 +1,88 @@
+/* What a check before leaving found: errors and warnings by slide, what changes in the file, what was not looked at. */
+
+.ks-pf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ks-pf-note,
+.ks-pf-summary,
+.ks-pf-clean {
+  margin: 0;
+}
+
+.ks-pf-clean {
+  color: var(--ks-ink-2);
+}
+
+.ks-pf-heading {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ks-ink-2);
+}
+
+.ks-pf-list,
+.ks-pf-reductions,
+.ks-pf-unchecked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ks-pf-issue {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius-md);
+}
+
+.ks-pf-issue.is-error .ks-pf-sev {
+  color: var(--ks-danger, currentColor);
+}
+
+.ks-pf-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ks-pf-where {
+  color: var(--ks-ink-2);
+  font-size: 12px;
+}
+
+.ks-pf-hint {
+  color: var(--ks-ink-2);
+  font-size: 12px;
+}
+
+.ks-pf-rule {
+  align-self: center;
+  color: var(--ks-ink-2);
+  font-family: var(--ks-mono, monospace);
+  font-size: 11px;
+}
+
+.ks-pf-go {
+  align-self: center;
+}
+
+.ks-pf-reductions li,
+.ks-pf-unchecked li {
+  color: var(--ks-ink-2);
+}
+
+.ks-pf-what-it-is {
+  color: var(--ks-ink);
+}

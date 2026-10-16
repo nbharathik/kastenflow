@@ -6,6 +6,7 @@ import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 
 import { type Position, type RevealState, fromState, planOf, toState } from "./plan.ts";
 import { Presenter } from "./Presenter.tsx";
+import { type RehearsalStore, localRehearsals } from "./rehearsal-store.ts";
 import type { PresentSync } from "./sync.ts";
 import "./presenter.css";
 
@@ -28,12 +29,17 @@ export interface PresenterWindowProps {
   sync: PresentSync;
   /** Closes the window, where the page can (a button appears when it is given). */
   onClose?: () => void;
+  /** Where rehearsals are kept; the page's own storage when left out. */
+  rehearsals?: RehearsalStore;
 }
 
-export function PresenterWindow({ sync, onClose }: PresenterWindowProps): JSX.Element {
+export function PresenterWindow({ sync, onClose, rehearsals }: PresenterWindowProps): JSX.Element {
   const [talk, setTalk] = useState<Talk | null>(null);
   const [state, setState] = useState<RevealState>({ indexh: 0, indexv: 0 });
   const [ended, setEnded] = useState(false);
+  const [rehearse, setRehearse] = useState(false);
+  const local = useMemo(() => localRehearsals(), []);
+  const rehearsal = useMemo(() => ({ store: rehearsals ?? local, autoStart: rehearse }), [rehearsals, local, rehearse]);
 
   // Ask until the audience's window answers: it may not be there yet.
   useEffect(() => {
@@ -44,6 +50,8 @@ export function PresenterWindow({ sync, onClose }: PresenterWindowProps): JSX.El
         setEnded(false);
       } else if (message.type === "state") {
         setState(message.state);
+      } else if (message.type === "rehearse") {
+        setRehearse(true);
       } else if (message.type === "bye") {
         setEnded(true);
       }
@@ -89,7 +97,7 @@ export function PresenterWindow({ sync, onClose }: PresenterWindowProps): JSX.El
   }
   return (
     <>
-      <Presenter deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} {...(onClose ? { onClose } : {})} />
+      <Presenter deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} rehearsal={rehearsal} {...(onClose ? { onClose } : {})} />
       {ended ? (
         <p className="ks-pv-ended" role="status">
           The presentation has ended.

@@ -108,7 +108,12 @@ export function BoardAction({ path, open, onOpen, onClose, hint, compact }: Acti
     if (!client) return;
     try {
       const added = await client.addToBoard(board, [path], "grid");
-      toast(added.created.length ? `Added to “${title}”` : `Already on “${title}”`);
+      if (!added.created.length) return toast(`Already on “${title}”`);
+      // Undo takes the new card off the board again; the note stays.
+      toast(`Added to “${title}”`, {
+        label: "Undo",
+        run: () => void client.boardApply(board, [{ kind: "remove", ids: added.created }]).then(() => toast(`Took it off “${title}”`), (err: unknown) => toast(err instanceof Error ? err.message : String(err))),
+      });
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err));
     }

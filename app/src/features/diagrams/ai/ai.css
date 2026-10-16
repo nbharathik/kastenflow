@@ -1,0 +1,90 @@
+/* A staged diagram change as pictures: before and after side by side, what
+   changed in words, and the XML one button away. Colours, sizes and radii come
+   from the theme's tokens; the pictures carry their own white ground, so they
+   read in the dark theme too. */
+
+.kasten-diagram-change {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.kasten-diagram-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.kasten-diagram-shot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+
+  & > figcaption {
+    padding: 4px 10px;
+    background: var(--notion-hover);
+    color: var(--notion-text-2);
+    font-size: var(--text-12);
+    font-weight: 600;
+  }
+
+  & > img {
+    display: block;
+    width: 100%;
+    max-height: 18rem;
+    object-fit: contain;
+    background: var(--color-knob);
+  }
+}
+
+.kasten-diagram-shot-missing {
+  display: grid;
+  min-height: 6rem;
+  margin: 0;
+  padding: 10px;
+  place-items: center;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  text-align: center;
+}
+
+.kasten-diagram-words {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--notion-text);
+  font-size: var(--text-13);
+}
+
+.kasten-diagram-note {
+  margin: 0;
+  color: var(--notion-text);
+  font-size: var(--text-13);
+  white-space: pre-line;
+}
+
+.kasten-diagram-draft {
+  margin: 0;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+}
+
+.kasten-diagram-xml {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}

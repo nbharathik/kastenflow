@@ -11,7 +11,7 @@ import { FolderPicker } from "../vaults/FolderPicker";
 import { useWorkspace } from "../workspace/store";
 import { useImportRequest } from "./drop";
 import { KINDS, pathTip } from "./kinds";
-import { counts, planImport, runImport, undoImport } from "./run";
+import { counts, planImport, runImport, undoImport, useUndoneImport } from "./run";
 
 import "./import.css";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
@@ -24,6 +24,7 @@ const LABELS: Record<ImportKind, string> = {
   markdown: "a Markdown folder",
   notion: "a Notion export",
   heptabase: "a Heptabase backup",
+  bundle: "a KastenFlow project bundle",
 };
 
 export function ImportView() {
@@ -36,7 +37,12 @@ export function ImportView() {
   const [error, setError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const requested = useImportRequest((s) => s.source);
+  const undoneCommit = useUndoneImport((s) => s.commit);
   const info = KINDS.find((k) => k.id === kind)!;
+  // Taken back from the notice's Undo: the result card has nothing left to say.
+  useEffect(() => {
+    if (done?.commit && done.commit === undoneCommit) setDone(null);
+  }, [done, undoneCommit]);
   const options = { project: project.trim() || undefined };
 
   const look = async (from: string) => {
@@ -194,10 +200,14 @@ function Tiles({ summary }: { summary: ImportSummary }) {
   );
 }
 
-function Warnings({ warnings }: { warnings: string[] }) {
+/** What did not come across as it was, then what a bundle's import settled because the vault had the same thing. */
+const thingsToKnow = (summary: ImportSummary): string[] => [...summary.warnings, ...(summary.conflicts ?? []).map((c) => `${c.what}: ${c.resolution}`)];
+
+/** `open`: shown unfolded, for what the person must see before importing (a bundle's clashes with what the vault has). */
+function Warnings({ warnings, open = false }: { warnings: string[]; open?: boolean }) {
   if (warnings.length === 0) return null;
   return (
-    <details className="kasten-import-warnings">
+    <details className="kasten-import-warnings" open={open}>
       <summary>
         {warnings.length} thing{warnings.length === 1 ? "" : "s"} to know
       </summary>
@@ -217,7 +227,8 @@ function Plan({ plan, busy, onImport }: { plan: ImportSummary; busy: Busy; onImp
         This is {LABELS[plan.kind]}. It becomes the project <strong>“{plan.project}”</strong>:
       </p>
       <Tiles summary={plan} />
-      <Warnings warnings={plan.warnings} />
+      {/* A bundle's clashes with what the vault has are shown before anything is written. */}
+      <Warnings warnings={thingsToKnow(plan)} open={(plan.conflicts?.length ?? 0) > 0} />
       <div className="kasten-import-actions">
         <button type="button" className="kasten-import-go" disabled={busy !== null} onClick={onImport}>
           {busy === "importing" ? "Importing…" : `Import ${counts(plan)}`}
@@ -236,7 +247,7 @@ function Result({ done, busy, onUndo, onAgain }: { done: Imported; busy: Busy; o
         <Icon name="circle-check" className="mr-1 inline size-4 align-[-3px] text-success" /> Imported {counts(summary)} into <strong>“{summary.project}”</strong>.
       </p>
       <Tiles summary={summary} />
-      <Warnings warnings={summary.warnings} />
+      <Warnings warnings={thingsToKnow(summary)} />
       <div className="kasten-import-actions">
         <button type="button" className="kasten-import-go" onClick={() => useWorkspace.getState().openPath(summary.projectPath)}>
           Open the project

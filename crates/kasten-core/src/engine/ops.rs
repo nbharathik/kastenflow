@@ -1,6 +1,7 @@
 //! The write ops, each wrapped with its commit message and touched paths.
 
 use super::{Change, Kasten};
+use crate::companions;
 use crate::error::{Error, Result};
 use crate::frontmatter::split;
 use crate::history::Actor;
@@ -8,6 +9,7 @@ use crate::merge::merge3;
 use crate::note::NoteFile;
 use crate::ops::{self, Saved};
 use crate::rename::{Renamed, rename_note_in};
+use crate::rollback::Rollback;
 use crate::time::Instant;
 use crate::trash;
 
@@ -151,6 +153,15 @@ impl Kasten {
             paths.extend(renamed.relinked.iter().cloned());
             if renamed.note.meta.path != path {
                 let moved = [(path.to_owned(), renamed.note.meta.path.clone())];
+                // Its comments and highlights files follow it to the new name.
+                let mut done = Rollback::default();
+                match companions::carry(vault, &moved, &mut done) {
+                    Ok(carried) => paths.extend(carried.into_iter().flat_map(|(a, b)| [a, b])),
+                    Err(err) => {
+                        done.put_back();
+                        return Err(err);
+                    }
+                }
                 paths.extend(crate::board::relink_boards(vault, &moved)?);
             }
             Ok(Change {
@@ -167,6 +178,15 @@ impl Kasten {
             let note = crate::moving::duplicate_note(vault, path, now)?;
             // A second copy shares the first's title: links to it stay put.
             let mut paths = vec![note.meta.path.clone()];
+            // The copy has the page's comments and highlights too.
+            let mut done = Rollback::default();
+            match companions::copy_for(vault, path, &note.meta.path, &mut done) {
+                Ok(copied) => paths.extend(copied),
+                Err(err) => {
+                    done.put_back();
+                    return Err(err);
+                }
+            }
             paths.extend(self.keep_for_new(vault, &note.meta)?);
             Ok(Change {
                 message: format!("duplicate: {title}"),
@@ -182,8 +202,14 @@ impl Kasten {
         self.apply(actor, "trash_note", false, now.millis, |vault| {
             let title = title_of(vault, path);
             let going = self.with_sub_pages(path)?;
-            let trashed = trash::trash_all(vault, &going, now)?;
-            let mut paths = going.clone();
+            // Each page's comments and highlights files go to the trash with
+            // it (and come back with it); they are not listed there apart.
+            let mut files = going.clone();
+            for page in &going {
+                files.extend(companions::existing(vault, page));
+            }
+            let trashed = trash::trash_all(vault, &files, now)?;
+            let mut paths = files;
             paths.extend(trashed.iter().cloned());
             // A diagram's picture goes with it, and is not a sub-page.
             let sub_pages = if path.ends_with(crate::diagrams::EXT) {
@@ -230,8 +256,10 @@ impl Kasten {
                 let paths = moves
                     .iter()
                     .flat_map(|(from, to)| [from.clone(), to.clone()]);
+                // The pages that came back, not their comments and highlights files.
+                let pages = moves.iter().filter(|(_, to)| to.ends_with(".md")).count();
                 Ok(Change {
-                    message: format!("restore: {}{}", note.meta.title, along(moves.len() - 1)),
+                    message: format!("restore: {}{}", note.meta.title, along(pages - 1)),
                     paths: paths.collect(),
                     value: note,
                 })

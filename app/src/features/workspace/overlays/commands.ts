@@ -9,12 +9,18 @@ import { dayOfPath } from "../../journal/feed";
 import { pickDay } from "../../journal/JournalBar";
 import { BOARD_COMMANDS } from "../../boards/commands";
 import { startNewBoard } from "../../boards/store";
+import { useSlideNumbers } from "../../slides/slide-numbers-state";
 import { startNewDeck } from "../../slides/store";
-import { browserOn, onBrowserTab, runBrowserCommand } from "../../browser/commands";
+import { browserOn, onBrowserTab, openWebTab, runBrowserCommand } from "../../browser/commands";
 import { newDiagram } from "../../diagrams/actions";
+import { chatShortcut } from "../../chat/focus";
+import { newCollection } from "../../collections/requests";
 import { capturesPlace } from "../../extension/captures";
 import { searchLibrary } from "../../library/request";
 import { pickPdfs } from "../../sources/import";
+import { openCompare } from "../../sources/compare/compare-state";
+import { openAddPaper } from "../../references/add-state";
+import { insertCitation } from "../../pages/editor/cite/registry";
 import { openHistory } from "../../panel/panel-store";
 import { flipTheme } from "../theme";
 import { usePrefs } from "../prefs";
@@ -23,6 +29,7 @@ import { useWorkspace } from "../store";
 import type { Place } from "../tabs";
 import { movable, noteAt } from "../tree";
 import { foldAllSections } from "../../pages/editor/sections/registry";
+import { exportCurrentProject } from "../../projects/export/request";
 import { openCurrentOverview } from "../../projects/overview/open";
 import { openSettingsAt } from "../views/settings/jump";
 import { PAGE_COMMANDS } from "./page-commands";
@@ -56,25 +63,39 @@ export const COMMANDS: Command[] = [
   { id: "search", label: "Search everything", words: "find full text filter tag project", run: () => searchLibrary() },
   { id: "tasks", label: "Go to Tasks", words: "todo to-do checklist", run: () => workspace().go({ view: "tasks" }) },
   { id: "tags", label: "Go to Tag Database", words: "tags database kanban board table properties schema", run: () => workspace().go({ view: "tags" }) },
+  { id: "collections", label: "Go to Collections", words: "saved searches queries filters smart lists", run: () => workspace().go({ view: "collections" }) },
+  { id: "new-collection", label: "New collection…", words: "save search saved filter smart list query create", run: () => newCollection() },
   { id: "calendar", label: "Go to Calendar", words: "month week dates due schedule", run: () => workspace().go({ view: "calendar" }) },
   { id: "boards", label: "Go to Whiteboards", words: "board canvas map spatial heptabase", run: () => workspace().go({ view: "boards" }) },
   { id: "new-board", label: "New whiteboard", words: "board canvas map brainstorm create", run: () => startNewBoard() },
   { id: "slides", label: "Go to Slides", words: "decks presentation talk powerpoint", run: () => workspace().go({ view: "slides" }) },
   { id: "new-deck", label: "New deck", words: "slides presentation talk powerpoint create", run: () => startNewDeck() },
+  { id: "slide-numbers-off", label: "Turn off slide numbers in every deck…", words: "slides decks presentation page numbers footer remove hide all", run: () => useSlideNumbers.getState().show() },
   { id: "diagrams", label: "Go to Diagrams", words: "draw drawio flowchart architecture sketch uml", run: () => workspace().go({ view: "diagrams" }) },
   { id: "new-diagram", label: "New diagram", words: "draw drawio flowchart architecture sketch uml create", run: () => void newDiagram() },
   { id: "highlights", label: "Go to Highlights", words: "pdf reader sources papers annotations quotes", run: () => workspace().go({ view: "highlights" }) },
+  { id: "references", label: "Go to References", words: "bibliography citations bibtex papers zotero doi arxiv cite sources library", run: () => workspace().go({ view: "references" }) },
+  { id: "add-paper", label: "Add a paper…", words: "reference bibtex doi arxiv citation cite paste bibliography new", run: () => openAddPaper() },
+  { id: "insert-citation", label: "Insert citation…", words: "insert cite reference bibliography pandoc [@ paper source", run: () => void insertCitation() },
+  { id: "compare-papers", label: "Compare papers…", words: "comparison table synthesis literature review sources outline evidence", run: () => openCompare() },
   { id: "graph", label: "Open graph", words: "go to links network map connections backlinks orphans ghosts missing pages", run: () => workspace().go({ view: "graph" }) },
   { id: "graph-page", label: "Graph around this page", words: "local links neighbours network connections", run: () => onOpenPlace((place) => workspace().openRight({ view: "graph", path: place.path })) },
   { id: "browser", label: "Open browser", words: "web internet site page search google capture clip", when: browserOn, run: () => workspace().go({ view: "web" }) },
   { id: "browser-address", label: "Browser: go to the address box", words: "web url search location bar", when: onBrowserTab, run: () => runBrowserCommand("address") },
   { id: "browser-capture-page", label: "Browser: capture the page", words: "web clip save keep bookmark", when: onBrowserTab, run: () => runBrowserCommand("capture-page") },
   { id: "browser-capture-selection", label: "Browser: capture the selection", words: "web clip save keep quote highlight", when: onBrowserTab, run: () => runBrowserCommand("capture-selection") },
+  { id: "browser-save-paper", label: "Browser: save the page as a paper", words: "web reference bibliography citation article doi arxiv journal cite", when: onBrowserTab, run: () => runBrowserCommand("save-paper") },
   { id: "extension-pair", label: "Browser extension: pair with Chrome or Edge…", words: "connect code settings capture clip web send", run: () => openSettingsAt({ group: "extension", row: "extension.pair" }) },
+  { id: "projects", label: "Go to Projects", words: "all projects gallery hub status health overdue stale review archive pin organise", run: () => workspace().go({ view: "projects" }) },
+  { id: "triage", label: "Triage captures", words: "inbox captures clip sort process keys later archive defer reading one at a time", run: () => workspace().go({ view: "inbox", path: "triage" }) },
+  { id: "review-daily", label: "Daily review", words: "today day overdue due captures routine check in", run: () => workspace().go({ view: "reviews", path: "daily" }) },
+  { id: "review-weekly", label: "Weekly review", words: "week routine decisions completed projects reminder look back", run: () => workspace().go({ view: "reviews", path: "weekly" }) },
+  { id: "calendar-subscribe", label: "Subscribe to a calendar…", words: "calendar ics ical google outlook icloud webcal feed url add events", run: () => openSettingsAt({ group: "calendar", row: "calendar.subscribe" }) },
   { id: "project-overview", label: "Open project overview", words: "project expand full screen tabs tables captures tasks board dashboard", run: () => openCurrentOverview() },
   { id: "import-pdf", label: "Import a PDF…", words: "open file paper source reader highlight", run: () => pickPdfs() },
   { id: "import-notes", label: "Import notes…", words: "obsidian notion heptabase markdown vault export migrate move bring", run: () => workspace().go({ view: "import" }) },
-  { id: "chat-dock", label: "Chat about the pages open", words: "ai ask assistant chat dock side panel claude", run: () => shell().toggleChat() },
+  { id: "export-project", label: "Export a project…", words: "bundle share copy folder send give project export backup package", run: () => exportCurrentProject() },
+  { id: "chat-dock", label: "Chat about the pages open", words: "ai ask assistant chat dock side panel claude message box focus", run: () => chatShortcut() },
   { id: "chat", label: "Go to Chat", words: "ai assistant ask claude model llm conversation", run: () => workspace().go({ view: "chat" }) },
   { id: "trash", label: "Go to Trash", words: "deleted restore", run: () => workspace().go({ view: "trash" }) },
   { id: "history", label: "Go to History", words: "changes versions agents sessions undo", run: () => workspace().go({ view: "history" }) },
@@ -93,7 +114,7 @@ export const COMMANDS: Command[] = [
   { id: "full-width", label: "Full width pages", words: "wide", run: () => usePrefs.getState().set({ fullWidth: !usePrefs.getState().fullWidth }) },
   { id: "print", label: "Print or save as PDF", words: "export pdf paper", run: () => window.print() },
   { id: "save", label: "Save now", run: () => void flushOpenPage() },
-  { id: "new-tab", label: "New tab", words: "open", run: () => workspace().openTab({ view: "home" }) },
+  { id: "new-tab", label: "New tab", words: "open", run: () => newTab() },
   { id: "close-tab", label: "Close tab", run: () => workspace().closeTab() },
   { id: "reopen-tab", label: "Reopen closed tab", words: "undo close", run: () => workspace().reopenTab() },
   { id: "split", label: "Open in split view", words: "side by side pane", run: () => workspace().splitRight() },
@@ -111,6 +132,12 @@ export const COMMANDS: Command[] = [
 ];
 
 const sayZoom = (level: number) => workspace().toast(`Zoom ${Math.round(level * 100)}%`);
+
+/** A new tab like the one in front: another browser tab beside a browser tab (Ctrl+T in a browser), else Home. */
+export function newTab(): void {
+  if (onBrowserTab()) openWebTab();
+  else workspace().openTab({ view: "home" });
+}
 
 /** Folds or unfolds every section of the page in front, saying how to make some when it has none. */
 function foldSectionsOfPage(folded: boolean): void {

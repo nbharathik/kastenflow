@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { INBOX, MAX_RECENT, orderedTargets, readRecent, remember, type Places, type Target } from "../../capture/targets";
 import { dayFrom } from "../../lib/dates";
+import type { CapturedBefore } from "../../lib/vault/collection-types";
 import type { VaultClient } from "../../lib/vault/types";
 import { useWorkspace } from "../workspace/store";
 import { browserBackend } from "./backend";
@@ -58,8 +59,11 @@ export interface Capture {
   places: Places;
   /** Picks the place the capture will go to. */
   choose(target: Target): void;
+  /** The notes already kept from this page that a card sent to the chosen place would repeat. A quote added to a page is never held back, so none then. */
+  already: CapturedBefore[];
   start(kind: "selection" | "page"): Promise<void>;
-  save(): Promise<Saved | null>;
+  /** Keeps the capture. A card for a page already saved needs `again`, which keeps a snapshot that points back at the first card. */
+  save(again?: boolean): Promise<Saved | null>;
   discard(): void;
 }
 
@@ -129,14 +133,18 @@ export function useCapture(id: string, onSaved?: (saved: Saved) => void): Captur
     [id, release],
   );
 
-  const save = useCallback(async (): Promise<Saved | null> => {
+  const already = useMemo(() => (chosen.kind === "page" || chosen.kind === "journal" ? [] : (preview?.existing ?? [])), [chosen, preview]);
+
+  const save = useCallback(async (again = false): Promise<Saved | null> => {
     const token = held.current;
     if (!token || !client) return null;
+    // A second card for a page already kept is made only on purpose.
+    if (already.length > 0 && !again) return null;
     setPhase("saving");
     setError(null);
     try {
       const where = await whereOf(chosen, client);
-      const done = await browserBackend().confirm(token, where, title.trim() || null);
+      const done = await browserBackend().confirm(token, where, title.trim() || null, again && already.length > 0);
       held.current = null;
       const next = remember(recent, chosen).slice(0, MAX_RECENT);
       setRecent(next);
@@ -151,7 +159,7 @@ export function useCapture(id: string, onSaved?: (saved: Saved) => void): Captur
       setPhase("preview");
       return null;
     }
-  }, [chosen, client, recent, title]);
+  }, [already, chosen, client, recent, title]);
 
-  return { phase, preview, title, setTitle, error, target: chosen, places, choose: setTarget, start, save, discard };
+  return { phase, preview, title, setTitle, error, target: chosen, places, choose: setTarget, already, start, save, discard };
 }

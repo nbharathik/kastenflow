@@ -1,4 +1,4 @@
-import { cycle } from "@kasten-slides/canvas";
+import { boundsOf, cycle } from "@kasten-slides/canvas";
 import type { Element } from "@kasten-slides/wasm";
 import { type JSX, type KeyboardEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
@@ -17,21 +17,28 @@ import { AgentBadges } from "../agent/AgentBadges.tsx";
 import { markedOn } from "../agent/marks.ts";
 import { useImageDrops } from "../gallery/drops.ts";
 import { StepChip } from "../panels/steps/StepChip.tsx";
+import { gridOf, originOf, selectionAt } from "../table/cells.ts";
+import { CellLayer } from "../table/CellLayer.tsx";
+import { CellOutline } from "../table/CellOutline.tsx";
+import { tableKeys } from "../table/keys.ts";
 import "./canvas.css";
+import { openContextMenuAt } from "./context-menu.ts";
 import { CanvasController, type PointerInfo, type Target } from "./controller.ts";
+import { DiagramBadges } from "./DiagramBadges.tsx";
+import { DistanceLabels, useAltHeld } from "./DistanceLabels.tsx";
 import { useEdgeScroll } from "./edge-scroll.ts";
 import { GestureLayer } from "./GestureLayer.tsx";
 import { useGlide } from "./glide.ts";
 import { hitAt, itemsOf } from "./geometry.ts";
 import { useGripCursor } from "./grip-cursor.ts";
 import { BIG_NUDGE, NUDGE } from "./nudge.ts";
-import { clearSelection } from "./outside.ts";
 import { boundsOfAll, withOverrides } from "./overrides.ts";
 import { usePan } from "./pan.ts";
 import { usePinch } from "./pinch.ts";
 import { pointerOf } from "./pointer.ts";
 import { Overlay } from "./Overlay.tsx";
 import { SelectionBar } from "./SelectionBar.tsx";
+import { type Keys, keysOf, useStagePointer } from "./stage-pointer.ts";
 import { useStageZoom } from "./stage-zoom.ts";
 import { TextLayer } from "./TextLayer.tsx";
 import { playTransition } from "./transition-preview.ts";
@@ -54,18 +61,6 @@ const targetOf = (element: EventTarget | null): Target => {
   if (move) return { kind: "move", id: move.dataset.move || null };
   return { kind: "surface" };
 };
-
-/** The keys and place of a pointer event, as the gesture reads them. */
-interface Keys {
-  shiftKey: boolean;
-  altKey: boolean;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  button: number;
-  detail: number;
-}
-
-const keysOf = (event: Keys): Keys => ({ shiftKey: event.shiftKey, altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, button: event.button, detail: event.detail });
 
 /** The slide on its stage: drawn by the renderer, with the selection, handles and guides over it, and the text editor when a box is open. */
 export function SlideCanvas({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
@@ -95,6 +90,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
   const glide = useStageZoom({ stage, page, ui, zoom, request: view.zoom, room: size });
   useGlide({ session, state, scaled, page, zoom });
   const [hover, setHover] = useState<string | null>(null);
+  // Alt held over another block shows how far the selection is from it.
+  const alt = useAltHeld();
   // Where the pointer is over the slide, for the keys that add something at it. Written on every move, so it holds no state.
   const track = pointerOf(ui);
   useEffect(
@@ -118,6 +115,10 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
     ui.setPreviewStep(null);
   }, [ui, state.slideId]);
   const shown = useMemo(() => (wide.size === 0 ? slide : withOverrides(slide, wide, state.deck.theme)), [slide, wide, state.deck.theme]);
+  // A table is written in a cell at a time: the cell open is the focus of the cells picked, and the slide leaves out the words of that cell alone.
+  const editedTable = state.editing !== null && state.cells?.table === state.editing ? findElement(slide.elements, state.editing) : undefined;
+  const editedCell = editedTable?.type === "table" && state.cells ? originOf(gridOf(editedTable), state.cells.focus) : null;
+  const hideCell = useMemo(() => (editedCell && state.editing ? { id: state.editing, row: editedCell.row, col: editedCell.col } : null), [state.editing, editedCell?.row, editedCell?.col]);
   const index = state.deck.slides.findIndex((s) => s.id === slide.id);
   const imageUrl = useCallback((path: string) => session.host.imageUrl(path), [session]);
 
@@ -169,6 +170,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
     () => controller.busy,
     (x, y) => controller.move(infoAt(x, y, held.current)),
   );
+  // The grey round the slide: a press there clears the selection, and a drag from it draws a selection rectangle.
+  const stagePointer = useStagePointer({ session, controller, stage, pan, glide, edge, held, toInfo });
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     // A press while the slide is still gliding to its new size is a press on where it will be: let it arrive first.
@@ -233,6 +236,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
       if (editing) return took(() => session.stopEditing());
       if (view.previewStep !== null) return took(() => ui.setPreviewStep(null));
       if (state.tool !== "select") return took(() => session.setTool("select"));
+      // With cells picked in a table the next step is the table's frame; the one after clears the selection.
+      if (state.cells) return took(() => session.selectCells(null));
       // Inside a group, Escape goes up one level (and selects the group left); at the top it clears the selection.
       if (state.inside.length > 0) return took(() => session.leaveGroup());
       if (state.selection.length > 0) return took(() => session.select([]));
@@ -248,6 +253,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
       pan.space(true);
       return;
     }
+    // Cells picked in a table take the arrows, Tab, Enter and the letters before the slide does.
+    if (tableKeys(event.nativeEvent, { session })) return;
     if (dispatchKey(event.nativeEvent, { session, ui }, "stage")) return;
     const step = event.shiftKey ? BIG_NUDGE : NUDGE;
     const arrows: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
@@ -262,6 +269,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
       if (only && (only.type === "text" || only.type === "shape") && !only.locked) session.startEditing(only.id);
       // Enter on a group goes into it, as a double click does, and takes the first thing it holds.
       else if (only?.type === "group" && event.key === "Enter") session.enterGroup(only.id, only.children[0]?.id);
+      // Enter on a table whose frame is selected opens its first cell.
+      else if (only?.type === "table" && !only.locked) session.startEditingCell(selectionAt(only.id, { row: 0, col: 0 }));
     } else if (event.key === "Tab") {
       event.preventDefault();
       const order = session.scope.filter((e) => !e.locked).map((e) => e.id);
@@ -303,21 +312,7 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
         if (was) event.stopPropagation();
       }}
       onPointerCancelCapture={(event) => pinch.up(event)}
-      onPointerDown={(event) => {
-        if (pan.wants(event)) return pan.press(event);
-        // A press on the grey round the slide (not on the slide itself, which has its own) clears what is selected, ends the text
-        // being written, and leaves the keys with the stage.
-        if (event.target instanceof Element && event.target.closest(".ks-page")) return;
-        // A press on the stage's own scroll bar is the scroll bar's.
-        const room = stage.current;
-        const at = room?.getBoundingClientRect();
-        if (room && at && ((room.clientWidth > 0 && event.clientX - at.left >= room.clientWidth) || (room.clientHeight > 0 && event.clientY - at.top >= room.clientHeight))) return;
-        glide.settle();
-        stage.current?.focus({ preventScroll: true });
-        clearSelection(session, event);
-      }}
-      onPointerMove={(event) => void pan.move(event)}
-      onPointerUp={(event) => void pan.release(event)}
+      {...stagePointer}
       onMouseDown={(event) => event.button === 1 && event.preventDefault()}
     >
       <div className="ks-page-wrap">
@@ -343,29 +338,30 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
             event.preventDefault();
             if (controller.busy || (event.target instanceof HTMLElement && event.target.closest("[data-selbar]"))) return;
             const at = toInfo(event as never);
-            // On a move handle it is the block's (or the selection's) menu.
-            const onHandle = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-move]") : null;
-            const id = onHandle ? onHandle.dataset.move || (session.state.selection[0] ?? null) : hitAt(itemsOf(session), at, zoomRef.current);
-            // A right click on an element that is not selected selects it first, as in every editor.
-            if (id !== null && !session.state.selection.includes(id)) session.select([id]);
-            if (id === null) session.select([]);
-            ui.openContextMenu({ kind: id === null ? "canvas" : "element", x: event.clientX, y: event.clientY });
+            openContextMenuAt(session, ui, zoomRef.current, event, { x: at.x, y: at.y });
           }}
         >
           <div ref={scaled} className="ks-page-scale" style={{ width: slideW, height: slideH, transform: `scale(${zoom})` }}>
             <LiveContext.Provider value={live}>
-              <SlideView deck={state.deck} slide={shown} number={index + 1} count={state.deck.slides.length} mode="edit" step={previewed} imageUrl={imageUrl} hideTextOf={state.editing} />
+              <SlideView deck={state.deck} slide={shown} number={index + 1} count={state.deck.slides.length} mode="edit" step={previewed} imageUrl={imageUrl} hideTextOf={hideCell ? null : state.editing} hideCell={hideCell} />
             </LiveContext.Provider>
             {gesture === null ? <EmbedLayer deck={state.deck} slide={shown} step={previewed} selection={state.selection} host={session.host} imageUrl={imageUrl} /> : null}
-            {state.editing ? <TextLayer session={session} ui={ui} id={state.editing} /> : null}
+            {state.editing && editedCell ? (
+              <CellLayer key={`${state.editing}/${editedCell.row}/${editedCell.col}`} session={session} ui={ui} id={state.editing} at={editedCell} />
+            ) : state.editing ? (
+              <TextLayer session={session} ui={ui} id={state.editing} />
+            ) : null}
           </div>
           <Overlay zoom={zoom} selected={selected} group={group} hovered={hovered} entered={entered} gesture={gesture} active={state.tool === "select"} />
+          <CellOutline session={session} zoom={zoom} />
           <GestureLayer session={session} controller={controller} zoom={zoom} />
+          {alt && gesture === null && state.tool === "select" && hovered && !state.selection.includes(hovered.id) ? <DistanceLabels from={controller.selectionBox()} to={boundsOf(hovered)} zoom={zoom} /> : null}
           {group && state.tool === "select" && state.editing === null && gesture === null && !selected.every(({ item }) => item.locked) ? (
             <SelectionBar session={session} ui={ui} bounds={group} zoom={zoom} width={slideW * zoom} />
           ) : null}
           {state.tool === "select" && state.editing === null && gesture === null ? <EmbedControls session={session} zoom={zoom} page={page} /> : null}
           <AgentBadges slide={slide} boxes={badgeBoxes} zoom={zoom} />
+          <DiagramBadges session={session} zoom={zoom} hidden={gesture !== null} />
           {previewed !== undefined ? <StepChip step={previewed} steps={slide.steps ?? 0} /> : null}
         </div>
       </div>

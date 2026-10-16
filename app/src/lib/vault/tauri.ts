@@ -4,8 +4,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+import { tauriAnnotations } from "./annotations-tauri";
 import type { AddedAsset, AssetInfo, AssetUsage } from "./asset-types";
+import { tauriBundles } from "./bundles-tauri";
+import type { ClipOutcome } from "./collection-types";
+import { tauriCollections } from "./collections-tauri";
 import { tauriDiagrams } from "./diagrams-tauri";
+import { tauriHealth } from "./health-tauri";
+import { tauriProjects } from "./projects-tauri";
+import { tauriReferences } from "./references-tauri";
+import { tauriRevisions } from "./revisions-tauri";
 import type {
   AddedKit,
   KitInfo,
@@ -26,6 +34,7 @@ import type {
   DeckFile,
   DeckInfo,
   DeckSaved,
+  DecksSaved,
   Highlight,
   Hit,
   NewNote,
@@ -38,6 +47,7 @@ import type {
   RelatedNote,
   Renamed,
   Replaced,
+  Revision,
   Saved,
   SessionInfo,
   SourceHighlights,
@@ -61,6 +71,7 @@ function watchVault(events: VaultEvents): () => void {
     listen<string[]>("vault-changed", (e) => events.changed(e.payload)),
     listen("vault-committed", () => events.committed()),
     listen<string>("vault-error", (e) => events.error(e.payload)),
+    listen<Revision>("vault-revision", (e) => events.revised?.(e.payload)),
   ];
   return () => stops.forEach((stop) => void stop.then((fn) => fn(), () => {}));
 }
@@ -160,6 +171,7 @@ export function tauriVault(label: string): VaultClient {
     references: () => invoke<string>("references"),
     createDeck: (title, project, text) => invoke<string>("create_deck", { title, project, text }),
     saveDeck: (path, text, baseHash) => invoke<DeckSaved>("save_deck", { path, text, baseHash }),
+    saveDecks: (request) => invoke<DecksSaved>("save_decks", { request }),
     deckTemplates: () => invoke<DeckInfo[]>("list_deck_templates"),
     createDeckTemplate: (title, text) => invoke<string>("create_deck_template", { title, text }),
     proposals: () => invoke<Proposal[]>("list_proposals"),
@@ -173,13 +185,25 @@ export function tauriVault(label: string): VaultClient {
     findUnder: (root, spec, maxNotes) => invoke<NoteMatches[]>("find_under", { root, spec, maxNotes: maxNotes ?? null }),
     replaceUnder: (request) => invoke<Replaced>("replace_under", { request }),
     graph: (scope) => invoke<VaultGraph>("vault_graph", { scope }),
-    clipUrl: (url) => invoke<NoteFile>("clip_url", { url }),
+    // This call always keeps the page (a page saved before makes a snapshot); `clipPage` asks first.
+    clipUrl: async (url) => {
+      const outcome = await invoke<ClipOutcome>("clip_url", { url, again: true });
+      if (outcome.kind === "saved") return outcome.note;
+      throw new Error("That page is already saved");
+    },
     trustSession: (session, minutes) => invoke<void>("trust_session", { session, minutes }),
     commitChanges: (rev) => invoke<ChangedFile[]>("commit_changes", { rev }),
     agentMarks: (path) => invoke<AgentMark[]>("agent_marks", { path }),
     acceptAgentMarks: (path) => invoke<void>("accept_agent_marks", { path }),
     agentMarked: (paths) => invoke<string[]>("agent_marked", { paths }),
     ...tauriDiagrams,
+    ...tauriProjects,
+    ...tauriCollections,
+    ...tauriAnnotations,
+    ...tauriReferences,
+    ...tauriBundles,
+    ...tauriHealth,
+    ...tauriRevisions,
     watch: watchVault,
   };
 }

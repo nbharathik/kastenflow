@@ -18,7 +18,7 @@ import { nextSize } from "./sizes.ts";
 export type Command = (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean;
 
 export type Flag = "bold" | "italic" | "underline" | "strike" | "code" | "smallCaps" | "allCaps";
-export type ValueMark = "color" | "size" | "font" | "link" | "script" | "spacing";
+export type ValueMark = "color" | "highlight" | "size" | "font" | "link" | "script" | "spacing";
 
 /** The non-empty ranges of the selection. */
 function ranges(state: EditorState): { from: number; to: number }[] {
@@ -171,11 +171,11 @@ export function stepFontSize(delta: number, ctx: EditorContext): Command {
   };
 }
 
-const CHARACTER_MARKS = ["bold", "italic", "underline", "strike", "color", "size", "font", "code", "script", "smallCaps", "allCaps", "spacing"] as const;
+const CHARACTER_MARKS = ["bold", "italic", "underline", "strike", "color", "highlight", "size", "font", "code", "script", "smallCaps", "allCaps", "spacing"] as const;
 
 /**
  * Takes off what was applied to the selected text (bold, italic, underline,
- * strike, colour, size, font, code) and to its paragraphs (alignment,
+ * strike, colour, highlight, size, font, code) and to its paragraphs (alignment,
  * spacing, text style, the look of the marker and of an empty paragraph's
  * mark). Links, lists and levels stay. With only a caret it clears the
  * paragraph the caret is in.

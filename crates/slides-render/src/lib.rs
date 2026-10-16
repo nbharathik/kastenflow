@@ -44,5 +44,7 @@ pub use browser::find_browser;
 pub use error::{Error, Result};
 pub use media::{FolderMedia, Media, NoMedia};
 pub use renderer::{Options, Renderer};
-pub use shared::{Draw, IDLE, draw, draw_with, measure, shared, shared_with, shutdown};
+pub use shared::{
+    Draw, IDLE, draw, draw_with, measure, measure_with, shared, shared_with, shutdown,
+};
 pub use types::{HtmlFile, HtmlOptions, Pdf, PdfOptions, Picture, Png, PngOptions, Scope, Steps};

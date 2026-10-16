@@ -50,6 +50,9 @@ const HIDDEN: &[&str] = &[
     "add_page_contents",
     "update_page_contents",
     "add_page_slides",
+    // A storyboard is drafted and edited by a person in the editor; an assistant makes slides with `add_slide` (or `deck_from_note`).
+    "add_storyboard_slides",
+    "acknowledge_source",
 ];
 
 /// The order tools are listed in: look, make, change slides, change elements, steps, files.
@@ -78,6 +81,15 @@ const ORDER: &[&str] = &[
     "set_slide_flags",
     "set_text",
     "format_paragraphs",
+    "set_cells",
+    "clear_cells",
+    "insert_rows",
+    "delete_rows",
+    "insert_columns",
+    "delete_columns",
+    "merge_cells",
+    "unmerge_cells",
+    "set_cell_fill",
     "add_diagram",
     "place_image",
     "add_elements",
@@ -140,11 +152,24 @@ pub(super) fn slide_property() -> Value {
     json!({ "type": "string", "description": "The slide: its id (s-…) or its number counting from 1." })
 }
 
+/// How the words of a text box, a shape or a table cell are written, in few words.
+const TEXT_SHAPE: &str = "{paragraphs: [{runs: [{t, b?, i?, u?, color?, highlight? (a colour behind the words), size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), listStyle? (disc, circle, square, arrow, check, dash, decimal, decimalParen, lowerAlpha, upperAlpha, lowerRoman, upperRoman), start? (a numbered item counts from this number), level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom), fit? (shrink: smaller type until it fits; resize: the box grows)}";
+
+/// What a text is, in few enough words to send with every tool that takes one (the cells of a table do).
+fn compact_text() -> Value {
+    json!({
+        "type": "object",
+        "description": format!("The words, as paragraphs of runs: {TEXT_SHAPE}. Markdown, where a tool takes it, is easier."),
+        "required": ["paragraphs"],
+        "additionalProperties": true
+    })
+}
+
 /// What an element is, in few enough words to send with every tool that takes one.
 fn compact_element() -> Value {
     json!({
         "type": "object",
-        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; the slide is 960 by 540) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
+        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
         "required": ["type"],
         "properties": {
             "type": { "type": "string", "enum": ELEMENT_KINDS },
@@ -156,7 +181,7 @@ fn compact_element() -> Value {
             "alt": { "type": "string", "description": "What a person who cannot see it is told. Pictures need it." },
             "link": { "type": "string", "description": "A web address, or slide:<id>." },
             "style": { "type": "object", "description": "fill {color, alpha?}, stroke {color, width?, dash?}, radius, shadow {color, blur, dx, dy}, opacity 0 to 1, startArrow and endArrow (none, triangle, stealth, open, oval, diamond)." },
-            "text": { "type": "object", "description": "For text and shape: {paragraphs: [{runs: [{t, b?, i?, u?, color?, size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), listStyle? (disc, circle, square, arrow, check, dash, decimal, decimalParen, lowerAlpha, upperAlpha, lowerRoman, upperRoman), start? (a numbered item counts from this number), level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom), fit? (shrink: smaller type until it fits; resize: the box grows)}." },
+            "text": { "type": "object", "description": format!("For text and shape: {TEXT_SHAPE}.") },
             "markdown": { "type": "string", "description": "For text and shape: the words as Markdown instead of `text`: **bold**, *italic*, `code`, [link](url), - bullets, 1. numbers, one paragraph per line." },
             "shape": { "type": "string", "description": "For a shape: rect, roundRect, ellipse, triangle, diamond, chevron, rightArrow ..." },
             "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },
@@ -205,6 +230,8 @@ fn schema_for(input: &Value) -> Value {
             for (name, def) in defs.iter_mut() {
                 if name == "Element" {
                     *def = compact_element();
+                } else if name == "Text" {
+                    *def = compact_text();
                 } else if def.to_string().len() > 4000 {
                     let about = def.get("description").cloned().unwrap_or_else(|| {
                         json!(format!("A {name}; get_slide and get_theme show one."))

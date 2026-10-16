@@ -24,9 +24,13 @@ const SEED = {
 
 let vault: MemoryVault;
 
-// Panel behavior starts with the editor module available; module-load
-// latency is separate from the behavior asserted below.
-beforeAll(async () => { await loadNotePage(); }, 60_000);
+// Panel behavior starts with the editor module available (and the "Move to"
+// picker, which loads when it is opened); module-load latency is separate from
+// the behavior asserted below.
+beforeAll(async () => {
+  await loadNotePage();
+  await import("../features/workspace/overlays/MovePicker");
+}, 60_000);
 
 async function renderShell() {
   render(<AppShell connect={async () => ({ client: vault })} />);
@@ -184,7 +188,7 @@ describe("AppShell", () => {
     const sidebar = await renderShell();
     fireEvent.click(within(sidebar).getByRole("button", { name: /Inbox/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Move An idea to a project" }));
-    const picker = screen.getByRole("dialog", { name: "Move to" });
+    const picker = await screen.findByRole("dialog", { name: "Move to" });
     fireEvent.change(within(picker).getByRole("textbox"), { target: { value: "demo" } });
     await act(async () => fireEvent.keyDown(within(picker).getByRole("textbox"), { key: "Enter" }));
     expect((await vault.list()).map((n) => n.path)).toContain("projects/demo/cards/idea.md");
@@ -195,7 +199,7 @@ describe("AppShell", () => {
     const sidebar = await renderShell();
     fireEvent.click(await within(sidebar).findByRole("button", { name: "Welcome" }));
     fireEvent.click(await screen.findByRole("button", { name: "Add to project" }));
-    const picker = screen.getByRole("dialog", { name: "Move to" });
+    const picker = await screen.findByRole("dialog", { name: "Move to" });
     fireEvent.change(within(picker).getByRole("textbox"), { target: { value: "Garden plans" } });
     expect(within(picker).getByRole("option", { name: /New project “Garden plans”/ })).toBeTruthy();
     await act(async () => fireEvent.keyDown(within(picker).getByRole("textbox"), { key: "Enter" }));

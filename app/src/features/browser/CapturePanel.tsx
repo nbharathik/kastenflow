@@ -5,6 +5,8 @@
 import { Button } from "../../ui/Button";
 import { TargetPicker } from "../../capture/TargetPicker";
 import { placeName } from "../../capture/targets";
+import type { CapturedBefore } from "../../lib/vault/collection-types";
+import { useWorkspace } from "../workspace/store";
 import type { Capture } from "./use-capture";
 
 /** The size of what would be kept, in words. */
@@ -19,8 +21,15 @@ interface Props {
   onPicking(on: boolean): void;
 }
 
+/** "Already saved on 2026-09-01", or how many times when it was saved more than once. */
+export function savedSentence(already: readonly CapturedBefore[]): string {
+  const day = already[0]?.captured;
+  const times = already.length > 1 ? ` (${already.length} cards)` : "";
+  return `Already saved${day ? ` on ${day}` : ""}${times}`;
+}
+
 export function CapturePanel({ capture, picking, onPicking }: Props) {
-  const { phase, preview, title, error, target, places } = capture;
+  const { phase, preview, title, error, target, places, already } = capture;
   return (
     <section className="kasten-browser-capture" aria-label="Capture">
       {phase === "reading" && <p role="status">Reading the page…</p>}
@@ -29,6 +38,19 @@ export function CapturePanel({ capture, picking, onPicking }: Props) {
           <div className="text-muted">
             {preview.kind === "page" ? "Page" : "Selection"} from {preview.site} · {sizeOf(preview.bytes)}
           </div>
+          {already.length > 0 && (
+            <div className="kasten-browser-saved" role="status" aria-label="Already saved">
+              <span>{savedSentence(already)}</span>
+              <span aria-hidden="true">·</span>
+              <Button size="sm" tone="quiet" onClick={() => useWorkspace.getState().openPath(already[0]!.path, "tab")}>
+                Open
+              </Button>
+              <span aria-hidden="true">·</span>
+              <Button size="sm" tone="quiet" disabled={phase === "saving"} onClick={() => void capture.save(true)}>
+                Save another snapshot
+              </Button>
+            </div>
+          )}
           <input
             className="kasten-browser-title"
             aria-label="Title"
@@ -55,7 +77,7 @@ export function CapturePanel({ capture, picking, onPicking }: Props) {
         <Button size="sm" aria-expanded={picking} onClick={() => onPicking(!picking)}>
           Send to: {placeName(target)}
         </Button>
-        {preview && (
+        {preview && already.length === 0 && (
           <Button size="sm" tone="primary" disabled={phase === "saving"} onClick={() => void capture.save()}>
             {phase === "saving" ? "Saving…" : "Save"}
           </Button>

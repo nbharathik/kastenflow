@@ -12,6 +12,8 @@ export interface Jump {
   path: string;
   /** A heading's text, to scroll to. */
   heading?: string;
+  /** Which of several headings with that text, from 1; the first by default. */
+  nth?: number;
   /** What was searched for: the first of these the page holds is marked. */
   find?: string[];
   /** When it was asked for; a jump left waiting goes stale. */
@@ -23,7 +25,7 @@ const STALE_MS = 10_000;
 export const usePageJump = create<{ jump: Jump | null }>(() => ({ jump: null }));
 
 /** Opens the page at `path` and goes to the heading, or marks the words. */
-export function openAt(path: string, spot: { heading?: string; find?: string[] }, how?: OpenHow): void {
+export function openAt(path: string, spot: { heading?: string; nth?: number; find?: string[] }, how?: OpenHow): void {
   usePageJump.setState({ jump: { path, ...spot, at: Date.now() } });
   useWorkspace.getState().openPath(path, how);
 }
@@ -37,7 +39,7 @@ export function usePageJumps(path: string, editor: RefObject<PageEditorHandle | 
     if (!jump || !handle) return;
     usePageJump.setState({ jump: null });
     if (Date.now() - jump.at > STALE_MS) return;
-    if (jump.heading) handle.showHeading(jump.heading);
+    if (jump.heading) handle.showHeading(jump.heading, jump.nth);
     else if (jump.find?.length) handle.find(jump.find);
   }, [jump, ready, editor]);
 }

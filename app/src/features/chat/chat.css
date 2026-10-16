@@ -279,13 +279,3 @@
     opacity: 0.35;
   }
 }
-
-/* The window's chat, docked at the right (ChatDock). */
-.kasten-chat-dock {
-  display: flex;
-  width: clamp(340px, 30vw, 460px);
-  flex-shrink: 0;
-  flex-direction: column;
-  border-left: 1px solid var(--color-line);
-  background: var(--notion-bg);
-}

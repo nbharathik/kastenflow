@@ -31,7 +31,9 @@ export type EditorEvent =
   | { event: "export"; format: string; data: string | null; xml: string | null }
   | { event: "openLink"; href: string; target: string | null }
   | { event: "status"; message: string; modified: boolean }
-  | { event: "template"; xml: string | null; name: string | null };
+  | { event: "template"; xml: string | null; name: string | null }
+  /** The words of every label of the diagram (the answer to `textContent`). */
+  | { event: "textContent"; text: string };
 
 const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
@@ -73,6 +75,10 @@ export function parseEvent(data: unknown): EditorEvent | null {
       return { event: "status", message: text(m.message) ?? "", modified: m.modified === true };
     case "template":
       return { event: "template", xml: text(m.xml), name: text(m.name) };
+    case "textContent": {
+      const words = text(m.data);
+      return words === null ? null : { event: "textContent", text: words };
+    }
     default:
       return null;
   }
@@ -84,6 +90,9 @@ export type EditorAction =
   | { action: "load"; xml: string; autosave: 0 | 1; title?: string; dark?: 0 | 1 }
   | { action: "export"; format: "xmlsvg" | "svg" | "png" | "xml"; embedImages?: boolean; border?: number; background?: string; scale?: number; transparent?: boolean; theme?: "light" | "dark" | "auto" }
   | { action: "merge"; xml: string }
+  /** Lays the selected cells out (the whole diagram when none is selected) with the editor's own layouts, one after the other. */
+  | { action: "layout"; layouts: { layout: string; config?: Record<string, unknown> }[] }
+  | { action: "textContent" }
   | { action: "status"; message: string; modified: boolean }
   | { action: "spinner"; show: boolean; message?: string }
   | { action: "template"; callback: boolean; enableRecent?: 0 | 1; enableSearch?: 0 | 1; enableCustomTemp?: 0 | 1; noExitOnCancel?: boolean };
@@ -118,6 +127,39 @@ export const exportPng = (scale = 2): EditorAction => ({ action: "export", forma
 
 /** Asks for the editor's template dialog (a new diagram from a template). */
 export const showTemplates = (): EditorAction => ({ action: "template", callback: true, enableRecent: 0, enableSearch: 1, enableCustomTemp: 0, noExitOnCancel: true });
+
+/** The layouts of the editor's Arrange menu, by the names its own menu gives them. */
+export type LayoutPreset = "verticalFlow" | "horizontalFlow" | "verticalTree" | "horizontalTree" | "radialTree" | "organic";
+
+/** What each preset is called, in the order they are offered. A tree is laid out from the root the editor finds, so the editor takes it
+ * only with nothing selected (it reads a selection as the root); `hint` says so beside the item. */
+export const LAYOUT_PRESETS: readonly { id: LayoutPreset; label: string; hint?: string }[] = [
+  { id: "verticalFlow", label: "Flow, top to bottom" },
+  { id: "horizontalFlow", label: "Flow, left to right" },
+  { id: "verticalTree", label: "Tree, top to bottom", hint: "nothing selected" },
+  { id: "horizontalTree", label: "Tree, left to right", hint: "nothing selected" },
+  { id: "radialTree", label: "Radial tree", hint: "nothing selected" },
+  { id: "organic", label: "Organic" },
+];
+
+/** The editor's layout classes with the settings its Arrange menu gives them: the embed protocol names a layout by its class. */
+const LAYOUTS: Record<LayoutPreset, { layout: string; config?: Record<string, unknown> }> = {
+  verticalFlow: { layout: "mxHierarchicalLayout", config: { orientation: "north" } },
+  horizontalFlow: { layout: "mxHierarchicalLayout", config: { orientation: "west" } },
+  verticalTree: { layout: "mxCompactTreeLayout", config: { horizontal: false, edgeRouting: false } },
+  horizontalTree: { layout: "mxCompactTreeLayout", config: { horizontal: true, edgeRouting: false } },
+  radialTree: { layout: "mxRadialTreeLayout" },
+  organic: { layout: "mxFastOrganicLayout" },
+};
+
+/** Asks the editor to lay the diagram out as `preset`. It answers with the changed diagram as an `autosave`. */
+export function layoutDiagram(preset: LayoutPreset): EditorAction {
+  const { layout, config } = LAYOUTS[preset];
+  return { action: "layout", layouts: [config ? { layout, config: { ...config } } : { layout }] };
+}
+
+/** Asks for the words of the diagram's labels, answered with a `textContent` event. */
+export const textContent = (): EditorAction => ({ action: "textContent" });
 
 /** The text an export's `data` URI holds: base64 or percent-encoded, as UTF-8. Null when it is not a data URI. */
 export function textOfDataUri(data: string): string | null {

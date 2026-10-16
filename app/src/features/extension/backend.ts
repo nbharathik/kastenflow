@@ -17,6 +17,8 @@ const tauriBackend: ExtensionBackend = {
   pairStart: () => invoke<ExtensionStatus>("extension_pair_start"),
   pairCancel: () => invoke<ExtensionStatus>("extension_pair_cancel"),
   revoke: (id) => invoke<ExtensionStatus>("extension_revoke", { id }),
+  folder: () => invoke<string>("extension_folder"),
+  showFolder: () => invoke<string>("show_extension_folder"),
 };
 
 const NONE: ExtensionStatus = { enabled: false, port: DEFAULT_PORT, running: false, problem: null, paired: [], pairing: null };
@@ -30,6 +32,8 @@ const previewBackend: ExtensionBackend = {
   pairStart: refused,
   pairCancel: () => Promise.resolve(NONE),
   revoke: refused,
+  folder: refused,
+  showFolder: refused,
 };
 
 let current: ExtensionBackend | null = null;

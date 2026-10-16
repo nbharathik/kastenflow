@@ -207,6 +207,77 @@ describe("a paired browser", () => {
     expect(fake.calls.filter((c) => c.path === "/v1/capture")).toHaveLength(2);
   });
 
+  it("is told a page is saved already, sends nothing more, and keeps a snapshot only when asked", async () => {
+    const card = { path: "inbox/slip-box-basics.md", title: "Slip-box basics", captured: "2026-09-01" };
+    let saved = true;
+    const { started, fake, storage } = open(undefined, (call) => (call.path === "/v1/capture" && saved && !(call.body as { again?: boolean }).again ? { status: 409, body: { error: "Already saved on 2026-09-01", existing: [card] } } : undefined));
+    await started;
+    const another = [...root.querySelectorAll("button")].find((b) => b.textContent === "Save another snapshot")!;
+    expect(another.hidden).toBe(true);
+    fireEvent.submit(root.querySelector("form")!);
+    await waitFor(() => expect(another.hidden).toBe(false));
+    expect(within_().getByRole("status").textContent).toBe("Already saved on 2026-09-01 as “Slip-box basics”. Nothing was sent.");
+    expect(fake.calls.filter((c) => c.path === "/v1/capture")).toHaveLength(1);
+    // Told, not sent: the place is not remembered, and Send stays open for another place.
+    expect(storage.data["lastTarget"]).toBeUndefined();
+    expect((within_().getByRole("button", { name: "Send to KastenFlow" }) as HTMLButtonElement).disabled).toBe(false);
+    saved = false;
+    fireEvent.click(another);
+    await waitFor(() => expect(within_().getByRole("button", { name: "Done" }).hidden).toBe(false));
+    const sent = fake.calls.filter((c) => c.path === "/v1/capture");
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.body).toEqual({ ...(sent[0]!.body as object), again: true });
+    expect(another.hidden).toBe(true);
+    expect(storage.data["lastTarget"]).toEqual({ kind: "inbox" });
+  });
+
+  describe("Save as paper", () => {
+    const paper = { meta: [["citation_title", "Slip-box basics"]] as [string, string][], ld: [] };
+    const button = () => [...root.querySelectorAll("button")].find((b) => b.textContent === "Save as paper")!;
+
+    it("is offered only when the page gave tags to send, and only for a web page", async () => {
+      const without = open();
+      await without.started;
+      expect(button().hidden).toBe(true);
+      root.replaceChildren();
+      const offered = open(undefined, undefined, { page: { ...READ, paper } });
+      await offered.started;
+      expect(button().hidden).toBe(false);
+      root.replaceChildren();
+      const notWeb = open(undefined, undefined, { tab: { id: 1, url: "chrome://extensions", title: "Extensions" }, page: { ...READ, paper } });
+      await notWeb.started;
+      expect(button().hidden).toBe(true);
+    });
+
+    it("sends the page's address, the title as edited and its tags, nothing of its text, and says to check it in KastenFlow", async () => {
+      const { started, fake, close } = open(undefined, (call) => (call.path === "/v1/capture" ? { body: { ok: true, path: "", title: "", place: "KastenFlow, to check as a paper" } } : undefined), { page: { ...READ, paper } });
+      await started;
+      type("Title", "My paper");
+      fireEvent.click(button());
+      await waitFor(() => expect(within_().getByRole("button", { name: "Done" }).hidden).toBe(false));
+      const sent = fake.calls.filter((c) => c.path === "/v1/capture");
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.body).toEqual({ url: TAB.url, title: "My paper", paper });
+      expect(within_().getByText(/Sent to KastenFlow, to check as a paper\. Open KastenFlow to check the details and add the paper; nothing is saved until you do\./)).toBeTruthy();
+      expect(button().hidden).toBe(true);
+      press("Done");
+      expect(close).toHaveBeenCalled();
+    });
+
+    it("says what Kasten said when it cannot take the paper, and lets the person try again", async () => {
+      let refuse = true;
+      const { started, fake } = open(undefined, (call) => (call.path === "/v1/capture" && refuse ? { status: 413, body: { error: "That page has more tags than a paper is read from" } } : undefined), { page: { ...READ, paper } });
+      await started;
+      fireEvent.click(button());
+      expect((await within_().findByRole("alert")).textContent).toBe("That page has more tags than a paper is read from");
+      expect(button().disabled).toBe(false);
+      refuse = false;
+      fireEvent.click(button());
+      await waitFor(() => expect(within_().getByRole("button", { name: "Done" }).hidden).toBe(false));
+      expect(fake.calls.filter((c) => c.path === "/v1/capture")).toHaveLength(2);
+    });
+  });
+
   it("goes back to pairing, with what Kasten said, when its token is no good", async () => {
     const { started, storage } = open(undefined, (call) => (call.path === "/v1/targets" ? { status: 401, body: { error: "This extension is not paired, or its pairing was revoked." } } : undefined));
     await started;

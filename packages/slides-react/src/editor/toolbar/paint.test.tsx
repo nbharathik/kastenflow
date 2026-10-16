@@ -50,7 +50,7 @@ describe("the paint format brush", () => {
     expect((brush() as HTMLButtonElement).disabled).toBe(false);
     click(brush());
     expect(ui.state.paint).toEqual({
-      run: { b: true, i: true, u: false, s: false, color: "accent2", size: 30, script: null, smallCaps: false, allCaps: false, spacing: null },
+      run: { b: true, i: true, u: false, s: false, color: "accent2", highlight: null, size: 30, script: null, smallCaps: false, allCaps: false, spacing: null },
       paragraph: { align: "center", lineSpacing: null, spaceBefore: null, spaceAfter: null, list: null, listStyle: null, bulletColor: null, bulletSize: null },
       style: { fill: { color: "accent3" }, stroke: { color: "accent4", width: 3 }, radius: 12 },
     });
@@ -133,7 +133,7 @@ describe("the paint format brush", () => {
     session.startEditing(a);
     act(() => ui.setText(fakeTextBox({ bold: true, italic: false, color: "accent5", size: 18 })));
     click(brush());
-    expect(ui.state.paint?.run).toEqual({ b: true, i: false, u: false, s: false, color: "accent5", size: 18, script: null, smallCaps: false, allCaps: false, spacing: null });
+    expect(ui.state.paint?.run).toEqual({ b: true, i: false, u: false, s: false, color: "accent5", highlight: null, size: 18, script: null, smallCaps: false, allCaps: false, spacing: null });
     // Leaving the box changes nothing yet: the brush waits for another element.
     act(() => {
       ui.setText(null);

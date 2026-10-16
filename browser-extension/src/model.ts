@@ -9,6 +9,14 @@ export const DEFAULT_PORT = 7434;
  * project, or a quote added to the end of a page (or of its section under a heading). */
 export type Target = { kind: "inbox" } | { kind: "project"; project: string } | { kind: "page"; path: string; heading?: string };
 
+/** The tags a page describes itself by (`citation_title`, Dublin Core, JSON-LD...): what "Save as paper" sends in place of the page. */
+export interface PaperTags {
+  /** The name (lower case) and content of each `<meta>` tag. */
+  meta: [string, string][];
+  /** The text of each `application/ld+json` script. */
+  ld: string[];
+}
+
 /** What is sent for one capture. */
 export interface CaptureRequest {
   url: string;
@@ -19,6 +27,18 @@ export interface CaptureRequest {
   text?: string;
   target?: Target;
   tags?: string[];
+  /** Keep the page even though it is saved already: a snapshot that points back at the first card. Sent only after Kasten said the page is saved. */
+  again?: boolean;
+  /** "Save as paper": the page's own tags. Nothing is kept for it; KastenFlow shows a form to check and add the paper from. */
+  paper?: PaperTags;
+}
+
+/** A card already kept from the page, as Kasten names it. */
+export interface Existing {
+  path: string;
+  title: string;
+  /** The day it was captured, `YYYY-MM-DD`, when Kasten knows. */
+  captured: string | null;
 }
 
 /** The places a capture can go, by name and path only. */

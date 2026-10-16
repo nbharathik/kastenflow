@@ -9,7 +9,7 @@ import { bodyLineEdit } from "./lines.ts";
 import { textToMarkdown, titleMarkdown } from "./markdown.ts";
 import { bodyElement, titleElement } from "./titles.ts";
 import { useDraft } from "./useDraft.ts";
-import { readField, writeField } from "./write.ts";
+import { canStartTitle, createTitle, readField, writeField } from "./write.ts";
 
 /** What a row asks of the outline it is in. One object for the whole outline, so rows are not drawn again for it. */
 export interface OutlineApi {
@@ -51,9 +51,11 @@ export const OutlineRow = memo(function OutlineRow({ session, api, slide, index,
     if (caret.current && bodyField.current) bodyField.current.setSelectionRange(caret.current.start, caret.current.end);
     caret.current = null;
   });
+  // A slide with nothing on it has no title yet, and the first words typed make one.
+  const blank = !title && canStartTitle(session.state.deck, slide);
   const titleDraft = useDraft(
     storedTitle,
-    (typed) => title && writeField(session, id, title.id, "title", typed),
+    (typed) => (title ? writeField(session, id, title.id, "title", typed) : blank && createTitle(session, id, typed)),
     () => readField(session, id, "title"),
   );
   const bodyDraft = useDraft(
@@ -100,7 +102,8 @@ export const OutlineRow = memo(function OutlineRow({ session, api, slide, index,
         {slide.backup && index > 0 ? <span className="ks-ol-flag is-word">Backup</span> : null}
       </div>
       <div className="ks-ol-main">
-        {title ? (
+        {title || blank ? (
+          // The same field before and after the first words make the title, so the caret stays where it is.
           <div className="ks-ol-field">
             <input
               className="ks-ol-title"
@@ -115,7 +118,7 @@ export const OutlineRow = memo(function OutlineRow({ session, api, slide, index,
             <Ghost text={titleDraft.value} kind="title" />
           </div>
         ) : (
-          // Nothing on the slide to hold a title, and the outline does not make one.
+          // Other things on the slide and no text to use as a title: the outline does not make one beside them.
           <input className="ks-ol-title is-none" aria-label={`Title of slide ${index + 1}`} placeholder="Untitled slide" value="" readOnly title="This slide has no text to use as a title" onFocus={() => api.show(id)} onKeyDown={onTitleKey} />
         )}
         {body ? (

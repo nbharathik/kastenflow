@@ -2,9 +2,12 @@
 // event, and a store emptied between tests.
 
 import type { NoteFile } from "../../lib/vault/types";
+import { DEFAULT_BUDGETS, type AttachKind, type ChatBudgets, type ChatSnapshot, type LoadedThread, type RequestOutcome, type ThreadSummary } from "./agent-types";
+import { forgetCapabilities, type ModelCapabilities } from "./capabilities";
 import type { ChatClient } from "./client";
+import { BUILT_IN_CATALOG } from "./preview/actions";
 import { useChat } from "./store";
-import type { BrainstormRequest, ChatEvent, ChatProvider, ChatRequest, ProviderDraft, WriteRequest } from "./types";
+import type { ActionCatalog, ActionRun, ApplyResult, BrainstormRequest, ChangesView, ChatEvent, ChatProvider, ChatRequest, ChatTurn, ProviderDraft, Recalculated, WriteRequest } from "./types";
 
 export const CLAUDE: ChatProvider = { name: "Claude", kind: "anthropic", baseUrl: "https://api.anthropic.com", model: "model-small", hasKey: true, confirmed: true };
 export const LOCAL: ChatProvider = { name: "Local server", kind: "openai", baseUrl: "http://local-server:8000/v1", model: "local-model", hasKey: false, confirmed: true };
@@ -17,14 +20,49 @@ export interface Scripted extends ChatClient {
   drafts: { provider: ProviderDraft; key: string | null }[];
   /** The models every provider offers. */
   models: string[];
+  /** What every model takes; null makes the ask fail, as an unknown provider's would. */
+  capabilities: ModelCapabilities | null;
+  /** The "provider|model" of each capability ask. */
+  capabilityAsks: string[];
   /** What the editor asked AI to write. */
   writes: WriteRequest[];
+  /** The AI actions run, and the ones on offer. */
+  runs: ActionRun[];
+  catalog: ActionCatalog;
   /** The answer every write gives, streamed in two pieces. */
   answer: string;
   /** Holds the next write open until stopped, after its first piece. */
   holdNext(): void;
   stops: string[];
   resets: string[];
+  /** The `[chat, keep]` of each time a thread was taken back. */
+  rewinds: [string, number][];
+  /** What every thread has staged, and what applying and recalculating answer. */
+  view: ChangesView;
+  applyResult: ApplyResult;
+  recalculated: Recalculated;
+  /** The threads whose staged changes were applied, recalculated and discarded. */
+  applied: string[];
+  recalcs: string[];
+  discarded: string[];
+  /** What was kept with `attach` (the ids are `att-1`, `att-2`…), and the ids let go of. */
+  attached: { name: string; kind: AttachKind; bytes: Uint8Array }[];
+  dropped: string[];
+  /** The saved threads the backend lists, what loading each gives, and what the window saved. */
+  threadList: ThreadSummary[];
+  loads: Record<string, LoadedThread>;
+  uis: { chat: string; ui: unknown }[];
+  /** What `state` answers for a thread, and the `[chat, sinceSeq]` of each ask. */
+  snapshots: Record<string, ChatSnapshot>;
+  stateAsks: [string, number][];
+  /** The threads continued and deleted. */
+  continues: string[];
+  deleted: string[];
+  /** The next `send` while a turn runs answers as queued. */
+  queueNext(): void;
+  budgetValues: ChatBudgets;
+  outcomes: RequestOutcome[];
+  clearedOutcomes: number;
   /** Sends an event as the backend would. */
   emit(event: ChatEvent): void;
   /** Makes the next send, brainstorm, model list or test fail with this message. */
@@ -37,7 +75,26 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
   let failure: string | null = null;
   let turns = 0;
   let hold = false;
+  let queue = false;
   const stopped = new Set<string>();
+  /** The editor's and the actions' answers: kept, failed, held or streamed the same way. */
+  async function answer(id: string, keep: () => void, onText: (text: string) => void) {
+    keep();
+    if (failure) {
+      const reason = failure;
+      failure = null;
+      throw new Error(reason);
+    }
+    const half = Math.ceil(client.answer.length / 2);
+    onText(client.answer.slice(0, half));
+    if (hold) {
+      hold = false;
+      while (!stopped.has(id)) await new Promise((done) => setTimeout(done, 5));
+      return { text: client.answer.slice(0, half), stopped: true, note: null };
+    }
+    onText(client.answer.slice(half));
+    return { text: client.answer, stopped: false, note: null };
+  }
   const client: Scripted = {
     kind: "app",
     requests: [],
@@ -45,11 +102,35 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
     saved: [],
     drafts: [],
     models: ["model-large", "model-small"],
+    capabilities: null,
+    capabilityAsks: [],
     writes: [],
+    runs: [],
+    catalog: BUILT_IN_CATALOG,
     answer: "A clearer sentence.",
     holdNext: () => void (hold = true),
     stops: [],
     resets: [],
+    rewinds: [],
+    view: { id: "set-1", files: [], pictures: [], steps: [] },
+    applyResult: { status: "applied", commit: "abc123", paths: [] },
+    recalculated: { dropped: [] },
+    applied: [],
+    recalcs: [],
+    discarded: [],
+    attached: [],
+    dropped: [],
+    threadList: [],
+    loads: {},
+    uis: [],
+    snapshots: {},
+    stateAsks: [],
+    continues: [],
+    deleted: [],
+    queueNext: () => void (queue = true),
+    budgetValues: { ...DEFAULT_BUDGETS },
+    outcomes: [],
+    clearedOutcomes: 0,
     emit: (event) => listeners.forEach((listener) => listener(event)),
     failNext: (message) => void (failure = message),
     providers: async () => list,
@@ -86,36 +167,82 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
       }
       return client.models;
     },
+    async modelCapabilities(provider, model) {
+      client.capabilityAsks.push(`${provider}|${model}`);
+      if (!client.capabilities) throw new Error("No capabilities in this test");
+      return { ...client.capabilities, model };
+    },
     async testProviderDraft(provider, key) {
       client.drafts.push({ provider, key });
       return client.testProvider(provider.name, provider.model);
     },
-    async send(request) {
+    async send(request): Promise<ChatTurn> {
       if (failure) {
         const reason = failure;
         failure = null;
         throw new Error(reason);
       }
       client.requests.push(request);
+      if (queue) {
+        queue = false;
+        return { chat: request.chat, session: `session-${request.chat}`, turn: `turn-${turns}`, queued: true };
+      }
       return { chat: request.chat, session: `session-${request.chat}`, turn: `turn-${++turns}` };
     },
-    async write(request, onText) {
-      client.writes.push(request);
+    async attach(name, kind, bytes) {
       if (failure) {
         const reason = failure;
         failure = null;
         throw new Error(reason);
       }
-      const half = Math.ceil(client.answer.length / 2);
-      onText(client.answer.slice(0, half));
-      if (hold) {
-        hold = false;
-        while (!stopped.has(request.id)) await new Promise((done) => setTimeout(done, 5));
-        return { text: client.answer.slice(0, half), stopped: true, note: null };
-      }
-      onText(client.answer.slice(half));
-      return { text: client.answer, stopped: false, note: null };
+      client.attached.push({ name, kind, bytes });
+      const text = kind === "text" ? new TextDecoder().decode(bytes) : null;
+      return { id: `att-${client.attached.length}`, kind, name, mime: kind === "text" ? "text/plain" : "image/png", bytes: bytes.length, ...(text !== null ? { chars: Array.from(text).length } : {}) };
     },
+    async attachment(id) {
+      const at = Number(id.replace("att-", "")) - 1;
+      return client.attached[at]?.bytes ?? new Uint8Array();
+    },
+    async dropAttachment(id) {
+      client.dropped.push(id);
+    },
+    async continueTurn(chat) {
+      if (failure) {
+        const reason = failure;
+        failure = null;
+        throw new Error(reason);
+      }
+      client.continues.push(chat);
+      return { chat, session: `session-${chat}`, turn: `turn-${++turns}`, queued: false };
+    },
+    threads: async () => client.threadList,
+    async load(chat) {
+      const found = client.loads[chat];
+      if (!found) throw new Error(`No saved chat ${chat}`);
+      return found;
+    },
+    async saveUi(chat, ui) {
+      client.uis.push({ chat, ui });
+    },
+    async state(chat, sinceSeq) {
+      client.stateAsks.push([chat, sinceSeq]);
+      return client.snapshots[chat] ?? { status: "idle", seq: sinceSeq, events: [], gap: false };
+    },
+    async deleteThread(chat) {
+      client.deleted.push(chat);
+    },
+    budgets: async () => client.budgetValues,
+    async setBudgets(budgets) {
+      client.budgetValues = budgets;
+    },
+    diagnostics: async () => client.outcomes,
+    async clearDiagnostics() {
+      client.outcomes = [];
+      client.clearedOutcomes++;
+    },
+    write: (request, onText) => answer(request.id, () => client.writes.push(request), onText),
+    runAction: (run, onText) => answer(run.id, () => client.runs.push(run), onText),
+    aiActions: async () => client.catalog,
     async stopWrite(id) {
       stopped.add(id);
     },
@@ -124,6 +251,24 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
     },
     async reset(chat) {
       client.resets.push(chat);
+    },
+    async rewind(chat, keep) {
+      client.rewinds.push([chat, keep]);
+      return keep;
+    },
+    async changes() {
+      return client.view;
+    },
+    async applyChanges(chat) {
+      client.applied.push(chat);
+      return client.applyResult;
+    },
+    async recalcChanges(chat) {
+      client.recalcs.push(chat);
+      return client.recalculated;
+    },
+    async discardChanges(chat) {
+      client.discarded.push(chat);
     },
     async save(): Promise<NoteFile> {
       throw new Error("Not in this test");
@@ -148,6 +293,7 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
 
 /** An empty chat store on `client`. */
 export function resetChat(client: ChatClient): void {
-  useChat.setState({ threads: {}, order: [], active: null });
+  forgetCapabilities();
+  useChat.setState({ threads: {}, order: [], active: null, saved: {}, savedLoaded: false });
   useChat.getState().connect(client);
 }

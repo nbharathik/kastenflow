@@ -1,6 +1,7 @@
 // PDFs brought into the vault, dropped on the window or picked with Ctrl+O:
 // each is kept in sources/ by the core, and the
-// first opens in a reader tab.
+// first opens in a reader tab. A PDF imported alone is offered to the
+// references (pdf-offer.ts).
 
 import { useWorkspace, type OpenHow } from "../workspace/store";
 import { useSources } from "./store";
@@ -35,6 +36,8 @@ export async function importPdfs(files: readonly File[], how: OpenHow = "tab"): 
     void useSources.getState().loadList();
     useWorkspace.getState().go({ view: "highlights", path: kept[0] }, how);
     if (kept.length > 1) toast(`Imported ${kept.length} PDFs into sources/`);
+    // One PDF: offer to add its paper to the references, filled in from the PDF's own words.
+    else void import("./pdf-offer").then((offer) => offer.offerPaper(kept[0]!));
   }
   return kept;
 }

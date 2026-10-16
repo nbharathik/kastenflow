@@ -10,8 +10,10 @@ on:
 permissions:
   contents: read
 
+# A full run started by hand has a group of its own, so a push to main
+# while it runs does not cancel it.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 env:
@@ -51,12 +53,16 @@ jobs:
         run: node --test "scripts/*.test.mjs"
 
   # Release calls this workflow on its tag before building any installers.
+  # Actions → CI → Run workflow runs the same checks on a branch, to see
+  # them green before tagging.
   rust:
     name: Rust (${{ matrix.os }})
     needs: quick
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # Windows builds and tests the workspace about three times slower than
+    # the others: v1.1.0 ran out of 45 minutes while still testing there.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 150 || 90 }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,15 +93,18 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # Every test program runs even after one fails, so a run names every
+      # failure at once instead of the first program's.
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
 
   frontend:
     name: Frontend (${{ matrix.os }})
     needs: quick
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # Windows took 23 of 30 minutes for v1.1.0, before 1.2.0's tests.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

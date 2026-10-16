@@ -252,6 +252,21 @@ describe("the whiteboard", () => {
     expect((await onDisk()).nodes.some((n) => n.id === "c2")).toBe(true);
   });
 
+  it("copies a link to a section, which opens the board there; a card has no such entry", async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: async (text: string) => void written.push(text) }, configurable: true });
+    const { node } = await open();
+    fireEvent.contextMenu(node("c2")!);
+    const cardMenu = await screen.findByRole("menu", { name: "Board menu" });
+    expect(within(cardMenu).queryByRole("menuitem", { name: "Copy link to this location" })).toBeNull();
+    fireEvent.keyDown(cardMenu, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu", { name: "Board menu" })).toBeNull());
+    fireEvent.contextMenu(node("g")!);
+    const menu = await screen.findByRole("menu", { name: "Board menu" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Copy link to this location" }));
+    await waitFor(() => expect(written).toEqual([`kasten:board/${MAIN}?node=g`]));
+  });
+
   it("keeps its menu inside the window as the menu grows", async () => {
     const { board, node } = await open();
     fireEvent.keyDown(board, { key: "a", ctrlKey: true });

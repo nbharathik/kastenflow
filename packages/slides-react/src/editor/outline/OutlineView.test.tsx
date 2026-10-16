@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { idsOf } from "../filmstrip/test-support.ts";
 import { OutlineView } from "./OutlineView.tsx";
-import { body, p, setup, title, type as typeInto, wait } from "./outline-support.tsx";
+import { body, p, setup, title, type as typeInto, wait, words } from "./outline-support.tsx";
 import { WRITE_DELAY } from "./useDraft.ts";
 
 afterEach(() => {
@@ -82,11 +82,12 @@ describe("a slide without a title or a body", () => {
     expect(body(2).value).toBe("Another");
   });
 
-  it("shows a slide with no text as untitled, read only and dimmed, and has no body", async () => {
+  it("shows a slide with things on it but no text as untitled, read only and dimmed, and has no body", async () => {
     const made = await setup({ slides: 2 });
     cleanup();
     const bare = made.session.deck.slides[1]!;
     made.engine.apply("delete_elements", { slide: bare.id, ids: bare.elements.map((e) => e.id) });
+    made.engine.apply("add_elements", { slide: bare.id, elements: [{ type: "shape", id: "", shape: "rect", x: 10, y: 10, w: 100, h: 100 } as never] });
     render(<OutlineView session={made.session} ui={made.ui} />);
     const field = title(2);
     expect(field.readOnly).toBe(true);
@@ -94,11 +95,95 @@ describe("a slide without a title or a body", () => {
     expect(field.placeholder).toBe("Untitled slide");
     expect(field.classList.contains("is-none")).toBe(true);
     expect(screen.queryByLabelText("Text of slide 2")).toBeNull();
-    // Typing does nothing to the deck.
+    // Typing does nothing to the deck: the outline does not make a box beside what is there.
     const before = made.session.deck;
     typeInto(field, "Something");
     wait(WRITE_DELAY * 2);
     expect(made.session.deck).toBe(before);
+  });
+});
+
+describe("a slide with nothing on it", () => {
+  /** A deck whose second slide is blank, in an outline. */
+  async function withBlank() {
+    const made = await setup({ slides: 1 });
+    cleanup();
+    const bare = made.engine.apply("add_slide", { layout: "blank" }).output.slide;
+    render(<OutlineView session={made.session} ui={made.ui} />);
+    return { ...made, bare };
+  }
+
+  it("has a title field to type in, and no body", async () => {
+    await withBlank();
+    const field = title(2);
+    expect(field.readOnly).toBe(false);
+    expect(field.value).toBe("");
+    expect(field.classList.contains("is-none")).toBe(false);
+    expect(screen.queryByLabelText("Text of slide 2")).toBeNull();
+  });
+
+  it("gets its title box, in the layout of a title alone, from the first words typed", async () => {
+    const made = await withBlank();
+    typeInto(title(2), "Hello");
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(0);
+    wait(WRITE_DELAY * 2);
+    const slide = made.session.deck.slides[1]!;
+    expect(slide.layout).toBe("title-only");
+    expect(slide.elements).toHaveLength(1);
+    const box = slide.elements[0]!;
+    expect(box.placeholder).toBe("title");
+    expect(box.type === "text" && words(box.text)).toEqual(["Hello"]);
+    // The caret stays where it was: the field is the same field.
+    expect(title(2).value).toBe("Hello");
+  });
+
+  it("keeps writing into the title it made, as it does into any other", async () => {
+    const made = await withBlank();
+    typeInto(title(2), "Hello");
+    wait(WRITE_DELAY * 2);
+    typeInto(title(2), "Hello again");
+    wait(WRITE_DELAY * 2);
+    expect(made.slot(1, "title")).toBeTruthy();
+    expect(words(made.slot(1, "title"))).toEqual(["Hello again"]);
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(1);
+  });
+
+  it("takes the box and the words away together with one undo", async () => {
+    const made = await withBlank();
+    typeInto(title(2), "Hello");
+    wait(WRITE_DELAY * 2);
+    act(() => made.session.undo());
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(0);
+    expect(made.session.deck.slides[1]!.layout).toBe("blank");
+    expect(title(2).value).toBe("");
+  });
+
+  it("makes no box for words that are only space, or for a title typed and taken away again", async () => {
+    const made = await withBlank();
+    typeInto(title(2), "   ");
+    wait(WRITE_DELAY * 2);
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(0);
+    typeInto(title(2), "x");
+    typeInto(title(2), "");
+    wait(WRITE_DELAY * 2);
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(0);
+  });
+
+  it("makes the box when the focus leaves the field, without waiting for the pause", async () => {
+    const made = await withBlank();
+    typeInto(title(2), "Quick");
+    fireEvent.blur(title(2));
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(1);
+  });
+
+  it("is what a slide added from the outline is: blank, with the caret in its title", async () => {
+    const made = await setup({ slides: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Add a slide after slide 1" }));
+    expect(made.session.deck.slides[1]!.elements).toHaveLength(0);
+    expect(document.activeElement).toBe(title(2));
+    typeInto(title(2), "New idea");
+    wait(WRITE_DELAY * 2);
+    expect(words(made.slot(1, "title"))).toEqual(["New idea"]);
   });
 });
 
@@ -175,8 +260,16 @@ describe("adding slides", () => {
     fireEvent.keyDown(title(2), { key: "Enter", ctrlKey: true });
     expect(session.deck.slides).toHaveLength(4);
     expect(idsOf(session)[1]).toBe(ids[1]);
-    fireEvent.keyDown(body(3), { key: "Enter", metaKey: true });
+    fireEvent.keyDown(body(2), { key: "Enter", metaKey: true });
     expect(session.deck.slides).toHaveLength(5);
+  });
+
+  it("adds a blank slide, as New slide does, with nothing on it", async () => {
+    const { session } = await setup({ slides: 3 });
+    fireEvent.click(screen.getByRole("button", { name: "Add a slide after slide 2" }));
+    const added = session.deck.slides[2]!;
+    expect(added.elements).toHaveLength(0);
+    expect(added.layout).toBe("blank");
   });
 });
 

@@ -6,6 +6,14 @@
 // call is left out when the client grows.
 
 import { localStamp } from "../templates/template-vars";
+import { ANNOTATION_RULES } from "../../lib/vault/annotation-types";
+import { BUNDLE_RULES } from "../../lib/vault/bundle-types";
+import { COLLECTION_RULES } from "../../lib/vault/collection-types";
+import type { DraftRule as Rule } from "../../lib/vault/draft-rule";
+import { HEALTH_RULES } from "../../lib/vault/health-types";
+import { PROJECT_RULES } from "../../lib/vault/project-types";
+import { REFERENCE_RULES } from "../../lib/vault/reference-types";
+import { REVISION_RULES } from "../../lib/vault/revision-types";
 import type { NewNote, NoteFile, Placed, VaultClient } from "../../lib/vault/types";
 import { splitFrontmatter } from "../pages/markdown/frontmatter";
 import { DRAFT_HASH, draftFile, draftSpec, dropDraft, isDraft, madeOf, markMade, nowAt } from "./drafts";
@@ -13,13 +21,7 @@ import { DRAFT_HASH, draftFile, draftSpec, dropDraft, isDraft, madeOf, markMade,
 type Fn = (...args: never[]) => unknown;
 type MethodName = { [K in keyof VaultClient]-?: NonNullable<VaultClient[K]> extends Fn ? K : never }[keyof VaultClient];
 
-/**
- * - `pass`: never given a draft.
- * - `make`: given a draft, makes its page first, then acts on the page.
- * - `own`: written out below.
- * - `{ empty }`: about a draft with no page yet, the answer is `empty()`.
- */
-type Rule = "pass" | "make" | "own" | { empty: () => unknown };
+// What each rule means: lib/vault/draft-rule.ts.
 const none = { empty: () => [] };
 
 const RULES = {
@@ -91,11 +93,13 @@ const RULES = {
   references: "pass",
   createDeck: "pass",
   saveDeck: "pass",
+  saveDecks: "pass",
   deckTemplates: "pass",
   createDeckTemplate: "pass",
   diagrams: "pass",
   diagram: "pass",
   diagramPreview: "pass",
+  diagramDraftSvg: "pass",
   createDiagram: "pass",
   importDiagram: "pass",
   saveDiagram: "pass",
@@ -140,6 +144,14 @@ const RULES = {
   findUnder: "pass",
   replaceUnder: "pass",
   graph: "pass",
+  // The rows of the features that bring their own calls (lib/vault/*-types.ts).
+  ...PROJECT_RULES,
+  ...COLLECTION_RULES,
+  ...ANNOTATION_RULES,
+  ...REFERENCE_RULES,
+  ...BUNDLE_RULES,
+  ...HEALTH_RULES,
+  ...REVISION_RULES,
 } satisfies Record<MethodName, Rule>;
 
 type Own = { [K in MethodName]: (typeof RULES)[K] extends "own" ? K : never }[MethodName];

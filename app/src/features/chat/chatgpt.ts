@@ -14,6 +14,18 @@ export interface ChatGptAccount {
   /** False when the system keychain would not keep the sign-in, so it lasts
    * until Kasten quits. */
   remembered: boolean;
+  /** A sign-in from before accounts were checked: it is kept, but not used
+   * until the person signs in once more to confirm the account. Then
+   * `signedIn` is false and `email` still names who it was. */
+  reauth: boolean;
+  /** The same as `!remembered` while signed in: the sign-in lasts until Kasten quits. */
+  sessionOnly?: boolean;
+  /** The last renewal's ID token could not be checked: the sign-in works, and is checked again at the next renewal. */
+  identityUnverified?: boolean;
+  /** Words for whichever of those is so. */
+  warning?: string | null;
+  /** The system keychain could not be read just now, so whether there is a sign-in is not known. */
+  keychainError?: string | null;
 }
 
 export interface ChatGptSignInStart {

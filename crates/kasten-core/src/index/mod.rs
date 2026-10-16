@@ -7,6 +7,7 @@ mod embed;
 mod filters;
 mod graph;
 mod marks;
+mod projects;
 mod query;
 mod related;
 mod search;
@@ -23,6 +24,7 @@ use crate::error::{Error, Result};
 pub use filters::{DateRange, Filters, parse_query};
 pub use graph::LinkRow;
 pub(crate) use marks::MarksRow;
+pub use projects::{Counts, ProjectRow, ProjectRows};
 pub use query::TaskRow;
 pub use related::Related;
 
@@ -44,7 +46,7 @@ impl From<rusqlite::Error> for Error {
 
 /// Bump when the tables, or what is extracted into them, change; an older
 /// index is dropped and rebuilt.
-const SCHEMA_VERSION: &str = "5";
+const SCHEMA_VERSION: &str = "6";
 
 const SCHEMA: &str = "
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -68,11 +70,13 @@ CREATE TABLE notes (
   size INTEGER NOT NULL,
   excerpt TEXT NOT NULL,
   words INTEGER NOT NULL,
-  locked INTEGER NOT NULL
+  locked INTEGER NOT NULL,
+  url_key TEXT
 );
 CREATE INDEX notes_title ON notes(title_key);
 CREATE INDEX notes_id ON notes(id);
 CREATE INDEX notes_parent ON notes(parent);
+CREATE INDEX notes_url ON notes(url_key);
 CREATE TABLE tags (num INTEGER NOT NULL, tag TEXT NOT NULL);
 CREATE INDEX tags_tag ON tags(tag);
 CREATE INDEX tags_num ON tags(num);

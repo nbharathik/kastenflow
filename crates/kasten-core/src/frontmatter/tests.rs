@@ -35,6 +35,22 @@ fn only_a_fence_at_the_very_top_opens_frontmatter() {
 }
 
 #[test]
+fn reads_every_key_as_json_for_readers_with_keys_of_their_own() {
+    let prefix = "---\ntype: ai-action\nneeds: [selection, page]\nwhere:\n  - editor\nversion: 1\nnote: \"a: b\"\n---\n";
+    let map = read_map(prefix).unwrap();
+    assert_eq!(map["type"], "ai-action");
+    assert_eq!(map["needs"], serde_json::json!(["selection", "page"]));
+    assert_eq!(map["where"], serde_json::json!(["editor"]));
+    assert_eq!(map["version"], 1);
+    assert_eq!(map["note"], "a: b");
+    // None, an empty block, and a block that is not a map.
+    assert!(read_map("").unwrap().is_empty());
+    assert!(read_map("---\n---\n").unwrap().is_empty());
+    assert!(read_map("---\n- a\n- b\n---\n").is_err());
+    assert!(read_map("---\nneeds: [a\n---\n").is_err());
+}
+
+#[test]
 fn reads_known_keys_whatever_their_scalar_form() {
     let prefix = "---\nid: 01J8Z3K6Q2M4X7V9B1C5D8E0F2\ntitle: \"Diff: a \\\"study\\\"\"\ntype: page\nicon: bulb   # from the icon set\ntags: [idea, paper]\nprops:\n  title: nested, ignored\n---\n";
     let front = Front::read(prefix);

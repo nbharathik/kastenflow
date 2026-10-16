@@ -20,7 +20,12 @@ pub struct Problem {
     /// `unreadable`, `frontmatter`, `duplicate-id`, `unresolved-link`,
     /// `board`, `board-node`, `deck`, `deck-image`, `diagram`, `diagram-picture`, `git`, `remote`,
     /// `synced` (the vault is in a folder a sync app copies), `name` (a name another computer
-    /// can't hold) or `case-twin` (two names that differ only in case).
+    /// can't hold), `case-twin` (two names that differ only in case), and the problems of the
+    /// 1.2 sidecars and files: `comments-orphan` / `highlights-orphan` (a sidecar whose page is
+    /// gone), `comments` / `highlights` (one that cannot be read), `collection`,
+    /// `collection-reference`, `unresolved-link` (also a `kasten:` link to no note),
+    /// `bibliography` (a file or entry that cannot be read) and `bibliography-duplicate` (a
+    /// key used twice).
     pub kind: String,
     pub path: Option<String>,
     pub detail: String,
@@ -86,7 +91,8 @@ impl Kasten {
             }
             let meta = meta_for(&file.path, &text, file.modified);
             titles.insert(meta.title.trim().to_lowercase());
-            if let Some(id) = meta.id.clone().filter(|_| meta.kind != "template") {
+            let loose = meta.kind == "template" || meta.kind == crate::note::AI_ACTION;
+            if let Some(id) = meta.id.clone().filter(|_| !loose) {
                 if let Some(first) = ids.get(&id) {
                     report.problems.push(problem(
                         "duplicate-id",
@@ -97,7 +103,7 @@ impl Kasten {
                     ids.insert(id, file.path.clone());
                 }
             }
-            if meta.kind != "template" {
+            if !loose {
                 let at = metas.len();
                 links.extend(
                     extract(parts.body)
@@ -287,6 +293,18 @@ impl Kasten {
                 report.problems.push(problem("remote", None, detail));
             }
         }
+        // What the 1.2 features keep beside the notes: comment and highlight sidecars, saved
+        // collections, `kasten:` links and the bibliography.
+        for found in [
+            self.comment_problems(),
+            self.collection_problems(),
+            self.kasten_link_problems(),
+            self.bibliography_problems(),
+        ] {
+            report.problems.extend(found?);
+        }
+        // The numbers are kept for the health report; the problems are not.
+        self.remember_check(&report);
         Ok(report)
     }
 }

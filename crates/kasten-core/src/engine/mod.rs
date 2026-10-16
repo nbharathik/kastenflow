@@ -6,6 +6,9 @@
 
 mod agent;
 mod agent_assets;
+mod agent_review;
+mod ai_actions;
+mod annotations;
 mod asset_add;
 mod asset_files;
 mod asset_meta;
@@ -13,44 +16,62 @@ mod asset_thumbs;
 mod asset_usage;
 mod assets;
 mod backup_file;
+mod bibliography;
+mod board_stats;
 mod boards;
 mod brainstorm;
+mod bundles;
+mod collections;
 mod commits;
 mod create;
 mod deck_agent;
 mod deck_limits;
 mod decks;
 mod diagram_agent;
+mod diagram_edit;
 mod diagrams;
 mod edit;
 mod empty_trash;
 mod execute;
+mod file_cache;
 mod graph;
+mod health;
 mod highlight_cards;
 mod init;
 mod kits;
 mod latest;
 mod latest_apply;
+mod link_checks;
 mod links;
 mod marks;
 mod ops;
 mod placing;
+mod project_summaries;
+mod projects;
+mod push;
 mod reads;
 mod references;
 mod replace;
 mod restore;
 mod review;
+mod revision;
+mod setup_plan;
+mod setups;
 mod sources;
+mod stage;
+mod state;
 mod tag_lists;
+mod tag_many;
 mod undo;
 mod verify;
 mod verify_names;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, RwLock};
 
-use crate::agent::Tally;
+use file_cache::FileCache;
+use state::State;
+
 use crate::config::{Config, FORMAT};
 use crate::error::{Error, Result};
 use crate::history::{Actor, History};
@@ -63,19 +84,28 @@ pub use assets::MAX_ASSET_BYTES;
 pub use backup_file::{
     BackupFile, BackupFileRecord, BackupFileStatus, KEEP as BACKUP_FILES_KEPT, computer_name,
 };
-pub use boards::{BoardApplied, BoardInfo, NoteStats};
+pub use board_stats::NoteStats;
+pub use boards::{BoardApplied, BoardInfo};
 pub use brainstorm::{Brainstormed, Idea, MAX_IDEAS};
-pub use commits::{BackupRecord, Tick};
-pub use decks::DeckInfo;
+pub use commits::Tick;
+pub use decks::{DeckEdit, DeckInfo, DecksSaved, MAX_SAVE_DECKS, SaveDecksRequest};
 pub use empty_trash::Emptied;
+pub use health::{Health, HealthCounts, HistoryHealth, IndexHealth, LastCheck, TrashHealth};
+pub use init::shipped_template;
 pub use kits::{AddedKit, KitInfo, kits};
 pub use latest::{Latest, LatestOutcome};
 pub use placing::Placed;
+pub use project_summaries::{LastUpdate, LatestActivity, NextAction, ProjectSummary, TaskCounts};
+pub use projects::{HEALTHS as PROJECT_HEALTHS, ProjectState, STATUSES as PROJECT_STATUSES};
+pub use push::BackupRecord;
 pub use references::MAX_BIB_BYTES;
 pub use replace::{
     Expected, MAX_REPLACE_NOTES, MAX_REPLACEMENTS, NoteMatches, ReplaceRequest, Replaced,
 };
 pub use restore::VaultRestore;
+pub use revision::{Revision, RevisionArea, area_of};
+pub use setups::{AppliedSetup, SetupInfo, SetupPlan, SetupTarget, setups};
+pub use tag_many::{MAX_TAGGED, TagAdded};
 pub use undo::{ChangedFile, SessionInfo, UndoConflict, Undone};
 pub use verify::{Problem, Report};
 
@@ -94,8 +124,6 @@ fn own_folders_in_place(root: &Path) -> Result<()> {
     }
     Ok(())
 }
-/// Recent note versions kept for three-way merges.
-const BASES: usize = 64;
 
 pub struct Kasten {
     vault: Vault,
@@ -112,50 +140,19 @@ pub struct Kasten {
     backup_turn: Mutex<()>,
     /// Notes' vectors for search by meaning, opened on first use.
     pub(crate) vectors: crate::vectors::Vectors,
-}
-
-#[derive(Debug, Default)]
-struct State {
-    /// Human edits not committed yet: path, and when it last changed.
-    edits: BTreeMap<String, u64>,
-    last_edit: Option<u64>,
-    /// When the person last typed, kept after the commit: backup files
-    /// wait until the vault has been quiet a while.
-    typed: Option<u64>,
-    /// When the watcher last saw a change made outside Kasten.
-    outside: Option<u64>,
-    /// Recent versions by hash, so a save can merge with edits made meanwhile.
-    bases: VecDeque<(String, String)>,
-    last_commit: Option<u64>,
-    backup: BackupRecord,
-    /// The remote the person confirmed on this computer, the only one
-    /// scheduled pushes go to.
-    confirmed_remote: Option<String>,
-    /// The token for the remote's server, from the app's keychain; held
-    /// in memory only.
-    git_token: Option<crate::history::GitToken>,
-    /// What each agent session changed lately, for the soft limits.
-    tallies: HashMap<String, Tally>,
-    /// Paths an op wrote that the index could not take yet.
-    unindexed: BTreeSet<String>,
-    /// Stop the next Get latest before its branch moves (tests).
-    stop_before_branch: bool,
-    /// Fail the next Get latest after this many files (tests).
-    fail_writes_after: Option<usize>,
-}
-
-impl Kasten {
-    /// Indexes `paths`, with any an earlier refresh could not take. The
-    /// files are written by then: an index that fails now (SQLite busy)
-    /// catches up with the next op rather than failing this one.
-    fn refresh_or_later(&self, paths: &[String]) {
-        let mut all: BTreeSet<String> = std::mem::take(&mut self.state().unindexed);
-        all.extend(paths.iter().cloned());
-        let all: Vec<String> = all.into_iter().collect();
-        if self.index().refresh(&self.vault, &all).is_err() {
-            self.state().unindexed.extend(all);
-        }
-    }
+    /// The vault's change counters (engine/revision.rs).
+    revisions: Mutex<Revision>,
+    /// Told of each change once the write lock is free.
+    listener: OnceLock<Box<dyn Fn(Revision) + Send + Sync>>,
+    /// Facts read from boards and decks, kept while the files stay as they are
+    /// (engine/file_cache.rs).
+    file_cache: Mutex<FileCache>,
+    /// The notes and links of the last graph, while the index is as it was
+    /// (engine/graph.rs).
+    graph_inputs: Mutex<Option<std::sync::Arc<graph::GraphInputs>>>,
+    /// What the index said about the projects at the last summaries, while
+    /// the index and the day are as they were (engine/project_summaries.rs).
+    kept_project_rows: Mutex<Option<project_summaries::KeptRows>>,
 }
 
 /// What an op did: its result, the paths it touched and its commit message.
@@ -217,6 +214,14 @@ impl Kasten {
             agent_turn: Mutex::new(()),
             backup_turn: Mutex::new(()),
             vectors: crate::vectors::Vectors::new(vectors),
+            revisions: Mutex::new(Revision {
+                epoch: crate::time::Instant::now().millis,
+                ..Revision::default()
+            }),
+            listener: OnceLock::new(),
+            file_cache: Mutex::new(FileCache::default()),
+            graph_inputs: Mutex::new(None),
+            kept_project_rows: Mutex::new(None),
         };
         kasten.load_backup();
         Ok(kasten)
@@ -267,29 +272,6 @@ impl Kasten {
         self.index.lock().unwrap_or_else(|p| p.into_inner())
     }
 
-    fn state(&self) -> MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(|p| p.into_inner())
-    }
-
-    fn remember(&self, hash: &str, text: &str) {
-        let mut state = self.state();
-        if state.bases.iter().any(|(h, _)| h == hash) {
-            return;
-        }
-        if state.bases.len() >= BASES {
-            state.bases.pop_front();
-        }
-        state.bases.push_back((hash.to_owned(), text.to_owned()));
-    }
-
-    fn base(&self, hash: &str) -> Option<String> {
-        self.state()
-            .bases
-            .iter()
-            .find(|(h, _)| h == hash)
-            .map(|(_, t)| t.clone())
-    }
-
     /// Runs one op under the write lock, indexes what it touched, and
     /// commits it, or for human typing, queues it for the next edit commit.
     pub(crate) fn apply<T>(
@@ -328,7 +310,8 @@ impl Kasten {
         trailers: &[(&str, String)],
         run: impl FnOnce(&Vault) -> Result<Change<T>>,
     ) -> Result<(T, Option<String>)> {
-        self.lock.hold(|| {
+        let mut counted = None;
+        let done = self.lock.hold(|| {
             let batched = batch && !actor.is_agent();
             if let Some(history) = self.history.get().filter(|_| !batched) {
                 // A git command run by hand is at work: the op waits, with
@@ -348,16 +331,22 @@ impl Kasten {
             }
             let change = run(&self.vault)?;
             self.refresh_or_later(&change.paths);
+            // The files changed, whatever happens to the commit: counted now,
+            // told to the listener when the lock is let go.
+            if !change.paths.is_empty() {
+                counted = Some(self.bump(&change.paths));
+            }
             if let Actor::Agent { session, .. } = actor {
                 let mut state = self.state();
                 let tally = state.tallies.entry(session.clone()).or_default();
                 tally.record(&change.paths, now);
                 if op == "trash_note" {
-                    // Every note that went, sub-pages too.
+                    // Every note that went, sub-pages too; not the comments and
+                    // highlights files that went with them.
                     tally.trashed += change
                         .paths
                         .iter()
-                        .filter(|p| p.starts_with(".trash/"))
+                        .filter(|p| p.starts_with(".trash/") && !crate::companions::is_companion(p))
                         .count();
                 }
             }
@@ -383,6 +372,10 @@ impl Kasten {
                 }
             }
             Ok((change.value, commit))
-        })
+        });
+        if let Some(revision) = counted {
+            self.announce(revision);
+        }
+        done
     }
 }

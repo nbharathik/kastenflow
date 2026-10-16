@@ -12,6 +12,7 @@ import { useTaskList } from "../dashboard/task-rows";
 import { askForSummary } from "./ask-summary";
 import { saveSummary } from "./home-actions";
 import { inFolder, todoCounts, type ProjectParts } from "./project-data";
+import { ProjectStateMenu } from "./state/StateChips";
 
 export function ProjectSummary({ project, parts }: { project: NoteMeta; parts: ProjectParts }) {
   const rows = useTaskList();
@@ -20,7 +21,18 @@ export function ProjectSummary({ project, parts }: { project: NoteMeta; parts: P
   const total = todos.open + todos.done;
   const done = total ? Math.round((todos.done / total) * 100) : 0;
   return (
-    <DashCard title="Summary" icon="gauge" actions={<Button size="sm" tone="quiet" icon="sparkle" onClick={() => void askForSummary(project, parts.recent)}>Ask AI</Button>}>
+    <DashCard
+      title="Summary"
+      icon="gauge"
+      actions={
+        <>
+          <ProjectStateMenu project={project} />
+          <Button size="sm" tone="quiet" icon="sparkle" onClick={() => void askForSummary(project, parts.recent)}>
+            Ask AI
+          </Button>
+        </>
+      }
+    >
       <SummaryLine project={project} />
       {total > 0 && (
         <div className="kasten-dash-progress">

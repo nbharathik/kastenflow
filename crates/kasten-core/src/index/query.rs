@@ -97,10 +97,20 @@ impl Index {
             .ok())
     }
 
+    /// Notes saved from the web page whose `clip::url_key` is `key`, the
+    /// first saved first, templates aside.
+    pub fn by_url_key(&self, key: &str) -> Result<Vec<NoteMeta>> {
+        let mut stmt = self.conn.prepare_cached(&format!(
+            "SELECT {META_COLUMNS} FROM notes n WHERE n.url_key = ?1 AND n.kind NOT IN ('template', 'ai-action') ORDER BY COALESCE(n.created, ''), n.path"
+        ))?;
+        let rows = stmt.query_map([key], meta_of)?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
     /// Notes with this title, templates aside.
     pub fn titled(&self, title: &str) -> Result<Vec<NoteMeta>> {
         let mut stmt = self.conn.prepare_cached(&format!(
-            "SELECT {META_COLUMNS} FROM notes n WHERE n.title_key = ?1 AND n.kind != 'template' ORDER BY n.path"
+            "SELECT {META_COLUMNS} FROM notes n WHERE n.title_key = ?1 AND n.kind NOT IN ('template', 'ai-action') ORDER BY n.path"
         ))?;
         let rows = stmt.query_map([title.trim().to_lowercase()], meta_of)?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -117,7 +127,7 @@ impl Index {
         let key = path_key(path);
         let mut stmt = self.conn.prepare_cached(
             "SELECT n.path, n.title, n.icon, l.context, l.target, n.project FROM links l JOIN notes n ON n.num = l.num
-             WHERE l.target IN (?1, ?2, ?3) AND n.kind != 'template' AND n.path != ?4
+             WHERE l.target IN (?1, ?2, ?3) AND n.kind NOT IN ('template', 'ai-action') AND n.path != ?4
              ORDER BY n.modified DESC, l.line",
         )?;
         let rows = stmt.query_map(params![title, key, format!("{key}.md"), path], |r| {
@@ -171,7 +181,7 @@ impl Index {
             "SELECT l.target, n.path, n.title, n.icon, n.kind, l.context, l.at FROM links l JOIN notes n ON n.num = l.num
              WHERE l.target BETWEEN ?1 AND ?2
                AND l.target GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-               AND n.kind != 'template' AND n.title_key != l.target
+               AND n.kind NOT IN ('template', 'ai-action') AND n.title_key != l.target
                AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.num = l.num AND t.line = l.line)
              ORDER BY l.target, n.modified DESC, l.line",
         )?;
@@ -206,7 +216,7 @@ impl Index {
         };
         let mut stmt = self.conn.prepare_cached(
             "SELECT n.path, n.title, n.icon, snippet(fts, 1, '', '', '…', 16) FROM fts JOIN notes n ON n.num = fts.rowid
-             WHERE fts MATCH ?1 AND n.path != ?2 AND n.kind != 'template'
+             WHERE fts MATCH ?1 AND n.path != ?2 AND n.kind NOT IN ('template', 'ai-action')
                AND n.num NOT IN (SELECT num FROM links WHERE target = ?3)
              ORDER BY n.modified DESC LIMIT 50",
         )?;
@@ -235,7 +245,7 @@ impl Index {
     pub fn tasks(&self) -> Result<Vec<TaskRow>> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT n.path, n.title, n.icon, t.line, t.done, t.text, t.due, t.at FROM tasks t JOIN notes n ON n.num = t.num
-             WHERE n.kind != 'template' ORDER BY n.modified DESC, n.path, t.line",
+             WHERE n.kind NOT IN ('template', 'ai-action') ORDER BY n.modified DESC, n.path, t.line",
         )?;
         let rows = stmt.query_map([], |r| {
             Ok(TaskRow {

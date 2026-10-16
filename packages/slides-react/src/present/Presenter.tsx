@@ -10,8 +10,12 @@ import { SlideView } from "../render/index.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { Notes } from "./notes.tsx";
 import { type Direction, type Plan, type Position, firstPosition, lastPosition, move, planOf, samePosition, spotAt } from "./plan.ts";
+import { RehearsalBar } from "./RehearsalBar.tsx";
+import { RehearsalSummary } from "./RehearsalSummary.tsx";
 import { Scaled } from "./ScrollView.tsx";
+import { type RehearsalSetup, useRehearsal } from "./useRehearsal.ts";
 import "./presenter.css";
+import "./rehearsal.css";
 
 export interface PresenterProps {
   deck: Deck;
@@ -26,6 +30,8 @@ export interface PresenterProps {
   onGo(position: Position, paused?: boolean): void;
   /** The presenter closed the view. */
   onClose?: () => void;
+  /** Where rehearsals are kept. With it the view can time a run-through; without it there are no rehearsal controls. */
+  rehearsal?: RehearsalSetup;
 }
 
 const NOTES_SIZES = [12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48];
@@ -100,12 +106,14 @@ function target(plan: Plan, from: Position, key: Direction | "first" | "last"): 
   return move(plan, from, key);
 }
 
-export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClose }: PresenterProps): JSX.Element {
+export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClose, rehearsal }: PresenterProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const spot = spotAt(plan, position);
   const ahead = move(plan, position, "right");
   const nextSpot = samePosition(ahead, position) ? null : spotAt(plan, ahead);
   const now = useNow();
+  // Timing a run-through: the same position that is on the screen, never a move of its own.
+  const rehearsing = useRehearsal(deck, spot ? { slide: spot.slide.id, step: spot.step } : null, rehearsal);
   const [reset, setReset] = useState(since);
   const [size, setSize] = useState(savedSize);
   const root = useRef<HTMLDivElement>(null);
@@ -198,6 +206,7 @@ export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClo
               {paused ? "Show the slide" : "Black screen"}
             </button>
           </div>
+          {rehearsing ? <RehearsalBar rehearsing={rehearsing} /> : null}
         </section>
 
         <aside className="ks-pv-side">
@@ -227,6 +236,9 @@ export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClo
           </section>
         </aside>
       </main>
+      {rehearsing?.finished ? (
+        <RehearsalSummary deck={deck} record={rehearsing.finished.record} comparison={rehearsing.finished.comparison} saved={rehearsing.finished.saved} error={rehearsing.finished.error} onSave={rehearsing.save} onDiscard={rehearsing.discard} />
+      ) : null}
     </div>
   );
 }

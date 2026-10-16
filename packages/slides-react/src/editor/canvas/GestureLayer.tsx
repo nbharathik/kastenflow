@@ -6,42 +6,25 @@ import { type CanvasController, type Preview } from "./controller.ts";
 import { itemsOf } from "./geometry.ts";
 import { GuideBoard, limitGuides } from "./guides-dom.ts";
 import { frame } from "./Overlay.tsx";
+import { Readout } from "./Readout.tsx";
 
 const px = (n: number, zoom: number) => n * zoom;
 
-/** The parts of a preview the gesture layer draws with React: the guides are drawn by the board, straight into the page. */
-type GestureView = Pick<Preview, "gesture" | "angle" | "marquee" | "hits" | "drawing" | "overrides">;
+/** The parts of a preview the gesture layer draws with React: the guides are drawn by the board, and the number beside the gesture by the readout, straight into the page. */
+type GestureView = Pick<Preview, "gesture" | "marquee" | "hits" | "drawing">;
 
-const NO_BOXES: Preview["overrides"] = new Map();
-
-/** What React draws from a preview: the boxes only where a readout is placed by them. */
+/** What React draws from a preview. */
 export function viewOf(preview: Preview): GestureView {
-  const { gesture, angle, marquee, hits, drawing } = preview;
-  const placed = gesture === "resize" || gesture === "rotate";
-  return { gesture, angle, marquee, hits, drawing, overrides: placed ? preview.overrides : NO_BOXES };
+  const { gesture, marquee, hits, drawing } = preview;
+  return { gesture, marquee, hits, drawing };
 }
 
 const sameRect = (a: Rect | null, b: Rect | null): boolean => a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h);
-const sameBoxes = (a: Preview["overrides"], b: Preview["overrides"]): boolean =>
-  a === b ||
-  (a.size === b.size &&
-    [...a].every(([id, box]) => {
-      const other = b.get(id);
-      return other !== undefined && sameRect(box, other) && box.rotation === other.rotation;
-    }));
 
 /** Whether two views would be drawn the same. */
 export function sameView(a: GestureView, b: GestureView): boolean {
   const drawing = a.drawing === b.drawing || (a.drawing !== null && b.drawing !== null && a.drawing.tool === b.drawing.tool && a.drawing.from.x === b.drawing.from.x && a.drawing.from.y === b.drawing.from.y && a.drawing.to.x === b.drawing.to.x && a.drawing.to.y === b.drawing.to.y);
-  return (
-    a.gesture === b.gesture &&
-    a.angle === b.angle &&
-    drawing &&
-    sameRect(a.marquee, b.marquee) &&
-    a.hits.length === b.hits.length &&
-    a.hits.every((id, i) => id === b.hits[i]) &&
-    sameBoxes(a.overrides, b.overrides)
-  );
+  return a.gesture === b.gesture && drawing && sameRect(a.marquee, b.marquee) && a.hits.length === b.hits.length && a.hits.every((id, i) => id === b.hits[i]);
 }
 
 const union = (rects: readonly Rect[]): Rect | null => {
@@ -50,19 +33,6 @@ const union = (rects: readonly Rect[]): Rect | null => {
   const top = Math.min(...rects.map((r) => r.y));
   return { x: left, y: top, w: Math.max(...rects.map((r) => r.x + r.w)) - left, h: Math.max(...rects.map((r) => r.y + r.h)) - top };
 };
-
-/** What a gesture says in numbers, beside what it is turning or sizing: the angle, or the size. Nothing for a move. */
-export function readoutOf(preview: Pick<Preview, "gesture" | "angle" | "overrides">): { text: string; at: Rect } | null {
-  const { gesture, angle, overrides } = preview;
-  if (gesture !== "resize" && gesture !== "rotate") return null;
-  const boxes = [...overrides.values()];
-  const at = union(boxes.map((box) => boundsOf(box)));
-  if (!at) return null;
-  if (gesture === "rotate") return angle === null ? null : { text: `${Math.round(angle)}°`, at };
-  // One box says its own size, as it is drawn; several say the size of the box round them.
-  const own = boxes.length === 1 ? boxes[0] : undefined;
-  return { text: `${Math.round(own ? own.w : at.w)} × ${Math.round(own ? own.h : at.h)}`, at };
-}
 
 /** The guides to draw for what a preview holds: the ones worth the eye, the gap marks nearest what is moved. */
 function guidesOf(preview: Preview) {
@@ -108,7 +78,6 @@ export function GestureLayer({ session, controller, zoom }: { session: EditorSes
   }, [controller, zoom]);
 
   const hits = preview.hits.length === 0 ? [] : itemsOf(session).filter((item) => preview.hits.includes(item.id));
-  const readout = readoutOf(preview);
   return (
     <div className="ks-overlay ks-gesture-layer" aria-hidden="true">
       <div ref={host} className="ks-overlay" />
@@ -117,11 +86,7 @@ export function GestureLayer({ session, controller, zoom }: { session: EditorSes
       ))}
       {preview.marquee ? <div className="ks-marquee" style={frame(preview.marquee, zoom)} /> : null}
       {preview.drawing ? <Drawing drawing={preview.drawing} zoom={zoom} /> : null}
-      {readout ? (
-        <div className="ks-readout" style={{ left: px(readout.at.x + readout.at.w / 2, zoom), top: px(readout.at.y + readout.at.h, zoom) + 14 }}>
-          {readout.text}
-        </div>
-      ) : null}
+      <Readout controller={controller} zoom={zoom} />
     </div>
   );
 }

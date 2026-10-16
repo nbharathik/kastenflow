@@ -1,27 +1,16 @@
 //! Where a picture is used, worked out by looking at every note, whiteboard
 //! and deck, so it can never be out of date. One scan answers for all the
-//! pictures at once; asking about one takes that scan too.
+//! pictures at once; asking about one takes that scan too. A note, board or
+//! deck that is as it was since the last scan is not read again (see
+//! `file_cache`), so a repeat scan costs the walk of the vault.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-
-use serde_json::Value;
 
 use super::Kasten;
 use super::asset_files::walk;
-use crate::assets::refs::{Ref, image_refs};
+use crate::assets::refs::Ref;
 use crate::assets::{AssetUsage, DeckUse, Place, SlideUse};
-use crate::board;
-use crate::deck;
 use crate::error::{Error, Result};
-use crate::note::meta_for;
-
-fn stem_of(path: &str) -> String {
-    let name = path.rsplit('/').next().unwrap_or(path);
-    name.rsplit_once('.')
-        .map_or(name, |(stem, _)| stem)
-        .to_owned()
-}
 
 impl Kasten {
     /// Where the picture at `path` is used: the notes that show it, the
@@ -54,20 +43,16 @@ impl Kasten {
             by_name.entry(name).or_default().push(found.rel);
         }
 
-        for file in self.vault.files(".md")? {
-            let Ok(text) = fs::read_to_string(self.vault.root().join(&file.path)) else {
-                continue;
-            };
-            let refs = image_refs(&file.path, &text);
-            if refs.is_empty() {
+        // Each note's references come from the cache while the file is as it was.
+        for (file, note) in self.note_refs()? {
+            if note.refs.is_empty() {
                 continue;
             }
-            let title = meta_for(&file.path, &text, file.modified).title;
             // A note that names a picture twice, or by its name and its path, uses it once.
             let mut shown = BTreeSet::new();
-            for found in refs {
+            for found in &note.refs {
                 shown.extend(match found {
-                    Ref::Path(path) => vec![path],
+                    Ref::Path(path) => vec![path.clone()],
                     Ref::Name(name) => by_name
                         .get(&name.to_lowercase())
                         .cloned()
@@ -77,47 +62,26 @@ impl Kasten {
             for path in shown.into_iter().filter(|p| in_assets(p)) {
                 out.entry(path).or_default().notes.push(Place {
                     path: file.path.clone(),
-                    title: title.clone(),
+                    title: note.title.clone(),
                 });
             }
         }
 
-        for file in self.vault.files(".canvas")? {
-            let Ok(canvas) = board::read_board(&self.vault, &file.path) else {
-                continue;
-            };
-            let title = canvas
-                .title()
-                .map_or_else(|| stem_of(&file.path), str::to_owned);
-            let mut shown: Vec<&str> = canvas
-                .nodes()
-                .iter()
-                .filter(|node| node.get("type").and_then(Value::as_str) == Some("file"))
-                .filter_map(|node| node.get("file").and_then(Value::as_str))
-                .filter(|path| in_assets(path))
-                .collect();
-            shown.sort_unstable();
-            shown.dedup();
-            for path in shown {
-                out.entry(path.to_owned()).or_default().boards.push(Place {
+        for (file, facts) in self.board_facts()? {
+            // Its cards' files are sorted and without repeats already.
+            for path in facts.files.iter().filter(|path| in_assets(path)) {
+                out.entry(path.clone()).or_default().boards.push(Place {
                     path: file.path.clone(),
-                    title: title.clone(),
+                    title: facts.title.clone(),
                 });
             }
         }
 
-        for file in self.vault.files(".deck")? {
-            let Ok(read) = deck::read_deck(&self.vault, &file.path) else {
+        for (file, facts) in self.deck_facts()? {
+            let Some(images) = &facts.images else {
                 continue;
             };
-            let Some(images) = deck::images_by_slide(&read.text) else {
-                continue;
-            };
-            let title = deck::head_of(&read.text)
-                .ok()
-                .and_then(|head| head.title)
-                .filter(|title| !title.trim().is_empty())
-                .unwrap_or_else(|| stem_of(&file.path));
+            let title = &facts.title;
             let mut used: BTreeMap<&str, DeckUse> = BTreeMap::new();
             let fresh = || DeckUse {
                 path: file.path.clone(),

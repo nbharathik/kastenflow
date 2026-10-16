@@ -8,7 +8,7 @@ import { LintBadge } from "../lint/LintBadge.tsx";
 import type { LintService } from "../lint/service.ts";
 import { Icon } from "../ui/Icon.tsx";
 import type { EditorUi } from "../ui-state.ts";
-import { BACKUP_W, THUMB_W } from "./model.ts";
+import { backupWidth } from "./model.ts";
 import { leaveRow } from "./row-motion.ts";
 import { SectionName } from "./SectionName.tsx";
 import { SlideThumb } from "./SlideThumb.tsx";
@@ -36,6 +36,8 @@ export interface SlideRowProps {
   dragging: boolean;
   /** Draw the slide; otherwise a quiet box, since the row is far from the window. */
   thumb: boolean;
+  /** The width of the thumbnail, which follows the width the person made the filmstrip (a backup slide's is a little less). */
+  width: number;
   imageUrl: ImageUrl;
   domId: string;
   handlers: RowHandlers;
@@ -51,7 +53,7 @@ const words = (index: number, slide: Slide, backup: boolean): string =>
  * stylesheet's, from variables the list sets once, so a row costs little to
  * make; a row far from the window has no thumbnail, only its empty frame.
  */
-export const SlideRow = memo(function SlideRow({ slide, index, count, backup, deck, shown, selected, dragging, thumb, imageUrl, domId, handlers, lint }: SlideRowProps): JSX.Element {
+export const SlideRow = memo(function SlideRow({ slide, index, count, backup, deck, shown, selected, dragging, thumb, width, imageUrl, domId, handlers, lint }: SlideRowProps): JSX.Element {
   const root = useRef<HTMLDivElement>(null);
   // A slide that was deleted leaves a copy of its row behind, which folds away as the rows below come up.
   useLayoutEffect(() => {
@@ -63,7 +65,7 @@ export const SlideRow = memo(function SlideRow({ slide, index, count, backup, de
   }, [slide.id, handlers]);
   const frame = (
     <div className={`ks-fs-frame${thumb ? "" : " is-far"}`}>
-      {thumb ? <SlideThumb deck={deck} slide={slide} number={index + 1} count={count} width={backup ? BACKUP_W : THUMB_W} imageUrl={imageUrl} /> : null}
+      {thumb ? <SlideThumb deck={deck} slide={slide} number={index + 1} count={count} width={backup ? backupWidth(width) : width} imageUrl={imageUrl} /> : null}
       {backup ? <span className="ks-fs-tag">Backup</span> : null}
       {lint ? <LintBadge lint={lint} slideId={slide.id} /> : null}
       <SlideMark slide={slide} />

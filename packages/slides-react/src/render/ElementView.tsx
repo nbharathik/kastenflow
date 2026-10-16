@@ -5,7 +5,7 @@ import type { Element } from "@kasten-slides/wasm";
 
 import { safeLink } from "../text/links.ts";
 import { type Box, boxOf, colorOf } from "../theme/index.ts";
-import type { RenderCx } from "./context.ts";
+import type { HiddenCell, RenderCx } from "./context.ts";
 import { ConnectorView } from "./elements/ConnectorView.tsx";
 import { ImageView, maskRadius } from "./elements/ImageView.tsx";
 import { LineView } from "./elements/LineView.tsx";
@@ -27,6 +27,8 @@ export interface ElementViewProps {
   cx: RenderCx;
   /** The element whose text an editor draws over the slide instead, if any. */
   hideTextOf: string | null;
+  /** The cell of a table whose words an editor draws over the slide instead, if any. */
+  hideCell?: HiddenCell | null | undefined;
   /** Whether a group that holds the element is hidden at this step. */
   groupHidden?: boolean;
 }
@@ -36,6 +38,9 @@ const holds = (element: Element, id: string): boolean =>
 
 /** The id of the element to leave the text out of, when it is this element or in it; null when it does not concern it. */
 const hidingIn = (element: Element, hideTextOf: string | null): string | null => (hideTextOf !== null && holds(element, hideTextOf) ? hideTextOf : null);
+
+/** The cell to leave out, when its table is this element or in it, as a key; null when it does not concern it. */
+const hidingCellIn = (element: Element, cell: HiddenCell | null | undefined): string | null => (cell && holds(element, cell.id) ? `${cell.id}/${cell.row}/${cell.col}` : null);
 
 /** Where a group is, for the outline of a highlighted one: its own box, or the box around what it holds. */
 function groupBox(group: Extract<Element, { type: "group" }>, cx: RenderCx): Box | null {
@@ -89,7 +94,7 @@ function description(element: Element): { role: "img"; "aria-label": string } | 
   return named && element.alt ? { role: "img", "aria-label": element.alt } : undefined;
 }
 
-function Content({ element, box, cx, hideText }: { element: Exclude<Element, { type: "group" }>; box: Box; cx: RenderCx; hideText: boolean }): JSX.Element | null {
+function Content({ element, box, cx, hideText, hideCell }: { element: Exclude<Element, { type: "group" }>; box: Box; cx: RenderCx; hideText: boolean; hideCell: HiddenCell | null }): JSX.Element | null {
   switch (element.type) {
     case "text":
       return <TextView element={element} box={box} cx={cx} hideText={hideText} />;
@@ -102,7 +107,7 @@ function Content({ element, box, cx, hideText }: { element: Exclude<Element, { t
     case "image":
       return <ImageView element={element} box={box} cx={cx} hideText={hideText} />;
     case "table":
-      return <TableView element={element} box={box} cx={cx} hideText={hideText} />;
+      return <TableView element={element} box={box} cx={cx} hideText={hideText} hideCell={hideCell} />;
     case "math":
       return <MathView element={element} box={box} cx={cx} hideText={hideText} />;
     case "raw":
@@ -113,7 +118,7 @@ function Content({ element, box, cx, hideText }: { element: Exclude<Element, { t
   }
 }
 
-function ElementViewImpl({ element: given, cx, hideTextOf, groupHidden = false }: ElementViewProps): JSX.Element | null {
+function ElementViewImpl({ element: given, cx, hideTextOf, hideCell = null, groupHidden = false }: ElementViewProps): JSX.Element | null {
   const { theme } = cx;
   // While the editor drags this element somewhere it says where; only this view is drawn again for each step.
   const placed = useLiveBox(given.id);
@@ -137,7 +142,7 @@ function ElementViewImpl({ element: given, cx, hideTextOf, groupHidden = false }
         style={{ position: "absolute", left: 0, top: 0, width: cx.size.w, height: cx.size.h, pointerEvents: "none", ...(opacity === 1 ? {} : { opacity }) }}
       >
         {element.children.map((child) => (
-          <ElementView key={child.id} element={child} cx={cx} hideTextOf={hideTextOf} groupHidden={state === "hidden"} />
+          <ElementView key={child.id} element={child} cx={cx} hideTextOf={hideTextOf} hideCell={hideCell} groupHidden={state === "hidden"} />
         ))}
         {box && <Highlight cx={cx} box={box} />}
       </div>
@@ -164,7 +169,7 @@ function ElementViewImpl({ element: given, cx, hideTextOf, groupHidden = false }
         <div className="ks-ghost-box" style={{ borderColor: colorOf(theme, "text2") }} />
       ) : (
         <>
-          <Content element={element} box={box} cx={cx} hideText={element.id === hideTextOf} />
+          <Content element={element} box={box} cx={cx} hideText={element.id === hideTextOf} hideCell={hideCell && hideCell.id === element.id ? hideCell : null} />
           {state === "highlighted" && <Highlight cx={cx} borderRadius={roundingOfElement(element, box)} />}
         </>
       )}
@@ -180,11 +185,12 @@ function ElementViewImpl({ element: given, cx, hideTextOf, groupHidden = false }
  * given by content: an element that did not change is not drawn again.
  */
 export const ElementView: MemoExoticComponent<(props: ElementViewProps) => JSX.Element | null> = memo(ElementViewImpl, (a, b) => {
-  if (a.element === b.element && a.cx === b.cx && a.groupHidden === b.groupHidden && a.hideTextOf === b.hideTextOf) return true;
+  if (a.element === b.element && a.cx === b.cx && a.groupHidden === b.groupHidden && a.hideTextOf === b.hideTextOf && a.hideCell === b.hideCell) return true;
   return (
     (a.cx === b.cx || sameApartFromStep(a.cx, b.cx, a.element)) &&
     (a.groupHidden ?? false) === (b.groupHidden ?? false) &&
     hidingIn(a.element, a.hideTextOf) === hidingIn(b.element, b.hideTextOf) &&
+    hidingCellIn(a.element, a.hideCell) === hidingCellIn(b.element, b.hideCell) &&
     (a.element === b.element || jsonEqual(a.element, b.element))
   );
 });

@@ -16,6 +16,7 @@ import { smartPage } from "../sections/smart-page";
 import { onlySlash, templatePickerOf } from "../template-pick";
 import { colorBlocks, insertBlock } from "./block-ops";
 import { matchChoices, SLASH_CHOICES, type Choice } from "./catalog";
+import { startCitePick } from "../cite/cite-pick";
 import { startDeckPick } from "./deck-pick";
 import { startDiagramPick } from "./diagram-pick";
 import { startLink } from "./mention";
@@ -111,6 +112,12 @@ export function choiceCommand(choice: Choice, ctx: Ctx): Command {
   if (action.type === "diagram") {
     return (state, _dispatch, view) => {
       if (view) startDiagramPick(view, ctx, state.selection.from);
+      return Boolean(view);
+    };
+  }
+  if (action.type === "cite") {
+    return (_state, _dispatch, view) => {
+      if (view) startCitePick(view);
       return Boolean(view);
     };
   }

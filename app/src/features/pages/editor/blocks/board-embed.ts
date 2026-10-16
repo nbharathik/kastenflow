@@ -14,6 +14,7 @@ import { findBoard, linksOf, parseWikiTarget } from "../links";
 import { el, withGlyph } from "../ui/dom";
 import { clampHeight, heightOf, keepHeight } from "./embed-heights";
 import { freshHost } from "./embed-host";
+import { embedTool } from "./embed-tools";
 
 /** The key presses on the grip that make the embed taller or shorter, in pixels. */
 const STEP = 40;
@@ -34,18 +35,32 @@ export class BoardEmbed {
     private readonly ctx: Ctx,
   ) {
     this.title = el("span", "kasten-embed-title");
-    const open = el("button", "kasten-board-embed-open", { type: "button", textContent: "Open ↗", title: "Open the whiteboard (Ctrl+click for a new tab)" });
+    // Two icons, no words: the names are for screen readers and the tooltips.
+    const open = embedTool("kasten-board-embed-open", "icon:arrow-up-right", "Open whiteboard", "Open the whiteboard (Ctrl+click for a new tab)");
+    const openBoard = (how: "here" | "tab" | "stack") => {
+      if (this.path) linksOf(this.ctx).openBoard?.(this.path, how);
+    };
     open.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (this.path) linksOf(this.ctx).openBoard?.(this.path, event.ctrlKey || event.metaKey || event.button === 1 ? "tab" : event.shiftKey ? "stack" : "here");
+      openBoard(event.ctrlKey || event.metaKey || event.button === 1 ? "tab" : event.shiftKey ? "stack" : "here");
     });
-    const present = el("button", "kasten-board-embed-present", { type: "button", textContent: "Present", title: "Present the whiteboard's sections" });
+    // The keyboard presses the button: Enter and Space arrive as a click that no mouse press came before.
+    open.addEventListener("click", (event) => {
+      if (event.detail === 0) openBoard(event.ctrlKey || event.metaKey ? "tab" : event.shiftKey ? "stack" : "here");
+    });
+    const present = embedTool("kasten-board-embed-present", "icon:present", "Present whiteboard", "Present the whiteboard's sections");
+    const presentBoard = () => {
+      // The board inside answers: it is the one that knows its sections.
+      this.dom.dispatchEvent(new CustomEvent("kasten:present"));
+    };
     present.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      // The board inside answers: it is the one that knows its sections.
-      this.dom.dispatchEvent(new CustomEvent("kasten:present"));
+      presentBoard();
+    });
+    present.addEventListener("click", (event) => {
+      if (event.detail === 0) presentBoard();
     });
     const head = el("span", "kasten-embed-head");
     head.append(withGlyph(el("span", "kasten-embed-icon"), "icon:board", 16), this.title, present, open);

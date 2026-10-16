@@ -1,0 +1,7 @@
+{
+  "icon": "🔬",
+  "name": "Research",
+  "summary": "Research questions, a literature review with a reading list, a literature map, and reading and experiment tags.",
+  "home": "pages/research-questions.md",
+  "props": {"status": "Active"}
+}

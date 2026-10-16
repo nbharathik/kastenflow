@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
-import type { VerifyReport } from "../../../lib/vault/types";
 import { canBackUp } from "../../backup/api";
 import { BackupFileRow } from "../../backup/BackupFileRow";
 import { GitHubRow } from "../../backup/GitHubRow";
 import { LatestRow } from "../../backup/LatestRow";
+import { useHealth } from "../../health/health-store";
 import type { RowComponent } from "../../backup/parts";
 import { PreviewBackup } from "../../backup/PreviewBackup";
 import { RemoteRow } from "../../backup/RemoteRow";
@@ -21,7 +21,8 @@ export function VaultSafety({ Row }: { Row: RowComponent }) {
   const client = useWorkspace((s) => s.client);
   const status = useVaultStatus((s) => s.status);
   const [busy, setBusy] = useState<string | null>(null);
-  const [report, setReport] = useState<VerifyReport | null>(null);
+  // The check's answer is kept where the health page reads it too.
+  const report = useHealth((s) => s.report);
   const { toast, openPath } = useWorkspace.getState();
 
   useEffect(() => {
@@ -84,7 +85,7 @@ export function VaultSafety({ Row }: { Row: RowComponent }) {
         </>
       )}
       <Row label="Check the vault" detail="Looks for broken frontmatter, repeated ids, links to missing pages and damaged history.">
-        <button type="button" className={button} disabled={busy !== null} onClick={() => void run("verify", async () => setReport(await client.verify()))}>
+        <button type="button" className={button} disabled={busy !== null} onClick={() => void run("verify", async () => void (await useHealth.getState().check()))}>
           {busy === "verify" ? "Checking…" : "Check now"}
         </button>
       </Row>

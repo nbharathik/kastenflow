@@ -108,6 +108,6 @@ pub fn marked(mut op: AgentOp, with_marks: &str) -> AgentOp {
 pub fn pending(outcome: &Outcome) -> (&str, &str) {
     match outcome {
         Outcome::PendingReview { proposal, reason } => (proposal, reason),
-        Outcome::Done { result } => panic!("expected a proposal, got {result}"),
+        other => panic!("expected a proposal, got {other:?}"),
     }
 }

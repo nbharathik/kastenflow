@@ -37,10 +37,12 @@ export function Marked({ text }: { text: string }) {
   );
 }
 
-/** One card of a group's page. `sub` gives it a small heading (a page with several cards). */
-export function Group({ title, sub = false, help, children }: { title: string; sub?: boolean; help?: ReactNode; children: ReactNode }) {
+/** One card of a group's page. `sub` gives it a small heading (a page with several cards).
+ * `found` draws it in search results although none of its entries matched: the card has
+ * something of its own to show (shortcut commands found by name). */
+export function Group({ title, sub = false, help, found = false, children }: { title: string; sub?: boolean; help?: ReactNode; found?: boolean; children: ReactNode }) {
   const view = useSettingsView();
-  if (!cardDrawn(view, title)) return null;
+  if (!found && !cardDrawn(view, title)) return null;
   return (
     <section id={sectionId(title)} aria-label={title} className="kasten-set-group">
       {sub && (

@@ -10,8 +10,9 @@ use serde_json::{Number, Value};
 use crate::error::{Error, Result};
 use crate::model::{Deck, Element, FORMAT_NAME};
 
-/// The version of the deck format this build reads and writes.
-pub const FORMAT_VERSION: u32 = 1;
+/// The newest version of the deck format this build reads. A deck is written with the oldest
+/// version that holds what it uses (see [`version_needed`]).
+pub const FORMAT_VERSION: u32 = 2;
 
 /// Reads a `.deck` file's text.
 pub fn parse(text: &str) -> Result<Deck> {
@@ -27,9 +28,10 @@ pub fn from_value(value: Value) -> Result<Deck> {
     Ok(deck)
 }
 
-/// Brings a deck of an older format version up to this one. There is no older
-/// version yet: each future version adds one step here and a fixture of the
-/// version it replaces.
+/// Brings a deck of an older format version up to this one: each version adds one step here, and a
+/// fixture of the version it replaces lives in `fixtures/decks-v1`. Version 2 only added fields (a
+/// run's `highlight`, a citation's `links`, a page source's `made`), so its step brings the number up
+/// and changes nothing else.
 fn migrate(value: Value) -> Result<Value> {
     if value.get("format").and_then(Value::as_str) != Some(FORMAT_NAME) {
         return Err(Error::malformed(
@@ -49,7 +51,42 @@ fn migrate(value: Value) -> Result<Value> {
             supported: FORMAT_VERSION,
         });
     }
+    let mut value = value;
+    if found < 2 {
+        value = from_one(value);
+    }
     Ok(value)
+}
+
+/// Version 1 to 2: nothing to rewrite; the deck in memory is the current version.
+fn from_one(mut value: Value) -> Value {
+    value["formatVersion"] = Value::from(FORMAT_VERSION);
+    value
+}
+
+/// Whether the JSON of a deck holds something that came with format 2: a run with a `highlight`, a
+/// citation with `links` on, or a page source with `made`. Found by shape, so the slides, the
+/// master, the layouts' decoration and anything inside a group are all covered.
+fn uses_two(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            let run = map.get("t").is_some_and(Value::is_string) && map.contains_key("highlight");
+            let citation = map.get("type").and_then(Value::as_str) == Some("citation")
+                && map.get("links") == Some(&Value::Bool(true));
+            let source =
+                map.contains_key("page") && map.contains_key("kind") && map.contains_key("made");
+            run || citation || source || map.values().any(uses_two)
+        }
+        Value::Array(items) => items.iter().any(uses_two),
+        _ => false,
+    }
+}
+
+/// The version a deck is written with: 2 when it uses something that came with that version, and 1
+/// otherwise, so a deck that uses nothing new is the same bytes in every build and an older build
+/// can still open it.
+pub fn version_needed(deck: &Value) -> u32 {
+    if uses_two(deck) { 2 } else { 1 }
 }
 
 /// The rules of the format that a deck must meet to be worked on.
@@ -146,9 +183,13 @@ fn check_elements<'a>(list: &'a [Element], owner: &str, ids: &mut HashSet<&'a st
 /// The deck as JSON in canonical form.
 pub fn to_value(deck: &Deck) -> Result<Value> {
     let mut value = serde_json::to_value(deck).map_err(|e| Error::invalid(e.to_string()))?;
+    value["formatVersion"] = Value::from(version_needed(&value));
     canonicalize(&mut value);
     Ok(value)
 }
+
+#[cfg(test)]
+mod tests;
 
 /// The text of the `.deck` file for a deck.
 pub fn write(deck: &Deck) -> Result<String> {

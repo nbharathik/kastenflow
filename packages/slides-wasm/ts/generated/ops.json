@@ -282,7 +282,7 @@
   },
   {
     "name": "add_slides",
-    "about": "Add whole slides that were made elsewhere, such as the ones of an imported PowerPoint file, after a slide or at the end. Each needs a layout the theme has. A slide keeps its id and its elements' ids unless they are taken.",
+    "about": "Add whole slides that were made elsewhere, such as the ones of an imported PowerPoint file, after a slide or at the end. Each needs a layout the theme has. A slide keeps its id and its elements' ids unless they are taken. Give `fromSize` (the page size of the deck they come from) to refit them to this deck's page size.",
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "title": "AddSlides",
@@ -301,6 +301,17 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "fromSize": {
+          "description": "The size of the slides of the deck they were made in, when it is not this deck's. They are then refitted to this deck as a change of page size refits a deck: boxes stretch with the slide, type, lines and corners follow the width, and pictures and anything turned keep their shape.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
@@ -958,6 +969,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -1201,6 +1219,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -3640,6 +3665,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -4617,6 +4646,24 @@
           },
           "required": [
             "data"
+          ]
+        },
+        "Size": {
+          "description": "Width and height in slide units (1/96 inch).",
+          "type": "object",
+          "properties": {
+            "w": {
+              "type": "number",
+              "format": "double"
+            },
+            "h": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "w",
+            "h"
           ]
         }
       }
@@ -5611,6 +5658,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -5854,6 +5908,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -8269,6 +8330,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -10831,6 +10896,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -11074,6 +11146,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -13513,6 +13592,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -14593,6 +14676,17 @@
           "additionalProperties": {
             "$ref": "#/$defs/TextStyle"
           }
+        },
+        "fromSize": {
+          "description": "The size of the slides of the deck they come from, when it is not this deck's. The layouts and their text styles are then refitted to this deck's size as a change of page size refits a theme.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -15270,6 +15364,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -15513,6 +15614,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -17937,6 +18045,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -18996,6 +19108,24 @@
             "color",
             "font"
           ]
+        },
+        "Size": {
+          "description": "Width and height in slide units (1/96 inch).",
+          "type": "object",
+          "properties": {
+            "w": {
+              "type": "number",
+              "format": "double"
+            },
+            "h": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "w",
+            "h"
+          ]
         }
       }
     },
@@ -19972,6 +20102,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -20215,6 +20352,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -22630,6 +22774,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -23756,7 +23904,7 @@
   },
   {
     "name": "add_elements",
-    "about": "Add elements (text, shape, line, connector, image, group, table) to a slide. Give each a type and a box in slide units (the slide is 960 by 540), or a placeholder to fill; colours are theme tokens (text1, bg2, accent1 ...) or #rrggbb. A connector may name the two elements it joins (`from` and `to`, each an element id and a side) instead of a box. Returns the ids.",
+    "about": "Add elements (text, shape, line, connector, image, group, table) to a slide. Give each a type and a box in slide units (`get_deck` gives the deck's size), or a placeholder to fill; colours are theme tokens (text1, bg2, accent1 ...) or #rrggbb. A connector may name the two elements it joins (`from` and `to`, each an element id and a side) instead of a box. Returns the ids.",
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "title": "AddElements",
@@ -24321,6 +24469,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -24564,6 +24719,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -27003,6 +27165,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -28410,6 +28576,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -28497,7 +28670,7 @@
   },
   {
     "name": "update_page_contents",
-    "about": "Make an element that came from a page of the host again from the page as it is now: its words and pictures are rebuilt in the same place and at the same size, keeping its id, name, steps and link. Words typed into it by hand are replaced.",
+    "about": "Make an element that came from a page of the host again from the page as it is now: its words and pictures are rebuilt in the same place and at the same size, keeping its id, name, steps and link. Words typed into it by hand are replaced, unless `keepEdits` is set and the element was made by a storyboard: then an element changed by hand is left alone and the answer says `edited`. A slide made by a storyboard is rebuilt the way a storyboard makes it: the section's point and evidence, not its heading.",
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "title": "UpdatePageContents",
@@ -28539,6 +28712,10 @@
             "minItems": 2,
             "maxItems": 2
           }
+        },
+        "keepEdits": {
+          "description": "Leave the element alone when it has been changed by hand since it was made from the page (its words, pictures or looks are no longer what it was made with; moving it is not a change). Only elements made by a storyboard can tell; any other is updated.",
+          "type": "boolean"
         }
       },
       "required": [
@@ -28554,6 +28731,10 @@
       "properties": {
         "changed": {
           "description": "Whether the page said anything different from what the element was made from.",
+          "type": "boolean"
+        },
+        "edited": {
+          "description": "Whether `keepEdits` stopped the update because the element was changed by hand. Nothing was done.",
           "type": "boolean"
         }
       },
@@ -28642,6 +28823,244 @@
       },
       "required": [
         "slides"
+      ]
+    }
+  },
+  {
+    "name": "add_storyboard_slides",
+    "about": "Make slides from a storyboard drafted from a page of the host: for each entry a slide titled with the entry's title, the point and evidence as its words (one element, with its pictures, tables and code beside them), and the notes as the speaker notes. The words remember the section of the page they came from, so they can be brought up to date when the page changes. Pictures that are not in the host's store are left out and listed.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "AddStoryboardSlides",
+      "description": "Makes slides from a storyboard: one for each entry.",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "description": "The slides to make, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StoryEntry"
+          }
+        },
+        "after": {
+          "description": "The slide to add them after (and its backup slides); the end when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sizes": {
+          "description": "The size in pixels of each picture the entries show, by its path, so pictures keep their shape.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "number",
+                "format": "double"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "$defs": {
+        "StoryEntry": {
+          "description": "One slide of a storyboard.",
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "The slide's title: the section's heading.",
+              "type": "string"
+            },
+            "point": {
+              "description": "The point the slide makes: the first sentence of the section's first paragraph. It leads the slide's words.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence": {
+              "description": "What backs the point up, one Markdown block each in the order of the page: a list item (nested ones indented by two spaces), a picture, a table, code or a formula.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "notes": {
+              "description": "What the speaker says: the section's prose, as Markdown. It goes to the slide's notes.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "layout": {
+              "description": "The layout of the slide; `title-body`, or `section` for a slide with no words, when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "media": {
+              "description": "Whether the evidence holds a picture, a table, code or a formula.",
+              "type": "boolean",
+              "default": false
+            },
+            "sources": {
+              "description": "The sections of pages it came from: one for a slide drafted from one section, more once entries were merged.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/StorySource"
+              },
+              "default": []
+            }
+          },
+          "required": [
+            "title"
+          ]
+        },
+        "StorySource": {
+          "description": "Where an entry's words come from: a page of the host, and the Markdown of the part of it that was read.",
+          "type": "object",
+          "properties": {
+            "page": {
+              "description": "The page, as the host names pages (a vault path in KastenFlow).",
+              "type": "string"
+            },
+            "id": {
+              "description": "The host's stable name for the page, if it has one.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "title": {
+              "description": "What the page is called.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "section": {
+              "description": "The heading whose section this is, as the page writes it. Absent for words that are not a section of the page by a heading (the words before the first heading, a part cut at dividers).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "markdown": {
+              "description": "The Markdown that was read: the whole page when asking for a draft, the section's text in an entry. Its fingerprint is what the slide is compared with when the page changes.",
+              "type": "string",
+              "default": ""
+            }
+          },
+          "required": [
+            "page"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "AddedStoryboard",
+      "type": "object",
+      "properties": {
+        "slides": {
+          "description": "The new slides, in order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "omitted": {
+          "description": "What was left out or is not kept in step, for the report.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Omitted"
+          }
+        }
+      },
+      "required": [
+        "slides",
+        "omitted"
+      ],
+      "$defs": {
+        "Omitted": {
+          "description": "Something a storyboard asked for that the slides do not have, or a slide that is not kept in step with its page.",
+          "type": "object",
+          "properties": {
+            "entry": {
+              "description": "The entry, counting from 0.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "what": {
+              "description": "What: `picture` (one that is not in the host's store), `title` (the layout has no title slot), `source` (a section merged into the slide that is not remembered), `update` (the slide is not kept in step with the page).",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why, in a sentence a person can read.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "entry",
+            "what",
+            "reason"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "acknowledge_source",
+    "about": "Keep an element that came from a page of the host as it is after the page changed: the page is read as it is now and nothing on the slide is touched, so the element is not offered an update until the page changes again.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "AcknowledgeSource",
+      "description": "Keeps a slide as it is when its page has changed: the fingerprint of the page's words is set to the page as it reads now.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The element that came from the page.",
+          "type": "string"
+        },
+        "markdown": {
+          "description": "The page's Markdown, or the section's, as the host reads it now.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "markdown"
+      ]
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Acknowledged",
+      "type": "object",
+      "properties": {
+        "hash": {
+          "description": "The new fingerprint.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hash"
       ]
     }
   },
@@ -29623,6 +30042,13 @@
                 "string",
                 "null"
               ]
+            },
+            "made": {
+              "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -29866,6 +30292,13 @@
             },
             "color": {
               "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
               "type": [
                 "string",
                 "null"
@@ -32305,6 +32738,10 @@
                   "type": "null"
                 }
               ]
+            },
+            "links": {
+              "description": "Link each work to where it can be read on the web, when the bibliography gives an address for it (its DOI, else its `url`, else its arXiv page). The words between works are not linked. (Deck format 2.)",
+              "type": "boolean"
             }
           },
           "required": [
@@ -33664,6 +34101,13 @@
                 "null"
               ]
             },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "size": {
               "description": "Points.",
               "type": [
@@ -34125,6 +34569,988 @@
             "indent",
             "bulletColor",
             "bulletSize"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "set_cells",
+    "about": "Put words in a block of cells of a table. `cells` is a list of rows, each a list of {text} or {markdown} values, and `at` is the row and column of the first, counted from 0. Markdown keeps the cell's alignment and insets; a value with neither is skipped. When the values reach past the table, rows and columns are added at the bottom and right (`grow`, on by default) as big as the last ones, and the table's box grows with them while it stays on the slide. A value on a place that a merged cell covers is refused unless it is empty, and so is a block that takes in only part of a merged cell. Returns the table's rows and columns.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "SetCells",
+      "description": "Puts words in a block of cells of a table.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "at": {
+          "description": "The row and column of the first value, counted from 0.",
+          "$ref": "#/$defs/Place"
+        },
+        "cells": {
+          "description": "The values, a list of rows, each a list of cells.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/CellValue"
+            }
+          }
+        },
+        "grow": {
+          "description": "Add rows at the bottom and columns at the right when the values reach past the table (on by default). Off, values past the table are refused.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "at",
+        "cells"
+      ],
+      "$defs": {
+        "Place": {
+          "description": "A place in a table: its row and its column, both counted from 0.",
+          "type": "object",
+          "properties": {
+            "row": {
+              "description": "The row, from 0 at the top.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "col": {
+              "description": "The column, from 0 at the left.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "row",
+            "col"
+          ]
+        },
+        "CellValue": {
+          "description": "The words for one cell: `text` (paragraphs of runs) or `markdown`. A value with neither is skipped, and the cell stays as it is.",
+          "type": "object",
+          "properties": {
+            "text": {
+              "description": "The words as paragraphs of runs, as the editor writes them. Give this or `markdown`.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Text"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "markdown": {
+              "description": "The words as Markdown (`**bold**`, `*italic*`, `` `code` ``, `[text](url)`, one paragraph per line). The cell keeps its alignment and insets.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "Text": {
+          "description": "The text of a text box, a shape, a table cell or a label.",
+          "type": "object",
+          "properties": {
+            "paragraphs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Paragraph"
+              }
+            },
+            "valign": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/VAlign"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "insets": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Insets"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fit": {
+              "description": "What the box does when the words do not fit; they run past the edge when absent.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TextFit"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "wrap": {
+              "description": "`false` keeps every paragraph on one line instead of wrapping at the box's edge.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "paragraphs"
+          ]
+        },
+        "Paragraph": {
+          "description": "A paragraph: runs and how they are set.",
+          "type": "object",
+          "properties": {
+            "runs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Run"
+              }
+            },
+            "align": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Align"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "list": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ListKind"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "level": {
+              "description": "Indent level of a list item, from 0.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint8",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "style": {
+              "description": "The theme text style the paragraph starts from: `title`,\n`subtitle`, `body`, `caption`, `code` or `citation`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "spaceBefore": {
+              "description": "Points.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "spaceAfter": {
+              "description": "Points.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "lineSpacing": {
+              "description": "A multiple of the line height, such as 1.15.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "step": {
+              "description": "The step at which this paragraph appears, for lists that build line by line.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
+            "listStyle": {
+              "description": "How the marker of a list item looks; the level's own when absent.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ListStyle"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "description": "The number a numbered item begins counting at: it starts a run of its own\neven when numbered items come before it (\"restart numbering\", or a run\nthat goes on after something else, \"continue the previous list\").",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
+            "bulletColor": {
+              "description": "The marker's colour, a theme token or `#rrggbb`; the first words' own when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bulletSize": {
+              "description": "The marker's size as a multiple of the words' size, 0.25 to 4 (25% to 400%); 1 when absent.\nAn empty paragraph's words are the one empty run it holds, whose size, colour and other\nsettings are the paragraph's mark: they decide how large its marker and its line are.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "marginLeft": {
+              "description": "Where the lines after the first start, in slide units from the box's inset. The\nlist level decides when absent.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "indent": {
+              "description": "Where the first line starts, in slide units from `margin_left`; negative hangs it\nout to the left, as a list marker does. The marker's room decides when absent.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            }
+          },
+          "required": [
+            "runs"
+          ]
+        },
+        "Run": {
+          "description": "A stretch of text with one look.",
+          "type": "object",
+          "properties": {
+            "t": {
+              "description": "The text.",
+              "type": "string"
+            },
+            "b": {
+              "type": "boolean"
+            },
+            "i": {
+              "type": "boolean"
+            },
+            "u": {
+              "type": "boolean"
+            },
+            "s": {
+              "type": "boolean"
+            },
+            "color": {
+              "description": "A theme token or `#rrggbb`; the paragraph's style when absent.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "highlight": {
+              "description": "A colour behind the words, like a marker pen: a theme token or `#rrggbb`. Inline `code` has a ground of its own; a highlight is drawn instead of it. (Deck format 2.)",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "size": {
+              "description": "Points.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "font": {
+              "description": "`heading`, `body`, `code` or a family name.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "link": {
+              "description": "A web address, `slide:<id>` for a link to a slide, or `page:<path>` (then `#` and a heading) for a link to a page of the host.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "description": "Inline code: drawn in the code font.",
+              "type": "boolean"
+            },
+            "math": {
+              "description": "Inline math: `t` is LaTeX.",
+              "type": "boolean"
+            },
+            "field": {
+              "description": "A field the text stands for, such as `slideNumber`; `t` is its sample.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "script": {
+              "description": "Raised (superscript) or lowered (subscript) and set smaller.",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Script"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "smallCaps": {
+              "description": "Lower-case letters drawn as small capitals.",
+              "type": "boolean"
+            },
+            "allCaps": {
+              "description": "Every letter drawn as a capital; the words themselves are not changed.",
+              "type": "boolean"
+            },
+            "spacing": {
+              "description": "Extra space between letters, in points; negative tightens.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            }
+          },
+          "required": [
+            "t"
+          ]
+        },
+        "Script": {
+          "description": "Raised or lowered text, set smaller as in a footnote mark or a power.",
+          "type": "string",
+          "enum": [
+            "super",
+            "sub"
+          ]
+        },
+        "Align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "justify"
+          ]
+        },
+        "ListKind": {
+          "type": "string",
+          "enum": [
+            "bullet",
+            "number"
+          ]
+        },
+        "ListStyle": {
+          "description": "How the marker in front of a list item looks: a glyph for a bullet list, a\ncounting scheme for a numbered one. The paragraph's `list` says which kind of\nlist it is; a style of the other kind is ignored and the level's own is used.",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "arrow",
+                "check",
+                "dash"
+              ]
+            },
+            {
+              "description": "● (the first level of a bullet list).",
+              "type": "string",
+              "const": "disc"
+            },
+            {
+              "description": "○ (the second level).",
+              "type": "string",
+              "const": "circle"
+            },
+            {
+              "description": "■ (the third level).",
+              "type": "string",
+              "const": "square"
+            },
+            {
+              "description": "1. 2. 3. (the first level of a numbered list).",
+              "type": "string",
+              "const": "decimal"
+            },
+            {
+              "description": "1) 2) 3)",
+              "type": "string",
+              "const": "decimalParen"
+            },
+            {
+              "description": "a. b. c. (the second level).",
+              "type": "string",
+              "const": "lowerAlpha"
+            },
+            {
+              "description": "A. B. C.",
+              "type": "string",
+              "const": "upperAlpha"
+            },
+            {
+              "description": "i. ii. iii. (the third level).",
+              "type": "string",
+              "const": "lowerRoman"
+            },
+            {
+              "description": "I. II. III.",
+              "type": "string",
+              "const": "upperRoman"
+            }
+          ]
+        },
+        "VAlign": {
+          "type": "string",
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ]
+        },
+        "Insets": {
+          "description": "Space between a box's edge and its text, in slide units.",
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "number",
+              "format": "double"
+            },
+            "top": {
+              "type": "number",
+              "format": "double"
+            },
+            "right": {
+              "type": "number",
+              "format": "double"
+            },
+            "bottom": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "left",
+            "top",
+            "right",
+            "bottom"
+          ]
+        },
+        "TextFit": {
+          "description": "What a text box does when its words do not fit it.",
+          "oneOf": [
+            {
+              "description": "The words run past the edge of the box (the default).",
+              "type": "string",
+              "const": "none"
+            },
+            {
+              "description": "The type is set smaller, to a floor, until the words fit.",
+              "type": "string",
+              "const": "shrink"
+            },
+            {
+              "description": "The box grows or shrinks in height to fit its words.",
+              "type": "string",
+              "const": "resize"
+            }
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "TableSize",
+      "description": "How big a table is.",
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "rows",
+        "columns"
+      ]
+    }
+  },
+  {
+    "name": "clear_cells",
+    "about": "Empty the cells of a table from `from` to `to` (opposite corners, counted from 0): their words go, their alignment, insets and fill stay. A block that takes in only part of a merged cell is refused.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "ClearCells",
+      "description": "Empties a block of cells.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "from": {
+          "description": "One corner of the block, counted from 0.",
+          "$ref": "#/$defs/Place"
+        },
+        "to": {
+          "description": "The opposite corner.",
+          "$ref": "#/$defs/Place"
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "from",
+        "to"
+      ],
+      "$defs": {
+        "Place": {
+          "description": "A place in a table: its row and its column, both counted from 0.",
+          "type": "object",
+          "properties": {
+            "row": {
+              "description": "The row, from 0 at the top.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "col": {
+              "description": "The column, from 0 at the left.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "row",
+            "col"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "insert_rows",
+    "about": "Insert rows into a table in front of row `at` (counted from 0: 0 puts them above the first row, the number of rows after the last). Each new row is as tall as the row above it (the first row, when there is none), the table's box grows by that much while it stays on the slide, and a merged cell that stretches across the new rows gets longer. The new cells are empty. A table has at most 10000 rows, 1000 columns and 50000 places.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "InsertRows",
+      "description": "Adds rows to a table.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "at": {
+          "description": "The new rows go in front of this row, counted from 0: 0 puts them above the first row, and the number of rows puts them after the last.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "count": {
+          "description": "How many rows, 1 to 500; 1 when left out.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "at"
+      ]
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "delete_rows",
+    "about": "Delete rows of a table, `count` of them from row `from` (counted from 0). The table's box gets shorter by their height. A merged cell that reaches into them gets shorter; one whose first row is deleted keeps its words and starts at the first row that stays. A table keeps at least one row: to remove the whole table, use delete_elements.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "DeleteRows",
+      "description": "Takes rows away from a table.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "from": {
+          "description": "The first row to delete, counted from 0.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "count": {
+          "description": "How many rows, 1 to 500; 1 when left out.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "from"
+      ]
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "insert_columns",
+    "about": "Insert columns into a table in front of column `at` (counted from 0: 0 puts them left of the first column, the number of columns after the last). Each new column is as wide as the column to its left (the first column, when there is none), the table's box grows by that much while it stays on the slide, and a merged cell that stretches across the new columns gets wider. The new cells are empty. A table has at most 10000 rows, 1000 columns and 50000 places.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "InsertColumns",
+      "description": "Adds columns to a table.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "at": {
+          "description": "The new columns go in front of this column, counted from 0: 0 puts them left of the first column, and the number of columns puts them after the last.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "count": {
+          "description": "How many columns, 1 to 500; 1 when left out.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "at"
+      ]
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "delete_columns",
+    "about": "Delete columns of a table, `count` of them from column `from` (counted from 0). The table's box gets narrower by their width. A merged cell that reaches into them gets narrower; one whose first column is deleted keeps its words and starts at the first column that stays. A table keeps at least one column: to remove the whole table, use delete_elements.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "DeleteColumns",
+      "description": "Takes columns away from a table.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "from": {
+          "description": "The first column to delete, counted from 0.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "count": {
+          "description": "How many columns, 1 to 500; 1 when left out.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "from"
+      ]
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "merge_cells",
+    "about": "Join the cells of a table from `from` to `to` (opposite corners, counted from 0) into one cell at the block's top left. The words of the cells that have any become paragraphs of the one, in reading order. A block that takes in only part of a merged cell is refused, and so is a block of one cell.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "MergeCells",
+      "description": "Joins a block of cells into one.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "from": {
+          "description": "One corner of the block, counted from 0.",
+          "$ref": "#/$defs/Place"
+        },
+        "to": {
+          "description": "The opposite corner.",
+          "$ref": "#/$defs/Place"
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "from",
+        "to"
+      ],
+      "$defs": {
+        "Place": {
+          "description": "A place in a table: its row and its column, both counted from 0.",
+          "type": "object",
+          "properties": {
+            "row": {
+              "description": "The row, from 0 at the top.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "col": {
+              "description": "The column, from 0 at the left.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "row",
+            "col"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "unmerge_cells",
+    "about": "Split the merged cell of a table that covers `at` (counted from 0) back into cells of one place each. The words and the fill stay in the top left one; the others are empty. Refused for a cell that is not merged.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "UnmergeCells",
+      "description": "Splits a merged cell.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "at": {
+          "description": "Any place the merged cell covers, counted from 0.",
+          "$ref": "#/$defs/Place"
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "at"
+      ],
+      "$defs": {
+        "Place": {
+          "description": "A place in a table: its row and its column, both counted from 0.",
+          "type": "object",
+          "properties": {
+            "row": {
+              "description": "The row, from 0 at the top.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "col": {
+              "description": "The column, from 0 at the left.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "row",
+            "col"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "null",
+      "type": "null"
+    }
+  },
+  {
+    "name": "set_cell_fill",
+    "about": "Fill the cells of a table from `from` to `to` (opposite corners, counted from 0) with a colour: a theme token (accent1, bg2 ...) or #rrggbb, with an optional alpha from 0 to 1. Leave out `fill` to take the fill away. A block that takes in only part of a merged cell is refused.",
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "SetCellFill",
+      "description": "Fills a block of cells with a colour, or takes the fill away.",
+      "type": "object",
+      "properties": {
+        "slide": {
+          "type": "string"
+        },
+        "id": {
+          "description": "The table's id.",
+          "type": "string"
+        },
+        "from": {
+          "description": "One corner of the block, counted from 0.",
+          "$ref": "#/$defs/Place"
+        },
+        "to": {
+          "description": "The opposite corner.",
+          "$ref": "#/$defs/Place"
+        },
+        "fill": {
+          "description": "The colour: a theme token or `#rrggbb`, and an `alpha` from 0 (clear) to 1. Leave it out to take the fill away.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Fill"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "slide",
+        "id",
+        "from",
+        "to"
+      ],
+      "$defs": {
+        "Place": {
+          "description": "A place in a table: its row and its column, both counted from 0.",
+          "type": "object",
+          "properties": {
+            "row": {
+              "description": "The row, from 0 at the top.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            },
+            "col": {
+              "description": "The column, from 0 at the left.",
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "row",
+            "col"
+          ]
+        },
+        "Fill": {
+          "description": "A solid fill.",
+          "type": "object",
+          "properties": {
+            "color": {
+              "description": "A theme token or `#rrggbb`.",
+              "type": "string"
+            },
+            "alpha": {
+              "description": "0 (clear) to 1 (solid); solid when absent.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            }
+          },
+          "required": [
+            "color"
           ]
         }
       }

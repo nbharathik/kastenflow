@@ -7,12 +7,18 @@
 //! emphasis, links and images (absolute), lists, quotes, code, tables and
 //! rules come across; scripts, styles and buttons do not.
 
+mod address;
 mod capture;
+mod capture_schema;
+mod dedupe;
 mod escape;
 mod html;
 mod writer;
 
-pub use capture::{MAX_INPUT, Preview, TAG, Target, WebCapture, site_of};
+pub(crate) use address::note_url_key;
+pub use address::{front_url, site_of, url_key};
+pub use capture::{MAX_INPUT, Preview, TAG, Target, WebCapture};
+pub use dedupe::{CapturePreview, Existing};
 use html::{Element, parse};
 use writer::Writer;
 
@@ -142,6 +148,24 @@ impl Kasten {
     /// Keeps a web page, read from `page` (its HTML) at `url`, as a card in
     /// the inbox: the article in Markdown, where it came from, and `url:`.
     pub fn clip(&self, actor: &Actor, url: &str, page: &str, now: Instant) -> Result<NoteFile> {
+        self.clip_snapshot(actor, url, page, None, now)
+    }
+
+    /// `clip`, as a snapshot of the card `snapshot_of` (its id or path) when
+    /// that is given: the new card's `props.snapshot_of` is the id of the
+    /// first card of the page, which is only read.
+    pub fn clip_snapshot(
+        &self,
+        actor: &Actor,
+        url: &str,
+        page: &str,
+        snapshot_of: Option<&str>,
+        now: Instant,
+    ) -> Result<NoteFile> {
+        let origin = match snapshot_of {
+            Some(reference) => Some(self.snapshot_origin(reference)?),
+            None => None,
+        };
         let clipped = clip(url, page);
         if clipped.markdown.trim().is_empty() {
             return Err(Error::Invalid(
@@ -171,7 +195,12 @@ impl Kasten {
             let created = ops::create_note(vault, &new, now)?;
             let eol = eol_of(&created.text);
             let parts = split(&created.text);
-            let prefix = set_key(parts.prefix, "url", Some(url), eol);
+            let mut prefix = set_key(parts.prefix, "url", Some(url), eol);
+            if let Some(origin) = &origin {
+                let mut props = serde_json::Map::new();
+                props.insert("snapshot_of".to_owned(), serde_json::json!(origin));
+                prefix = crate::props::set_props(&prefix, &props, eol)?;
+            }
             crate::atomic::write_atomic(
                 &vault.path_of(&created.meta.path)?,
                 join(&prefix, &body, eol).as_bytes(),

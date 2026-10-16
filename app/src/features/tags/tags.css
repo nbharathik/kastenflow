@@ -141,6 +141,16 @@
     opacity: 0.5;
   }
 
+  /* An icon (Properties, New): square, with the word in its name and tooltip. */
+  &.is-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 32px;
+    padding: 0 8px;
+  }
+
   &.is-primary {
     border-color: transparent;
     background: var(--color-accent);
@@ -151,6 +161,13 @@
       filter: brightness(1.08);
     }
   }
+}
+
+/* How many properties the tag has, beside the Properties icon. */
+.kasten-tagdb-count {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
 }
 
 .kasten-tagdb-new {
@@ -266,6 +283,11 @@
     height: 28px;
     padding: 0 11px;
     font-size: var(--text-13);
+  }
+
+  & .kasten-tagdb-button.is-icon {
+    min-width: 28px;
+    padding: 0 7px;
   }
 }
 

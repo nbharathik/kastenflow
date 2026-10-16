@@ -1,0 +1,139 @@
+/* Context chips beyond the basics (composer.css): the followed page, the
+   pin, the chip that opens to list what it holds, and the switch that says
+   whether the first chip follows the page in front. */
+
+.kasten-chat-chip[data-origin="auto"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+}
+
+.kasten-chat-chip .kasten-chat-chip-toggle {
+  display: inline-flex;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+
+  &:hover {
+    background: transparent;
+    color: inherit;
+    text-decoration: underline;
+  }
+}
+
+.kasten-chat-chip .kasten-chat-pin[aria-pressed="true"] {
+  color: var(--notion-accent);
+}
+
+/* "Follow active page", in the box's bar: faint while off, pressed while on. */
+.kasten-chat .kasten-chat-follow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-3);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+
+  &[aria-checked="true"] {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}
+
+/* What a chip for several things holds: a list over the box, so the box does not grow. */
+.kasten-chat-chip-list {
+  position: absolute;
+  right: 8px;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  z-index: 40;
+  max-height: 7rem;
+  margin: 0;
+  padding: 6px 12px;
+  overflow: auto;
+  list-style: none;
+  border-radius: var(--radius-xl);
+  background: var(--notion-menu-bg);
+  box-shadow: var(--notion-shadow);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+
+  & li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* The header: the name and, under it, the model and its settings. */
+.kasten-chat-titles {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kasten-chat-titleline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+
+  & .kasten-chat-title {
+    flex: 0 1 auto;
+  }
+}
+
+.kasten-chat .kasten-chat-meta {
+  overflow: hidden;
+  color: var(--notion-text-3);
+  font-size: var(--text-11);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-chat-head > .kasten-chat-meta {
+  flex: none;
+  max-width: 14rem;
+}
+
+.kasten-chat .kasten-chat-rename-button {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+}
+
+.kasten-chat-head:hover .kasten-chat-rename-button,
+.kasten-chat-rename-button:focus-visible {
+  opacity: 1;
+}
+
+.kasten-chat-rename {
+  flex: 1;
+  min-width: 0;
+
+  & input {
+    width: 100%;
+    padding: 2px 6px;
+    border-radius: var(--radius-md);
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font: inherit;
+    font-weight: 600;
+  }
+}

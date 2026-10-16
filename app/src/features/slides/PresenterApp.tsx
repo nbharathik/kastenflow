@@ -1,9 +1,10 @@
 import { type PresentSync, PresenterWindow, broadcastSync } from "@kasten-slides/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { inTauri } from "../../lib/api";
 import { tauriLink } from "./presenter-link";
+import { rehearsalStore } from "./rehearse/store";
 
 /**
  * The page of the presenter's window, drawn instead of the app when the address says `?presenter=`: the speaker's view of the talk in
@@ -30,6 +31,8 @@ export default function PresenterApp({ name }: { name: string }) {
     };
   }, [name]);
 
+  // A rehearsal in this window is kept where the app keeps them (the data folder), not in the page.
+  const rehearsals = useMemo(() => rehearsalStore(), []);
   if (!link) return null;
-  return <PresenterWindow sync={link} onClose={() => (inTauri() ? void invoke("presenter_close").catch(() => {}) : window.close())} />;
+  return <PresenterWindow sync={link} rehearsals={rehearsals} onClose={() => (inTauri() ? void invoke("presenter_close").catch(() => {}) : window.close())} />;
 }

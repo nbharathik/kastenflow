@@ -7,6 +7,7 @@ import type { MenuItem } from "../ui/Menu.tsx";
 import { SEPARATOR, commandItem, groups, submenu } from "./build.ts";
 import { historyLabel } from "./history-label.ts";
 import { alignHorizontalItems, alignVerticalItems, distributeItems, orderItems, rotateItems } from "./items-arrange.ts";
+import { tableItems } from "./items-cells.ts";
 import { insertGroupItems } from "./items-insert.tsx";
 import { layoutItems } from "./items-layout.ts";
 import { moveSlideItems, newSlidesItems, stepItems } from "./items-slide.ts";
@@ -74,7 +75,7 @@ function viewItems(ctx: CommandContext): MenuItem[] {
     ["view.format-panel", "view.themes-panel", "view.motion-panel", "view.steps-panel", "view.ai-panel"].map((id) => commandItem(id, ctx)),
     [commandItem("view.full-screen", ctx)],
     [commandItem("view.present", ctx, { disabledIf: !present }), commandItem("view.present-start", ctx, { disabledIf: !present })],
-    [commandItem("view.presenter", ctx, { disabledIf: !present }), commandItem("view.present-scroll", ctx, { disabledIf: !present })],
+    [commandItem("view.presenter", ctx, { disabledIf: !present }), commandItem("view.rehearse", ctx, { disabledIf: !present }), commandItem("view.present-scroll", ctx, { disabledIf: !present })],
   );
 }
 
@@ -89,6 +90,11 @@ function formatItems(ctx: CommandContext): MenuItem[] {
     [submenu("text", "Text", markItems(ctx), "type"), submenu("align", "Align & indent", [...alignItems(ctx), SEPARATOR, ...indentItems(ctx)], "text-align-start")],
     // Bullets and numbering, line and paragraph spacing, text fitting, raised and lowered words, case and what is corrected as one types.
     textFormatRows(ctx),
+    [commandItem("text.highlight", ctx, { disabledIf }), commandItem("text.highlight-none", ctx, { disabledIf })],
+    // The looks of one thing laid on another: the brush that waits for the next click, or the two keys that hold a format and lay it.
+    [commandItem("format.paint", ctx, { checked: null }), commandItem("text.paint-copy", ctx), commandItem("text.paint-paste", ctx)],
+    // The cells picked in a table.
+    [submenu("table", "Table", tableItems(ctx), "table")],
     [commandItem("text.clear", ctx, { disabledIf }), commandItem("text.link", ctx, { disabledIf })],
   );
 }
@@ -107,6 +113,7 @@ function slideItems(ctx: CommandContext): MenuItem[] {
       commandItem("layout.edit", ctx),
       commandItem("slide.reset-layout", ctx),
       commandItem("layout.manage", ctx),
+      commandItem("layout.import", ctx),
     ],
     ["slide.background", "slide.transition", "view.themes-panel", "slide.theme"].map((id) => commandItem(id, ctx)),
   );
@@ -135,7 +142,7 @@ export function barMenus(ctx: CommandContext): BarMenu[] {
     { id: "format", label: "Format", items: () => formatItems(ctx) },
     { id: "slide", label: "Slide", items: () => slideItems(ctx) },
     { id: "arrange", label: "Arrange", items: () => arrangeItems(ctx) },
-    { id: "tools", label: "Tools", items: () => groups([commandItem("edit.find", ctx), commandItem("lint.open", ctx), commandItem("agent.accept-all", ctx)], ctx.session.host.readPage ? [commandItem("page.update-all", ctx)] : []) },
+    { id: "tools", label: "Tools", items: () => groups([commandItem("edit.find", ctx), commandItem("lint.open", ctx), commandItem("agent.accept-all", ctx)], ctx.session.host.readPage ? [commandItem("page.update-all", ctx), commandItem("page.review-sources", ctx)] : []) },
     { id: "help", label: "Help", items: () => [commandItem("view.menu-search", ctx), commandItem("help.shortcuts", ctx)] },
   ];
 }

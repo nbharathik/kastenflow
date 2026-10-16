@@ -12,6 +12,7 @@ import type { MountedEditor } from "./editor.ts";
 import { measureBox, onFontsLoaded } from "./fit.ts";
 import { type FormatState, linkAtSelection } from "./format-state.ts";
 import { type TextEditorHandle, createHandle } from "./handle.ts";
+import type { CellKeys } from "./keys.ts";
 import type { TextPrefs } from "./prefs.ts";
 import { type CaretAt, type Session, restore, snapshotOf, startSession } from "./session.ts";
 import "./text.css";
@@ -19,6 +20,7 @@ import "./text.css";
 export type { FormatState, Tri } from "./format-state.ts";
 export type { TextEditorHandle } from "./handle.ts";
 export type { CaretAt } from "./session.ts";
+export type { CellKeys } from "./keys.ts";
 
 export interface TextEditorProps {
   theme: Theme;
@@ -46,6 +48,11 @@ export interface TextEditorProps {
   onNaturalHeight?: (height: number) => void;
   /** What is corrected as words are typed; the person's own choices when absent. */
   prefs?: () => TextPrefs;
+  /**
+   * For the editor of a cell of a table: Tab, Shift+Tab and Enter are the table's (it commits and moves to another cell) and Shift+Enter
+   * breaks the paragraph. Whether there are cell keys is decided when the editor is made; the functions called are always the newest.
+   */
+  cellKeys?: CellKeys;
   handleRef?: Ref<TextEditorHandle>;
   className?: string;
 }

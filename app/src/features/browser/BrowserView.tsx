@@ -6,11 +6,9 @@
 
 import "./browser.css";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { openUrl } from "../../lib/api";
-import { fillScreen } from "../../lib/fullscreen";
-import { useShell } from "../../lib/store";
 import { Button } from "../../ui/Button";
 import { openSettingsAt } from "../workspace/views/settings/jump";
 import { usePaneId } from "../workspace/pane-context";
@@ -19,13 +17,16 @@ import { activeTab, type Place } from "../workspace/tabs";
 import { interpret } from "./address";
 import { browserBackend } from "./backend";
 import { BrowserBar } from "./BrowserBar";
+import { Note, StartPage } from "./BrowserNotes";
 import { CapturePanel } from "./CapturePanel";
-import { BROWSER_EVENT, type BrowserCommand } from "./commands";
+import { BROWSER_EVENT, openWebTab, takeAddressFocus, type BrowserCommand } from "./commands";
 import { covered, useOcclusion } from "./occlusion";
 import { engineNamed, useBrowserOn, useBrowserPrefs } from "./prefs";
 import { useWebTitles } from "./titles";
 import { useBounds } from "./use-bounds";
 import { useCapture } from "./use-capture";
+import { useSavePaper } from "./use-save-paper";
+import { useFullScreen } from "./use-full-screen";
 import { startBrowserEvents, useWebTabs } from "./web-state";
 import type { Bounds } from "./types";
 
@@ -56,14 +57,19 @@ export function BrowserView({ place }: { place: Place }) {
   /** What was typed in the address box that cannot be opened. */
   const [notice, setNotice] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
-  const [full, setFull] = useState(false);
-  const leave = useRef<(() => void) | null>(null);
+  const { full, toggle: toggleFull } = useFullScreen();
 
   useEffect(() => {
     startBrowserEvents();
   }, []);
 
+  // A tab just made by "New web tab" (or Ctrl+T on a browser tab) starts with the cursor in its address box.
+  useEffect(() => {
+    if (!hasUrl && takeAddressFocus()) address.current?.focus();
+  }, [tabId]);
+
   const capture = useCapture(tabId, (saved) => useWorkspace.getState().toast(`Kept in ${saved.place}`, { label: "Open", run: () => useWorkspace.getState().openPath(saved.path) }));
+  const paper = useSavePaper(tabId);
 
   // What the native view does is asked of the app one thing at a time, so a
   // quick hide and show never cross.
@@ -130,32 +136,6 @@ export function BrowserView({ place }: { place: Place }) {
     else useWorkspace.getState().setWebUrl(tabId, made.url);
   };
 
-  const toggleFull = async () => {
-    if (full) {
-      leave.current?.();
-      leave.current = null;
-      useShell.setState({ focusMode: false });
-      setFull(false);
-      return;
-    }
-    useShell.setState({ focusMode: true });
-    setFull(true);
-    leave.current = await fillScreen(() => {
-      leave.current = null;
-      useShell.setState({ focusMode: false });
-      setFull(false);
-    });
-  };
-  useEffect(
-    () => () => {
-      if (leave.current) {
-        leave.current();
-        useShell.setState({ focusMode: false });
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (useWorkspace.getState().layout.focus !== paneId) return;
@@ -173,19 +153,22 @@ export function BrowserView({ place }: { place: Place }) {
 
   // The palette's commands for the browser tab in focus.
   const startCapture = capture.start;
+  const savePaper = paper.start;
   useEffect(() => {
     const onCommand = (event: Event) => {
       if (useWorkspace.getState().layout.focus !== paneId) return;
       const command = (event as CustomEvent<BrowserCommand>).detail;
       if (command === "address") address.current?.focus();
-      else if (live) {
+      else if (command === "save-paper") {
+        if (live) void savePaper();
+      } else if (live) {
         setPicking(false);
         void startCapture(command === "capture-page" ? "page" : "selection");
       }
     };
     window.addEventListener(BROWSER_EVENT, onCommand);
     return () => window.removeEventListener(BROWSER_EVENT, onCommand);
-  }, [paneId, live, startCapture]);
+  }, [paneId, live, startCapture, savePaper]);
 
   const panel = capture.phase !== "idle" || picking || capture.error !== null;
   const stageNote = !backend.available ? (
@@ -217,15 +200,17 @@ export function BrowserView({ place }: { place: Place }) {
         fullScreen={full}
         address={address}
         target={capture.target}
-        reading={capture.phase === "reading" || capture.phase === "saving"}
+        reading={capture.phase === "reading" || capture.phase === "saving" || paper.busy}
         onGo={go}
         onNav={(action) => run(() => backend.nav(tabId, { action }))}
+        onNewTab={openWebTab}
         onFull={() => void toggleFull()}
         onSystem={() => url && void openUrl(url).catch((err: unknown) => setError(message(err)))}
         onCapture={(kind) => {
           setPicking(false);
           void capture.start(kind);
         }}
+        onSavePaper={() => void paper.start()}
         onSendTo={() => setPicking(true)}
       />
       {(notice ?? (live ? error : null)) && (
@@ -237,37 +222,6 @@ export function BrowserView({ place }: { place: Place }) {
       <div ref={stage} className="kasten-browser-stage" aria-label="Page">
         {stageNote}
       </div>
-    </div>
-  );
-}
-
-function Note({ heading, children }: { heading: string; children: ReactNode }) {
-  return (
-    <div className="kasten-browser-note">
-      <strong>{heading}</strong>
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function StartPage({ favourites, onGo }: { favourites: readonly { title: string; url: string }[]; onGo(url: string): void }) {
-  return (
-    <div className="kasten-browser-start">
-      <h2 className="text-20 font-semibold">Browser</h2>
-      <p className="text-14 text-muted">Type an address or something to search for above. What you capture from a page goes to your Inbox, a project or a page, after you have seen it.</p>
-      {favourites.length > 0 ? (
-        <ul className="kasten-browser-favourites" aria-label="Favourite sites">
-          {favourites.map((fav) => (
-            <li key={fav.url} className="contents">
-              <button type="button" className="kasten-browser-favourite" title={fav.url} onClick={() => onGo(fav.url)}>
-                {fav.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-13 text-muted">Favourite sites you add in Settings, under Browser, show here.</p>
-      )}
     </div>
   );
 }

@@ -17,8 +17,8 @@ beforeAll(async () => {
 
 describe("markInputsOf", () => {
   it("lists the marks of a run in schema order", () => {
-    const run: Run = { t: "x", s: true, field: "slideNumber", u: true, link: "https://x.y", color: "accent1", math: true, i: true, b: true, font: "Georgia", code: true, size: 12, script: "super", smallCaps: true, allCaps: true, spacing: 1 };
-    expect(markInputsOf(run).map((input) => input.name)).toEqual(["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "color", "link", "underline", "strike", "field"]);
+    const run: Run = { t: "x", s: true, field: "slideNumber", u: true, link: "https://x.y", color: "accent1", highlight: "accent3", math: true, i: true, b: true, font: "Georgia", code: true, size: 12, script: "super", smallCaps: true, allCaps: true, spacing: 1 };
+    expect(markInputsOf(run).map((input) => input.name)).toEqual(["size", "code", "font", "bold", "italic", "math", "script", "smallCaps", "allCaps", "spacing", "highlight", "color", "link", "underline", "strike", "field"]);
     expect(markInputsOf(run).map((input) => input.name)).toEqual(MARK_ORDER.filter((name) => name !== "extra"));
   });
 
@@ -27,6 +27,13 @@ describe("markInputsOf", () => {
     expect(markInputsOf({ t: "x", b: false, size: 0, color: "", font: "", link: "", field: "", code: false } as Run)).toEqual([]);
     expect(markInputsOf({ t: "x", size: Number.NaN })).toEqual([]);
     expect(markInputsOf({ t: "x", color: null, font: null, link: null, field: null, size: null })).toEqual([]);
+    expect(markInputsOf({ t: "x", highlight: null })).toEqual([]);
+    expect(markInputsOf({ t: "x", highlight: "" })).toEqual([]);
+  });
+
+  it("does not take a highlight for a field the format does not define", () => {
+    expect(runExtra({ t: "x", highlight: "accent3" })).toBeNull();
+    expect(markInputsOf({ t: "x", highlight: "#ffee00" })).toEqual([{ name: "highlight", value: "#ffee00" }]);
   });
 
   it("carries what the format does not define as one mark", () => {
@@ -48,6 +55,22 @@ describe("wrapOf", () => {
     expect(wrapOf(dark, { name: "color", value: "accent1" })).toMatchObject({ style: { color: "#8ab4f8" } });
     expect(wrapOf(light, { name: "color", value: "#ABC" })).toMatchObject({ style: { color: "#aabbcc" } });
     expect(wrapOf(light, { name: "font", value: "Georgia" })).toMatchObject({ style: { fontFamily: '"Georgia", serif' } });
+  });
+
+  it("draws a highlight as a ground behind the words, of the theme's colour or a hex value, and nothing for what is not a colour", () => {
+    expect(wrapOf(light, { name: "highlight", value: "accent3" })).toEqual({ tag: "span", style: { background: "#fbbc04" }, attrs: {} });
+    expect(wrapOf(dark, { name: "highlight", value: "accent3" }).style.background).not.toBe("#fbbc04");
+    expect(wrapOf(light, { name: "highlight", value: "#FFEE00" })).toMatchObject({ style: { background: "#ffee00" } });
+    expect(isBlankWrap(wrapOf(light, { name: "highlight", value: "yellow" }))).toBe(true);
+  });
+
+  it("puts the highlight inside inline code, so it is drawn instead of the ground code has", () => {
+    const names = wrapsOfRun(light, { t: "x", code: true, highlight: "#ffee00" }).map((wrap) => wrap.style.background);
+    expect(names).toHaveLength(2);
+    expect(names[1]).toBe("#ffee00");
+    expect(runCss(light, "body", { runs: [] }, { t: "x", code: true, highlight: "#ffee00" }).background).toBe("#ffee00");
+    expect(runCss(light, "body", { runs: [] }, { t: "x", code: true }).background).not.toBe("#ffee00");
+    expect(runCss(light, "body", { runs: [] }, { t: "x", highlight: "yellow" }).background).toBeUndefined();
   });
 
   it("makes a link an `a` with its address in data-href and the theme's link colour", () => {

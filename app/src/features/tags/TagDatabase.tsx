@@ -12,10 +12,14 @@ import { CalendarView } from "../calendar/CalendarView";
 import { chipStyle, schemaOf, swatch } from "../panel/properties/schemas";
 import { useWorkspace } from "../workspace/store";
 import { addNote } from "./actions";
+import { AddExistingPages } from "./AddExistingPages";
+import { DatabaseTools } from "./DatabaseTools";
 import { useNoteHome } from "./home";
 import { applyView, findInView, notesWith, viewsOf } from "./model";
 import { SchemaEditor } from "./SchemaEditor";
 import { useTags } from "./store";
+import { TagDropZone } from "./TagDropZone";
+import { RevealedLine, useTagMembership, withRevealed } from "./use-membership";
 import { ViewBar } from "./ViewBar";
 import { ViewTabs } from "./ViewTabs";
 import { GalleryView } from "./views/GalleryView";
@@ -75,6 +79,9 @@ export function TagDatabase({ tag }: { tag: string }) {
   const shown = useMemo(() => findInView(applyView(tagged, view, schema), query), [tagged, view, schema, query]);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  // Pages dropped on the body, or picked with "Add existing pages", gain the tag.
+  const membership = useTagMembership(name, view, schema, null);
+  const listed = useMemo(() => withRevealed(shown, tagged, membership.revealed), [shown, tagged, membership.revealed]);
 
   const saveViews = (next: TagView[]) => void useTags.getState().saveViews(name, next);
   const change = (next: TagView) => {
@@ -99,12 +106,7 @@ export function TagDatabase({ tag }: { tag: string }) {
           {tagged.length.toLocaleString()} {tagged.length === 1 ? "note" : "notes"}
         </span>
         <span className="flex-1" />
-        <button type="button" className="kasten-tagdb-button" onClick={() => setEditing(true)}>
-          Properties{schema?.properties.length ? ` · ${schema.properties.length}` : ""}
-        </button>
-        <button type="button" className="kasten-tagdb-button is-primary" onClick={() => setAdding(true)}>
-          New
-        </button>
+        <DatabaseTools properties={schema?.properties.length ?? 0} onProperties={() => setEditing(true)} onAddExisting={() => membership.setPicking(true)} onNew={() => setAdding(true)} />
       </header>
       {adding && <NewNote tag={name} onDone={() => setAdding(false)} />}
       <ViewTabs
@@ -118,14 +120,18 @@ export function TagDatabase({ tag }: { tag: string }) {
         }}
       />
       <ViewBar view={view} schema={schema} shown={shown.length} total={tagged.length} onChange={change} find={{ query, onQuery: setQuery }} />
-      <div className="kasten-tagdb-body">
+      <TagDropZone tag={name} onDrop={membership.add} className="kasten-tagdb-body">
         {view.scope === "project" ? (
           // Such a view shows what is filed in the project of the page it sits in.
           <p className="kasten-tag-empty">This view lists the notes filed in one project. In a project&rsquo;s page, type /database and pick it from the list.</p>
         ) : (
-          <ViewBody tag={name} schema={schema} view={view} notes={shown} onChange={change} />
+          <>
+            <RevealedLine count={listed.length - shown.length} onHide={membership.hideRevealed} />
+            <ViewBody tag={name} schema={schema} view={view} notes={listed} onChange={change} />
+          </>
         )}
-      </div>
+      </TagDropZone>
+      {membership.picking && <AddExistingPages tag={name} onAdd={membership.add} onClose={() => membership.setPicking(false)} />}
       {editing && <SchemaEditor tag={name} schema={schema} onClose={() => setEditing(false)} />}
     </div>
   );

@@ -90,6 +90,9 @@ describe("a deck in a page", () => {
     render(<DeckEmbedView path="talks/pitch.deck" />);
     await screen.findByTestId("slide");
     fireEvent.click(button("Next slide"));
+    // Both are icons with a name and a tooltip, not words.
+    expect([button("Open the deck").textContent, button("Present from this slide").textContent]).toEqual(["", ""]);
+    expect([button("Open the deck").title, button("Present from this slide").title]).toEqual(["Open the deck", "Present from this slide"]);
     fireEvent.click(button(/Open/));
     expect(openPath).toHaveBeenCalledWith("talks/pitch.deck");
     fireEvent.click(button(/Present/));

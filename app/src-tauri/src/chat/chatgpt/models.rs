@@ -1,13 +1,17 @@
 //! The models the signed-in account can use, from the API's own list. When
-//! it cannot be read, Settings shows a short built-in list to start from.
+//! it cannot be read, the picker is told why and given the last list that was
+//! read (with its date); only when none ever was, a short built-in list to
+//! start from, marked as not confirmed for the plan.
 
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::authorize::RESOURCE;
 use super::session::Account;
 use super::words;
+use crate::chat::cache;
 use crate::chat::errors::unreachable;
 
 const LIMIT: Duration = Duration::from_secs(20);
@@ -78,12 +82,93 @@ pub async fn list(
     }
 }
 
-/// The account's models, else the built-in ones.
-pub async fn or_defaults(account: &Account, http: &reqwest::Client) -> Vec<String> {
-    match list(account, http, &url()).await {
-        Ok(models) => models,
-        Err(_) => DEFAULTS.iter().map(|m| (*m).to_owned()).collect(),
+const CACHE: &str = "chatgpt-models.json";
+
+/// The last list the account's own API gave, kept in the app's cache folder
+/// for the account it was read for.
+#[derive(Debug, Serialize, Deserialize)]
+struct Cached {
+    version: u32,
+    owner: String,
+    /// Milliseconds since 1970.
+    fetched_at: u64,
+    models: Vec<String>,
+}
+
+/// What the model picker gets: a list, and how far it can be trusted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Listing {
+    pub models: Vec<String>,
+    /// The names are the account's own: read now, or the last time they
+    /// could be. False for the built-in names, which are only a place to
+    /// start and not confirmed for the plan.
+    pub confirmed: bool,
+    /// When the account's list was read, in milliseconds since 1970.
+    pub fetched_at: Option<u64>,
+    /// Why the list could not be read just now, in words for the person.
+    pub error: Option<String>,
+}
+
+/// The account's models. When they cannot be read, the error is returned
+/// with the last list that was read (and when), and only when none ever was,
+/// with the built-in names, marked as not confirmed for the plan. `dir` is
+/// where the last list is kept (else the app's cache folder).
+pub async fn listing(
+    account: &Account,
+    http: &reqwest::Client,
+    url: &str,
+    dir: Option<std::path::PathBuf>,
+) -> Listing {
+    let dir = dir.or_else(cache::folder);
+    let owner = account.owner().await;
+    match list(account, http, url).await {
+        Ok(models) => {
+            let fetched_at = kasten_core::Instant::now().millis;
+            if let (Some(dir), Some(owner)) = (&dir, &owner) {
+                let kept = Cached {
+                    version: 1,
+                    owner: owner.clone(),
+                    fetched_at,
+                    models: models.clone(),
+                };
+                // A list that cannot be kept is only asked for again.
+                let _ = cache::write(dir, CACHE, &kept);
+            }
+            Listing {
+                models,
+                confirmed: true,
+                fetched_at: Some(fetched_at),
+                error: None,
+            }
+        }
+        Err(why) => {
+            let error = Some(format!("Could not load your models: {why}"));
+            let earlier = dir
+                .as_deref()
+                .and_then(|dir| cache::read::<Cached>(dir, CACHE))
+                .filter(|c| c.version == 1 && Some(&c.owner) == owner.as_ref());
+            match earlier {
+                Some(cached) if !cached.models.is_empty() => Listing {
+                    models: cached.models,
+                    confirmed: true,
+                    fetched_at: Some(cached.fetched_at),
+                    error,
+                },
+                _ => Listing {
+                    models: DEFAULTS.iter().map(|m| (*m).to_owned()).collect(),
+                    confirmed: false,
+                    fetched_at: None,
+                    error,
+                },
+            }
+        }
     }
+}
+
+/// The account's models, else the last list read, else the built-in names.
+pub async fn or_defaults(account: &Account, http: &reqwest::Client) -> Vec<String> {
+    listing(account, http, &url(), None).await.models
 }
 
 #[cfg(test)]

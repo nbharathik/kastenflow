@@ -100,6 +100,70 @@ fn inline_code_has_the_ground_the_editor_lays_behind_it() {
 }
 
 #[test]
+fn a_highlight_is_the_ground_behind_the_words_and_beats_the_ground_code_has() {
+    let marked = Run {
+        highlight: Some("accent2".into()),
+        ..Run::plain("x")
+    };
+    let out = written(&marked, 1.0);
+    assert!(
+        out.contains(
+            r#"</a:solidFill><a:highlight><a:schemeClr val="accent2"/></a:highlight><a:latin "#
+        ),
+        "{out}"
+    );
+    let pen = Run {
+        highlight: Some("#ffee00".into()),
+        ..Run::plain("x")
+    };
+    assert!(written(&pen, 1.0).contains(r#"<a:highlight><a:srgbClr val="FFEE00"/></a:highlight>"#));
+    // The short form of a hex colour is read as the file's long one.
+    let short = Run {
+        highlight: Some("#fe0".into()),
+        ..Run::plain("x")
+    };
+    assert!(written(&short, 1.0).contains(r#"<a:srgbClr val="FFEE00"/>"#));
+    // Code is drawn on its own ground unless it is marked: then the mark is the ground.
+    let code = Run {
+        code: true,
+        highlight: Some("#112233".into()),
+        ..Run::plain("x")
+    };
+    let out = written(&code, 1.0);
+    assert!(
+        out.contains(r#"<a:highlight><a:srgbClr val="112233"/></a:highlight>"#)
+            && !out.contains("EDEDED"),
+        "{out}"
+    );
+    assert_eq!(out.matches("<a:highlight>").count(), 1);
+    // An element that fades fades its highlight by as much.
+    assert!(written(&marked, 0.5).contains(
+        r#"<a:highlight><a:schemeClr val="accent2"><a:alpha val="50000"/></a:schemeClr></a:highlight>"#
+    ));
+}
+
+#[test]
+fn a_highlight_that_is_no_colour_is_left_out_and_reported_and_a_blank_one_is_none() {
+    let broken = Run {
+        highlight: Some("yellowish".into()),
+        ..Run::plain("x")
+    };
+    let (out, warned) = with_cx(|cx| {
+        let style = resolve::style(&cx.deck.theme, "body");
+        let mut x = Xml::fragment();
+        write(&mut x, cx, &broken, &style, 1.0);
+        (x.into_string(), cx.shared.warnings.len())
+    });
+    assert!(!out.contains("highlight"), "{out}");
+    assert_eq!(warned, 1, "the highlight is reported");
+    let blank = Run {
+        highlight: Some("  ".into()),
+        ..Run::plain("x")
+    };
+    assert!(!written(&blank, 1.0).contains("highlight"));
+}
+
+#[test]
 fn math_is_italic_in_the_font_of_its_style() {
     let math = Run {
         math: true,

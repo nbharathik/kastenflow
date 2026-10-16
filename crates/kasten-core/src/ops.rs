@@ -6,15 +6,17 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
+mod plan;
+
 use crate::atomic::{create_atomic, write_atomic};
 use crate::error::{Error, Result};
-use crate::frontmatter::{join, set_key, set_key_raw, split, still_readable, yaml_ok};
-use crate::id::ulid_at;
+use crate::frontmatter::{join, set_key, set_key_raw, split, still_readable};
 use crate::note::NoteFile;
 use crate::slug::slugify;
-use crate::template_vars::{day_and_time, fill};
 use crate::time::Instant;
 use crate::vault::Vault;
+
+pub(crate) use plan::{NotePlan, id_text, plan_note};
 
 pub use crate::save::{Saved, save_body};
 
@@ -110,7 +112,8 @@ pub(crate) fn free_file(vault: &Vault, dir: &str, name: &str, ext: &str) -> Stri
     free_file_besides(vault, dir, name, ext, &HashSet::new())
 }
 
-fn free_file_besides(
+/// `free_file` that also passes over `planned`, paths an op is about to use.
+pub(crate) fn free_file_besides(
     vault: &Vault,
     dir: &str,
     name: &str,
@@ -124,8 +127,13 @@ fn free_file_besides(
             format!("{dir}/{file}")
         }
     };
-    let taken =
-        |rel: &str| planned.contains(rel) || vault.file_of(rel, &[ext]).is_ok_and(|p| p.exists());
+    // A page is never given the name of a comments or highlights file that
+    // is there, even a stray one: it would take it for its own.
+    let taken = |rel: &str| {
+        planned.contains(rel)
+            || vault.file_of(rel, &[ext]).is_ok_and(|p| p.exists())
+            || (ext == ".md" && crate::companions::name_taken(vault, rel))
+    };
     let mut n = 1;
     loop {
         let candidate = join(if n == 1 {
@@ -148,107 +156,54 @@ pub(crate) fn folder_of(path: &str) -> &str {
 /// relations, which point at ids).
 pub(crate) fn ensure_id(vault: &Vault, parent: &str, now: Instant) -> Result<String> {
     let note = vault.read(parent)?;
-    if let Some(id) = note.meta.id {
-        return Ok(id);
+    let (id, text) = id_text(parent, &note.text, now)?;
+    if let Some(text) = text {
+        write_atomic(&vault.path_of(parent)?, text.as_bytes())?;
     }
-    let parts = split(&note.text);
-    // Unreadable frontmatter hides an `id:` it may have: a new one would
-    // cut off everything pointing at the old.
-    if !yaml_ok(parts.prefix) {
+    Ok(id)
+}
+
+/// Refuses a template name that points into `templates/ai/`: the files there
+/// are AI actions, which the app runs on a page, not text to start a page from.
+pub(crate) fn not_an_action(name: &str) -> Result<()> {
+    if name.trim().to_lowercase().starts_with("ai/") {
         return Err(Error::Invalid(format!(
-            "{parent} has frontmatter that cannot be read, so nothing can point at it yet; mend it first"
+            "“{}” is an AI action, not a page template: AI actions are run on a page",
+            name.trim()
         )));
     }
-    let id = ulid_at(now.millis);
-    let eol = eol_of(&note.text);
-    let prefix = set_key(parts.prefix, "id", Some(&id), eol);
-    write_atomic(
-        &vault.path_of(parent)?,
-        join(&prefix, parts.body, eol).as_bytes(),
-    )?;
-    Ok(id)
+    Ok(())
+}
+
+/// The text of the template called `name`: the vault's own file, or, when the
+/// vault has none (made before it shipped, or deleted), the one that ships
+/// with the app.
+fn template_text(vault: &Vault, name: &str) -> Result<String> {
+    not_an_action(name)?;
+    let slug = slugify(name);
+    match vault.read(&format!("templates/{slug}.md")) {
+        Ok(note) => Ok(note.text),
+        Err(Error::NotFound(path)) => crate::engine::shipped_template(&slug)
+            .map(str::to_owned)
+            .ok_or(Error::NotFound(path)),
+        Err(other) => Err(other),
+    }
 }
 
 /// Creates a note from a template or empty, and returns it. Never replaces
 /// an existing file.
 pub fn create_note(vault: &Vault, new: &NewNote, now: Instant) -> Result<NoteFile> {
-    let Some((day, _)) = day_and_time(&new.date) else {
-        return Err(Error::Invalid(format!("Not a day: {}", new.date)));
-    };
-    let title = if new.kind == Kind::Journal {
-        day.to_owned()
-    } else {
-        new.title.trim().to_owned()
-    };
-    if title.chars().any(char::is_control) {
-        return Err(Error::Invalid(
-            "A title is one line of text, without tabs or control characters".to_owned(),
-        ));
-    }
-    let project = new.project.as_deref().map(slugify);
-    let path = match (new.kind, &new.parent, &project) {
-        (Kind::Journal, _, _) => format!("journal/{}/{day}.md", &day[..4]),
-        (Kind::Chat, _, _) => free_path(vault, "chats", &format!("{day}-{}", slugify(&title))),
-        (Kind::Project, _, _) => {
-            let mut folder = slugify(&title);
-            let base = folder.clone();
-            let mut n = 2;
-            while vault.root().join("projects").join(&folder).exists() {
-                folder = format!("{base}-{n}");
-                n += 1;
+    match plan_note(vault, new, now, &HashSet::new(), None)? {
+        NotePlan::Existing(path) => vault.read(&path),
+        NotePlan::New { path, text, parent } => {
+            // The parent is given its id first, as it always was.
+            if let Some((parent, text)) = parent {
+                write_atomic(&vault.path_of(&parent)?, text.as_bytes())?;
             }
-            format!("projects/{folder}/_project.md")
-        }
-        (_, Some(parent), _) => free_path(vault, folder_of(parent), &slugify(&title)),
-        (Kind::Card | Kind::Highlight, None, Some(p)) => {
-            free_path(vault, &format!("projects/{p}/cards"), &slugify(&title))
-        }
-        (_, None, Some(p)) => free_path(vault, &format!("projects/{p}/pages"), &slugify(&title)),
-        (Kind::Card | Kind::Highlight, None, None) => free_path(vault, "inbox", &slugify(&title)),
-        (_, None, None) => free_path(vault, "library", &slugify(&title)),
-    };
-    if vault.exists(&path) {
-        return vault.read(&path);
-    }
-    let template = match &new.template {
-        Some(name) => vault.read(&format!("templates/{}.md", slugify(name)))?.text,
-        None => String::new(),
-    };
-    let text = fill(
-        &template,
-        &title,
-        &new.date,
-        project.as_deref().unwrap_or(""),
-        now,
-    );
-    let parts = split(&text);
-    let eol = eol_of(&text);
-    let stamp = now.rfc3339();
-    let mut prefix = parts.prefix.to_owned();
-    let parent = new
-        .parent
-        .as_deref()
-        .map(|p| ensure_id(vault, p, now))
-        .transpose()?;
-    let fields = [
-        ("id", Some(ulid_at(now.millis))),
-        ("title", Some(title.clone())),
-        ("type", Some(new.kind.name().to_owned())),
-        ("created", Some(stamp.clone())),
-        ("updated", Some(stamp)),
-        ("parent", parent),
-        ("icon", new.icon.clone().filter(|i| !i.trim().is_empty())),
-    ];
-    for (key, value) in fields {
-        if let Some(value) = value {
-            prefix = set_key(&prefix, key, Some(&value), eol);
+            create_atomic(&vault.path_of(&path)?, text.as_bytes())?;
+            vault.read(&path)
         }
     }
-    create_atomic(
-        &vault.path_of(&path)?,
-        join(&prefix, parts.body, eol).as_bytes(),
-    )?;
-    vault.read(&path)
 }
 
 /// Keys the page header may change. The id is created once and never changes.

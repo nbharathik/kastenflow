@@ -2,20 +2,22 @@
 // press makes a copy, cut or paste event, which carries the data with no permission to ask (`events.ts`); this is the way for a click, and
 // it asks the browser for access the first time (a webview may or may not).
 
+import type { Text } from "@kasten-slides/wasm";
+
 import { type Clip, type ClipContents, EMPTY, fromHtml, htmlOf, legacy } from "./format.ts";
 import { latest, recall } from "./store.ts";
+import { htmlOfCells, rowsOfTexts, tsvOfRows } from "./table.ts";
 import { wordsOf } from "./words.ts";
 
-/** Puts a copy on the clipboard: the HTML that carries it, and its words; the words alone where only text can be written. */
-export async function writeSystem(clip: Clip): Promise<void> {
-  const words = wordsOf(clip);
+/** Puts HTML and its words on the clipboard; the words alone where only text can be written. */
+async function writeBoth(html: string, words: string): Promise<void> {
   const board = typeof navigator === "undefined" ? undefined : navigator.clipboard;
   if (!board) return;
   try {
     if (typeof board.write === "function" && typeof ClipboardItem !== "undefined") {
       await board.write([
         new ClipboardItem({
-          "text/html": new Blob([htmlOf(clip, words)], { type: "text/html" }),
+          "text/html": new Blob([html], { type: "text/html" }),
           "text/plain": new Blob([words], { type: "text/plain" }),
         }),
       ]);
@@ -25,6 +27,17 @@ export async function writeSystem(clip: Clip): Promise<void> {
     // Refused, or the browser keeps only some types: the words go as they are.
   }
   await board.writeText?.(words).catch(() => {});
+}
+
+/** Puts a copy on the clipboard: the HTML that carries it, and its words; the words alone where only text can be written. */
+export async function writeSystem(clip: Clip): Promise<void> {
+  const words = wordsOf(clip);
+  await writeBoth(htmlOf(clip, words), words);
+}
+
+/** Puts a copy of cells on the clipboard: a table in HTML that carries their words and looks, and their words as tab separated text. */
+export async function writeSystemCells(texts: readonly (readonly Text[])[]): Promise<void> {
+  await writeBoth(htmlOfCells(texts), tsvOfRows(rowsOfTexts(texts)));
 }
 
 /** The picture an item of the clipboard holds, as a file named as a screenshot is: `image.png`. */

@@ -16,7 +16,7 @@ const KINDS: [&str; 4] = [".md", ".canvas", ".pdf", ".yaml"];
 
 /// The system's way to show `target`: selected in its folder where the
 /// file manager can do that, else the folder that holds it.
-fn reveal(target: &Path, select: bool) -> Command {
+pub(crate) fn reveal(target: &Path, select: bool) -> Command {
     #[cfg(target_os = "macos")]
     let command = {
         let mut command = Command::new("open");

@@ -7,10 +7,11 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type RefObject }
 import { createPortal } from "react-dom";
 
 import { openUrl } from "../../../lib/api";
+import { isDay } from "../../../lib/dates";
 import { Icon } from "../../../ui/Icon";
 import { Popup } from "../../pages/page/Popup";
 import { whenText } from "./external";
-import { makeMeetingNote } from "./meeting-note";
+import { makeEventNote, makeMeetingNote } from "./meeting-note";
 import { placePopover, type Box, type Place } from "./place";
 import type { CalendarInfo, EventPart } from "./types";
 
@@ -30,6 +31,8 @@ export function EventPopover({ part, calendar, anchor, box: last, tone, onClose 
   const host = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<Place | null>(null);
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [day, setDay] = useState(event.start.slice(0, 10));
   const lastBox = useRef(last);
 
   // Placed before the first paint, and again as the window or a list scrolls.
@@ -58,6 +61,15 @@ export function EventPopover({ part, calendar, anchor, box: last, tone, onClose 
     const note = await makeMeetingNote(event);
     setBusy(false);
     // The page opens (over the calendar, as pages do); the popover has done its work.
+    if (note) onClose();
+  };
+
+  // The keyboard's way of dropping the event on a day: a note for that day, with Undo.
+  const makeForDay = async () => {
+    if (busy || !isDay(day)) return;
+    setBusy(true);
+    const note = await makeEventNote(event, day);
+    setBusy(false);
     if (note) onClose();
   };
 
@@ -102,7 +114,26 @@ export function EventPopover({ part, calendar, anchor, box: last, tone, onClose 
             <Icon name="compose" className="size-4 text-muted" />
             Make meeting note
           </button>
+          <button type="button" className="ui-btn" aria-expanded={asking} onClick={() => setAsking((on) => !on)}>
+            <Icon name="calendar" className="size-4 text-muted" />
+            Note for a day…
+          </button>
         </footer>
+        {asking && (
+          <form
+            className="kasten-ext-pop-day"
+            aria-label="Make a note for a day"
+            onSubmit={(submit) => {
+              submit.preventDefault();
+              void makeForDay();
+            }}
+          >
+            <input type="date" aria-label="Day for the note" required value={day} onChange={(change) => setDay(change.target.value)} />
+            <button type="submit" className="ui-btn is-primary" disabled={busy || !isDay(day)}>
+              Make note
+            </button>
+          </form>
+        )}
       </Popup>
     </div>,
     document.body,

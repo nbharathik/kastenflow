@@ -10,8 +10,8 @@ import { DashCard } from "../dashboard/DashCard";
 import { SeeAll } from "../dashboard/Minis";
 import { NoteRow } from "../dashboard/NoteRow";
 import { TodoList } from "../dashboard/TodoList";
+import { queueOf } from "../inbox/queue";
 import { useWorkspace } from "../workspace/store";
-import { inboxCards } from "../workspace/tree";
 import { ago } from "./when";
 
 /** To-dos shown before "N more". */
@@ -34,11 +34,14 @@ export function Todos({ withToday = false }: { withToday?: boolean }) {
   );
 }
 
+/** What waits for triage: the Inbox and the captures nobody has filed, less those put off to a later day. */
 export function Inbox() {
-  const cards = useWorkspace((s) => inboxCards(s.notes));
+  const notes = useWorkspace((s) => s.notes);
+  const today = dayFrom(0);
+  const cards = useMemo(() => queueOf(notes, today), [notes, today]);
   if (cards.length === 0) return null;
   return (
-    <DashCard title="Inbox" icon="inbox" count={cards.length} actions={<SeeAll label="Triage" run={() => useWorkspace.getState().go({ view: "inbox" })} />}>
+    <DashCard title="Inbox" icon="inbox" count={cards.length} actions={<SeeAll label="Triage" run={() => useWorkspace.getState().go({ view: "inbox", path: "triage" })} />}>
       <div className="kasten-dash-rows">
         {cards.slice(0, CARDS).map((card) => (
           <NoteRow key={card.path} note={card} detail={ago(card.modified)} />

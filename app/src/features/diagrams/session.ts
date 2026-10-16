@@ -10,7 +10,7 @@
 
 import type { VaultClient } from "../../lib/vault/types";
 import { prettyXml } from "./pretty-xml";
-import { bytesOfDataUri, configure, exportPicture, exportPng, load, showTemplates, textOfDataUri, type EditorAction, type EditorEvent } from "./protocol";
+import { bytesOfDataUri, configure, exportPicture, exportPng, layoutDiagram, load, showTemplates, textOfDataUri, type EditorAction, type EditorEvent, type LayoutPreset } from "./protocol";
 
 export type DiagramStore = Pick<VaultClient, "saveDiagram" | "saveDiagramPreview" | "diagram">;
 
@@ -86,6 +86,10 @@ export class DrawioSession {
   private done = false;
   /** Templates loaded whose plain copy has not been taken yet. */
   private templates = 0;
+  /** Writes under way or waiting their turn. */
+  private inflight = 0;
+  /** The editor was handed what the file says now (`adopt`) and has not said it has it. */
+  private adopted = false;
 
   constructor(options: SessionOptions) {
     this.o = { saveAfterMs: 800, pictureAfterMs: 2000, exportWaitMs: 10_000, ...options };
@@ -123,6 +127,9 @@ export class DrawioSession {
         else if (this.templates > 0) {
           this.templates -= 1;
           void this.adoptEditorCopy();
+        } else if (this.adopted) {
+          this.adopted = false;
+          void this.redrawPicture();
         }
         break;
       case "autosave":
@@ -185,9 +192,68 @@ export class DrawioSession {
 
   /** Runs one save after those before it, so each brings back the hash the last one left. */
   private run(step: () => Promise<void>): Promise<void> {
-    const next = this.chain.then(step, step);
+    this.inflight += 1;
+    const guarded = () => step().finally(() => void (this.inflight -= 1));
+    const next = this.chain.then(guarded, guarded);
     this.chain = next.catch(() => {});
     return next;
+  }
+
+  /** Whether the editor holds something the file does not: a change not yet written, or a write under way. While it does, the file
+   * must not be loaded over it. */
+  get unsaved(): boolean {
+    return this.pending !== null || this.inflight > 0 || this.latest !== this.saved;
+  }
+
+  /** Whether a write of this session's own is under way, so a change to the file is probably that. */
+  get writing(): boolean {
+    return this.inflight > 0;
+  }
+
+  /** The file changed on disk (an agent's change was applied) while nothing here was unsaved: the editor loads what the file says,
+   * as a tab opened now would, and the picture is drawn for it. The editor's own undo history starts over. False when there is
+   * something unsaved to protect, or no editor to load it into. */
+  adopt(xml: string, hash: string): boolean {
+    if (!this.editing || this.done || !this.ready || this.unsaved) return false;
+    this.hash = hash;
+    this.saved = xml;
+    this.latest = xml;
+    this.pictureStale = true;
+    this.adopted = true;
+    if (this.pictureTimer) clearTimeout(this.pictureTimer);
+    this.pictureTimer = null;
+    this.o.post(load(xml, this.o.dark, { autosave: true }));
+    return true;
+  }
+
+  /** Lays the diagram out with one of the editor's own layouts. What is waiting is written first, so History keeps the diagram as it
+   * was; the laid-out diagram comes back as an autosave and is saved like any change. False when there is no editor to do it. */
+  async tidy(preset: LayoutPreset): Promise<boolean> {
+    if (!this.editing || !this.ready || this.done) return false;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+    if (this.pending !== null) await this.run(() => this.saveSource());
+    await this.chain;
+    if (this.done) return false;
+    this.o.post(layoutDiagram(preset));
+    return true;
+  }
+
+  /** The picture for the source as it is, kept for that source alone: the source is not written again (it is the file as it was
+   * loaded). A change made meanwhile has a picture of its own coming. */
+  private async redrawPicture(): Promise<void> {
+    const drawn = this.latest;
+    const hash = this.hash;
+    const answer = await this.ask(exportPicture());
+    const svg = answer ? textOfDataUri(answer.data) : null;
+    if (svg === null || this.done || this.latest !== drawn || this.hash !== hash) return;
+    try {
+      await this.run(async () => void (await this.o.client.saveDiagramPreview(this.path, svg, hash)));
+      this.pictureStale = false;
+      this.status({ kind: "saved" });
+    } catch {
+      // The source changed meanwhile, or the picture was refused: the next change's picture, or another turn, will do it.
+    }
   }
 
   private async saveSource(): Promise<void> {

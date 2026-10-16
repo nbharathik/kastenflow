@@ -128,7 +128,7 @@ impl Kasten {
     }
 
     fn take_latest(&self, history: &History, theirs: &str, now: Instant) -> Result<Latest> {
-        self.lock.hold(|| {
+        let done = self.lock.hold(|| {
             if let Some(lock) = history.held_by() {
                 return Err(History::busy_error(&lock));
             }
@@ -173,7 +173,12 @@ impl Kasten {
                 ));
             }
             self.complete_latest(history, &journal, now)
-        })
+        });
+        // The files it brought are counted once the write lock is free.
+        if let Ok(latest) = &done {
+            self.revised(&latest.changed);
+        }
+        done
     }
 
     /// Writes the journal's tree into the folder. When a file is in the way
@@ -242,14 +247,18 @@ impl Kasten {
             return Ok(None);
         };
         let history = self.history_or_err()?;
-        self.lock.hold(|| {
+        let done = self.lock.hold(|| {
             if history.head().as_deref() != Some(journal.ours.as_str()) {
                 self.clear_journal();
                 return Ok(None);
             }
             self.write_latest(history, &journal, false)?;
             self.complete_latest(history, &journal, now).map(Some)
-        })
+        });
+        if let Ok(Some(latest)) = &done {
+            self.revised(&latest.changed);
+        }
+        done
     }
 
     /// Gives a new id to each note the other computer added whose id a

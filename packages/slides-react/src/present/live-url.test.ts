@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { EMBED_SANDBOX, answers, embedSandbox, embedUrl } from "./live-url.ts";
+import { EMBED_SANDBOX, embedSandbox, embedUrl } from "./live-url.ts";
 
 describe("which addresses go in a frame", () => {
   it("are web addresses, as the browser would write them", () => {
@@ -28,30 +28,9 @@ describe("which addresses go in a frame", () => {
   });
 });
 
-describe("whether an address answers", () => {
-  it("does when the question is answered, whatever the answer", async () => {
-    expect(await answers("http://x/", vi.fn().mockResolvedValue({ type: "opaque" }) as unknown as typeof fetch)).toBe(true);
-  });
-
-  it("does not when the connection is refused", async () => {
-    expect(await answers("http://x/", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")) as unknown as typeof fetch)).toBe(false);
-  });
-
-  it("is given the benefit of the doubt when the policy forbids the question", async () => {
-    const forbidden = vi.fn().mockImplementation(async () => {
-      document.dispatchEvent(new Event("securitypolicyviolation"));
-      throw new TypeError("blocked");
-    });
-    expect(await answers("http://x/", forbidden as unknown as typeof fetch)).toBe(true);
-  });
-
-  it("asks without cookies, referrer or a cache", async () => {
-    const ask = vi.fn().mockResolvedValue({});
-    await answers("http://x/", ask as unknown as typeof fetch);
-    expect(ask).toHaveBeenCalledWith("http://x/", { mode: "no-cors", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
-  });
-
-  it("does when there is no way to ask", async () => {
-    expect(await answers("http://x/", null)).toBe(true);
+describe("the page is never asked whether an address answers", () => {
+  it("has no probe of the network in its addressing: a page's refusal is seen on its frame (web-frame)", async () => {
+    const live = await import("./live-url.ts");
+    expect(Object.keys(live).sort()).toEqual(["EMBED_SANDBOX", "embedSandbox", "embedUrl"]);
   });
 });

@@ -1,0 +1,77 @@
+/* Asking the newest question another way: a pencil under it, and the question
+   as a field with Cancel and Send (Message.tsx). */
+
+.kasten-chat .kasten-chat-edit {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-3);
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}
+
+.kasten-chat-question:hover .kasten-chat-edit,
+.kasten-chat-question:focus-within .kasten-chat-edit,
+.kasten-chat-log > .kasten-chat-question:nth-last-child(2) .kasten-chat-edit {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .kasten-chat .kasten-chat-edit {
+    opacity: 1;
+  }
+}
+
+.kasten-chat-question.kasten-chat-editing {
+  align-self: stretch;
+  align-items: stretch;
+  max-width: 100%;
+  gap: 6px;
+
+  & textarea {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: var(--radius-3xl);
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font-size: var(--text-14);
+    line-height: 1.55;
+    resize: vertical;
+  }
+}
+
+.kasten-chat-editing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+
+  & button {
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 0 0 1px var(--notion-line);
+    color: var(--notion-text-2);
+    font-size: var(--text-12);
+    font-weight: 500;
+
+    &:hover:not(:disabled) {
+      background: var(--notion-hover);
+      color: var(--notion-text);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+}

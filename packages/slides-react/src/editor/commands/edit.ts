@@ -84,7 +84,13 @@ export const editCommands: Command[] = [
     keys: ["Delete", "Backspace"],
     scope: "canvas",
     enabled: (s, _ui, _host, context) => canCopyHere(context, s.selection),
-    run: (context) => (placeFor(context) === "slides" ? context.session.slides.remove() : context.session.elements.remove()),
+    // With cells picked in a table, Delete empties the cells: the table goes only when it is the frame that is selected.
+    run: (context) => {
+      const place = placeFor(context);
+      if (place === "slides") context.session.slides.remove();
+      else if (place === "cells") context.session.tables.clear();
+      else context.session.elements.remove();
+    },
   },
   {
     id: "edit.select-all",

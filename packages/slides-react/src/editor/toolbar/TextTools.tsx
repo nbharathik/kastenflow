@@ -53,6 +53,15 @@ export function TextGroups({ session, ui }: { session: EditorSession; ui: Editor
           noneLabel="Automatic"
           onPick={(picked) => textFormat.setColor(ctx, picked)}
         />
+        <ColorButton
+          theme={theme}
+          icon="highlighter"
+          label="Highlight colour"
+          value={format.highlight === "mixed" ? null : format.highlight}
+          mixed={format.highlight === "mixed"}
+          noneLabel="None"
+          onPick={(picked) => textFormat.setHighlight(ctx, picked)}
+        />
         <CommandButton id="text.link" ctx={ctx} label="Insert link" on={typeof format.link === "string"} />
       </Group>
       {/* Spacing, the looks of bullets and numbers and the indents are the text editor's own components. */}

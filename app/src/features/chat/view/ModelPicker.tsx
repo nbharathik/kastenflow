@@ -1,7 +1,9 @@
 // The provider and model a thread answers with. A provider comes with its
-// own model; any other can be typed, such as a model a vLLM server serves.
+// own model; the model is picked from what the provider lists, or typed, such
+// as a model a vLLM server serves. Beside it, the generation settings the
+// model takes (AdvancedPopover).
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Popup } from "../../pages/page/Popup";
 import { openProviders } from "../actions";
@@ -10,14 +12,28 @@ import { useChat } from "../store";
 import type { Thread } from "../thread";
 import type { ChatKind } from "../types";
 import { Icon } from "../../../ui/Icon";
+import { AdvancedPopover } from "./AdvancedPopover";
+import { ModelList } from "./ModelList";
 
 export const KIND_LABELS: Record<ChatKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible", chatgpt: "ChatGPT plan" };
+
+/** Asks the model picker of a thread to open, as a failed answer's "Choose
+ * model" does. */
+const CHOOSE = "kasten:choose-model";
+export const chooseModel = (thread: string) => window.dispatchEvent(new CustomEvent<string>(CHOOSE, { detail: thread }));
 
 export function ModelPicker({ thread }: { thread: Thread }) {
   const providers = useChat((s) => s.providers);
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const choice = modelFor(thread, providers);
+  useEffect(() => {
+    const ask = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === thread.id) setOpen(true);
+    };
+    window.addEventListener(CHOOSE, ask);
+    return () => window.removeEventListener(CHOOSE, ask);
+  }, [thread.id]);
   if (!providers?.length || !choice) return null;
   const provider = providers.find((p) => p.name === choice.provider)!;
 
@@ -36,6 +52,7 @@ export function ModelPicker({ thread }: { thread: Thread }) {
         <span className="kasten-chat-model-name">{choice.model}</span>
         <Icon name="chevron-down" className="size-3.5" />
       </button>
+      <AdvancedPopover thread={thread} choice={choice} />
       {open && (
         <Popup label="Provider and model" anchor={button} onClose={() => setOpen(false)} className="kasten-chat-model-menu">
           <div role="radiogroup" aria-label="Provider">
@@ -54,7 +71,16 @@ export function ModelPicker({ thread }: { thread: Thread }) {
               </button>
             ))}
           </div>
-          <ModelField key={`${choice.provider}|${choice.model}`} value={choice.model} fallback={provider.model} onDone={(model) => useChat.getState().choose(thread.id, choice.provider, model)} />
+          <ModelList
+            key={`${choice.provider}|${choice.model}`}
+            provider={provider}
+            value={choice.model}
+            fallback={provider.model}
+            onPick={(model) => {
+              useChat.getState().choose(thread.id, choice.provider, model);
+              setOpen(false);
+            }}
+          />
           <button
             type="button"
             className="kasten-chat-model-manage"
@@ -68,29 +94,5 @@ export function ModelPicker({ thread }: { thread: Thread }) {
         </Popup>
       )}
     </span>
-  );
-}
-
-/** The model's name, typed; empty goes back to the provider's own. */
-function ModelField({ value, fallback, onDone }: { value: string; fallback: string; onDone: (model: string | null) => void }) {
-  const [text, setText] = useState(value);
-  const done = () => onDone(text.trim() && text.trim() !== fallback ? text.trim() : null);
-  return (
-    <label className="kasten-chat-model-field">
-      <span>Model</span>
-      <input
-        value={text}
-        placeholder={fallback}
-        aria-label="Model"
-        spellCheck={false}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={done}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter") return;
-          e.preventDefault();
-          done();
-        }}
-      />
-    </label>
   );
 }

@@ -7,7 +7,7 @@ let ended: ((end: import("../../../chat/chatgpt").ChatGptSignInEnd) => void) | n
 vi.mock("../../../chat/chatgpt", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../chat/chatgpt")>()),
   canSignInWithChatGpt: () => desktop,
-  chatgptAccount: vi.fn(async () => ({ signedIn: false, email: null, remembered: true })),
+  chatgptAccount: vi.fn(async (): Promise<import("../../../chat/chatgpt").ChatGptAccount> => ({ signedIn: false, email: null, remembered: true, reauth: false })),
   chatgptSignInStart: vi.fn(async () => ({ url: "https://auth.openai.com/api/accounts/authorize?x=1" })),
   chatgptSignInCancel: vi.fn(async () => {}),
   chatgptSignOut: vi.fn(async () => ({ revoked: true })),
@@ -35,7 +35,10 @@ async function show() {
   return screen.findByRole("region", { name: "AI providers" });
 }
 
-const signedIn = { signedIn: true, email: "ada@example.com", remembered: true };
+const signedIn = { signedIn: true, email: "ada@example.com", remembered: true, reauth: false };
+const signedOut = { signedIn: false, email: null, remembered: true, reauth: false };
+/** A sign-in from before accounts were checked. */
+const older = { signedIn: false, email: "ada@example.com", remembered: true, reauth: true };
 
 beforeEach(() => {
   localStorage.clear();
@@ -47,7 +50,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  vi.mocked(chatgpt.chatgptAccount).mockResolvedValue({ signedIn: false, email: null, remembered: true });
+  vi.mocked(chatgpt.chatgptAccount).mockResolvedValue(signedOut);
 });
 
 describe("Settings → AI providers → Continue with ChatGPT", () => {
@@ -131,11 +134,29 @@ describe("Settings → AI providers → Continue with ChatGPT", () => {
     fireEvent.click(within(section).getByRole("button", { name: "Manage usage" }));
     expect(openUrl).toHaveBeenCalledWith("https://chatgpt.com/settings/usage");
 
-    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue({ signedIn: false, email: null, remembered: true });
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue(signedOut);
     await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Sign out" })));
     expect(chatgpt.chatgptSignOut).toHaveBeenCalled();
     expect(toast).toHaveBeenCalledWith("Signed out of ChatGPT");
     expect(await within(section).findByRole("button", { name: "Continue with ChatGPT" })).toBeTruthy();
+  });
+
+  it("asks an older sign-in to be confirmed once, keeping who it was", async () => {
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue(older);
+    const section = await show();
+    expect(await within(section).findByText(/Sign in with ChatGPT again as ada@example\.com/)).toBeTruthy();
+    // Not shown as signed in, and no "Continue" that would look like a first sign-in.
+    expect(within(section).queryByText(/Signed in as/)).toBeNull();
+    expect(within(section).queryByRole("button", { name: "Continue with ChatGPT" })).toBeNull();
+    expect(within(section).queryByRole("button", { name: "Manage usage" })).toBeNull();
+    fireEvent.click(within(section).getByRole("button", { name: "Sign in again" }));
+    expect(await within(section).findByText("Waiting for ChatGPT")).toBeTruthy();
+    expect(chatgpt.chatgptSignInStart).toHaveBeenCalledWith(false);
+    // It can still be signed out of.
+    fireEvent.click(within(section).getByRole("button", { name: "Cancel" }));
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue(signedOut);
+    await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Sign out" })));
+    expect(chatgpt.chatgptSignOut).toHaveBeenCalled();
   });
 
   it("says when OpenAI could not be told, and when the keychain would not keep the sign-in", async () => {
@@ -145,6 +166,32 @@ describe("Settings → AI providers → Continue with ChatGPT", () => {
     expect(await within(section).findByText(/lasts until KastenFlow quits/)).toBeTruthy();
     await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Sign out" })));
     expect(toast).toHaveBeenCalledWith(expect.stringContaining("remove it in ChatGPT"));
+  });
+
+  it("shows the backend's words when the sign-in lasts only this run, or its account could not be checked", async () => {
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue({
+      ...signedIn,
+      remembered: false,
+      sessionOnly: true,
+      identityUnverified: true,
+      warning: "ChatGPT's keys for checking the sign-in could not be read. The sign-in works; it is checked again the next time it renews. The system keychain would not keep this sign-in, so it lasts only until KastenFlow closes",
+    });
+    const section = await show();
+    const text = (await within(section).findByText(/could not be read\. The sign-in works/)).textContent!;
+    expect(text).toContain("checked again the next time it renews");
+    expect(text).toContain("lasts only until KastenFlow closes");
+    // Said once: the older sentence about the keychain is not added to the backend's.
+    expect(section.textContent).not.toContain("lasts until KastenFlow quits");
+  });
+
+  it("says the keychain could not be read, without treating the person as signed out for good", async () => {
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue({ ...signedOut, keychainError: "Access to the keychain was denied" });
+    const section = await show();
+    expect(await within(section).findByText(/could not be read just now/)).toBeTruthy();
+    expect(section.textContent).toContain("Access to the keychain was denied");
+    vi.mocked(chatgpt.chatgptAccount).mockResolvedValue(signedIn);
+    await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Check again" })));
+    expect(await within(section).findByText("Signed in as ada@example.com")).toBeTruthy();
   });
 
   it("offers to add ChatGPT to a vault that has none while signed in", async () => {

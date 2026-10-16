@@ -8,7 +8,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use base64::Engine;
 use serde_json::{Map, Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -20,7 +19,9 @@ use crate::chat::chatgpt::authorize::Endpoints;
 use crate::chat::chatgpt::flow::{self, SignInEnd};
 use crate::chat::chatgpt::oauth;
 use crate::chat::chatgpt::pkce;
-use crate::chat::chatgpt::session::{Account, ENTRY, HOST_ENTRY, Saved};
+use crate::chat::chatgpt::saved::{ENTRY, Saved};
+use crate::chat::chatgpt::session::{Account, HOST_ENTRY};
+use crate::chat::chatgpt::test_keys::{self, JWKS_A};
 use crate::secrets::{KeyStore, MemoryKeys};
 
 pub(super) fn endpoints(base: &str) -> Endpoints {
@@ -28,6 +29,7 @@ pub(super) fn endpoints(base: &str) -> Endpoints {
         authorize: format!("{base}/authorize"),
         token: format!("{base}/token"),
         revoke: Some(format!("{base}/revoke")),
+        jwks: format!("{base}/jwks"),
     }
 }
 
@@ -38,16 +40,36 @@ pub(super) fn token(access: &str, refresh: &str, expires: u64) -> String {
     .to_string()
 }
 
-/// A keychain that holds a sign-in, as an earlier start left it.
+/// A keychain that holds a sign-in, as an earlier start left it: for the
+/// account `user-1`, whose ID tokens the tests sign.
 pub(super) fn signed_in(refresh: &str) -> Arc<MemoryKeys> {
-    let keys = Arc::new(MemoryKeys::default());
-    let saved = Saved {
+    keychain_with(Saved {
         refresh_token: refresh.into(),
         client_id: "oaiapp_x".into(),
         email: Some("me@example.com".into()),
-    };
-    keys.set(ENTRY, &serde_json::to_string(&saved).unwrap())
-        .unwrap();
+        sub: Some("user-1".into()),
+    })
+}
+
+/// A keychain that holds a sign-in from before accounts were checked: it
+/// has no `sub`.
+pub(super) fn legacy(refresh: &str) -> Arc<MemoryKeys> {
+    keychain_with(Saved {
+        refresh_token: refresh.into(),
+        client_id: "oaiapp_x".into(),
+        email: Some("me@example.com".into()),
+        sub: None,
+    })
+}
+
+fn keychain_with(saved: Saved) -> Arc<MemoryKeys> {
+    let keys = Arc::new(MemoryKeys::default());
+    // Written as the earlier version wrote it, when there is no `sub`.
+    let mut text = serde_json::to_value(&saved).unwrap();
+    if saved.sub.is_none() {
+        text.as_object_mut().unwrap().remove("sub");
+    }
+    keys.set(ENTRY, &text.to_string()).unwrap();
     keys
 }
 
@@ -160,12 +182,13 @@ fn a_refusal_that_ends_the_sign_in_forgets_it_and_a_busy_server_does_not() {
 }
 
 #[test]
-fn the_keychain_holds_the_refresh_token_the_client_and_the_email_only() {
+fn the_keychain_holds_the_refresh_token_the_client_the_email_and_the_account_only() {
     let keys = MemoryKeys::default();
     let saved = Saved {
         refresh_token: "r".repeat(1000),
         client_id: "oaiapp_".to_owned() + &"c".repeat(40),
         email: Some(format!("{}@example.com", "e".repeat(80))),
+        sub: Some(format!("auth0|{}", "s".repeat(64))),
     };
     keys.set(ENTRY, &serde_json::to_string(&saved).unwrap())
         .unwrap();
@@ -180,7 +203,7 @@ fn the_keychain_holds_the_refresh_token_the_client_and_the_email_only() {
         .keys()
         .cloned()
         .collect();
-    assert_eq!(fields, ["refresh_token", "client_id", "email"]);
+    assert_eq!(fields, ["refresh_token", "client_id", "email", "sub"]);
     assert!(
         !format!("{saved:?}").contains("rrrr"),
         "shown without the refresh token"
@@ -218,16 +241,16 @@ pub(super) fn query_of(url: &str) -> HashMap<String, String> {
 }
 
 /// An ID token for `client`, as OpenAI would issue it for a sign-in with
-/// `nonce`.
+/// `nonce`: signed by the test key A, for the account `user-1`.
 pub(super) fn id_token(client: &str, nonce: &str) -> String {
-    let part = |v: Value| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v.to_string());
-    let claims = json!({"iss": "https://auth.openai.com", "aud": client, "sub": "user-1", "nonce": nonce,
-        "exp": oauth::now() + 3600, "email": "me@example.com"});
-    format!(
-        "{}.{}.signature",
-        part(json!({"alg": "RS256"})),
-        part(claims)
-    )
+    test_keys::token(client, nonce, oauth::now())
+}
+
+/// A token endpoint's answer that carries `id_token`.
+pub(super) fn token_with(access: &str, refresh: &str, id_token: &str) -> String {
+    let mut grant: Value = serde_json::from_str(&token(access, refresh, 3600)).unwrap();
+    grant["id_token"] = json!(id_token);
+    grant.to_string()
 }
 
 #[test]
@@ -241,7 +264,8 @@ fn a_whole_sign_in_registers_a_client_keeps_the_refresh_token_and_shows_the_emai
             (200, grant.to_string())
         })
     };
-    let (base, server) = serve_script(vec![exchange]);
+    // The token endpoint, then OpenAI's keys to check the ID token with.
+    let (base, server) = serve_script(vec![exchange, always(200, JWKS_A)]);
     let keys = Arc::new(MemoryKeys::default());
     let account = account(&keys, &base);
     let end = block_on(async {
@@ -301,6 +325,11 @@ fn a_whole_sign_in_registers_a_client_keeps_the_refresh_token_and_shows_the_emai
         assert_eq!(form["redirect_uri"], q["redirect_uri"]);
         assert_eq!(form["resource"], "https://api.openai.com/v1");
         assert!(!form.contains_key("client_secret"));
+        assert_eq!(
+            sent[1].path(),
+            "/jwks",
+            "the ID token is checked against OpenAI's keys"
+        );
         // Signed in: the status says whom, and the token is in memory.
         let status = account.status().await;
         assert_eq!(
@@ -319,7 +348,7 @@ fn a_whole_sign_in_registers_a_client_keeps_the_refresh_token_and_shows_the_emai
     );
     assert_eq!(
         kept(&keys).unwrap(),
-        json!({"refresh_token": "rt-1", "client_id": "oaiapp_issued", "email": "me@example.com"}),
+        json!({"refresh_token": "rt-1", "client_id": "oaiapp_issued", "email": "me@example.com", "sub": "user-1"}),
         "access and ID tokens stay in memory"
     );
 }
