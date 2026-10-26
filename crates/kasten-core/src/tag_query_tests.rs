@@ -23,6 +23,7 @@ fn note(path: &str, title: &str, props: Value) -> NoteMeta {
         words: 0,
         props,
         locked: false,
+        children_order: Vec::new(),
     }
 }
 

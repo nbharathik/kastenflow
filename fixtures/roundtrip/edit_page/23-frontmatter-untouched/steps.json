@@ -1,0 +1,3 @@
+[
+  { "op": "replace", "block": { "block": "b2" }, "markdown": "Changed." }
+]

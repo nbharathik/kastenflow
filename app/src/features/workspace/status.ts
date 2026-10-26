@@ -90,7 +90,7 @@ function describeFile(file: NonNullable<VaultStatus["backupFile"]>, now: number)
 export function describeBackup(status: VaultStatus, now = Date.now()): Said {
   if (!status.history) return { tone: "off", label: "No history", detail: "Turn on history in Settings to keep every version" };
   if (status.backup.behind) {
-    return { tone: "stale", label: "Newer changes in the backup", detail: "Another computer backed up changes this one doesn't have. Get latest in Settings → History and backup." };
+    return { tone: "stale", label: "Newer changes in the backup", detail: "Another computer backed up changes this one doesn't have. Get latest in Settings → Backup." };
   }
   const remote = describeRemote(status, now);
   if (!status.backupFile) return remote;

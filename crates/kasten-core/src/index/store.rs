@@ -50,8 +50,8 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
     // The page a captured or clipped note came from, to find it saved again.
     let url_key = crate::clip::note_url_key(text, &meta.props);
     tx.execute(
-        "INSERT INTO notes (path, id, title, title_key, kind, project, parent, icon, cover, tags, props, created, updated, day, modified, size, excerpt, words, locked, url_key)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+        "INSERT INTO notes (path, id, title, title_key, kind, project, parent, icon, cover, tags, props, created, updated, day, modified, size, excerpt, words, locked, url_key, children_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
         params![
             meta.path,
             meta.id,
@@ -73,6 +73,7 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
             meta.words,
             meta.locked,
             url_key,
+            serde_json::to_string(&meta.children_order).unwrap_or_else(|_| "[]".into()),
         ],
     )?;
     let num = tx.last_insert_rowid();

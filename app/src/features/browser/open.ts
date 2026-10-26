@@ -4,8 +4,10 @@
 // in pages when Settings says so, and for a link a page in the browser wants
 // in a window of its own.
 
+import { openUrl } from "../../lib/api";
 import { useWorkspace } from "../workspace/store";
 import { browserBackend } from "./backend";
+import { useBrowserPrefs } from "./prefs";
 import { useWebTabs } from "./web-state";
 
 export function openInBrowserTab(url: string): void {
@@ -23,4 +25,17 @@ export function openInBrowserTab(url: string): void {
   // A view that is alive goes there itself; the tab's place follows from its events.
   if (useWebTabs.getState().tabs[there.id]?.live) void browserBackend().nav(there.id, { action: "url", url }).catch(() => ws.setWebUrl(there.id, url));
   else ws.setWebUrl(there.id, url);
+}
+
+/** The "Open in a KastenFlow tab" choice of the link menus, wherever they are (a show included, where the tab waits behind it and a
+ * toast says so afterwards). With the browser off there is no tab: the address goes to the system's browser, and the toast says that. */
+export function openInKastenTab(url: string): void {
+  const { toast } = useWorkspace.getState();
+  if (!/^https?:\/\//i.test(url) || !useBrowserPrefs.getState().enabled) {
+    openUrl(url).catch((err: unknown) => toast(err instanceof Error ? err.message : String(err)));
+    if (/^https?:\/\//i.test(url)) toast("Web tabs are off, so the page opened in your browser.");
+    return;
+  }
+  openInBrowserTab(url);
+  toast("Opened in a KastenFlow tab.");
 }

@@ -1,3 +1,4 @@
+import { BackupStatusButton } from "../features/backup/StatusButton";
 import { ActivityStatus } from "../features/health/ActivityStatus";
 import { type Tone } from "../features/workspace/status";
 import { useWorkspace } from "../features/workspace/store";
@@ -28,6 +29,7 @@ export function StatusBar() {
       <span aria-hidden="true" className="ml-auto" />
       {client && <span className="shrink-0">{count} notes</span>}
       <ActivityStatus />
+      <BackupStatusButton />
       <UpdatePill />
     </footer>
   );

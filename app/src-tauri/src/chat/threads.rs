@@ -4,11 +4,15 @@
 //! it is deleted. A message sent while a turn works waits in the thread's queue
 //! (queue.rs); `send.rs` starts turns.
 
+mod adopt;
+mod archived;
+mod bound;
 mod launch;
 mod persist;
 mod queue;
 mod saved;
 mod send;
+mod wait;
 
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,14 +23,20 @@ use kasten_core::{Instant, ulid_at};
 use serde_json::Value;
 
 use super::attach::Attachments;
+use super::binding::Binding;
 use super::budget::ChatBudgets;
 use super::capabilities::GenerationSettings;
 use super::event::Log;
+use super::limit::{ChatLimits, Gate};
 use super::model::{Message, ToolOutput};
 use super::plan::PlanItem;
 use super::store::{Status, Store};
 use super::{CLIENT, WriteMode};
 
+pub use adopt::{AdoptFailed, AdoptReason};
+pub use archived::NewThread;
+#[cfg(test)]
+pub use persist::Gap;
 pub use persist::Loaded;
 pub use queue::{Queued, Settled};
 pub use saved::{ChatUsage, StateOf};
@@ -61,6 +71,10 @@ struct Thread {
     attachments: BTreeSet<String>,
     /// Messages sent while a turn worked, in the order they came.
     queue: VecDeque<Queued>,
+    /// Older than the list's size: shown under "Archived".
+    archived: bool,
+    /// What the thread is about, if it is tied to a page, deck or diagram.
+    bound: Option<Binding>,
 }
 
 struct Running {
@@ -78,6 +92,8 @@ struct Inner {
     store: Option<Arc<Store>>,
     files: Option<Arc<Attachments>>,
     budgets: ChatBudgets,
+    /// The list's size and how many chats work at once.
+    limits: ChatLimits,
     /// The app is closing: nothing running goes back to idle.
     closing: bool,
     /// Counts snapshots, so an older one never replaces a newer one on disk.
@@ -88,6 +104,8 @@ struct Inner {
 #[derive(Clone, Default)]
 pub struct Chats {
     inner: Arc<Mutex<Inner>>,
+    /// Where turns wait when as many chats are working as the limit allows.
+    gate: Arc<Gate>,
 }
 
 /// A turn begun: its id, its thread's session and prompt, the conversation
@@ -132,6 +150,8 @@ fn new_thread(now: Instant, day: &str, system: String) -> Thread {
         ui: None,
         attachments: BTreeSet::new(),
         queue: VecDeque::new(),
+        archived: false,
+        bound: None,
     }
 }
 
@@ -180,6 +200,23 @@ impl Chats {
 
     pub fn budgets(&self) -> ChatBudgets {
         self.lock().budgets
+    }
+
+    /// The list's size and the number of chats that work at once, from now on.
+    /// Making the list smaller archives the oldest threads (never deletes one).
+    pub fn set_limits(&self, limits: ChatLimits) {
+        self.lock().limits = limits;
+        self.gate.set_max(limits.max_concurrent);
+        self.archive_overflow();
+    }
+
+    pub fn limits(&self) -> ChatLimits {
+        self.lock().limits
+    }
+
+    /// The place where turns wait their turn.
+    pub(crate) fn gate(&self) -> Arc<Gate> {
+        Arc::clone(&self.gate)
     }
 
     /// Starts a turn in `chat`, and the thread with its session and
@@ -261,10 +298,10 @@ impl Chats {
         inner.threads.remove(chat).map(|thread| thread.changes)
     }
 
-    /// Forgets the thread: its next turn starts a new conversation and a
-    /// new session, at once. A turn still running is stopped, and what it
-    /// had is not kept. The thread's staged changes come back, for the caller
-    /// to throw away with it.
+    /// Takes the thread out of memory and stops a turn still running in it.
+    /// The saved copy stays (a reset never deletes a saved thread: start a
+    /// new one with `new_thread`), and so do its staged changes, which the
+    /// saved thread brings back. The staged changes come back to the caller.
     pub fn reset(&self, chat: &str) -> Option<Changes> {
         self.drop_thread(chat)
     }

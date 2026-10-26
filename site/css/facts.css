@@ -38,7 +38,8 @@
   line-height: 1.45;
 }
 
-.formats {
+.formats,
+.keeps {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -47,7 +48,8 @@
   margin-top: 32px;
 }
 
-.formats ul {
+.formats ul,
+.keeps ul {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

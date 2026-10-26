@@ -1,0 +1,5 @@
+[
+  { "op": "set_todo", "block": { "block": "b2" }, "line": 0, "done": true },
+  { "op": "set_todo", "block": { "block": "b2" }, "line": 1, "done": false },
+  { "op": "set_todo", "block": { "block": "b4" }, "line": 0, "done": true }
+]

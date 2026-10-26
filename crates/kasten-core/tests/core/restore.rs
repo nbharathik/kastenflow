@@ -99,6 +99,40 @@ fn restores_the_whole_vault_as_a_new_commit() {
 }
 
 #[test]
+fn a_whole_vault_restore_keeps_the_settings_as_they_are_now() {
+    use kasten_core::config_keys::{AgentMode, AgentsConfig};
+    let t = dev_vault();
+    let root = t.vault.root().to_owned();
+    let k = Kasten::open(&root).unwrap();
+    k.start_history().unwrap();
+    let start = k.log(None, 1).unwrap()[0].id.clone();
+    let mut config = k.config();
+    config.agents = Some(AgentsConfig {
+        mode: Some(AgentMode::Review),
+        ..AgentsConfig::default()
+    });
+    config.guardrails.max_trash_per_session = 1;
+    k.set_config(config).unwrap();
+    k.create(&Actor::Human, &page("Added later"), NOW).unwrap();
+    k.commit_external().unwrap();
+    let settings = fs::read_to_string(root.join(".kasten/config.yaml")).unwrap();
+
+    let report = k.restore_vault(&Actor::Human, &start, NOW).unwrap();
+    assert_eq!(
+        fs::read_to_string(root.join(".kasten/config.yaml")).unwrap(),
+        settings,
+        "the settings are not part of what a restore changes"
+    );
+    assert!(
+        !report.written.iter().any(|p| p == ".kasten/config.yaml"),
+        "{report:?}"
+    );
+    assert_eq!(k.config().agent_mode_for(None), AgentMode::Review);
+    assert_eq!(k.config().guardrails.max_trash_per_session, 1);
+    assert!(k.dirty().unwrap().is_empty(), "{:?}", k.dirty().unwrap());
+}
+
+#[test]
 fn a_whole_vault_restore_is_one_commit_that_undo_takes_back() {
     let t = dev_vault();
     let root = t.vault.root().to_owned();

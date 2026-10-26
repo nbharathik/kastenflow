@@ -50,6 +50,16 @@ describe("what is kept of a thread", () => {
     expect(back.changes).toEqual(original.changes);
   });
 
+  it("keeps the chip of a LaTeX file, which it names by the file's path", () => {
+    const chips = [
+      { kind: "latex" as const, label: "main.tex", ref: ["projects/p/latex/paper/main.tex"], origin: "auto" as const },
+      { kind: "selection" as const, label: "Selection · “\\begin{align}” · main.tex", ref: [], origin: "added" as const, selection: { source: { kind: "latex" as const, path: "projects/p/latex/paper/main.tex" }, text: "\\begin{align}", range: { from: 10, to: 23 }, pinned: true } },
+    ];
+    const original = { ...finished(), context: chips };
+    const back = restore("c1", loaded({}, JSON.parse(JSON.stringify(savedOf(original)))));
+    expect(back.context).toEqual(chips);
+  });
+
   it("is a bare thread when nothing was saved but the backend knows of it", () => {
     const t = restore("c9", loaded({ queued: ["wait"], plan: [{ id: "1", text: "x", status: "todo" }], title: "From the first line", provider: "Local", model: "m" }));
     expect(t).toMatchObject({ id: "c9", provider: "Local", model: "m", messages: [], seq: 5, queued: ["wait"], plan: [{ id: "1", text: "x", status: "todo" }] });

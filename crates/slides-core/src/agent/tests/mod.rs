@@ -5,6 +5,7 @@ mod edits;
 mod files;
 mod raw;
 mod render;
+mod slide_tools;
 
 use serde_json::{Value, json};
 

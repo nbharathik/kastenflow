@@ -1,0 +1,3 @@
+[
+  { "op": "unwrap_columns", "block": { "block": "b2" } }
+]

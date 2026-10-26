@@ -5,7 +5,7 @@
 
 import "./tags.css";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
 import type { TagView } from "../../lib/vault/types";
 import { CalendarView } from "../calendar/CalendarView";
@@ -14,10 +14,12 @@ import { useWorkspace } from "../workspace/store";
 import { addNote } from "./actions";
 import { AddExistingPages } from "./AddExistingPages";
 import { DatabaseTools } from "./DatabaseTools";
+import { FormulaProblems, useFormulaRows } from "./formula/use-formula-rows";
 import { useNoteHome } from "./home";
 import { applyView, findInView, notesWith, viewsOf } from "./model";
 import { SchemaEditor } from "./SchemaEditor";
 import { useTags } from "./store";
+import { ParentTitlesProvider, useSubItems } from "./sub-items";
 import { TagDropZone } from "./TagDropZone";
 import { RevealedLine, useTagMembership, withRevealed } from "./use-membership";
 import { ViewBar } from "./ViewBar";
@@ -27,6 +29,9 @@ import { KanbanView } from "./views/KanbanView";
 import { ListView } from "./views/ListView";
 import { TableView } from "./views/TableView";
 import type { ViewProps } from "./views/types";
+
+/** The timeline loads when a database first shows one. */
+const TimelineView = lazy(() => import("./views/TimelineView").then((m) => ({ default: m.TimelineView })));
 
 const ACTIVE = (tag: string) => `kasten.tagview.${tag.toLowerCase()}`;
 
@@ -56,6 +61,12 @@ export function ViewBody(props: ViewProps) {
       return <GalleryView {...props} />;
     case "calendar":
       return <CalendarView scope={{ tag: props.tag, date: props.view.date, notes: props.notes }} />;
+    case "timeline":
+      return (
+        <Suspense fallback={<p className="kasten-tag-empty">Loading the timeline…</p>}>
+          <TimelineView {...props} />
+        </Suspense>
+      );
     default:
       return <TableView {...props} />;
   }
@@ -74,7 +85,10 @@ export function TagDatabase({ tag }: { tag: string }) {
   const [active, setActive] = useState(() => loadActive(name));
   const index = Math.max(0, views.findIndex((v) => v.name === active));
   const view = views[index]!;
-  const tagged = useMemo(() => notesWith(notes, name), [notes, name]);
+  const carrying = useMemo(() => notesWith(notes, name), [notes, name]);
+  // Calculated cells are worked out by the core and laid over the rows.
+  const calculated = useFormulaRows(name, schema, carrying);
+  const tagged = calculated.notes;
   const [query, setQuery] = useState("");
   const shown = useMemo(() => findInView(applyView(tagged, view, schema), query), [tagged, view, schema, query]);
   const [editing, setEditing] = useState(false);
@@ -82,6 +96,7 @@ export function TagDatabase({ tag }: { tag: string }) {
   // Pages dropped on the body, or picked with "Add existing pages", gain the tag.
   const membership = useTagMembership(name, view, schema, null);
   const listed = useMemo(() => withRevealed(shown, tagged, membership.revealed), [shown, tagged, membership.revealed]);
+  const sub = useSubItems(name, view, schema, tagged, listed);
 
   const saveViews = (next: TagView[]) => void useTags.getState().saveViews(name, next);
   const change = (next: TagView) => {
@@ -119,7 +134,7 @@ export function TagDatabase({ tag }: { tag: string }) {
           if (selected) select(selected);
         }}
       />
-      <ViewBar view={view} schema={schema} shown={shown.length} total={tagged.length} onChange={change} find={{ query, onQuery: setQuery }} />
+      <ViewBar view={view} schema={schema} shown={shown.length} total={tagged.length} onChange={change} find={{ query, onQuery: setQuery }} subItems={{ menu: sub.menu, present: sub.chips !== null }} />
       <TagDropZone tag={name} onDrop={membership.add} className="kasten-tagdb-body">
         {view.scope === "project" ? (
           // Such a view shows what is filed in the project of the page it sits in.
@@ -127,7 +142,11 @@ export function TagDatabase({ tag }: { tag: string }) {
         ) : (
           <>
             <RevealedLine count={listed.length - shown.length} onHide={membership.hideRevealed} />
-            <ViewBody tag={name} schema={schema} view={view} notes={listed} onChange={change} />
+            <FormulaProblems value={calculated.problems}>
+              <ParentTitlesProvider value={sub.chips}>
+                <ViewBody tag={name} schema={schema} view={view} notes={sub.notes} pool={sub.pool} onChange={change} />
+              </ParentTitlesProvider>
+            </FormulaProblems>
           </>
         )}
       </TagDropZone>

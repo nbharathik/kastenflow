@@ -7,7 +7,10 @@ import { Home } from "../features/home/Home";
 import { Inbox } from "../features/inbox/Inbox";
 import { JournalView } from "../features/journal/JournalView";
 import { howFromView, useWorkspace, type Place } from "../features/workspace/store";
-import { BoardsHome, BrowserView, CalendarView, ChatView, CollectionsView, DiagramsHome, DiagramView, GraphView, HighlightsHome, History, ImportView, LibraryView, PdfReader, ProjectOverview, ProjectsHub, ReferencesView, Review, ReviewScreens, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
+import { BoardsHome, BrowserView, CalendarView, ChatView, CollectionsView, GraphView, HighlightsHome, History, ImportView, LibraryView, PdfReader, ProjectOverview, ProjectsHub, ReferencesView, Review, ReviewScreens, Settings, SlidesHome, TagDatabase, TagsHome, Tasks, Trash } from "./lazy-views";
+import { viewById } from "../plugins/contributions";
+import { PluginOffView } from "../plugins/OffView";
+import { usePlugins, usePluginsVersion } from "../plugins/registry";
 import { ViewBoundary } from "../ui/ViewBoundary";
 
 /** Renders a tab's place; views load their code when first opened. */
@@ -23,7 +26,17 @@ export function ViewOutlet({ place }: { place: Place }) {
 
 function View({ place }: { place: Place }) {
   const client = useWorkspace((s) => s.client);
+  // A plugin's view appears and goes with the plugin.
+  usePluginsVersion();
+  const choice = usePlugins((s) => s.on[place.view.replace(/^plugin:/, "")]);
   if (!client) return null;
+  if (place.view.startsWith("plugin:")) {
+    const plugin = viewById(place.view);
+    if (plugin) return <plugin.lazy place={place} />;
+    // A plugin that was turned off shows its file as a row with the button that turns it on; one just turned on is on its way; one that is gone leaves its tabs on Home.
+    if (choice === false) return <PluginOffView view={place.view} path={place.path} />;
+    return choice === true ? null : <Home />;
+  }
   switch (place.view) {
     case "home":
       return <Home />;
@@ -40,9 +53,6 @@ function View({ place }: { place: Place }) {
       return place.path ? <LazyBoard key={place.path} path={place.path} /> : <BoardsHome />;
     case "slides":
       return place.path ? <LazyDeck key={place.path} path={place.path} /> : <SlidesHome />;
-    case "diagrams":
-      // Not keyed by path: after a conflict the editor goes on with a copy, and the tab follows it without reloading.
-      return place.path ? <DiagramView path={place.path} /> : <DiagramsHome />;
     case "library":
       // Ctrl+click opens a card in a tab, Shift+click on the side stack.
       return <LibraryView onOpen={(path, event) => useWorkspace.getState().openPath(path, howFromView(event))} />;

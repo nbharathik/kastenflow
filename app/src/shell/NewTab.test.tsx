@@ -43,7 +43,7 @@ describe("the new tab button", () => {
     const menu = screen.getByRole("menu", { name: "New tab" });
     expect(menu).toBeTruthy();
     const labels = items().map((el) => el.querySelector("span.flex-1")?.textContent);
-    expect(labels).toEqual(["New page", "New page to the right", "Today's journal", "Journal to the right", "Slides", "New deck", "New whiteboard", "Graph", "New tabs open to the right"]);
+    expect(labels).toEqual(["New page", "New page to the right", "Today's journal", "Journal to the right", "Slides", "New deck", "New whiteboard", "New smart page", "Graph", "New tabs open to the right"]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
 

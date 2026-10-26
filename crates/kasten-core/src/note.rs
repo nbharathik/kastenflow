@@ -35,6 +35,10 @@ pub struct NoteMeta {
     pub props: serde_json::Value,
     /// Read-only for agents.
     pub locked: bool,
+    /// For a page: the ids of its sub-pages in the order they are shown
+    /// (`children_order` in its frontmatter). Sub-pages it does not name come
+    /// after, alphabetically (`structure::arranged`).
+    pub children_order: Vec<String>,
 }
 
 /// A note's full text with its metadata and content hash.
@@ -134,6 +138,7 @@ pub fn meta_with_extract(
             _ => serde_json::Value::Object(serde_json::Map::new()),
         },
         locked: Front::text(&front.locked).is_some_and(|v| v == "true" || v == "yes"),
+        children_order: crate::frontmatter::ids_of(front.children_order.as_ref()),
     };
     (meta, body)
 }

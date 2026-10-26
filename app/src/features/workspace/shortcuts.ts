@@ -7,7 +7,9 @@ import { useEffect } from "react";
 import { useShell } from "../../lib/store";
 import { bindingOf, isMac } from "../shortcuts/keymap";
 import { useKeys } from "../shortcuts/store";
-import { COMMANDS } from "./overlays/commands";
+import { usePlugins } from "../../plugins/registry";
+import { allCommands } from "./overlays/commands";
+import { toggleFoldOfOpenPage } from "./page/properties-fold";
 import { useWorkspace } from "./store";
 
 function editable(target: EventTarget | null): boolean {
@@ -23,13 +25,19 @@ const KEY_ACTIONS: Record<string, () => void> = {
   forward: () => useWorkspace.getState().goForward(),
   "next-tab": () => useWorkspace.getState().cycleTab(1),
   "prev-tab": () => useWorkspace.getState().cycleTab(-1),
+  "toggle-properties": toggleFoldOfOpenPage,
 };
 
 let commands: Map<string, () => void> | null = null;
 
+// A plugin turned on or off adds or takes away its commands' keys.
+usePlugins.subscribe((state, before) => {
+  if (state.loaded !== before.loaded) commands = null;
+});
+
 /** What a command id runs. */
 export function runFor(id: string): (() => void) | null {
-  commands ??= new Map(COMMANDS.map((c) => [c.id, c.run]));
+  commands ??= new Map(allCommands().map((c) => [c.id, c.run]));
   return KEY_ACTIONS[id] ?? commands.get(id) ?? null;
 }
 

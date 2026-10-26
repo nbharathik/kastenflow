@@ -78,6 +78,52 @@ pub fn restore_note_with_sub_pages(
     Ok((note, moves))
 }
 
+/// Puts a file of a smart page's folder back where it was, from the trash
+/// (`.trash/<time>/<page>.smart/<file>`). It never replaces a file, and its
+/// page has to be there. Returns the path it came back to.
+pub fn restore_smart_file(vault: &Vault, trashed: &str) -> Result<String> {
+    let invalid = || Error::InvalidPath(trashed.to_owned());
+    let rest = trashed.strip_prefix(".trash/").ok_or_else(invalid)?;
+    let (when, original) = rest.split_once('/').ok_or_else(invalid)?;
+    if when.is_empty() || when.contains(['.', '\\', ':']) || !crate::companions::in_folder(original)
+    {
+        return Err(invalid());
+    }
+    // Where it was: below a folder named for a page that has to be there.
+    let folder_end = original
+        .match_indices('/')
+        .map(|(at, _)| &original[..at])
+        .find(|dir| crate::companions::in_folder(&format!("{dir}/x")))
+        .ok_or_else(invalid)?;
+    let page = format!(
+        "{}.md",
+        &folder_end[..folder_end.len() - crate::smart::SMART_DIR_SUFFIX.len()]
+    );
+    if !vault.exists(&page) {
+        return Err(Error::Invalid(format!(
+            "The page {page} is not in the vault, so the file cannot go back beside it. Restore the page first"
+        )));
+    }
+    let source = vault.tracked_file(trashed)?;
+    if !fs::symlink_metadata(&source).is_ok_and(|meta| meta.is_file()) {
+        return Err(Error::NotFound(trashed.to_owned()));
+    }
+    crate::smart::check_path(&original[folder_end.len() + 1..])?;
+    let destination = vault.tracked_file(original)?;
+    if fs::symlink_metadata(&destination).is_ok() {
+        return Err(Error::Invalid(format!(
+            "{original} is already there, so the file from the trash cannot replace it"
+        )));
+    }
+    let mut done = Rollback::default();
+    if let Err(err) = done.rename(&source, &destination) {
+        done.put_back();
+        return Err(err.into());
+    }
+    tidy(&vault.root().join(".trash").join(when), &[source]);
+    Ok(original.to_owned())
+}
+
 /// Puts a trashed note back where it was, or beside it under a free name.
 pub fn restore_note(vault: &Vault, trashed: &str) -> Result<NoteFile> {
     restore_note_with_sub_pages(vault, trashed).map(|(note, _)| note)

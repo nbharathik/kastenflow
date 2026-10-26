@@ -8,6 +8,7 @@ use crate::agent::{AgentOp, Session};
 use crate::diff::removed_fraction;
 use crate::error::Result;
 use crate::frontmatter::split;
+use crate::policy::OpClass;
 use crate::time::Instant;
 
 fn percent(fraction: f64) -> String {
@@ -16,7 +17,7 @@ fn percent(fraction: f64) -> String {
 
 impl Kasten {
     /// Paths the op would change that exist now, and how many new files it makes.
-    fn touches(&self, op: &AgentOp) -> Result<(Vec<String>, usize)> {
+    pub(super) fn touches(&self, op: &AgentOp) -> Result<(Vec<String>, usize)> {
         Ok(match op {
             // The file usually moves to its new title's name: one new path.
             AgentOp::Rename { path, .. } => {
@@ -48,6 +49,8 @@ impl Kasten {
                 (tree, moved)
             }
             AgentOp::Trash { path, .. } => (self.with_sub_pages(path)?, 0),
+            // A page is built of many files; code edits are not counted as notes changed.
+            AgentOp::SmartWrite { .. } | AgentOp::SmartDelete { .. } => (vec![], 0),
             AgentOp::JournalAppend { date, .. } => {
                 let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
                 if self.vault.exists(&path) {
@@ -56,6 +59,14 @@ impl Kasten {
                     (vec![], 1)
                 }
             }
+            AgentOp::SetParent { .. } | AgentOp::CreateProject { .. } => {
+                self.structure_touches(op)?
+            }
+            AgentOp::DuplicateNote { .. }
+            | AgentOp::RestoreNote { .. }
+            | AgentOp::JournalDay { .. }
+            | AgentOp::CreateCollection { .. }
+            | AgentOp::DuplicateDiagram { .. } => self.parity_touches(op)?,
             other => match other.path() {
                 Some(path) => (vec![path.to_owned()], 0),
                 None => (vec![], usize::from(other.creates())),
@@ -63,44 +74,98 @@ impl Kasten {
         })
     }
 
-    /// Why an op must wait for review, if it must.
-    pub(super) fn review_reason(
+    /// What kind of op this is for the agent modes: one that waits for review
+    /// whoever is trusted (`Always`), one over a limit that holds now (`Soft`;
+    /// a trusted session has had the limits lifted that trust lifts), or an
+    /// ordinary one. The refusals have been made already (`refusals`).
+    pub(super) fn op_class(
         &self,
         session: &Session,
         op: &AgentOp,
         now: Instant,
-    ) -> Result<Option<String>> {
-        // Decks: a deck to the trash, and many slides taken out, wait even when trusted.
-        if let Some(reason) = self.deck_review_reason(session, op, now)? {
-            return Ok(Some(reason));
+    ) -> Result<OpClass> {
+        // Decks: a deck to the trash waits even when trusted, and many slides taken out too.
+        let class = self.deck_review_reason(session, op, now)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
         }
         // Diagrams: one to the trash waits even when trusted; a rewrite that takes a lot out, when not.
-        if let Some(reason) = self.diagram_review_reason(session, op, now)? {
-            return Ok(Some(reason));
+        let class = self.diagram_review_reason(session, op, now)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
         }
+        // LaTeX sources: a rewrite that takes a lot out of a file, when not trusted.
+        let class = self.latex_review_reason(session, op, now)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
+        }
+        // Page edits by blocks: one that takes a lot out of the page, when not trusted.
+        let class = self.page_review_reason(session, op, now)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
+        }
+        // Structure: a project from a setup that makes schemas waits always; leaving out a view, when not trusted.
+        let class = self.structure_review_reason(session, op, now)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
+        }
+        // Parity ops: another session's undo and a reference added always wait.
+        let class = self.parity_review_reason(session, op)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
+        }
+        let always = |reason: &str| Ok(OpClass::Always(reason.to_owned()));
         match op {
-            AgentOp::Edit { .. } => {
-                return Ok(Some("A full rewrite always waits for review".to_owned()));
-            }
+            AgentOp::Edit { .. } => return always("A full rewrite always waits for review"),
             AgentOp::TagSchema { .. } => {
-                return Ok(Some(
-                    "A tag schema change always waits for review".to_owned(),
-                ));
+                return always("A tag schema change always waits for review");
             }
             AgentOp::Template { .. } => {
-                return Ok(Some(
-                    "A template made or changed by an agent always waits for review".to_owned(),
-                ));
+                return always("A template made or changed by an agent always waits for review");
+            }
+            AgentOp::SaveProjectSetup { .. } => {
+                return always(
+                    "A setup saved by an agent is written into the templates folder, which always waits for review",
+                );
             }
             AgentOp::Trash { path, .. } if path.ends_with(".canvas") => {
-                return Ok(Some("Trashing a board always waits for review".to_owned()));
+                return always("Trashing a board always waits for review");
             }
             _ => {}
         }
+        match self.soft_limit(session, op, now)? {
+            Some(reason) => Ok(OpClass::Soft(reason)),
+            None => Ok(OpClass::Ordinary),
+        }
+    }
+
+    /// The soft limit an op is over, if it is and its session is not trusted.
+    fn soft_limit(&self, session: &Session, op: &AgentOp, now: Instant) -> Result<Option<String>> {
         if self.trusted(&session.id, now) {
             return Ok(None);
         }
         let limits = self.config().guardrails;
+        if let AgentOp::BoardChanges { changes, .. } = op {
+            let going = crate::board::removed_by(changes);
+            let max = limits.max_board_nodes_removed as usize;
+            // Added up over the session's last ten minutes, so a limit of ten
+            // cannot be kept a call at a time.
+            let earlier = self
+                .state()
+                .tallies
+                .get(&session.id)
+                .map_or(0, |tally| tally.cards_taken_off(now.millis, WINDOW_MS));
+            if going > 0 && earlier + going > max {
+                return Ok(Some(if earlier == 0 {
+                    format!("Takes {going} cards off a board at once (the limit is {max})")
+                } else {
+                    format!(
+                        "This session already took {earlier} cards off boards in the last 10 minutes; this would make {} (the limit is {max})",
+                        earlier + going
+                    )
+                }));
+            }
+        }
         if let AgentOp::ReplaceSection {
             path,
             heading,

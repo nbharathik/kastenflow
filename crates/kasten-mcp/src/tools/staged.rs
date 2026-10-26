@@ -9,14 +9,17 @@ use kasten_core::agent::ChangeSet;
 use kasten_core::{Kasten, Result};
 use serde_json::{Value, json};
 
+use super::as_json;
 use super::board::board_json;
 use super::diagram::diagram_json;
 use super::diagram_ai::{describe_json, lint_report};
 use super::lookup::locked;
+use super::pages::{DEFAULT_BLOCKS, MOST_BLOCKS};
 use super::read::{list_notes, note_json, search};
 use super::{parse, today};
 use crate::params::*;
 use crate::params_diagram::DiagramPageArgs;
+use crate::params_pages::ReadPageBlocksArgs;
 
 /// What a list or a search says when the chat has staged changes.
 const NOT_LISTED: &str = "The chat's staged changes are not in this result yet: lists and searches see only what is saved. read_note shows a staged note.";
@@ -33,6 +36,7 @@ pub(super) fn read(
     let result = match name {
         "read_note" => parse(args.clone()).map(|a| read_note(k, &set, a)),
         "get_journal" => parse(args.clone()).map(|a| get_journal(k, &set, a)),
+        "read_page_blocks" => parse(args.clone()).map(|a| read_page_blocks(k, &set, a)),
         "read_board" => parse(args.clone()).map(|a| read_board(k, &set, a)),
         "get_diagram" => parse(args.clone()).map(|a| get_diagram(k, &set, a)),
         "diagram_describe" => parse(args.clone()).map(|a| diagram_described(k, &set, a)),
@@ -68,6 +72,18 @@ fn get_journal(k: &Kasten, set: &ChangeSet, a: JournalArgs) -> Result<Value> {
         return Ok(json!({ "date": date, "exists": false }));
     }
     let mut out = note_json(&k.read_in(set, &path)?);
+    if set.text_of(&path).is_some() {
+        out["staged"] = json!(true);
+    }
+    Ok(out)
+}
+
+/// The blocks of a page as the chat's staged changes leave it: the ids and
+/// hashes the chat's next `edit_page` must name.
+fn read_page_blocks(k: &Kasten, set: &ChangeSet, a: ReadPageBlocksArgs) -> Result<Value> {
+    let path = k.resolve_staged(set, &a.note)?;
+    let limit = a.limit.unwrap_or(DEFAULT_BLOCKS).clamp(1, MOST_BLOCKS);
+    let mut out = as_json(k.read_page_blocks_in(set, &path, a.from.unwrap_or(1).max(1), limit)?)?;
     if set.text_of(&path).is_some() {
         out["staged"] = json!(true);
     }

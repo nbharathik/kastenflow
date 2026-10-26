@@ -106,9 +106,14 @@ const RULES: &[Rule] = &[
                 "copies of files an earlier drop staged in the app's own cache for Import, never the files they came from",
             ),
             (
-                "app/src-tauri/src/diagrams/clean.rs",
+                "app/src-tauri/src/plugins/clean.rs",
                 1,
-                "the diagram editor's own folder in the app's data (a half-unpacked copy, the copy an upgrade or a removal replaces): a copy of a pinned download, never anything in the vault",
+                "a plugin's own payload folder in the app's data (a half-unpacked copy, the copy an upgrade replaces, or the whole payload when a person removes the plugin's download): a copy of a pinned download, never anything in the vault",
+            ),
+            (
+                "app/src-tauri/src/plugins/latex/cache.rs",
+                1,
+                "leftovers inside one LaTeX build's own cache folder (.kasten/cache/latex/<hash>/, never committed, rebuilt from the document's folder at the next build); refuses any path that is not strictly below that folder and never follows a link",
             ),
         ],
     },
@@ -167,14 +172,19 @@ const RULES: &[Rule] = &[
                 "the search-by-meaning cache, rebuilt from the notes",
             ),
             (
-                "app/src-tauri/src/diagrams/clean.rs",
+                "app/src-tauri/src/plugins/clean.rs",
                 1,
-                "a download of the diagram editor that did not check out: a file the installer wrote in the app's own data folder, never anything in the vault",
+                "a download of a plugin's payload that did not check out: a file the installer wrote in the app's own data folder, never anything in the vault",
+            ),
+            (
+                "app/src-tauri/src/plugins/latex/cache.rs",
+                2,
+                "a file or a link left inside one LaTeX build's own cache folder (.kasten/cache/latex/<hash>/, never committed, rebuilt from the document's folder at the next build); refuses any path that is not strictly below that folder, removes a link itself and never what it points to",
             ),
             (
                 "app/src-tauri/src/chat/store/remove.rs",
                 1,
-                "the app's own copy of a chat the person deleted, of an attachment they took off a message or whose last chat they deleted, or the half-written temporary file of a save that failed: files in the app's data folder, never anything in the vault, and never on a cap, a timer or at start; only a plain file under the folder it is given",
+                "the app's own copy of a chat the person deleted (one by one, or archived chats they named in a bulk delete: a list size only archives, it never deletes), of an attachment they took off a message or whose last chat they deleted, or the half-written temporary file of a save that failed: files in the app's data folder, never anything in the vault, and never on a cap, a timer or at start; only a plain file under the folder it is given",
             ),
             (
                 "app/src-tauri/src/calendars/store.rs",

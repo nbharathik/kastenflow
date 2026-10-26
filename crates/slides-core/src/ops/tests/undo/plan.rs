@@ -325,17 +325,23 @@ pub(super) fn plan(deck: &Deck, action: &Action) -> Option<(&'static str, Value)
         | Action::CellFill { .. } => return super::tables::plan(deck, action),
         Action::Highlight { slide: s, el, n } => {
             let (sl, e) = element(*s, *el)?;
-            let runs = [
-                json!([{ "t": "marked", "highlight": "accent2" }]),
-                json!([{ "t": "a " }, { "t": "pen", "highlight": "#ffee00" }, { "t": " b" }]),
-                json!([{ "t": "code", "code": true, "highlight": "text2" }]),
-                json!([{ "t": "plain" }]),
-                json!([{ "t": "not a colour", "highlight": "nope" }]),
-            ][usize::from(*n) % 5]
+            let paragraphs = [
+                json!([{ "runs": [{ "t": "marked", "highlight": "accent2" }] }]),
+                json!([{ "runs": [{ "t": "a " }, { "t": "pen", "highlight": "#ffee00" }, { "t": " b" }] }]),
+                json!([{ "runs": [{ "t": "code", "code": true, "highlight": "text2" }] }]),
+                json!([{ "runs": [{ "t": "plain" }] }]),
+                json!([{ "runs": [{ "t": "not a colour", "highlight": "nope" }] }]),
+                json!([{ "runs": [{ "t": "all ", "b": true, "i": true, "u": true, "s": true }, { "t": "marks", "b": true }] }]),
+                json!([{ "runs": [{ "t": "big", "color": "accent1", "size": 30, "font": "heading" }, { "t": " link", "link": "https://example.org/a" }] }]),
+                json!([
+                    { "runs": [{ "t": "first" }], "list": "bullet", "level": 0 },
+                    { "runs": [{ "t": "second", "b": true }], "list": "number", "level": 1, "start": 2, "align": "center" }
+                ]),
+            ][usize::from(*n) % 8]
                 .clone();
             (
                 "set_rich_text",
-                json!({ "slide": sl, "id": e, "text": { "paragraphs": [{ "runs": runs }] } }),
+                json!({ "slide": sl, "id": e, "text": { "paragraphs": paragraphs } }),
             )
         }
         Action::PasteSized { slide: s, n } => {

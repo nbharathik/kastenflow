@@ -18,6 +18,8 @@ export interface PresentRequest {
   view?: "slides" | "scroll";
   /** The colour round the slide on a screen of another shape (black when left out). */
   matte?: Matte;
+  /** Whether the arrows and the progress bar show (off when left out). */
+  controls?: boolean;
   /** The link to a presenter's window that is already open. */
   sync?: PresentSync | null;
   /** What the S key does. */

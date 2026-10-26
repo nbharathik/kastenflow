@@ -94,6 +94,62 @@ export function opWords(op: AgentOp): string {
     case "group":
     case "group_on_board":
       return `Make a section ${quote(op.label)}`;
+    case "batch":
+      return `Make ${count(Array.isArray(op.ops) ? op.ops.length : 0, "change")} together, or none`;
+    case "set_parent":
+      return op.parent ? "Put inside another page" : "Take out of its page";
+    case "reorder_children":
+      return strings(op.ids).length ? "Put the sub-pages in order" : "Put the sub-pages back in alphabetical order";
+    case "create_project":
+      return `Create the project ${quote(op.title)}${op.setup ? ` from the ${quote(op.setup)} setup` : ""}`;
+    case "save_project_setup":
+      return `Save the project as the setup ${quote(op.title)}`;
+    case "set_project_state": {
+      const state = (op.state as Record<string, unknown> | undefined) ?? {};
+      const names: Record<string, string> = { status: "status", health: "health", nextAction: "next action", next_action: "next action", reviewed: "review day", lastReview: "review day", reviewAfter: "next review", review_after: "next review" };
+      const keys = Object.keys(state).map((k) => names[k] ?? k);
+      return keys.length ? `Set the project's ${joinAnd([...new Set(keys)])}` : "Change the project's state";
+    }
+    case "set_tag_views":
+      return `Change the views of #${String(op.tag ?? "").replace(/^#/, "")}`;
+    case "set_view_order":
+      return strings(op.ids).length ? `Put the rows of #${String(op.tag ?? "").replace(/^#/, "")} in order` : `Take the hand-made row order off #${String(op.tag ?? "").replace(/^#/, "")}`;
+    case "edit_page": {
+      const n = Array.isArray(op.steps) ? op.steps.length : 0;
+      return n ? `Edit the page in ${count(n, "step")}` : "Edit the page";
+    }
+    case "duplicate_note":
+      return "Make a copy";
+    case "restore_note":
+      return "Bring back from the trash";
+    case "set_note_meta":
+      return op.value ? `Set the ${String(op.key ?? "setting")} to ${String(op.value)}` : `Take off the ${String(op.key ?? "setting")}`;
+    case "apply_template":
+      return `Fill the page from the template ${quote(op.template)}`;
+    case "journal_day":
+      return `Open the journal for ${String(op.date ?? "today")}`;
+    case "set_task":
+      return op.done === false ? "Untick a to-do" : "Tick a to-do";
+    case "add_comment":
+      return `Comment: ${quote(op.text)}`;
+    case "resolve_comment":
+      return op.resolved === false ? "Open a comment again" : "Resolve a comment";
+    case "create_collection":
+      return `Save the search ${quote(op.name)}`;
+    case "update_collection":
+      return "Change a saved search";
+    case "add_reference":
+      return `Add the reference ${String(op.key ?? "")} to the bibliography`;
+    case "board_changes":
+      return String(op.summary ?? "").trim() ? sentence(String(op.summary)) : "Change the board";
+    case "rename_diagram":
+      return `Rename the diagram to ${quote(op.title)}`;
+    case "move_diagram":
+      return op.project ? `Move the diagram to project ${quote(op.project)}` : "Move the diagram to the library";
+    case "duplicate_diagram":
+      return "Make a copy of the diagram";
+    case "undo_session":
+      return "Take back all the changes of a session";
     default:
       return sentence(op.kind);
   }

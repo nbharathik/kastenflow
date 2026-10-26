@@ -3,11 +3,39 @@
 // kept in memory here, so the window's flows can be tried (and seen) without
 // the app. Nothing outlives the page.
 
-import type { ChatBudgets, RequestOutcome, ThreadSummary } from "../agent-types";
-import { DEFAULT_BUDGETS } from "../agent-types";
+import type { Binding, ChatBudgets, ChatLimits, RequestOutcome, ThreadSummary } from "../agent-types";
+import { DEFAULT_BUDGETS, DEFAULT_CHAT_LIMITS } from "../agent-types";
 import type { ChatClient } from "../client";
 
-type Agent = Pick<ChatClient, "attach" | "attachment" | "dropAttachment" | "continueTurn" | "threads" | "load" | "saveUi" | "state" | "deleteThread" | "budgets" | "setBudgets" | "diagnostics" | "clearDiagnostics">;
+type Agent = Pick<
+  ChatClient,
+  | "attach"
+  | "attachment"
+  | "dropAttachment"
+  | "continueTurn"
+  | "threads"
+  | "load"
+  | "saveUi"
+  | "state"
+  | "deleteThread"
+  | "budgets"
+  | "setBudgets"
+  | "diagnostics"
+  | "clearDiagnostics"
+  | "newThread"
+  | "archive"
+  | "unarchive"
+  | "deleteArchived"
+  | "limits"
+  | "setLimits"
+  | "bind"
+  | "unbind"
+  | "threadFor"
+  | "rebind"
+  | "importBindings"
+>;
+
+const sameTarget = (a: Binding, b: Binding) => a.kind === b.kind && (a.id && b.id ? a.id === b.id : a.path === b.path);
 
 let counter = 0;
 
@@ -23,6 +51,9 @@ export function previewAgent(): Agent {
   const saved = new Map<string, { ui: unknown; updated: number }>();
   let budgets: ChatBudgets = { ...DEFAULT_BUDGETS };
   let outcomes = [...SAMPLE];
+  let limits: ChatLimits = { ...DEFAULT_CHAT_LIMITS };
+  const ties = new Map<string, Binding>();
+  const archived = new Set<string>();
 
   const titleOf = (ui: unknown): string => {
     const saved = ui as { title?: string; messages?: { role?: string; text?: string }[] } | null;
@@ -50,7 +81,69 @@ export function previewAgent(): Agent {
     async threads() {
       return [...saved.entries()]
         .sort((a, b) => b[1].updated - a[1].updated)
-        .map(([id, { ui, updated }]): ThreadSummary => ({ id, title: titleOf(ui), updated, status: "idle", provider: "Preview", model: "canned-replies" }));
+        .map(([id, { ui, updated }]): ThreadSummary => ({ id, title: titleOf(ui), updated, status: "idle", provider: "Preview", model: "canned-replies", archived: archived.has(id), bound: ties.get(id) ?? null }));
+    },
+    async newThread() {
+      return { id: `chat-preview-${Date.now().toString(36)}${++counter}` };
+    },
+    async archive(id) {
+      archived.add(id);
+      ties.delete(id);
+      return true;
+    },
+    async unarchive(id) {
+      return archived.delete(id);
+    },
+    async deleteArchived(ids) {
+      const deleted = ids.filter((id) => archived.has(id));
+      for (const id of deleted) {
+        archived.delete(id);
+        saved.delete(id);
+      }
+      return { deleted, count: deleted.length, skipped: ids.filter((id) => !deleted.includes(id)).map((id) => ({ id, reason: "It is not archived" })) };
+    },
+    limits: async () => limits,
+    async setLimits(next) {
+      limits = { ...next };
+      return limits;
+    },
+    async bind(thread, target) {
+      const lost = [...ties].filter(([id, tie]) => id !== thread && sameTarget(tie, target)).map(([id]) => id);
+      for (const id of lost) ties.delete(id);
+      ties.set(thread, target);
+      return lost;
+    },
+    async unbind(thread) {
+      return ties.delete(thread);
+    },
+    async threadFor(target) {
+      const id = [...ties].find(([, tie]) => sameTarget(tie, target))?.[0];
+      const found = id ? saved.get(id) : undefined;
+      return id && found ? { id, title: titleOf(found.ui), updated: found.updated, status: "idle", provider: "Preview", model: "canned-replies", archived: archived.has(id), bound: ties.get(id) ?? null } : null;
+    },
+    async rebind(moves) {
+      let changed = 0;
+      for (const [id, tie] of ties) {
+        const move = moves.find((m) => tie.path === m.from || tie.path.startsWith(`${m.from}/`));
+        if (!move) continue;
+        ties.set(id, { ...tie, path: move.to + tie.path.slice(move.from.length) });
+        changed++;
+      }
+      return changed;
+    },
+    async importBindings(map, kind = "deck") {
+      let bound = 0;
+      let missing = 0;
+      let kept = 0;
+      for (const [path, id] of Object.entries(map)) {
+        if (!saved.has(id)) missing++;
+        else if (ties.has(id) || [...ties.values()].some((t) => t.kind === kind && t.path === path)) kept++;
+        else {
+          ties.set(id, { kind, path });
+          bound++;
+        }
+      }
+      return { bound, missing, kept };
     },
     async load(chat) {
       const found = saved.get(chat);

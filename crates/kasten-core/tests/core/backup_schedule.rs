@@ -57,7 +57,10 @@ fn after_a_failure_each_try_waits_longer_from_the_last_try_up_to_an_hour() {
     }
     let status = k.backup_status(now);
     assert_eq!(status.failures, 9);
-    assert_eq!(status.state, BackupState::Failing);
+    // Failing means six hours of it, not a few failures in a row.
+    assert_ne!(status.state, BackupState::Failing);
+    let six_hours = k.backup_status(NOW.millis + 6 * 60 * MIN);
+    assert_eq!(six_hours.state, BackupState::Failing);
 }
 
 #[test]

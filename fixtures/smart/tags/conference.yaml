@@ -1,0 +1,14 @@
+name: conference
+color: blue
+properties:
+  - {key: abstract_deadline, type: date}
+  - {key: paper_deadline, type: date}
+  - {key: deadline_status, type: select, options: [announced, est]}
+  - {key: city, type: text}
+  - {key: lat, type: number}
+  - {key: lon, type: number}
+  - {key: area, type: select, options: [ML, Systems, Security, HCI, Data]}
+  - {key: url, type: url}
+views:
+  - {name: Deadlines, type: table, sort: [{key: paper_deadline, dir: asc}]}
+  - {name: Calendar, type: calendar, date: paper_deadline}

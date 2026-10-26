@@ -146,6 +146,8 @@ fn a_call_that_never_ran_is_answered_as_not_run_and_never_run_afterwards() {
         change_set: None,
         ui: None,
         attachments: vec![],
+        archived: false,
+        bound: None,
         rev: 1,
     };
     store_of(&data, &v).save(&record).unwrap();

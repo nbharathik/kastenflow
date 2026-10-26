@@ -1,0 +1,3 @@
+[
+  { "op": "table_columns", "block": { "block": "b2" }, "insert_at": 2, "header": "Price", "align": "right", "cells": ["1.5", "2"] }
+]

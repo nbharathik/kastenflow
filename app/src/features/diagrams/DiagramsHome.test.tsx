@@ -27,7 +27,7 @@ async function open(info: EditorInfo = INSTALLED, diagrams = true) {
     await vault.createDiagram("Route", "trip", XML);
   }
   setEditorBackend(backend(info));
-  useWorkspace.setState({ place: { view: "diagrams" }, toasts: [] });
+  useWorkspace.setState({ place: { view: "plugin:diagrams" }, toasts: [] });
   await useWorkspace.getState().connect({ client: vault });
   render(<DiagramsHome />);
   return vault;
@@ -65,7 +65,7 @@ describe("Diagrams", () => {
     await open(INSTALLED, false);
     expect(await screen.findByText("No diagrams yet")).toBeTruthy();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Draw your first diagram" })));
-    await waitFor(() => expect(useWorkspace.getState().place).toEqual({ view: "diagrams", path: "library/Untitled-diagram.drawio" }));
+    await waitFor(() => expect(useWorkspace.getState().place).toEqual({ view: "plugin:diagrams", path: "library/Untitled-diagram.drawio" }));
     expect((await useDiagrams.getState().list).map((d) => d.title)).toEqual(["Untitled diagram"]);
   });
 
@@ -99,7 +99,7 @@ describe("Diagrams", () => {
   it("opens a diagram in a tab of its own", async () => {
     await open();
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Open Network" })));
-    expect(useWorkspace.getState().place).toEqual({ view: "diagrams", path: "library/Network.drawio" });
+    expect(useWorkspace.getState().place).toEqual({ view: "plugin:diagrams", path: "library/Network.drawio" });
   });
 
   it("remembers the layout", async () => {

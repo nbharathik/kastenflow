@@ -128,7 +128,7 @@ class HandleView {
     if (at.y < box.top || at.y > box.bottom || at.x < box.left - MARGIN || at.x > box.right + 24) return this.hide();
     // The innermost block at the pointer's height, so the margin where the
     // handle lives, even inside a toggle, keeps the block beside it.
-    const found = unitAt(this.view, at.y);
+    const found = unitAt(this.view, at.y, at.x);
     if (!found || found.el.getBoundingClientRect().height === 0) return this.hide();
     this.show(found);
   };

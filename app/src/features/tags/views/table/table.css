@@ -11,7 +11,7 @@
 
 /* Option colours come from the page palette (tokens.css). */
 :root[data-theme="dark"] :is(.kasten-table, .kasten-table-pop) {
-  --edge-shade: rgb(0 0 0 / 0.45);
+  --edge-shade: color-mix(in srgb, var(--color-scrim) 80%, transparent);
 }
 
 .kasten-table {
@@ -20,7 +20,7 @@
   --cell-line: color-mix(in srgb, var(--color-line) 88%, transparent);
   --row-bg: var(--color-canvas);
   --row-hover: color-mix(in srgb, var(--color-ink) 3.5%, var(--color-canvas));
-  --edge-shade: rgb(15 15 15 / 0.08);
+  --edge-shade: color-mix(in srgb, var(--color-ink) 8%, transparent);
 
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
   min-height: 0;
   overflow: auto;
   outline: none;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
   font-size: var(--text-13);
 }
 
@@ -65,7 +65,7 @@
   transition: box-shadow var(--motion-base);
 
   .kasten-table-scroll[data-scrolled-y] & {
-    box-shadow: 0 6px 14px -12px rgb(15 15 15 / 0.35);
+    box-shadow: 0 6px 14px -12px color-mix(in srgb, var(--color-ink) 35%, transparent);
   }
 }
 

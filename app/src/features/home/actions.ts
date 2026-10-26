@@ -4,8 +4,9 @@
 import { useShell } from "../../lib/store";
 import type { IconName } from "../../ui/Icon";
 import { startNewBoard } from "../boards/store";
-import { newDiagram } from "../diagrams/actions";
+import { newItems } from "../../plugins/contributions";
 import { keyLabel, useKeys } from "../shortcuts/store";
+import { smartChoices } from "../smart/author/starter-list";
 import { startNewDeck } from "../slides/store";
 import { captureCard } from "../workspace/overlays/commands";
 import { useWorkspace } from "../workspace/store";
@@ -19,6 +20,8 @@ export interface HomeAction {
   /** The shortcut shown beside it, if it has one. */
   keys?: string;
   run(): void;
+  /** The "+ New" menu opens these beside the row (a submenu); the capture field lists them as rows of their own. */
+  choices?: HomeAction[];
 }
 
 /** The ways to start something new, as the "+ New" menu lists them. */
@@ -32,14 +35,18 @@ export function newActions(): HomeAction[] {
     { id: "template", label: "From a template", icon: "template", words: "gallery start", run: () => useShell.getState().openGallery({}) },
     { id: "deck", label: "New deck", icon: "present", words: "slides presentation", run: () => startNewDeck() },
     { id: "board", label: "New whiteboard", icon: "board", words: "canvas map sketch", run: () => startNewBoard() },
-    { id: "diagram", label: "New diagram", icon: "diagram", words: "draw flowchart drawio", run: () => void newDiagram() },
+    { id: "smart", label: "New smart page", icon: "code", words: "smart app dashboard tracker gallery map timeline live view", run: () => void import("../smart/author/starter-picker").then((m) => m.chooseStarter()), choices: smartChoices() },
+    // What plugins start come after the app's own.
+    ...newItems(),
   ];
 }
 
 /** What the capture field offers after "/": the new things, and search. */
 export function slashActions(): HomeAction[] {
   const keymap = useKeys.getState().keymap;
-  return [...newActions(), { id: "search", label: "Search", icon: "search", words: "find palette", keys: keyLabel(keymap, "palette"), run: () => useShell.getState().setPalette(true) }];
+  // A row with choices is listed with them, each as a row of its own: "/smart" shows every starter.
+  const rows = newActions().flatMap((action) => (action.choices ? [action, ...action.choices] : [action]));
+  return [...rows, { id: "search", label: "Search", icon: "search", words: "find palette", keys: keyLabel(keymap, "palette"), run: () => useShell.getState().setPalette(true) }];
 }
 
 /** The actions whose label or words hold `typed`, in their order. */

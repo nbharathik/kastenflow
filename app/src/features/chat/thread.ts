@@ -3,7 +3,7 @@
 // runs in. Pure functions from one thread to the next, so the store stays
 // small and the rules are easy to test.
 
-import type { AttachKind, Paused, PlanItem } from "./agent-types";
+import type { AttachKind, Binding, Paused, PlanItem } from "./agent-types";
 import { pausedOf, planOf, queuedOf, retryOf, roundOf } from "./thread-events";
 import type { ChangesInfo, ChatEvent, ChatTurn, ContextChip, FailKind, GenerationSettings, ToolCall, ToolResult } from "./types";
 
@@ -113,12 +113,19 @@ export interface Thread {
   round?: number;
   /** The last event of the backend's count taken in, so an event seen twice counts once. */
   seq?: number;
+  /** In line for a free place while other chats work: `n` is its place. Gone once it starts. */
+  waiting?: { n: number; text: string };
+  /** Moved out of the list by its size (it is still saved and opens). */
+  archived?: boolean;
+  /** What it is tied to, when it is. The backend keeps the tie; this is its last word. */
+  bound?: Binding | null;
 }
 
-export type ThreadStatus = "working" | "paused" | "interrupted" | "done" | "failed" | "idle";
+export type ThreadStatus = "working" | "waiting" | "paused" | "interrupted" | "done" | "failed" | "idle";
 
 /** Where a thread is, for its list and the dots: working, stopped short, finished well or not. */
 export function threadStatus(thread: Thread): ThreadStatus {
+  if (thread.waiting) return "waiting";
   if (thread.streaming) return "working";
   if (thread.pause) return thread.pause.reason === "interrupted" ? "interrupted" : "paused";
   const last = thread.messages[thread.messages.length - 1];
@@ -137,9 +144,9 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${(++seq).toString(36)}${random}`;
 }
 
-export function newThread(options: { context?: Chip[]; provider?: string | null; model?: string | null; follow?: boolean } = {}): Thread {
+export function newThread(options: { id?: string; context?: Chip[]; provider?: string | null; model?: string | null; follow?: boolean } = {}): Thread {
   return {
-    id: newId("chat"),
+    id: options.id ?? newId("chat"),
     created: Date.now(),
     provider: options.provider ?? null,
     model: options.model ?? null,
@@ -171,18 +178,34 @@ export function matchesThread(thread: Thread, query: string): boolean {
   return thread.messages.some((m) => (m.role === "user" ? m.text : answerText(m)).toLowerCase().includes(wanted));
 }
 
-/** A chip's identity: two chips naming the same thing are one. */
-export const chipKey = (chip: ContextChip) => `${chip.kind}:${chip.ref.join("\u0000")}`;
+/** A short stable hash of a selected text, so the same snippet is one chip. */
+const hashOf = (text: string): string => {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+};
 
-/** A chip as the request sends it. */
-export const bare = ({ kind, label, ref }: ContextChip): ContextChip => ({ kind, label, ref: [...ref] });
+/** A chip's identity: two chips naming the same thing are one. A selection is told apart by where it is from and its words. */
+export const chipKey = (chip: ContextChip) => {
+  const { selection } = chip;
+  if (chip.kind === "selection" && selection) return `selection:${selection.source.kind}:${selection.source.path}:${selection.source.id ?? ""}:${hashOf(selection.text)}`;
+  return `${chip.kind}:${chip.ref.join("\u0000")}`;
+};
+
+/** A chip as the request sends it. A selection says whether it was kept ("Add to chat") or is the automatic one. */
+export const bare = (chip: Chip): ContextChip => {
+  const { kind, label, ref, selection } = chip;
+  if (kind === "selection" && selection) return { kind, label, ref: [], selection: { ...selection, pinned: originOf(chip) !== "auto" } };
+  return { kind, label, ref: [...ref] };
+};
 
 /** `context` with the followed page swapped: the "auto" chips go, and `next`
  * comes in as the one auto chip, unless the person already has that very
- * thing there (pinned or added), which then stays as it is. */
+ * thing there (pinned or added), which then stays as it is. The automatic
+ * selection chip is not the page's: it has its own rules (selection/chip.ts). */
 export function followChips(context: readonly Chip[], next: Chip | null): Chip[] {
-  const autos = context.filter((chip) => originOf(chip) === "auto");
-  const kept = context.filter((chip) => originOf(chip) !== "auto");
+  const autos = context.filter((chip) => originOf(chip) === "auto" && chip.kind !== "selection");
+  const kept = context.filter((chip) => originOf(chip) !== "auto" || chip.kind === "selection");
   const wanted = next && !kept.some((chip) => chipKey(chip) === chipKey(next)) ? next : null;
   // The same chip is there already: nothing changes, not even the array.
   if (autos.length === (wanted ? 1 : 0) && (!wanted || chipKey(autos[0]!) === chipKey(wanted))) return context as Chip[];
@@ -208,7 +231,9 @@ export function rememberedQuestions(messages: readonly Message[], upTo = message
 export function startTurn(thread: Thread, text: string, provider: string, model: string, attachments: SentAttachment[] = []): Thread {
   const question: UserMessage = { id: newId("m"), role: "user", text, context: thread.context.map(bare), ...(attachments.length ? { attachments } : {}) };
   const answer: Answer = { id: newId("m"), role: "assistant", turn: null, provider, model, parts: [], status: "streaming", error: null, pinned: null };
-  return { ...thread, provider, model, messages: [...thread.messages, question, answer], streaming: true, stopping: false, pause: undefined, round: undefined };
+  // The automatic selection was for this question: it is gone once sent. Kept snippets stay.
+  const context = thread.context.some((c) => c.kind === "selection" && originOf(c) === "auto") ? thread.context.filter((c) => !(c.kind === "selection" && originOf(c) === "auto")) : thread.context;
+  return { ...thread, context, provider, model, messages: [...thread.messages, question, answer], streaming: true, stopping: false, pause: undefined, round: undefined };
 }
 
 /** Carries on a paused answer in place: it streams again, under the turn the backend names next. */
@@ -254,7 +279,7 @@ export function endTurn(thread: Thread, status: "stopped" | "error", error: stri
   const at = thread.messages.length - 1;
   const answer = thread.messages[at];
   // Stopped, what waited for a next step will not be read.
-  const done = { streaming: false, stopping: false, round: undefined, ...(status === "stopped" ? { queued: undefined } : {}) };
+  const done = { streaming: false, stopping: false, round: undefined, waiting: undefined, ...(status === "stopped" ? { queued: undefined } : {}) };
   if (answer?.role !== "assistant" || answer.status !== "streaming") return { ...thread, ...done };
   return withAnswer(thread, at, { ...answer, status, error }, done);
 }
@@ -288,7 +313,7 @@ export function applyEvent(thread: Thread, event: ChatEvent): Thread {
 const settled = (answer: Answer): Answer => (answer.retry ? { ...answer, retry: undefined } : answer);
 
 /** The turn is over, for now: no step, nothing tried again. */
-const over = { streaming: false, stopping: false, round: undefined };
+const over = { streaming: false, stopping: false, round: undefined, waiting: undefined };
 
 function applyOne(thread: Thread, event: ChatEvent): Thread {
   const at = answerAt(thread, event.turn);
@@ -335,6 +360,14 @@ function applyOne(thread: Thread, event: ChatEvent): Thread {
     }
     case "round":
       return withAnswer(thread, at, answer, { round: roundOf(event) ?? thread.round });
+    case "waiting": {
+      // In line for a free place: said once, and its place kept up to date.
+      const waiting = { n: typeof event.n === "number" && event.n > 0 ? event.n : 1, text: event.text?.trim() || "Waiting for another chat to finish" };
+      const same = thread.waiting?.n === waiting.n && thread.waiting.text === waiting.text;
+      return same ? withAnswer(thread, at, answer) : withAnswer(thread, at, answer, { waiting });
+    }
+    case "started":
+      return withAnswer(thread, at, answer, { waiting: undefined });
     case "notice": {
       const said = event.text?.trim();
       if (!said) return withAnswer(thread, at, answer);

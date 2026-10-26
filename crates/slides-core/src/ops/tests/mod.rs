@@ -21,6 +21,7 @@ mod page_size;
 mod pages;
 mod paragraphs;
 mod present;
+mod rich_marks;
 mod sections;
 mod steps;
 mod steps_build;

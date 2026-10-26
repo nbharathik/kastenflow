@@ -107,10 +107,16 @@ impl Kasten {
             return Ok(None);
         }
         let waiting: Vec<String> = self.state().edits.keys().cloned().collect();
+        // A file too big for GitHub that the list already names (at the size
+        // it has now) has nothing to commit: it stays in `dirty`, which tells
+        // a batch that History does not hold it, but this pass need not read
+        // it again.
+        let left_out = crate::backup::skip::read_list(self.vault.root());
         let paths: Vec<String> = history
             .dirty()?
             .into_iter()
             .filter(|p| !waiting.contains(p))
+            .filter(|p| !crate::backup::skip::already_left_out(self.vault.root(), &left_out, p))
             .collect();
         if paths.is_empty() {
             return Ok(None);

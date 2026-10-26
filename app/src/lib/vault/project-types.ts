@@ -92,6 +92,48 @@ export interface SetupInfo {
   files: string[];
   /** The tags it brings schemas for, kept if the vault has them. */
   tags: string[];
+  /** One the person saved from a project, which they can rename and delete. */
+  saved?: boolean;
+}
+
+/** One page of a project that a saved setup could keep. */
+export interface SetupPage {
+  /** The page's vault path. */
+  path: string;
+  title: string;
+  /** Ticked to start with: a page directly under the project's `pages/` folder. */
+  included: boolean;
+}
+
+/** What a project has that a setup could keep: the dialog's checklist. */
+export interface SetupSource {
+  /** The project's folder under `projects/`. */
+  folder: string;
+  title: string;
+  pages: SetupPage[];
+  /** The tags whose schemas (and views) come along. */
+  tags: string[];
+  /** The names of the default properties that come along. */
+  props: string[];
+}
+
+/** A setup that was just saved. */
+export interface SavedSetup {
+  /** What New project calls it, `saved:<slug>`. */
+  id: string;
+  slug: string;
+  name: string;
+  written: string[];
+  /** The commit, for Undo; none in a vault without history. */
+  commit: string | null;
+}
+
+/** A saved setup that was moved to the trash. */
+export interface SetupGone {
+  id: string;
+  trashed: string;
+  /** The commit, for Undo. */
+  commit: string | null;
 }
 
 /** Where a setup goes: a new project, or the folder of one that exists. */
@@ -134,6 +176,14 @@ export interface ProjectOps {
   previewSetup(id: string, target: SetupTarget): Promise<SetupPlan>;
   /** Adds a setup's files in one commit that Undo takes back; never replaces a file. */
   applySetup(id: string, target: SetupTarget): Promise<AppliedSetup>;
+  /** What the project has that a setup could keep: its pages (the ones directly under `pages/` ticked), tags and properties. `project` is its folder. */
+  previewProjectSetup(project: string): Promise<SetupSource>;
+  /** Saves the project as a setup new projects can start from: the pages in `pages` (vault paths), its tags' schemas and default properties, in one commit that Undo takes back. A blank `slug` makes the file name of the title. */
+  saveProjectSetup(project: string, title: string, pages: string[], slug?: string): Promise<SavedSetup>;
+  /** Gives a saved setup another name. */
+  renameSetup(id: string, name: string): Promise<SetupInfo>;
+  /** Moves a saved setup to the trash (nothing is deleted for good); one commit that Undo takes back. */
+  trashSetup(id: string): Promise<SetupGone>;
 }
 
 /** What a call about a draft does, for each call of `ProjectOps`. */
@@ -143,4 +193,8 @@ export const PROJECT_RULES = {
   listSetups: "pass",
   previewSetup: "pass",
   applySetup: "pass",
+  previewProjectSetup: "pass",
+  saveProjectSetup: "pass",
+  renameSetup: "pass",
+  trashSetup: "pass",
 } as const satisfies Record<keyof ProjectOps, DraftRule>;

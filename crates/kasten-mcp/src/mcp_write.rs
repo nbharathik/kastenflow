@@ -59,7 +59,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Sets properties on a note, validated against its tags' schemas; null removes one."
+        description = "Sets properties on a note, validated against its tags' schemas; null removes one. A project's status, health, next action and review days are set with set_project_state instead."
     )]
     async fn update_props(
         &self,
@@ -123,6 +123,17 @@ impl KastenServer {
     }
 
     #[tool(
+        description = "Many changes as one: up to 100 (1 MB), each a write tool's name and arguments. All are made or none, as one change that one undo takes back. One refused change refuses the batch and names it; if any change needs review the whole batch waits as one proposal. Prefer it to many separate calls. Name notes that exist already."
+    )]
+    async fn batch(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(a): Parameters<BatchArgs>,
+    ) -> CallToolResult {
+        self.agent(&context, move |k| tools::batch_op(k, a)).await
+    }
+
+    #[tool(
         description = "Moves a note, and every sub-page inside it, to the trash, where the user can restore them. Never deletes."
     )]
     async fn trash_note(
@@ -170,7 +181,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Proposes a tag's schema: its colour, properties and views. Always waits for review."
+        description = "Proposes a tag's schema: its colour, properties and views. A property of type formula is worked out when the rows are read and is never written to a note, for example {key: days_left, type: formula, formula: \"days_until(deadline)\"}; a formula that does not parse, or names a property the tag lacks, is refused with the position of the mistake. Always waits for review."
     )]
     async fn update_tag_schema(
         &self,

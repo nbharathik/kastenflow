@@ -1,7 +1,11 @@
 // What the slash menu and "Turn into" offer, in Notion's order and words, and
 // how a typed query finds them. Pure data: slash.ts and block-menu.ts run them.
 
+import type { Ctx } from "@milkdown/kit/ctx";
+import type { EditorView } from "@milkdown/kit/prose/view";
+
 import type { TagViewKind } from "../../../../lib/vault/types";
+import { slashItems as pluginSlash } from "../../../../plugins/contributions";
 import type { WriteAction } from "../../../chat/types";
 import { NOTION_COLORS, type NotionColor } from "../blocks/color";
 
@@ -25,12 +29,21 @@ export type ChoiceAction =
   | { type: "template" }
   /** Opens the menu of slide decks to show in the page, and a new one. */
   | { type: "deck" }
-  /** Opens the menu of diagrams to show in the page, and a new one (its editor opens at once). */
-  | { type: "diagram" }
   /** Opens the menu of papers in the bibliography and writes `[@key]` for the one picked. */
   | { type: "cite" }
   /** Starts two sections and draws the page as slide-like cards (`layout: sections`). */
-  | { type: "smart" };
+  | { type: "smart" }
+  /** Puts blocks side by side: a columns block with this many columns. */
+  | { type: "columns"; count: 2 | 3 }
+  /** Something a plugin adds: it runs when picked, with the typed "/…" already taken out, and where the caret is. */
+  | { type: "plugin"; run(on?: SlashTarget): void };
+
+/** Where a picked choice acts: the editor, its context and the caret's position. */
+export interface SlashTarget {
+  view: EditorView;
+  ctx: Ctx;
+  from: number;
+}
 
 export interface Choice {
   key: string;
@@ -43,6 +56,8 @@ export interface Choice {
   keywords: string[];
   section: string;
   action: ChoiceAction;
+  /** For a plugin's choice: listed right before the choice with this key (after all of them when absent or unknown), so typing finds it first. */
+  before?: string;
 }
 
 const turn = (kind: BlockKind) => ({ type: "turn", kind }) as const;
@@ -85,6 +100,8 @@ export const BLOCK_CHOICES: Choice[] = [
   { key: "embed", label: "Embed a page", icon: "icon:layers", hint: "![[", description: "Show another page's text here, kept up to date.", keywords: ["embed", "transclude", "include", "show", "page", "![["], section: MEDIA, action: { type: "link", mode: "embed" } },
   { key: "file", label: "File", icon: "icon:attach", description: "Attach a file from your computer.", keywords: ["attachment", "attach", "upload", "pdf", "document", "spreadsheet"], section: MEDIA, action: { type: "files" } },
   { key: "code", label: "Code", icon: "icon:code", hint: "```", description: "Capture a code snippet.", keywords: ["codeblock", "snippet", "pre", "```"], section: MEDIA, action: turn("code") },
+  { key: "columns-2", label: "2 columns", icon: "icon:split", description: "Put blocks side by side in two columns.", keywords: ["columns", "columns 2", "column", "2 columns", "side by side", "layout", "split"], section: ADVANCED, action: { type: "columns", count: 2 } },
+  { key: "columns-3", label: "3 columns", icon: "icon:split", description: "Put blocks side by side in three columns.", keywords: ["columns", "columns 3", "column", "3 columns", "side by side", "layout", "split"], section: ADVANCED, action: { type: "columns", count: 3 } },
   { key: "table", label: "Table", icon: "icon:table", description: "Add a simple table.", keywords: ["grid", "rows", "columns"], section: ADVANCED, action: insert("table") },
   { key: "math", label: "Block equation", icon: "icon:sigma", hint: "$$", description: "Display a standalone equation.", keywords: ["math", "equation", "latex", "tex", "katex", "formula", "$$"], section: ADVANCED, action: turn("math") },
   { key: "inline-equation", label: "Inline equation", icon: "icon:radical", hint: "$", description: "Write an equation inside a line of text.", keywords: ["math", "equation", "inline", "latex", "tex", "katex", "formula", "$"], section: ADVANCED, action: insert("inline-equation") },
@@ -99,12 +116,11 @@ export const BLOCK_CHOICES: Choice[] = [
   { key: "summarize-ai", label: "Summarize page", icon: "icon:sparkle", description: "AI sums up the page in a few points.", keywords: ["ai", "summary", "summarise", "tldr", "points"], section: AI, action: { type: "ai", action: "summarize" } },
   // Offered only while the page is empty (slash.ts).
   { key: "template", label: "Template…", icon: "icon:template", description: "Start this empty page from a template.", keywords: ["template", "start", "use"], section: TEMPLATES, action: { type: "template" } },
-  // Before the whiteboard, which also answers to "diagram" and "draw": typing either finds the diagram first.
-  { key: "diagram", label: "Diagram", icon: "icon:diagram", description: "Show a diagram in the page, or draw a new one.", keywords: ["diagram", "drawio", "flowchart", "flow", "chart", "architecture", "uml", "sketch", "draw"], section: ADVANCED, action: { type: "diagram" } },
+  // The diagrams plugin adds its choice right before this one, which also answers to "diagram" and "draw".
   { key: "board", label: "Whiteboard", icon: "icon:board", description: "Embed a whiteboard to work on in the page.", keywords: ["board", "canvas", "whiteboard", "embed", "diagram", "draw"], section: ADVANCED, action: { type: "link", mode: "board" } },
   { key: "deck", label: "Deck", icon: "icon:present", description: "Show a slide deck in the page, slide by slide.", keywords: ["deck", "slides", "slideshow", "presentation", "powerpoint", "talk"], section: ADVANCED, action: { type: "deck" } },
   { key: "citation", label: "Citation", icon: "icon:book", hint: "[@", description: "Cite a paper from your references, such as [@key].", keywords: ["citation", "cite", "reference", "bibliography", "paper", "source", "pandoc", "bibtex", "[@"], section: ADVANCED, action: { type: "cite" } },
-  { key: "smart-page", label: "Smart page", icon: "icon:layout", description: "Cut the page into sections you can present, one slide each.", keywords: ["smart", "sections", "cards", "frames", "layout", "present", "slides", "talk"], section: ADVANCED, action: { type: "smart" } },
+  { key: "smart-page", label: "Sections layout", icon: "icon:layout", description: "Cut the page into sections you can present, one slide each.", keywords: ["sections", "cards", "frames", "layout", "present", "slides", "talk"], section: ADVANCED, action: { type: "smart" } },
 ];
 
 const colourName = (color: string) => color[0]!.toUpperCase() + color.slice(1);
@@ -136,6 +152,16 @@ export function colorChoices(): Choice[] {
 
 /** Everything the slash menu offers, in order. */
 export const SLASH_CHOICES: Choice[] = [...BLOCK_CHOICES, ...colorChoices()];
+
+/** The slash menu's choices now: the app's own, then those of the plugins that are on. */
+export function slashChoices(): Choice[] {
+  const list = [...SLASH_CHOICES];
+  for (const choice of pluginSlash()) {
+    const at = choice.before ? list.findIndex((c) => c.key === choice.before) : -1;
+    list.splice(at < 0 ? list.length : at, 0, choice);
+  }
+  return list;
+}
 
 /** The kinds "Turn into" offers, in Notion's order. */
 export const TURN_INTO: BlockKind[] = ["text", "h1", "h2", "h3", "bullet", "numbered", "todo", "toggle", "code", "quote", "callout", "math"];

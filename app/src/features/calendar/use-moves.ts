@@ -140,7 +140,10 @@ export function useMoves(): Moves {
   const commit = useCallback(
     async ({ target, from, fromDays, to }: Waiting) => {
       if (!(await write(target, target.keys.map((_, i) => movedValue(from[i], to[i]!)), to))) return;
-      const words = said(target, fromDays, to);
+      // A note that had no date gets one (the timeline's "Set dates"): Undo takes it off again.
+      const given = from.some((value) => value === null);
+      const title = titleOf(target.note);
+      const words = given ? { done: `Set the dates of “${title}”`, undone: `Took the dates off “${title}”` } : said(target, fromDays, to);
       useWorkspace.getState().toast(words.done, {
         label: "Undo",
         run: () => {
@@ -158,9 +161,10 @@ export function useMoves(): Moves {
       const known = waiting.current.get(id);
       clearTimeout(known?.timer);
       waiting.current.delete(id);
-      const from = known ? known.from : target.keys.map((key) => propOf(target.note.props, key));
+      // A date the note does not have yet is null, so Undo clears it again.
+      const from = known ? known.from : target.keys.map((key) => propOf(target.note.props, key) ?? null);
       const entry: Waiting = { target: known?.target ?? target, from, fromDays: known?.fromDays ?? from.map((value, i) => asDay(value) ?? target.days[i]!), to: days };
-      if (same(entry.to, entry.fromDays) && !queues.current.has(id)) {
+      if (same(entry.to, entry.fromDays) && !from.some((value) => value === null) && !queues.current.has(id)) {
         // Back where it started, with nothing on its way: nothing to write.
         show(id, null);
         return;

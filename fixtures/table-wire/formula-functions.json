@@ -1,0 +1,13 @@
+{
+  "about": "The functions a formula may call, with the example the schema editor offers for each. Checked against the core's FUNCTIONS (and every example parsed) by crates/kasten-core/tests/core/formula_functions.rs, and against the editor's list by app/src/features/tags/formula/functions.test.ts.",
+  "functions": [
+    { "name": "days_until", "arity": 1, "example": "days_until(deadline)" },
+    { "name": "days_since", "arity": 1, "example": "days_since(created)" },
+    { "name": "count", "arity": 1, "example": "count(blocks)" },
+    { "name": "count_backlinks", "arity": 0, "example": "count_backlinks()" },
+    { "name": "sum", "arity": 1, "example": "sum(tasks.points)" },
+    { "name": "min", "arity": 1, "example": "min(tasks.points)" },
+    { "name": "max", "arity": 1, "example": "max(tasks.points)" },
+    { "name": "if_empty", "arity": 2, "example": "if_empty(venue, \"TBD\")" }
+  ]
+}

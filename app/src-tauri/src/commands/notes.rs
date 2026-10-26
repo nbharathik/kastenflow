@@ -220,6 +220,17 @@ pub fn nest_note(
     state.run(|k| k.nest_placed(&HUMAN, &path, parent.as_deref(), Instant::now()))
 }
 
+/// Stores the order the sub-pages of the page at `parent` show in (their
+/// ids, first to last); the page's file is the only one that changes.
+#[tauri::command(async)]
+pub fn reorder_children(
+    state: State<'_, OpenVault>,
+    parent: String,
+    ids: Vec<String>,
+) -> Result<NoteFile, String> {
+    state.run(|k| k.reorder_children(&HUMAN, &parent, &ids, Instant::now()))
+}
+
 #[tauri::command(async)]
 pub fn duplicate_note(state: State<'_, OpenVault>, path: String) -> Result<NoteFile, String> {
     state.run(|k| k.duplicate(&HUMAN, &path, Instant::now()))

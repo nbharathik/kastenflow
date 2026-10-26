@@ -37,6 +37,17 @@ describe("the project calls", () => {
     await tauriProjects.applySetup("writing", { kind: "existing", folder: "essay" });
     expect(invoke).toHaveBeenLastCalledWith("apply_setup", { id: "writing", target: { kind: "existing", folder: "essay" } });
   });
+
+  it("save a project as a setup, and rename and delete one, with the arguments the core reads", async () => {
+    await tauriProjects.previewProjectSetup("essay");
+    expect(invoke).toHaveBeenLastCalledWith("preview_project_setup", { project: "essay" });
+    await tauriProjects.saveProjectSetup("essay", "Essay kit", ["projects/essay/pages/outline.md"]);
+    expect(invoke).toHaveBeenLastCalledWith("save_project_setup", { project: "essay", slug: "", title: "Essay kit", pages: ["projects/essay/pages/outline.md"] });
+    await tauriProjects.renameSetup("saved:essay-kit", "My essay");
+    expect(invoke).toHaveBeenLastCalledWith("rename_setup", { id: "saved:essay-kit", name: "My essay" });
+    await tauriProjects.trashSetup("saved:essay-kit");
+    expect(invoke).toHaveBeenLastCalledWith("trash_setup", { id: "saved:essay-kit" });
+  });
 });
 
 describe("the revision and health calls", () => {

@@ -23,6 +23,7 @@ const LIST_ITEM = /^(\s*)(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?(.*)$/;
 const PICTURE = /^\s*!\[[^\]]*\]\([^)]*\)\s*$/;
 const EMBED = /^\s*!\[\[[^\]]*\]\]\s*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const COLUMN_MARKER = /^\s*<!--\s*\/?columns?(?:\s+\d+(?:\/\d+)*)?\s*-->\s*$/i;
 /** The longest a slide's one line made of prose is, in characters. */
 const LINE = 200;
 /** How deep a list goes on a slide. */
@@ -68,7 +69,8 @@ export function slideOf(section: SectionText): SlideText {
       skipping = false;
       continue;
     }
-    if (line.trim() === "") {
+    // The comments that make columns are layout, not words; the columns read in order.
+    if (line.trim() === "" || COLUMN_MARKER.test(line)) {
       flush();
       continue;
     }

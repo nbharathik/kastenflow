@@ -15,6 +15,7 @@ import { NewProperty, OtherRows } from "../../panel/properties/OtherProperties";
 import { TagEditor } from "../../panel/properties/TagEditor";
 import { usePropertyEdits } from "../../panel/properties/use-property-edits";
 import { propOf } from "../../panel/properties/values";
+import { FoldBar, useFolded } from "./PropertiesFold";
 
 interface PagePropertiesProps {
   note: NoteMeta;
@@ -26,6 +27,7 @@ interface PagePropertiesProps {
 
 export function PageProperties({ note, page, adding, onAdding }: PagePropertiesProps) {
   const { schemas, tags, props, groups, otherKeys, saveProp, changeTags } = usePropertyEdits(note, page);
+  const folded = useFolded(note, adding);
   if (!adding && tags.length === 0 && Object.keys(props).length === 0) return null;
   // One row per key, though two tags' schemas may both name it.
   const seen = new Set<string>();
@@ -33,6 +35,9 @@ export function PageProperties({ note, page, adding, onAdding }: PagePropertiesP
 
   return (
     <section className="kasten-page-props kasten-page-column" aria-label="Properties">
+      <FoldBar note={note} folded={folded} />
+      {!folded && (
+      <>
       <dl className="kasten-props">
         <div className="kasten-prop">
           <dt>
@@ -67,6 +72,8 @@ export function PageProperties({ note, page, adding, onAdding }: PagePropertiesP
         <button type="button" className="kasten-page-props-add" onClick={() => onAdding(true)}>
           <Icon name="plus" className="size-4" /> Add property
         </button>
+      )}
+      </>
       )}
     </section>
   );

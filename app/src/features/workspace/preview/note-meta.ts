@@ -26,6 +26,7 @@ export function metaFor(path: string, text: string, modified: number): NoteMeta 
   const project = parts[0] === "projects" && parts.length >= 3 ? parts[1]! : null;
   const stem = parts[parts.length - 1]!.replace(/\.md$/, "");
   const fromPath = kindFromPath(path);
+  const order = idsOf(/^children_order[ \t]*:(.*?)\r?$/m.exec(split.prefix)?.[1]?.trim() ?? "");
   return {
     path,
     id: text_("id"),
@@ -43,5 +44,16 @@ export function metaFor(path: string, text: string, modified: number): NoteMeta 
     words: facts.words,
     props: propsOf(split.prefix),
     locked: text_("locked") === "true",
+    ...(order.length > 0 ? { childrenOrder: order } : {}),
   };
+}
+
+/** The ids in a flow list, quotes dropped; none for anything else. */
+function idsOf(raw: string): string[] {
+  if (!raw.startsWith("[")) return [];
+  return raw
+    .slice(1, raw.lastIndexOf("]"))
+    .split(",")
+    .map((id) => id.trim().replace(/^(["'])(.*)\1$/, "$2"))
+    .filter(Boolean);
 }

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conference tracker</title>
+  <link rel="stylesheet" href="smart://kit/1/kit.css">
+  <link rel="stylesheet" href="smart://kit/1/kit-visual.css">
+</head>
+<body>
+  <main>
+    <h1>Conference tracker</h1>
+    <p id="empty" class="kit-empty" role="status" hidden></p>
+    <div id="content" class="kit-stack" hidden>
+      <section aria-labelledby="h-next">
+        <h2 id="h-next">Next paper deadlines</h2>
+        <div id="countdowns"></div>
+      </section>
+      <section aria-labelledby="h-map">
+        <h2 id="h-map">Host cities</h2>
+        <div id="map"></div>
+      </section>
+      <section aria-labelledby="h-pipeline">
+        <h2 id="h-pipeline">Abstract to paper</h2>
+        <div id="pipeline"></div>
+      </section>
+      <section aria-labelledby="h-venues">
+        <h2 id="h-venues">All venues</h2>
+        <div id="venues"></div>
+      </section>
+    </div>
+  </main>
+  <script src="smart://kit/1/kit.js"></script>
+  <script src="smart://kit/1/lib/dom.js"></script>
+  <script src="smart://kit/1/lib/dates.js"></script>
+  <script src="smart://kit/1/lib/format.js"></script>
+  <script src="smart://kit/1/lib/keys.js"></script>
+  <script src="smart://kit/1/components/countdown.js"></script>
+  <script src="smart://kit/1/components/gallery.js"></script>
+  <script src="smart://kit/1/components/timeline.js"></script>
+  <script src="smart://kit/1/components/map.js"></script>
+  <script src="smart://kit/1/data/world-110m.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

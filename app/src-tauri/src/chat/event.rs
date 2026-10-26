@@ -44,6 +44,12 @@ pub enum EventKind {
     /// A step (a request to the model) began: `n` steps so far in this turn
     /// and `calls` tool calls made.
     Round,
+    /// The turn is ready but as many chats are working as `chat.max_concurrent`
+    /// allows: it waits for one to finish. `n` is its place in line (1 is
+    /// next) and `text` the sentence to show. `started` follows when it begins.
+    Waiting,
+    /// A turn that was `waiting` left the line and began.
+    Started,
 }
 
 /// A tool the model called.
@@ -197,6 +203,14 @@ impl Log {
         self.seq = self.seq.max(seq);
     }
 
+    /// The event numbers after `since` that are no longer kept, first to last:
+    /// what a window that was reloaded can only get from the saved thread.
+    /// None when every event after `since` is still there (or there are none).
+    pub fn missing_after(&self, since: u64) -> Option<(u64, u64)> {
+        let oldest = self.ring.front().map_or(self.seq + 1, |e| e.seq);
+        (since + 1 < oldest).then_some((since + 1, oldest - 1))
+    }
+
     /// The events after number `since`.
     pub fn since(&self, since: u64) -> Since {
         let events: Vec<ChatEvent> = self
@@ -251,12 +265,18 @@ mod tests {
         assert_eq!(kept.events.len(), RING);
         assert_eq!(kept.events[0].seq, 11);
         assert!(kept.gap, "events 1 to 10 are gone");
+        assert_eq!(log.missing_after(0), Some((1, 10)));
+        assert_eq!(log.missing_after(4), Some((5, 10)));
+        assert_eq!(log.missing_after(10), None);
+        assert_eq!(log.missing_after(RING as u64 + 10), None);
         assert!(!log.since(10).gap, "11 is the next one it needs");
         assert!(log.since(5).gap);
         // A restored chat goes on from its number, with nothing to replay.
         let mut restored = Log::default();
         restored.at_least(40);
         assert!(restored.since(10).gap);
+        assert_eq!(restored.missing_after(10), Some((11, 40)));
+        assert_eq!(restored.missing_after(40), None);
         assert_eq!(restored.stamp(text("y")).seq, 41);
     }
 }

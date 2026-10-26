@@ -91,6 +91,30 @@ pub struct Front {
     pub props: Option<crate::loose::Loose>,
     /// `locked: true` makes the note read-only for agents.
     pub locked: Option<Text>,
+    /// The ids of a page's sub-pages, in the order they are shown. Read
+    /// loosely (`ids_of`): a value that is no list never hides the page's
+    /// title, id or lock.
+    pub children_order: Option<crate::loose::Loose>,
+}
+
+/// The ids a `children_order` value names: the text and number items of a
+/// list (or one id written as a plain value); anything else names none.
+pub fn ids_of(value: Option<&crate::loose::Loose>) -> Vec<String> {
+    use serde_json::Value;
+    let one = |item: &Value| match item {
+        Value::String(s) => Some(s.trim().to_owned()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    };
+    let items: Vec<String> = match value.map(|loose| &loose.0) {
+        Some(Value::Array(list)) => list.iter().filter_map(one).collect(),
+        Some(scalar @ (Value::String(_) | Value::Number(_) | Value::Bool(_))) => {
+            one(scalar).into_iter().collect()
+        }
+        _ => Vec::new(),
+    };
+    items.into_iter().filter(|id| !id.is_empty()).collect()
 }
 
 /// Any scalar read as text: `title: 2026` is a title, not a parse error.

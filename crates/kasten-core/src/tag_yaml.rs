@@ -36,8 +36,10 @@ fn find(lines: &[&str], key: &str) -> Option<(usize, usize)> {
             end += 1;
             continue;
         }
-        // Blank lines belong to the value only when more of it follows.
-        let next = (end..lines.len()).find(|&i| !lines[i].trim().is_empty());
+        // Blank lines and comments at the left edge belong to the value only
+        // when more of it follows (`views:`, a comment, then the items).
+        let next =
+            (end..lines.len()).find(|&i| !lines[i].trim().is_empty() && !lines[i].starts_with('#'));
         match next {
             Some(i) if continues(lines[i]) => end = i,
             _ => break,
@@ -88,6 +90,73 @@ pub fn set_list(yaml: &str, key: &str, items: &[Value]) -> String {
     };
     let lines: Vec<&str> = yaml.split_inclusive('\n').collect();
     replace(yaml, &lines, find(&lines, key), &block)
+}
+
+/// The line a list item starts on: indented or not, `- ` or a lone `-`.
+fn starts_item(line: &str) -> bool {
+    let text = line.trim_start_matches([' ', '\t']);
+    text.starts_with("- ") || text.trim_end_matches(['\n', '\r']) == "-"
+}
+
+fn indent_of(line: &str) -> usize {
+    line.len() - line.trim_start_matches([' ', '\t']).len()
+}
+
+/// Whether `line` is empty or only a comment: it belongs to no item's value.
+fn is_gap(line: &str) -> bool {
+    let text = line.trim();
+    text.is_empty() || text.starts_with('#')
+}
+
+/// `yaml` with the `index`th item of the top-level list `key` replaced by
+/// `item` and every other byte as it was: the item's line keeps its indent,
+/// its dash and its line end. Only an item written as one flow mapping on a
+/// line of its own (`  - {name: Table, type: table}`, a comment after it stays)
+/// can be replaced this way; `None` for any other, and the caller writes
+/// the whole list instead (`set_list`).
+pub fn replace_list_item(yaml: &str, key: &str, index: usize, item: &Value) -> Option<String> {
+    let lines: Vec<&str> = yaml.split_inclusive('\n').collect();
+    let (start, end) = find(&lines, key)?;
+    let body = &lines[start + 1..end];
+    let base = body
+        .iter()
+        .filter(|l| starts_item(l))
+        .map(|l| indent_of(l))
+        .min()?;
+    let starts: Vec<usize> = (0..body.len())
+        .filter(|&i| starts_item(body[i]) && indent_of(body[i]) == base)
+        .collect();
+    let from = *starts.get(index)?;
+    let to = starts.get(index + 1).copied().unwrap_or(body.len());
+    // Whatever follows the item's own line must be blank or a comment.
+    if !body[from + 1..to].iter().all(|l| is_gap(l)) {
+        return None;
+    }
+    let line = body[from];
+    let eol = &line[line.trim_end_matches(['\n', '\r']).len()..];
+    let text = line.trim_end_matches(['\n', '\r']);
+    let dash = text.find('-')?;
+    let after = &text[dash + 1..];
+    let value = after.trim_start_matches([' ', '\t']);
+    let lead = &text[..text.len() - value.len()];
+    // The mapping ends where a comment starts, if there is one; the comment
+    // (whatever it ends in) stays after the new item.
+    let flow = value.trim_end_matches([' ', '\t']);
+    let flow = match flow.find(" #").or_else(|| flow.find("\t#")) {
+        Some(at) => flow[..at].trim_end_matches([' ', '\t']),
+        None => flow,
+    };
+    if !flow.starts_with('{') || !flow.ends_with('}') {
+        return None;
+    }
+    let trailing = &value[flow.len()..];
+    let at = start + 1 + from;
+    Some(format!(
+        "{}{lead}{}{trailing}{eol}{}",
+        lines[..at].concat(),
+        yaml_value(item),
+        lines[at + 1..].concat()
+    ))
 }
 
 /// A ` # comment` after a one-line value, with the spacing before it, so it

@@ -37,7 +37,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Rows of a tag's database: the notes with that tag and their properties, filtered and sorted.",
+        description = "Rows of a tag's database: the notes with that tag and their properties, filtered and sorted. Each row also says which page it is a sub-page of (parent, an id) and how many sub-pages it has (children). Formula properties are worked out for today and show in props; a cell that cannot be worked out is empty and the row's problems says why.",
         annotations(read_only_hint = true)
     )]
     async fn query_tag(&self, Parameters(args): Parameters<QueryTagArgs>) -> CallToolResult {

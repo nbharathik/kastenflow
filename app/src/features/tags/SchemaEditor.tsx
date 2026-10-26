@@ -7,6 +7,8 @@ import { useState } from "react";
 import type { PropDef, TagSchema } from "../../lib/vault/types";
 import { Modal } from "../../ui/Modal";
 import { validKey } from "../panel/properties/values";
+import { FormulaField } from "./formula/FormulaField";
+import { useFormulaChecks } from "./formula/use-formula-checks";
 import { joinOptions, splitOptions } from "./option-list";
 import { useTags } from "./store";
 
@@ -19,6 +21,7 @@ const TYPES: { type: string; label: string }[] = [
   { type: "checkbox", label: "Checkbox" },
   { type: "url", label: "Link" },
   { type: "relation", label: "Relation" },
+  { type: "formula", label: "Formula" },
 ];
 
 const hasOptions = (type: string) => type === "select" || type === "multi_select";
@@ -28,9 +31,11 @@ interface Draft {
   type: string;
   /** Options as typed: separated by commas, one holding a comma in quotes. */
   options: string;
+  /** A formula property's formula as typed. */
+  formula: string;
 }
 
-const draftOf = (def: PropDef): Draft => ({ key: def.key, type: def.type, options: joinOptions(def.options) });
+const draftOf = (def: PropDef): Draft => ({ key: def.key, type: def.type, options: joinOptions(def.options), formula: def.formula ?? "" });
 
 /** What is wrong with the drafts, if anything. */
 function problem(drafts: Draft[]): string | null {
@@ -46,7 +51,8 @@ function problem(drafts: Draft[]): string | null {
 export function SchemaEditor({ tag, schema, onClose }: { tag: string; schema: TagSchema | null; onClose: () => void }) {
   const [drafts, setDrafts] = useState<Draft[]>(() => (schema?.properties ?? []).map(draftOf));
   const [saving, setSaving] = useState(false);
-  const wrong = problem(drafts);
+  const issues = useFormulaChecks(drafts);
+  const wrong = problem(drafts) ?? (issues.some(Boolean) ? "Fix the formula marked above before saving." : null);
   const edit = (i: number, patch: Partial<Draft>) => setDrafts(drafts.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   const move = (i: number, by: -1 | 1) => {
     const next = [...drafts];
@@ -60,6 +66,7 @@ export function SchemaEditor({ tag, schema, onClose }: { tag: string; schema: Ta
       key: d.key.trim(),
       type: d.type,
       options: hasOptions(d.type) ? splitOptions(d.options) : [],
+      ...(d.type === "formula" ? { formula: d.formula.trim() } : {}),
     }));
     const done = await useTags.getState().saveProperties(tag, properties);
     setSaving(false);
@@ -97,10 +104,11 @@ export function SchemaEditor({ tag, schema, onClose }: { tag: string; schema: Ta
                 ×
               </button>
             </span>
+            {d.type === "formula" && <FormulaField name={d.key} value={d.formula} issue={issues[i] ?? null} onChange={(formula) => edit(i, { formula })} />}
           </li>
         ))}
       </ol>
-      <button type="button" className="kasten-tagdb-add" onClick={() => setDrafts([...drafts, { key: "", type: "text", options: "" }])}>
+      <button type="button" className="kasten-tagdb-add" onClick={() => setDrafts([...drafts, { key: "", type: "text", options: "", formula: "" }])}>
         + Add a property
       </button>
       {wrong && <p className="kasten-schema-problem">{wrong}</p>}

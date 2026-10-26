@@ -3,6 +3,7 @@
 
 use kasten_core::frontmatter::split;
 use kasten_core::tag_query::{apply_view, board_columns};
+use kasten_core::tags::formula::Day;
 use kasten_core::{Error, Kasten, NoteFile, NoteMeta, Result};
 use serde_json::{Value, json};
 
@@ -50,6 +51,7 @@ pub(crate) fn note_json(note: &NoteFile) -> Value {
         "tags": note.meta.tags,
         "props": note.meta.props,
         "locked": note.meta.locked,
+        "hash": note.hash,
         "created": note.meta.created,
         "updated": note.meta.updated,
         "frontmatter": yaml,
@@ -118,11 +120,29 @@ pub(crate) fn query_tag(k: &Kasten, args: QueryTagArgs) -> Result<Value> {
         .tag_schemas()?
         .into_iter()
         .find(|s| s.name.eq_ignore_ascii_case(&tag));
-    let tagged: Vec<NoteMeta> = k
-        .list()?
+    let everything = k.list()?;
+    // How many sub-pages each page has, from the index's parent ids.
+    let mut children: std::collections::HashMap<&str, usize> = Default::default();
+    for parent in everything.iter().filter_map(|n| n.parent.as_deref()) {
+        *children.entry(parent).or_default() += 1;
+    }
+    let child_counts: std::collections::HashMap<String, usize> = children
         .into_iter()
-        .filter(|n| n.kind != "template" && n.tags.iter().any(|t| t.eq_ignore_ascii_case(&tag)))
+        .map(|(id, count)| (id.to_owned(), count))
         .collect();
+    let mut tagged: Vec<NoteMeta> = everything
+        .iter()
+        .filter(|n| n.kind != "template" && n.tags.iter().any(|t| t.eq_ignore_ascii_case(&tag)))
+        .cloned()
+        .collect();
+    // Formula properties are worked out here, on these copies, and not stored.
+    let problems = match &schema {
+        Some(schema) => {
+            let day = Day::parse(&today()).unwrap_or(Day(0));
+            k.fill_formulas(schema, &mut tagged, &everything, day)?
+        }
+        None => Default::default(),
+    };
     let views: Vec<Value> = schema.as_ref().map(|s| s.views.clone()).unwrap_or_default();
     let saved = match &args.view {
         Some(name) => Some(
@@ -187,7 +207,21 @@ pub(crate) fn query_tag(k: &Kasten, args: QueryTagArgs) -> Result<Value> {
     let rows: Vec<Value> = rows
         .iter()
         .take(limit)
-        .map(|n| json!({ "path": n.path, "id": n.id, "title": n.title, "props": n.props }))
+        .map(|n| {
+            let mut row = json!({
+                "path": n.path,
+                "id": n.id,
+                "title": n.title,
+                "props": n.props,
+                "parent": n.parent,
+                "children": n.id.as_ref().and_then(|id| child_counts.get(id)).copied().unwrap_or(0),
+            });
+            // Why a formula cell is empty, by property.
+            if let Some(why) = problems.get(&n.path) {
+                row["problems"] = json!(why);
+            }
+            row
+        })
         .collect();
     let names: Vec<&str> = views
         .iter()

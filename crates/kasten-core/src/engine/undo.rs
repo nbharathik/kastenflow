@@ -86,7 +86,7 @@ impl Kasten {
         let log = self.log(None, LOOK_BACK)?;
         let undone: HashSet<&str> = log.iter().filter_map(|c| c.undoes.as_deref()).collect();
         let mut by: BTreeMap<&str, SessionInfo> = BTreeMap::new();
-        for commit in &log {
+        for commit in log.iter().filter(|c| c.agent) {
             let Some(id) = commit.session.as_deref() else {
                 continue;
             };
@@ -115,16 +115,30 @@ impl Kasten {
 
     /// Reverts a session's commits newest first, one new commit each.
     pub fn undo_session(&self, session: &str, now: Instant) -> Result<Undone> {
+        self.undo_session_with(session, now, &[])
+    }
+
+    /// `undo_session`, its commits carrying the extra trailers `by`: how an
+    /// agent's undo says whose it was, since the revert itself is committed as
+    /// the person's (it never joins the session it takes back).
+    pub(super) fn undo_session_with(
+        &self,
+        session: &str,
+        now: Instant,
+        by: &[(&str, String)],
+    ) -> Result<Undone> {
         let history = self.history_for_undo()?;
         let log = self.log(None, LOOK_BACK)?;
         let done: HashSet<String> = log.iter().filter_map(|c| c.undoes.clone()).collect();
         let commits: Vec<_> = log
             .into_iter()
-            .filter(|c| c.session.as_deref() == Some(session) && !done.contains(&c.id))
+            // Only an agent's commit belongs to a session, as in the digest: a
+            // trailer in a person's commit never makes it one to take back.
+            .filter(|c| c.agent && c.session.as_deref() == Some(session) && !done.contains(&c.id))
             .collect();
         let mut reverted = Vec::new();
         for commit in commits {
-            if let Some(conflict) = self.revert(history, &commit, now)? {
+            if let Some(conflict) = self.revert(history, &commit, now, by)? {
                 return Ok(Undone {
                     reverted,
                     conflict: Some(conflict),
@@ -161,7 +175,7 @@ impl Kasten {
                 commit.summary
             )));
         }
-        if let Some(conflict) = self.revert(history, &commit, now)? {
+        if let Some(conflict) = self.revert(history, &commit, now, &[])? {
             return Ok(Undone {
                 reverted: Vec::new(),
                 conflict: Some(conflict),
@@ -187,9 +201,11 @@ impl Kasten {
         history: &History,
         commit: &CommitInfo,
         now: Instant,
+        by: &[(&str, String)],
     ) -> Result<Option<UndoConflict>> {
         let changes = history.changes(&commit.id)?;
-        let trailers = [("Kasten-Undo", commit.id.clone())];
+        let mut trailers = vec![("Kasten-Undo", commit.id.clone())];
+        trailers.extend(by.iter().cloned());
         let conflict = self.apply_with(
             &Actor::Human,
             "undo",

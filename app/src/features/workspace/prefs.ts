@@ -5,11 +5,16 @@
 import { create } from "zustand";
 
 import { applyMotion, MOTION_PREFS, type MotionPref } from "../../lib/motion";
+import { clampKeep, KEEP_DEFAULT } from "../../shell/keep-alive";
 import { isOpens, type Opens } from "./opens";
 import { readSets, type TabSet } from "./tab-sets";
 import { ACCENTS, applyAccent, applyTheme, loadTheme, type Accent, type ThemePref } from "./theme";
 
 export type PageFont = "default" | "serif" | "mono";
+
+/** How wide page text runs: the usual column, a wider one (60rem), or the whole pane. */
+export type PageWidth = "normal" | "wide" | "full";
+export const PAGE_WIDTHS: readonly PageWidth[] = ["normal", "wide", "full"];
 
 /** The size of page text: 14, 16, 18 or 20 pixels. */
 export type TextSize = "small" | "normal" | "large" | "xl";
@@ -19,7 +24,8 @@ interface Stored {
   font: PageFont;
   /** The size of page text, for every page that does not set its own. */
   textSize: TextSize;
-  fullWidth: boolean;
+  /** The width of page text, for every page that does not set its own. */
+  pageWidth: PageWidth;
   spellcheck: boolean;
   /** The accent colour of buttons, selection and focus. */
   accent: Accent;
@@ -67,7 +73,28 @@ interface Stored {
   navPinned: string[] | null;
   /** The sidebar's "More views" list is open. */
   moreViews: boolean;
+  /** Whether a page's properties show under its title: always, folded, or folded when there are more than five. */
+  propsFold: PropsFold;
+  /** Pages whose properties were folded (true) or unfolded (false) by hand, by note id. */
+  propsFolded: Record<string, boolean>;
+  /** How many other recent tabs of a pane stay ready (hidden, with their state): 0 to 8, 0 is off. */
+  keepTabs: number;
+  /** The rows a table view shows open with their sub-items, by view (`tag|view`), as row ids. */
+  subItemsOpen: Record<string, string[]>;
 }
+
+export type PropsFold = "shown" | "folded" | "auto";
+export const PROPS_FOLDS: readonly PropsFold[] = ["shown", "folded", "auto"];
+
+const foldChoices = (value: unknown): Record<string, boolean> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter((e): e is [string, boolean] => typeof e[1] === "boolean"))
+    : {};
+
+const openRows = (value: unknown): Record<string, string[]> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter((e): e is [string, string[]] => Array.isArray(e[1])).map(([k, v]) => [k, v.filter((id): id is string => typeof id === "string")]))
+    : {};
 
 /** The sidebar's usual width and its limits. */
 export const SIDEBAR_WIDTH = { initial: 240, min: 200, max: 440 };
@@ -117,22 +144,26 @@ interface PrefsState extends Stored {
 }
 
 const KEY = "kasten.prefs";
-const DEFAULTS: Stored = { font: "default", textSize: "normal", fullWidth: false, spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list", tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [], pageLinksOpen: "here", rightReplaces: true, plusOpensRight: false, sidebarShowCards: false, pinnedPages: [], navPinned: null, moreViews: false };
+const DEFAULTS: Stored = { font: "default", textSize: "normal", pageWidth: "normal", spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list", tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [], pageLinksOpen: "here", rightReplaces: true, plusOpensRight: false, sidebarShowCards: false, pinnedPages: [], navPinned: null, moreViews: false, propsFold: "auto", propsFolded: {}, keepTabs: KEEP_DEFAULT, subItemsOpen: {} };
 
 const names = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
 
 function load(): Stored {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Stored> & { smallText?: unknown };
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Stored> & { smallText?: unknown; fullWidth?: unknown };
     const accent = ACCENTS.includes(saved.accent as Accent) ? (saved.accent as Accent) : "blue";
     // Before there were four sizes there was one switch, "Small text".
     const textSize = TEXT_SIZES.includes(saved.textSize as TextSize) ? (saved.textSize as TextSize) : saved.smallText === true ? "small" : "normal";
     delete saved.smallText;
+    // Before there were three widths there was one switch, "Full width".
+    const pageWidth = PAGE_WIDTHS.includes(saved.pageWidth as PageWidth) ? (saved.pageWidth as PageWidth) : saved.fullWidth === true ? "full" : "normal";
+    delete saved.fullWidth;
     return {
       ...DEFAULTS,
       ...saved,
       accent,
       textSize,
+      pageWidth,
       favourites: Array.isArray(saved.favourites) ? saved.favourites : [],
       projectOrder: names(saved.projectOrder),
       pinnedProjects: names(saved.pinnedProjects),
@@ -156,6 +187,10 @@ function load(): Stored {
       pinnedPages: names(saved.pinnedPages),
       navPinned: Array.isArray(saved.navPinned) ? names(saved.navPinned) : null,
       moreViews: saved.moreViews === true,
+      keepTabs: clampKeep(saved.keepTabs),
+      propsFold: PROPS_FOLDS.includes(saved.propsFold as PropsFold) ? (saved.propsFold as PropsFold) : "auto",
+      propsFolded: foldChoices(saved.propsFolded),
+      subItemsOpen: openRows(saved.subItemsOpen),
     };
   } catch {
     return DEFAULTS;
@@ -163,9 +198,9 @@ function load(): Stored {
 }
 
 function save(state: Stored): void {
-  const { font, textSize, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews } = state;
+  const { font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen } = state;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ font, textSize, fullWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews }));
+    localStorage.setItem(KEY, JSON.stringify({ font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen }));
   } catch {
     // Preferences fall back to their defaults next time.
   }
@@ -176,6 +211,7 @@ export const usePrefs = create<PrefsState>()((set, get) => {
     set(patch);
     if (patch.accent) applyAccent(patch.accent);
     if (patch.motion) applyMotion(patch.motion);
+    if (patch.keepTabs !== undefined) set({ keepTabs: clampKeep(patch.keepTabs) });
     save(get());
   };
   return {

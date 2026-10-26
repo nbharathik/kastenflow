@@ -7,6 +7,7 @@ import { DayActivity } from "../../journal/DayActivity";
 import { iconOf, readable, titleOf } from "../names";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
 import { openMenuHandlers } from "../../../shell/open-menu";
+import { useLiveMeta } from "../note-stats";
 import { howFromPage } from "../open-how";
 import { useWorkspace } from "../store";
 import { childrenOf } from "../tree";
@@ -78,7 +79,8 @@ function FooterLink({ note, from, detail }: { note: Linked; from: string; detail
 const KINDS: Record<string, string> = { page: "Page", card: "Card", journal: "Journal day", project: "Project", highlight: "Highlight", chat: "Chat" };
 
 /** When the page was made and last changed, how long it is and where its file lives. */
-function Details({ note }: { note: NoteMeta }) {
+function Details({ note: listed }: { note: NoteMeta }) {
+  const note = useLiveMeta(listed);
   const made = note.created ? Date.parse(note.created) : NaN;
   const changed = note.updated ? Date.parse(note.updated) : note.modified;
   const rows: [string, string][] = [

@@ -12,6 +12,7 @@ import { openUrl } from "../../lib/api";
 import { isEmpty, sameBounds, toPhysical, type Box } from "../browser/bounds";
 import { covered, useOcclusion } from "../browser/occlusion";
 import { previewBackend } from "../browser/preview-backend";
+import { SHOW_HOLD } from "../browser/show";
 import { onPreviewSignal, type PreviewSignal } from "../browser/preview-events";
 import { useBrowserPrefs } from "../browser/prefs";
 import type { Bounds, Nav } from "../browser/types";
@@ -175,7 +176,8 @@ export class PreviewSession implements WebPreviewHandle {
     const box = boxOf(this.where);
     const area = !isEmpty(box);
     const failed = this.state.status === "failed" || this.state.status === "blocked";
-    const wanted = area && !this.away && !failed && !covered(useOcclusion.getState().holds, box);
+    // The hold a show puts on the window is not a cover for the show's own peek of a page.
+    const wanted = area && !this.away && !failed && !covered(useOcclusion.getState().holds, box, SHOW_HOLD);
     // Told to what keeps clear of the view's area, such as a toast.
     useOcclusion.getState().show(AREA, wanted ? box : null);
     const backend = previewBackend();

@@ -5,8 +5,10 @@
 mod agents;
 mod args;
 mod backup;
+mod backup_now;
 mod commands;
 mod import;
+mod remotes;
 mod show;
 
 use std::process::ExitCode;
@@ -75,6 +77,14 @@ const COMMANDS: &[(&str, &str)] = &[
         "get-latest",
         "take in another computer's backed-up changes [--from FILE]",
     ),
+    (
+        "backup-now",
+        "back up now and say what happened; exits 1 if not backed up [--carry-on] [--yes: agree to send notes to this vault's backup address]",
+    ),
+    (
+        "backup-status",
+        "what is waiting, last backup, last check, files left out; exits 1 on a problem",
+    ),
 ];
 
 static PROGRAM: OnceLock<&'static str> = OnceLock::new();
@@ -140,6 +150,8 @@ pub fn run(program: &'static str) -> ExitCode {
         "backup-file" => backup::backup_file(&args),
         "clone-backup" => backup::clone(&args),
         "get-latest" => backup::get_latest(&args),
+        "backup-now" => backup_now::backup_now(&args),
+        "backup-status" => backup_now::backup_status(&args),
         "dev-generate" => commands::generate(&args),
         other => {
             say_err!("{program}: unknown command '{other}'\n\n{}", usage(program));

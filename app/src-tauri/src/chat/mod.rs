@@ -16,7 +16,9 @@
 pub mod actions;
 pub mod address;
 pub mod anthropic;
+pub mod archive;
 pub mod attach;
+pub mod binding;
 pub mod budget;
 pub mod cache;
 pub mod capabilities;
@@ -33,6 +35,7 @@ pub mod event;
 pub mod harness;
 pub mod http;
 mod http_wait;
+pub mod limit;
 
 pub mod changes;
 pub mod model;
@@ -44,6 +47,8 @@ pub mod providers;
 pub(crate) mod public_dns;
 pub mod responses;
 pub mod retry;
+pub mod selection;
+pub mod sessions;
 pub mod sse;
 pub mod state;
 pub mod steady;
@@ -134,7 +139,7 @@ pub struct AttachmentRef {
 /// Something the person attached to a message: a note, a board, cards, a
 /// tag's view or search results. `refs` holds `ref`: paths, a tag and view,
 /// or a query.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextChip {
     pub kind: String,
@@ -142,6 +147,9 @@ pub struct ContextChip {
     pub label: String,
     #[serde(rename = "ref", default)]
     pub refs: Vec<String>,
+    /// For a `selection` chip: the passage and where it comes from.
+    #[serde(default)]
+    pub selection: Option<selection::Selection>,
 }
 
 /// What `chat_send` answers at once; the reply follows as events.

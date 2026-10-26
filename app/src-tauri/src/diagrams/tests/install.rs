@@ -111,7 +111,7 @@ fn a_download_that_does_not_match_the_pinned_hash_is_refused_before_anything_is_
     let root = scratch.path("diagrams");
 
     let message = why(quiet(&source, &root));
-    assert!(message.contains("checksum"), "{message}");
+    assert!(message.contains("does not match"), "{message}");
     assert!(!root.join("1.0.0").exists());
     tidy(&root);
 }

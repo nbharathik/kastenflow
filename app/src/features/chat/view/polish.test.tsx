@@ -166,8 +166,8 @@ describe("the / list of AI actions", () => {
     fireEvent.change(box, { target: { value: "/" } });
     const list = await screen.findByRole("dialog", { name: "Run an AI action" });
     await within(list).findByRole("option", { name: "Outline" });
-    // Every shipped action works in the chat.
-    expect(within(list).getAllByRole("option").map((o) => o.textContent)).toEqual(BUILT_IN_ACTIONS.map((a) => a.title));
+    // Every shipped action that is offered in the chat is in the list (the LaTeX editor's own is not).
+    expect(within(list).getAllByRole("option").map((o) => o.textContent)).toEqual(BUILT_IN_ACTIONS.filter((a) => a.where.includes("chat")).map((a) => a.title));
     await act(async () => fireEvent.click(within(list).getByRole("option", { name: "Outline" })));
     expect(screen.queryByRole("dialog", { name: "Run an AI action" })).toBeNull();
     expect(box.value).toBe(BUILT_IN_ACTIONS.find((a) => a.slug === "outline")!.instruction);

@@ -159,6 +159,13 @@ impl Kasten {
                     Ok(carried) => paths.extend(carried.into_iter().flat_map(|(a, b)| [a, b])),
                     Err(err) => {
                         done.put_back();
+                        // The page goes back to its name too, so it is never
+                        // left apart from its files and its folder.
+                        if let (Ok(now_at), Ok(was)) =
+                            (vault.path_of(&renamed.note.meta.path), vault.path_of(path))
+                        {
+                            let _ = std::fs::rename(now_at, was);
+                        }
                         return Err(err);
                     }
                 }
@@ -173,13 +180,19 @@ impl Kasten {
     }
 
     pub fn duplicate(&self, actor: &Actor, path: &str, now: Instant) -> Result<NoteFile> {
-        self.apply(actor, "duplicate", false, now.millis, |vault| {
+        // The commit says what it copied, so a copy of a smart page an agent made is
+        // still the agent's (see `first_commit`).
+        let copied = [(crate::history::COPY_OF, path.to_owned())];
+        self.apply_with(actor, "duplicate", false, now.millis, &copied, |vault| {
             let title = title_of(vault, path);
             let note = crate::moving::duplicate_note(vault, path, now)?;
             // A second copy shares the first's title: links to it stay put.
             let mut paths = vec![note.meta.path.clone()];
             // The copy has the page's comments and highlights too.
             let mut done = Rollback::default();
+            // If a sidecar cannot be copied the copy of the page goes too: a
+            // page is never left without its folder.
+            done.made(&vault.path_of(&note.meta.path)?);
             match companions::copy_for(vault, path, &note.meta.path, &mut done) {
                 Ok(copied) => paths.extend(copied),
                 Err(err) => {
@@ -204,13 +217,26 @@ impl Kasten {
             let going = self.with_sub_pages(path)?;
             // Each page's comments and highlights files go to the trash with
             // it (and come back with it); they are not listed there apart.
+            // A smart page's code folder goes as a whole, and every file in
+            // it, where it was and where it went, is in the change.
             let mut files = going.clone();
+            let mut folders = Vec::new();
             for page in &going {
                 files.extend(companions::existing(vault, page));
+                folders.extend(companions::existing_dir(vault, page));
             }
-            let trashed = trash::trash_all(vault, &files, now)?;
+            let kept: Vec<String> = folders
+                .iter()
+                .flat_map(|dir| companions::members(vault, dir))
+                .collect();
+            let (trashed, trashed_dirs) =
+                trash::trash_all_with_folders(vault, &files, &folders, now)?;
             let mut paths = files;
             paths.extend(trashed.iter().cloned());
+            paths.extend(kept);
+            for dir in &trashed_dirs {
+                paths.extend(companions::members(vault, dir));
+            }
             // A diagram's picture goes with it, and is not a sub-page.
             let sub_pages = if path.ends_with(crate::diagrams::EXT) {
                 0

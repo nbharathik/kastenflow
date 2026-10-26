@@ -10,10 +10,11 @@ use std::fs;
 use serde_json::{Map, Value};
 
 use super::kits::with_ids;
-use super::setups::{Manifest, SETUPS, SetupPlan, SetupTarget, VAULT, manifest};
+use super::setup_saved::{Loaded, load};
+use super::setups::{Manifest, SetupPlan, SetupTarget, VAULT};
 use crate::atomic::write_atomic;
 use crate::error::{Error, Result};
-use crate::frontmatter::{join, set_key, split, still_readable};
+use crate::frontmatter::{join, read_map, set_key, split, still_readable};
 use crate::ops::eol_of;
 use crate::props::{props_of, set_props};
 use crate::slug::slugify;
@@ -27,7 +28,7 @@ pub(super) struct Planned {
     pub folder: String,
     pub new_project: bool,
     /// Every file of the setup: its path in the vault and its raw text.
-    pub files: Vec<(String, &'static str)>,
+    pub files: Vec<(String, String)>,
     pub exists: Vec<bool>,
     /// Properties the project page gains.
     pub add: Map<String, Value>,
@@ -95,13 +96,38 @@ fn replace_tokens(text: &str, name: &str, mut value: impl FnMut(&str) -> String)
     out
 }
 
+/// Whether a page of a setup names no `id` or `parent` but its own
+/// placeholders (`{{id:…}}`): a fixed one would repeat the id of a note that
+/// is there or put the page under a note of another project. A header that
+/// cannot be read has none to check.
+fn ids_are_its_own(path: &str, raw: &str) -> bool {
+    if !path.ends_with(".md") {
+        return true;
+    }
+    let mut made = HashMap::new();
+    let text = with_ids(raw, &mut made, Instant::now());
+    let Ok(keys) = read_map(split(&text).prefix) else {
+        return true;
+    };
+    let own = |given: &Value| matches!(given, Value::String(s) if made.values().any(|o| o == s));
+    ["id", "parent"].iter().all(|key| match keys.get(*key) {
+        None | Some(Value::Null) => true,
+        Some(given) => own(given),
+    }) && match keys.get("children_order") {
+        // The order of the sub-pages names their ids: another note's would
+        // list a page that is not this one's child.
+        None | Some(Value::Null) => true,
+        Some(Value::Array(list)) => list.iter().all(own),
+        Some(_) => false,
+    }
+}
+
 /// Works out where a setup goes and what is already there.
 pub(super) fn plan_setup(vault: &Vault, id: &str, target: &SetupTarget) -> Result<Planned> {
-    let setup = SETUPS
-        .iter()
-        .find(|s| s.id == id)
-        .ok_or_else(|| Error::Invalid(format!("There is no setup “{id}”")))?;
-    let manifest = manifest(setup);
+    let Loaded {
+        manifest,
+        files: setup_files,
+    } = load(vault, id)?;
     let (title, folder, new_project, page_props) = match target {
         SetupTarget::New { title } => {
             let title = title.trim().to_owned();
@@ -137,14 +163,19 @@ pub(super) fn plan_setup(vault: &Vault, id: &str, target: &SetupTarget) -> Resul
     };
     let mut files = Vec::new();
     let mut exists = Vec::new();
-    for (rel, raw) in setup.files {
+    for (rel, raw) in setup_files {
+        if !ids_are_its_own(&rel, &raw) {
+            return Err(Error::Invalid(format!(
+                "The setup “{id}” has a page ({rel}) that names a note of its own by id, which a setup may not do"
+            )));
+        }
         let path = match rel.strip_prefix(VAULT) {
             Some(vault_file) => vault_file.to_owned(),
             None => format!("projects/{folder}/{rel}"),
         };
         let file = vault.file_of(&path, &[".md", ".yaml", ".canvas", ".deck"])?;
         exists.push(fs::symlink_metadata(&file).is_ok());
-        files.push((path, *raw));
+        files.push((path, raw));
     }
     let add = manifest
         .props

@@ -7,3 +7,4 @@ mod export;
 mod import;
 mod project;
 mod refusals;
+mod smart;

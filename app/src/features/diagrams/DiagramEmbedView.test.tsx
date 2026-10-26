@@ -68,7 +68,7 @@ describe("a diagram in a page", () => {
     await setup(INSTALLED, true);
     await screen.findByRole("img", { name: "Login flow" });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Open Login flow in a tab" })));
-    expect(useWorkspace.getState().place).toEqual({ view: "diagrams", path });
+    expect(useWorkspace.getState().place).toEqual({ view: "plugin:diagrams", path });
   });
 
   it("offers the picture's ways out in a menu, naming only what a picture can do without the editor", async () => {

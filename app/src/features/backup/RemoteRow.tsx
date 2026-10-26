@@ -62,7 +62,7 @@ export function RemoteRow({ Row }: { Row: RowComponent }) {
 
   return (
     <>
-      <Row label="Backup remote" detail="A private git repository on any host, such as GitLab, Gitea or your own server. Pushes happen 2 minutes after changes and at least hourly, never forced.">
+      <Row label="Backup remote" detail="A private git repository on any host, such as GitLab, Gitea or your own server. Changes are sent 2 minutes after you make them, and at least once an hour. Nothing on the server is ever overwritten.">
         <form
           className="flex items-center gap-1.5"
           onSubmit={(e) => {

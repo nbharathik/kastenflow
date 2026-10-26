@@ -104,7 +104,8 @@ pub fn instructions_for(facts: &Facts) -> String {
     out.push_str("- Type of 14 pt or more, and 24 units of margin. Never shrink text to make it fit; say less.\n");
     out.push_str("- One accent colour to a slide: accent1 for what matters, text1, text2 and bg2 for the rest.\n");
     out.push_str("- Show a process or a system as a diagram (add_diagram lays out boxes and attached arrows for you) and not as bullets with arrows in them. Give every picture alt text, and every figure a citation.\n");
-    out.push_str("- Build up an idea with steps (set_steps); show a change with Morph (duplicate_slide, change the copy, set_morph).\n\n");
+    out.push_str("- Build up an idea with steps (set_steps); show a change with Morph (duplicate_slide, change the copy, set_morph).\n");
+    out.push_str("- Move a few slides with move_slides, take a deck's look with apply_deck_template, write marks Markdown lacks with set_rich_text.\n\n");
     out.push_str(
         "LINT (lint_deck; every write tool also reports the problems on the slides it touched)\n",
     );

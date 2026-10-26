@@ -2,7 +2,7 @@ import { memo, useMemo, type DragEvent, type KeyboardEvent } from "react";
 
 import { editorKeys } from "../../features/shortcuts/catalog";
 import { askToExport } from "../../features/projects/export/request";
-import { homeItem } from "../../features/projects/home-menu";
+import { homeItem, saveSetupItem } from "../../features/projects/home-menu";
 import { statusOfProps } from "../../features/projects/state/status";
 import { setArchived } from "../../features/workspace/project-actions";
 import { projectKey } from "../../features/workspace/project-order";
@@ -60,6 +60,7 @@ export const ProjectRow = memo(function ProjectRow({ note, index, pinned, up, do
         ...(down ? [{ label: "Move down", icon: <Icon name="chevron-down" className="size-4" />, hint: editorKeys("Alt+↓"), onSelect: () => actions.move(index, index + 1) }] : []),
         homeItem(note),
         { label: "Export project…", icon: <Icon name="upload" className="size-4" />, onSelect: () => askToExport(note.project) },
+        saveSetupItem(note.project),
         { label: "Archive project", icon: <Icon name="archive" className="size-4" />, onSelect: () => void setArchived(note, true) },
       ],
       item: {

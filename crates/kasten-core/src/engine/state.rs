@@ -25,6 +25,9 @@ pub(super) struct State {
     pub(super) bases: VecDeque<(String, String)>,
     pub(super) last_commit: Option<u64>,
     pub(super) backup: BackupRecord,
+    /// What the backup status counted for the newest commit and the commit
+    /// last sent (engine/backup_extra.rs).
+    pub(super) backup_extras: Option<(super::backup_extra::ExtrasKey, crate::backup::BackupExtras)>,
     /// The remote the person confirmed on this computer, the only one
     /// scheduled pushes go to.
     pub(super) confirmed_remote: Option<String>,
@@ -33,6 +36,17 @@ pub(super) struct State {
     pub(super) git_token: Option<crate::history::GitToken>,
     /// What each agent session changed lately, for the soft limits.
     pub(super) tallies: HashMap<String, Tally>,
+    /// The session whose op is being committed in autonomous mode, and whether
+    /// the op would have waited for review (engine/agent_policy.rs).
+    pub(super) autonomous: Option<(String, bool)>,
+    /// A session held to the mode of a project besides the ones its ops touch
+    /// (a smart page's own project), by session id (engine/agent_policy.rs).
+    pub(super) floors: HashMap<String, Option<String>>,
+    /// The batch being run (engine/batch_apply.rs): its ops' writes wait for
+    /// the batch's one commit.
+    pub(super) batch: Option<super::batch_apply::Running>,
+    /// Fail the next batch after this many changes (tests).
+    pub(super) fail_batch_after: Option<usize>,
     /// Paths an op wrote that the index could not take yet.
     pub(super) unindexed: BTreeSet<String>,
     /// Stop the next Get latest before its branch moves (tests).

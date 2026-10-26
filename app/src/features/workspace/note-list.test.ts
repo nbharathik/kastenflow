@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { NoteMeta } from "../../lib/vault/types";
-import { merged, patched, sameMeta, upserted } from "./note-list";
+import { merged, patched, sameMeta, sameShape, upserted } from "./note-list";
 
 const meta = (path: string, extra: Partial<NoteMeta> = {}): NoteMeta => ({
   path,
@@ -40,6 +40,17 @@ describe("note list", () => {
     const changed = upserted(added, meta("b.md", { title: "Bee" }));
     expect(changed[1]!.title).toBe("Bee");
     expect(changed[2]).toBe(added[2]);
+  });
+
+  it("returns the same list when only the counts, excerpt and times change", () => {
+    const list = [meta("a.md"), meta("b.md")];
+    const typed = upserted(list, meta("b.md", { words: 40, excerpt: "Hello there", modified: 99, updated: "2026-10-22T10:00:00Z" }));
+    expect(typed).toBe(list);
+    expect(typed[1]!.words).toBe(0);
+    expect(upserted(list, meta("b.md", { words: 40, tags: ["x"] }))).not.toBe(list);
+    expect(upserted(list, meta("b.md", { icon: "star" }))).not.toBe(list);
+    expect(sameShape(meta("b.md"), meta("b.md", { words: 3, modified: 5 }))).toBe(true);
+    expect(sameShape(meta("b.md"), meta("b.md", { title: "B" }))).toBe(false);
   });
 
   it("keeps unchanged notes when the full list comes back", () => {

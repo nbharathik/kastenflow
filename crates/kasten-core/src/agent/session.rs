@@ -20,6 +20,49 @@ pub struct Session {
     pub started: u64,
 }
 
+/// The most characters a session's name keeps.
+pub const NAME_MAX: usize = 80;
+
+/// Format characters that draw nothing but change what a name looks like:
+/// zero-width spaces and joiners, left-to-right and right-to-left marks and
+/// overrides (a name shown reversed), isolates, the word joiner and the byte
+/// order mark. A client name loses them, so it is shown as it is written.
+pub fn is_invisible(c: char) -> bool {
+    matches!(
+        c,
+        '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{061C}'
+            | '\u{180E}'
+            | '\u{FEFF}'
+    )
+}
+
+/// A client's name made safe to show and to sign commits with: control
+/// characters become spaces, angle brackets (which a commit's author cannot
+/// hold) go, runs of white space shrink to one space, the ends lose spaces
+/// and the marks git trims from a name, and at most [`NAME_MAX`] characters
+/// stay. Nothing left is "agent".
+pub fn clean_name(name: &str) -> String {
+    let spaced: String = name
+        .chars()
+        .filter(|c| !matches!(c, '<' | '>') && !is_invisible(*c))
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let words = spaced.split_whitespace().collect::<Vec<_>>().join(" ");
+    let capped: String = words.chars().take(NAME_MAX).collect();
+    let trimmed = capped.trim_matches(|c: char| {
+        c.is_whitespace() || matches!(c, '.' | ',' | ':' | ';' | '"' | '\'' | '\\')
+    });
+    if trimmed.is_empty() {
+        "agent".to_owned()
+    } else {
+        trimmed.to_owned()
+    }
+}
+
 impl Session {
     /// A new session for `client` (a short name such as `claude-code`).
     pub fn start(client: &str, now: Instant) -> Session {
@@ -46,6 +89,19 @@ impl Session {
         }
     }
 
+    /// A new session named as the connecting client named itself (a routine
+    /// says "routine: conference tracking"): the words kept, control
+    /// characters and angle brackets gone, at most [`NAME_MAX`] characters.
+    /// Two runs under one name are two sessions (their ids and start times
+    /// differ), which is what the digest and History show.
+    pub fn named(name: &str, now: Instant) -> Session {
+        Session {
+            id: ulid_at(now.millis),
+            client: clean_name(name),
+            started: now.millis,
+        }
+    }
+
     /// Who the session's commits are by.
     pub fn actor(&self) -> Actor {
         Actor::Agent {
@@ -63,6 +119,8 @@ pub struct Tally {
     pub trashed: usize,
     /// Slides taken out of decks (removed, or left empty), with when.
     slides: Vec<(usize, u64)>,
+    /// Cards taken off boards (nodes removed), with when.
+    nodes: Vec<(usize, u64)>,
     /// Pictures added: their size in bytes, with when.
     pictures: Vec<(u64, u64)>,
 }
@@ -73,15 +131,25 @@ const MEMORY_MS: u64 = 3_600_000;
 /// Whether changing `path` counts as changing a note: Kasten's own files do
 /// not, and neither do the files in `assets/` (pictures with their sidecars,
 /// two files each), which twenty figures for one deck would turn into forty
-/// notes.
+/// notes. Nor do the files of a smart page's code folder, one by one: a page is
+/// built of many of them, so together they count as the one page (`record`).
 fn counts_as_a_note(path: &str) -> bool {
-    !path.starts_with(".kasten/") && !(path.starts_with("assets/") && !path.ends_with(".md"))
+    !path.starts_with(".kasten/")
+        && !(path.starts_with("assets/") && !path.ends_with(".md"))
+        && !crate::companions::in_folder(path)
 }
 
 impl Tally {
     pub fn record(&mut self, paths: &[String], now: u64) {
         for path in paths.iter().filter(|p| counts_as_a_note(p)) {
             self.changed.push((path.clone(), now));
+        }
+        // Writing files into many smart pages is changing many pages.
+        for page in paths
+            .iter()
+            .filter_map(|p| crate::companions::page_of_member(p))
+        {
+            self.changed.push((page, now));
         }
         // Older entries no longer count for anything.
         self.changed
@@ -100,6 +168,24 @@ impl Tally {
     /// Slides taken out of decks within `window` milliseconds before `now`.
     pub fn slides_taken_out(&self, now: u64, window: u64) -> usize {
         self.slides
+            .iter()
+            .filter(|(_, at)| now.saturating_sub(*at) <= window)
+            .map(|(n, _)| *n)
+            .sum()
+    }
+
+    /// Notes that `count` cards were taken off boards at `now`.
+    pub fn took_off_cards(&mut self, count: usize, now: u64) {
+        if count > 0 {
+            self.nodes.push((count, now));
+        }
+        self.nodes
+            .retain(|(_, at)| now.saturating_sub(*at) <= MEMORY_MS);
+    }
+
+    /// Cards taken off boards within `window` milliseconds before `now`.
+    pub fn cards_taken_off(&self, now: u64, window: u64) -> usize {
+        self.nodes
             .iter()
             .filter(|(_, at)| now.saturating_sub(*at) <= window)
             .map(|(n, _)| *n)
@@ -163,6 +249,29 @@ mod tests {
         assert_eq!(s.client, "Claude-Code---1.0");
         assert_eq!(Session::start("  ", Instant { millis: 1 }).client, "agent");
         assert_eq!(s.id.len(), 26);
+    }
+
+    #[test]
+    fn a_routines_name_keeps_its_words_and_loses_what_cannot_be_shown() {
+        let now = Instant { millis: 5 };
+        let routine = Session::named("routine: conference tracking", now);
+        assert_eq!(routine.client, "routine: conference tracking");
+        let odd = Session::named("  my\u{7}\u{1b}[31m agent\r\nKasten-Session: x <b>  ", now);
+        assert_eq!(odd.client, "my [31m agent Kasten-Session: x b");
+        assert!(!odd.client.chars().any(char::is_control));
+        let long = Session::named(&"é".repeat(300), now);
+        assert_eq!(long.client.chars().count(), NAME_MAX);
+        // Marks that reverse or hide text cannot spoof a name in the digest.
+        let spoof = Session::named("evil\u{202E}tnegA\u{200B}\u{FEFF} \u{2066}x\u{2069}", now);
+        assert_eq!(spoof.client, "eviltnegA x");
+        for blank in ["", "   ", "\u{7}\n", "<>", " . , ", "\u{200B}\u{202E}"] {
+            assert_eq!(Session::named(blank, now).client, "agent", "{blank:?}");
+        }
+        // Two runs under one name are two sessions.
+        let again = Session::named("routine: conference tracking", Instant { millis: 6 });
+        assert_eq!(again.client, routine.client);
+        assert_ne!(again.id, routine.id);
+        assert_ne!(again.started, routine.started);
     }
 
     #[test]

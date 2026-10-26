@@ -19,6 +19,7 @@ use crate::assets::refs::{Ref, image_refs};
 use crate::board;
 use crate::deck;
 use crate::error::Result;
+use crate::latex::{LatexFacts, read_facts};
 use crate::note::meta_for;
 use crate::vault::FileStat;
 
@@ -73,6 +74,7 @@ pub(super) struct FileCache {
     boards: HashMap<String, Entry<BoardFacts>>,
     decks: HashMap<String, Entry<DeckFacts>>,
     notes: HashMap<String, Entry<NoteRefs>>,
+    latex: HashMap<String, Entry<LatexFacts>>,
     /// Counts the changes that forgot paths, so a parse that raced one is not kept.
     forgotten: u64,
     /// Boards and decks parsed so far (tests and benches read it).
@@ -87,6 +89,8 @@ pub(super) struct Walked {
     pub boards: Vec<(FileStat, Arc<BoardFacts>)>,
     pub decks: Vec<(FileStat, Arc<DeckFacts>)>,
     pub diagrams: Vec<FileStat>,
+    /// The `.tex` files, with what their first lines say.
+    pub latex: Vec<(FileStat, Arc<LatexFacts>)>,
 }
 
 fn stem(path: &str, ending: &str) -> String {
@@ -174,6 +178,7 @@ impl Kasten {
             cache.boards.remove(path);
             cache.decks.remove(path);
             cache.notes.remove(path);
+            cache.latex.remove(path);
         }
     }
 
@@ -185,6 +190,7 @@ impl Kasten {
         cache.boards.clear();
         cache.decks.clear();
         cache.notes.clear();
+        cache.latex.clear();
     }
 
     /// How many boards and decks have been parsed so far (tests and benches).
@@ -285,6 +291,13 @@ impl Kasten {
                         Some(e) if e.holds(stat) => e.facts.clone().map_or(Slot::Parse, Slot::Deck),
                         _ => Slot::Parse,
                     }
+                } else if stat.path.ends_with(".tex") {
+                    match cache.latex.get(&stat.path) {
+                        Some(e) if e.holds(stat) => {
+                            e.facts.clone().map_or(Slot::Parse, Slot::Latex)
+                        }
+                        _ => Slot::Parse,
+                    }
                 } else {
                     Slot::Diagram
                 });
@@ -296,6 +309,8 @@ impl Kasten {
             if matches!(slots[at], Slot::Parse) {
                 slots[at] = if stat.path.ends_with(".canvas") {
                     Slot::Board(parse_board(self, &stat.path).map(Arc::new))
+                } else if stat.path.ends_with(".tex") {
+                    Slot::Latex(Arc::new(read_facts(&self.vault.root().join(&stat.path))))
                 } else {
                     Slot::Deck(Arc::new(parse_deck(self, &stat.path)))
                 };
@@ -329,6 +344,16 @@ impl Kasten {
                             },
                         );
                     }
+                    Slot::Latex(facts) => {
+                        cache.latex.insert(
+                            stat.path.clone(),
+                            Entry {
+                                modified: stat.modified,
+                                size: stat.size,
+                                facts: Some(facts.clone()),
+                            },
+                        );
+                    }
                     Slot::Diagram | Slot::Parse => {}
                 }
             }
@@ -341,6 +366,9 @@ impl Kasten {
         if endings.contains(&".deck") {
             cache.decks.retain(|path, _| seen.contains(path.as_str()));
         }
+        if endings.contains(&".tex") {
+            cache.latex.retain(|path, _| seen.contains(path.as_str()));
+        }
         drop(cache);
         let mut walked = Walked::default();
         for (stat, slot) in found.iter().cloned().zip(slots) {
@@ -348,6 +376,7 @@ impl Kasten {
                 Slot::Board(Some(facts)) => walked.boards.push((stat, facts)),
                 Slot::Deck(facts) => walked.decks.push((stat, facts)),
                 Slot::Diagram => walked.diagrams.push(stat),
+                Slot::Latex(facts) => walked.latex.push((stat, facts)),
                 Slot::Board(None) | Slot::Parse => {}
             }
         }
@@ -360,6 +389,7 @@ enum Slot {
     Diagram,
     Board(Option<Arc<BoardFacts>>),
     Deck(Arc<DeckFacts>),
+    Latex(Arc<LatexFacts>),
     /// Not in the cache as it is now: to be parsed.
     Parse,
 }

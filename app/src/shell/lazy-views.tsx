@@ -15,8 +15,6 @@ const tagsHome = () => import("../features/tags/TagsHome");
 const tagDatabase = () => import("../features/tags/TagDatabase");
 const boardsHome = () => import("../features/boards/BoardsHome");
 const slidesHome = () => import("../features/slides/SlidesHome");
-const diagramsHome = () => import("../features/diagrams/DiagramsHome");
-const diagramView = () => import("../features/diagrams/DiagramView");
 const tasks = () => import("../features/tasks/TasksView");
 const trash = () => import("../features/workspace/views/Trash");
 const reader = () => import("../features/sources/reader/PdfReader");
@@ -42,9 +40,6 @@ export const TagsHome = lazy(() => tagsHome().then((m) => ({ default: m.TagsHome
 export const TagDatabase = lazy(() => tagDatabase().then((m) => ({ default: m.TagDatabase })));
 export const BoardsHome = lazy(() => boardsHome().then((m) => ({ default: m.BoardsHome })));
 export const SlidesHome = lazy(() => slidesHome().then((m) => ({ default: m.SlidesHome })));
-/** The Diagrams view, and a diagram open in a tab (the editor's frame loads with it). */
-export const DiagramsHome = lazy(() => diagramsHome().then((m) => ({ default: m.DiagramsHome })));
-export const DiagramView = lazy(() => diagramView().then((m) => ({ default: m.DiagramView })));
 export const Tasks = lazy(() => tasks().then((m) => ({ default: m.Tasks })));
 export const Trash = lazy(() => trash().then((m) => ({ default: m.Trash })));
 /** The PDF reader brings pdf.js, whose own code loads with the first PDF. */

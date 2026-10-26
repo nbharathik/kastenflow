@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { COMMANDS, commandOf, keysOf } from "./index.ts";
+import { COMMANDS, commandOf, dispatchKey, keysOf } from "./index.ts";
 import type { CommandContext } from "./types.ts";
 
 const context = (present: ReturnType<typeof vi.fn>) => ({ session: {}, ui: { actions: { present } } }) as unknown as CommandContext;
@@ -11,6 +11,38 @@ describe("the commands for presenting", () => {
     expect(keysOf("view.present")).toMatch(/Enter/);
     expect(keysOf("view.present-start")).toMatch(/Shift.*Enter|Enter/);
     expect(keysOf("view.presenter")).toMatch(/Alt.*Enter|Enter/);
+  });
+
+  it("answer to the keys of PowerPoint and Google Slides as well as the Ctrl+Enter ones", () => {
+    const keys = (id: string) => commandOf(id).keys ?? [];
+    expect(keys("view.present-start")).toEqual(expect.arrayContaining(["F5", "Mod+Shift+Enter"]));
+    expect(keys("view.present")).toEqual(expect.arrayContaining(["Shift+F5", "Mod+Enter"]));
+    expect(keys("view.presenter")).toEqual(expect.arrayContaining(["Alt+F5", "Mod+Alt+Enter"]));
+    // The menus keep showing the Ctrl+Enter ones, which every host has.
+    expect(keysOf("view.present")).toBe("Ctrl+Enter");
+  });
+
+  it("run from the keys: F5 from the start, Shift+F5 from the slide shown, Alt+F5 with the presenter's view, also in a text box or a field", () => {
+    const keyEvent = (init: KeyboardEventInit) => new KeyboardEvent("keydown", { cancelable: true, ...init });
+    const cases: [KeyboardEventInit, unknown[]][] = [
+      [{ key: "F5" }, ["start"]],
+      [{ key: "F5", shiftKey: true }, ["current"]],
+      [{ key: "F5", altKey: true }, ["current", { presenter: true }]],
+    ];
+    for (const area of ["stage", "canvas", "text", "field"] as const) {
+      for (const [init, expected] of cases) {
+        const present = vi.fn();
+        const used = dispatchKey(keyEvent(init), context(present), area);
+        expect(used, `${area} ${JSON.stringify(init)}`).toBe(true);
+        expect(present.mock.calls, `${area} ${JSON.stringify(init)}`).toEqual([expected]);
+      }
+    }
+  });
+
+  it("leave a plain letter alone in a text box", () => {
+    const present = vi.fn();
+    expect(dispatchKey(new KeyboardEvent("keydown", { key: "f", code: "KeyF" }), context(present), "text")).toBe(false);
+    expect(present).not.toHaveBeenCalled();
   });
 
   it("go through the host's present action", async () => {

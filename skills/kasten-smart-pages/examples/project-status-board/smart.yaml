@@ -1,0 +1,10 @@
+version: 1
+title: Project status board
+kit: "1"
+queries:
+  tasks:
+    tag: task
+    sort:
+      - key: due
+size:
+  height: 800

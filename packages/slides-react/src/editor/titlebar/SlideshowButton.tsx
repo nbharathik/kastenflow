@@ -1,6 +1,7 @@
-import { type JSX, useMemo } from "react";
+import { type JSX, useEffect, useMemo, useState } from "react";
 
 import { MATTES, readMatte, writeMatte } from "../../present/matte.ts";
+import { readControls, writeControls } from "../../present/options.ts";
 import { keysOf, runCommand } from "../commands/index.ts";
 import { commandItem, groups, plainItem, submenu } from "../menus/build.ts";
 import { DropMenu } from "../menus/DropMenu.tsx";
@@ -8,6 +9,7 @@ import { useDropdown } from "../menus/useDropdown.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { Icon } from "../ui/Icon.tsx";
+import { presentOnRows } from "./present-on.ts";
 
 /**
  * Slideshow: the button that presents from the slide shown, and a caret beside it with the other ways to start: from the beginning, in
@@ -17,6 +19,21 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
   const dd = useDropdown();
   const ctx = useMemo(() => ({ session, ui }), [session, ui]);
   const can = ui.actions.present !== undefined;
+  // The displays attached are asked for when the options open: one may have been plugged in since.
+  const screens = session.host.screens;
+  const [displays, setDisplays] = useState<string[]>([]);
+  const opened = dd.anchor !== null;
+  useEffect(() => {
+    if (!screens || !opened) return;
+    let current = true;
+    void screens.displays().then(
+      (names) => current && setDisplays(names),
+      () => current && setDisplays([]),
+    );
+    return () => {
+      current = false;
+    };
+  }, [screens, opened]);
   return (
     <div className="ks-present">
       <button
@@ -39,6 +56,8 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
         label="Slideshow options"
         items={() => {
           const matte = readMatte();
+          const controls = readControls();
+          const on = presentOnRows(screens, displays);
           return groups(
             [
               commandItem("view.present-start", ctx, { label: "Present from beginning" }),
@@ -57,6 +76,9 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
                 MATTES.map((choice) => plainItem(`matte-${choice.value}`, choice.label, () => writeMatte(choice.value), { checked: choice.value === matte })),
                 "palette",
               ),
+              // The arrows and the progress bar of the show: off, so a talk is the slide and nothing else.
+              plainItem("controls", "Arrows and progress bar", () => writeControls(!controls), { checked: controls }),
+              ...(on.length > 0 ? [submenu("present-on", "Present on", on, "monitor-play")] : []),
             ],
           );
         }}

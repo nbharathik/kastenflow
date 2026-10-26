@@ -24,6 +24,7 @@ import { EditorSession, type SessionOptions } from "./session/session.ts";
 import { TitleBar } from "./titlebar/TitleBar.tsx";
 import { Toolbar } from "./toolbar/Toolbar.tsx";
 import { EditorUi, type EditorActions } from "./ui-state.ts";
+import { applySnapshot, snapshotKey, snapshotOf, type UiSnapshot } from "./ui-snapshot.ts";
 import { useUiState } from "./useUi.ts";
 import { useWarmUp } from "./warm-up.ts";
 import "./editor.css";
@@ -51,12 +52,22 @@ export interface SlidesEditorProps {
    * dialogs or presentations is open.
    */
   routeOrphanKeys?: () => boolean;
+  /**
+   * How the editor's window was last left: the panel, the slide and the picks on it, the filmstrip. Read once, when the editor opens. A host that
+   * keeps it (`onUiChange`) gets a deck back as it was after its tab was put away. Parts that no longer fit the deck are skipped.
+   */
+  initialUi?: Partial<UiSnapshot> | undefined;
+  /** Called with the window's state each time it changes (and only then), for the host to keep. */
+  onUiChange?(snapshot: UiSnapshot): void;
 }
 
 /** The whole deck editor: menus, toolbar, filmstrip, the slide, notes and panels. */
-export function SlidesEditor({ text, host, actions, onSession, onError, theme, className = "", autoFocus, focusKey, routeOrphanKeys }: SlidesEditorProps): JSX.Element {
+export function SlidesEditor({ text, host, actions, onSession, onError, theme, className = "", autoFocus, focusKey, routeOrphanKeys, initialUi, onUiChange }: SlidesEditorProps): JSX.Element {
   const [made, setMade] = useState<{ session: EditorSession; ui: EditorUi } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const startUi = useRef(initialUi);
+  const report = useRef(onUiChange);
+  report.current = onUiChange;
 
   useEffect(() => {
     let session: EditorSession | null = null;
@@ -66,6 +77,7 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
         if (cancelled) return;
         session = new EditorSession(DeckEngine.open(text), host, { onError });
         const ui = new EditorUi();
+        if (startUi.current) applySnapshot(session, ui, startUi.current);
         setMade({ session, ui });
         onSession?.(session, ui);
       })
@@ -81,6 +93,22 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
   useEffect(() => {
     if (made) made.ui.actions = { ...defaultActions(made.session, host, made.ui), ...actions };
   }, [made, actions, host]);
+
+  // The host is told how the window stands each time it changes, not on every edit of the deck.
+  useEffect(() => {
+    if (!made) return;
+    const { session, ui } = made;
+    let last = snapshotKey(snapshotOf(session, ui));
+    const check = () => {
+      const now = snapshotOf(session, ui);
+      const key = snapshotKey(now);
+      if (key === last) return;
+      last = key;
+      report.current?.(now);
+    };
+    const stops = [session.subscribe(check), ui.subscribe(check), ui.subscribeMemory(check)];
+    return () => stops.forEach((stop) => stop());
+  }, [made]);
 
   // The first code block a person opens is not made to wait for the engine's first-use work: it is done once the editor has painted and the page is idle.
   useWarmUp(made !== null);

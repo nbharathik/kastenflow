@@ -1,20 +1,38 @@
 //! Backing up to a git host: "Sign in with GitHub", which makes a private
-//! repository to back up into, and a token pasted for GitHub or any other
-//! host. Each token is kept in the keychain for its own server and given to
-//! the engine, which sends it nowhere else.
+//! repository to back up into, a fine-grained token pasted for one
+//! repository, the GitHub command line's sign-in, and a token pasted for any
+//! other host. Each token is kept in the keychain for its own server and given
+//! to the engine, which sends it nowhere else. Where the keychain cannot keep
+//! it, a GitHub token lasts until KastenFlow closes.
 
+pub(crate) mod api;
+pub(crate) mod device;
+pub(crate) mod endpoints;
+pub(crate) mod failure;
+pub(crate) mod gh;
 pub mod github;
+pub(crate) mod lock;
+pub(crate) mod repos;
+pub(crate) mod session;
+pub(crate) mod token;
+pub(crate) mod visibility;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant as Clock};
+#[cfg(test)]
+mod tests;
+
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use kasten_core::history::{GitToken, https_origin};
 use kasten_core::{Instant, Kasten};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+pub use self::device::SignIn;
+use self::device::{SignInCode, wait_for_token};
+use self::endpoints::{Endpoints, client_id, revoke_url};
 use crate::app_settings::AppSettings;
+use crate::backup::contract::{BackupError, Protection, RepoRow};
 use crate::chat::commands::ChatState;
 use crate::closing::MAIN;
 use crate::commands::notes::OpenVault;
@@ -22,52 +40,17 @@ use crate::secrets;
 
 const EVENT: &str = "kasten://github-sign-in";
 
-/// The GitHub app "Sign in with GitHub" goes through, set when the release
-/// is built; without it only a pasted token works.
-fn client_id() -> Option<&'static str> {
-    option_env!("KASTEN_GITHUB_CLIENT_ID").filter(|id| !id.trim().is_empty())
-}
-
-/// The sign-in under way, which a new one or Cancel stops.
-#[derive(Default)]
-pub struct SignIn(Mutex<Option<Arc<AtomicBool>>>);
-
-impl SignIn {
-    fn replace(&self, next: Option<Arc<AtomicBool>>) {
-        let mut slot = self.0.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(old) = slot.take() {
-            old.store(true, Ordering::SeqCst);
-        }
-        *slot = next;
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SignInCode {
-    pub user_code: String,
-    pub verification_uri: String,
-    pub expires_in: u64,
-}
-
-/// How a sign-in ended, sent to the window.
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "state", rename_all = "camelCase")]
-pub enum SignInEnd {
-    Signed { login: String },
-    Expired,
-    Denied,
-    Disabled,
-    Failed { message: String },
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Account {
     pub login: Option<String>,
-    /// A token for github.com is in the keychain.
+    /// A token for github.com is in the keychain, or kept until KastenFlow
+    /// closes.
     pub signed_in: bool,
-    /// This copy of Kasten can sign in with GitHub, not only take a token.
+    /// The token is not in the keychain: the sign-in ends when KastenFlow
+    /// closes.
+    pub session_only: bool,
+    /// This copy of KastenFlow can sign in with GitHub, not only take a token.
     pub can_sign_in: bool,
     /// A name for a new backup repository, from the open vault's.
     pub suggested: Option<String>,
@@ -85,19 +68,44 @@ async fn blocking<T: Send + 'static>(
         .map_err(crate::crash::joined)?
 }
 
-fn github_token(chat: &ChatState) -> Result<GitToken, String> {
-    secrets::git_token(chat.keys().as_ref(), github::ORIGIN)?
-        .ok_or_else(|| "Sign in with GitHub first".to_owned())
+/// The GitHub token: the keychain's, else the one kept until KastenFlow
+/// closes.
+pub(crate) fn github_token(chat: &ChatState) -> Result<GitToken, BackupError> {
+    let kept = secrets::git_token(chat.keys().as_ref(), github::ORIGIN)
+        .ok()
+        .flatten();
+    kept.or_else(session::get)
+        .ok_or_else(|| BackupError::SignedOut {
+            message: "Sign in with GitHub first".to_owned(),
+        })
+}
+
+/// The signed-in account's login, from what was kept at sign-in, else asked.
+pub(crate) async fn login_of(
+    app: &AppHandle,
+    http: &reqwest::Client,
+    ep: &Endpoints,
+    token: &str,
+) -> Result<String, BackupError> {
+    let kept = settings_dir(app)
+        .ok()
+        .and_then(|dir| AppSettings::load(&dir).github_login);
+    match kept {
+        Some(login) => Ok(login),
+        None => github::whoami(http, ep, token).await,
+    }
 }
 
 /// Gives the engine the token for its remote's server, if the keychain
-/// has one: on opening a vault, and after signing in.
+/// (or this session) has one: on opening a vault, and after signing in.
 pub fn hand_token(kasten: &Kasten, keys: &dyn secrets::KeyStore) {
     let origin = kasten.config().git.remote.as_deref().and_then(https_origin);
-    if let Some(origin) = origin
-        && let Ok(Some(token)) = secrets::git_token(keys, &origin)
-    {
-        kasten.set_git_token(Some(token));
+    if let Some(origin) = origin {
+        let found = secrets::git_token(keys, &origin).ok().flatten();
+        let found = found.or_else(|| session::get().filter(|t| t.origin == origin));
+        if let Some(token) = found {
+            kasten.set_git_token(Some(token));
+        }
     }
 }
 
@@ -112,7 +120,7 @@ pub async fn github_sign_in_start(
     let id = client_id()
         .ok_or("This copy of KastenFlow can't sign in with GitHub; paste a token instead")?;
     let http = chat.http()?;
-    let code = github::request_code(&http, id).await?;
+    let code = github::request_code(&http, &Endpoints::github(), &id).await?;
     let stop = Arc::new(AtomicBool::new(false));
     sign_in.replace(Some(Arc::clone(&stop)));
     let shown = SignInCode {
@@ -122,73 +130,12 @@ pub async fn github_sign_in_start(
     };
     let keys = chat.keys();
     tauri::async_runtime::spawn(async move {
-        let end = wait_for_token(&app, &http, id, &code, &stop, keys.as_ref()).await;
+        let end = wait_for_token(&app, &http, &id, &code, &stop, keys.as_ref()).await;
         if let Some(end) = end {
             let _ = app.emit_to(MAIN, EVENT, end);
         }
     });
     Ok(shown)
-}
-
-/// Asks GitHub, at the pace it sets, until the code is typed, refused or
-/// runs out; None when the sign-in was stopped.
-async fn wait_for_token(
-    app: &AppHandle,
-    http: &reqwest::Client,
-    id: &str,
-    code: &github::DeviceCode,
-    stop: &AtomicBool,
-    keys: &dyn secrets::KeyStore,
-) -> Option<SignInEnd> {
-    let deadline = Clock::now() + Duration::from_secs(code.expires_in);
-    let mut interval = code.interval.max(5);
-    loop {
-        tokio::time::sleep(Duration::from_secs(interval)).await;
-        if stop.load(Ordering::SeqCst) {
-            return None;
-        }
-        if Clock::now() >= deadline {
-            return Some(SignInEnd::Expired);
-        }
-        match github::poll(http, id, &code.device_code).await {
-            github::Poll::Pending => {}
-            github::Poll::SlowDown => interval += 5,
-            github::Poll::Expired => return Some(SignInEnd::Expired),
-            github::Poll::Denied => return Some(SignInEnd::Denied),
-            github::Poll::Disabled => return Some(SignInEnd::Disabled),
-            github::Poll::Failed(message) => return Some(SignInEnd::Failed { message }),
-            github::Poll::Token(secret) => {
-                return Some(match signed_in(app, http, keys, secret).await {
-                    Ok(login) => SignInEnd::Signed { login },
-                    Err(message) => SignInEnd::Failed { message },
-                });
-            }
-        }
-    }
-}
-
-/// Keeps a new GitHub token and the account it is for.
-async fn signed_in(
-    app: &AppHandle,
-    http: &reqwest::Client,
-    keys: &dyn secrets::KeyStore,
-    secret: String,
-) -> Result<String, String> {
-    let login = github::whoami(http, &secret).await?;
-    let token = GitToken {
-        origin: github::ORIGIN.to_owned(),
-        username: github::TOKEN_USER.to_owned(),
-        secret,
-    };
-    secrets::save_git_token(keys, &token)?;
-    AppSettings::update(&settings_dir(app)?, |s| {
-        s.github_login = Some(login.clone())
-    })
-    .map_err(|e| e.to_string())?;
-    if let Some(kasten) = app.state::<OpenVault>().kasten() {
-        hand_token(&kasten, keys);
-    }
-    Ok(login)
 }
 
 #[tauri::command]
@@ -203,26 +150,30 @@ pub fn github_account(
     chat: State<'_, ChatState>,
 ) -> Result<Account, String> {
     let login = AppSettings::load(&settings_dir(&app)?).github_login;
-    let signed_in = secrets::git_token(chat.keys().as_ref(), github::ORIGIN)
+    let in_keychain = secrets::git_token(chat.keys().as_ref(), github::ORIGIN)
         .ok()
         .flatten()
         .is_some();
+    let session_only = !in_keychain && session::get().is_some();
+    let signed_in = in_keychain || session_only;
     Ok(Account {
         login: login.filter(|_| signed_in),
         signed_in,
+        session_only,
         can_sign_in: client_id().is_some(),
         suggested: state.kasten().map(|k| github::repo_name(&k.config().name)),
     })
 }
 
 /// Forgets the GitHub token here, and answers the page where GitHub lets
-/// the person take Kasten's access back for good.
+/// the person take KastenFlow's access back for good.
 #[tauri::command(async)]
 pub fn github_sign_out(
     app: AppHandle,
     chat: State<'_, ChatState>,
 ) -> Result<Option<String>, String> {
     secrets::forget_git_token(chat.keys().as_ref(), github::ORIGIN)?;
+    session::forget();
     AppSettings::update(&settings_dir(&app)?, |s| s.github_login = None)
         .map_err(|e| e.to_string())?;
     if let Some(kasten) = app.state::<OpenVault>().kasten()
@@ -237,38 +188,57 @@ pub fn github_sign_out(
     {
         kasten.set_git_token(None);
     }
-    Ok(client_id().map(|id| format!("https://github.com/settings/connections/applications/{id}")))
+    Ok(Some(revoke_url(client_id().as_deref())))
 }
 
-/// The account's private repositories, to restore from.
+/// The account's private repositories, backups first, to restore from.
 #[tauri::command]
-pub async fn github_backups(chat: State<'_, ChatState>) -> Result<Vec<github::Repo>, String> {
+pub async fn github_backups(
+    app: AppHandle,
+    chat: State<'_, ChatState>,
+) -> Result<Vec<RepoRow>, BackupError> {
     let token = github_token(&chat)?;
-    github::private_repos(&chat.http()?, &token.secret).await
+    let http = chat.http().map_err(BackupError::other)?;
+    let ep = Endpoints::github();
+    let login = login_of(&app, &http, &ep, &token.secret).await?;
+    repos::all(&http, &ep, &token.secret, &login).await
+}
+
+/// A repository made for the vault's backup, and the lock on its branch.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatedBackup {
+    #[serde(flatten)]
+    pub repo: RepoRow,
+    pub protection: Protection,
 }
 
 /// Makes a private repository named `name` for the open vault, backs up
-/// into it at once, and keeps it as the vault's backup on this computer.
+/// into it at once, and keeps it as the vault's backup on this computer. A
+/// name in use is a typed error carrying that repository, to use instead.
 #[tauri::command]
 pub async fn github_create_backup(
     app: AppHandle,
     state: State<'_, OpenVault>,
     chat: State<'_, ChatState>,
     name: String,
-) -> Result<github::Repo, String> {
-    let kasten = state.require()?;
+) -> Result<CreatedBackup, BackupError> {
+    let kasten = state.require().map_err(BackupError::other)?;
     let token = github_token(&chat)?;
-    let http = chat.http()?;
-    let name = name.trim().to_owned();
-    let repo = github::create_private_repo(&http, &token.secret, &name)
-        .await?
-        .ok_or_else(|| format!("You have a repository named {name} already; try {name}-2"))?;
-    github::protect(&http, &token.secret, &repo.full_name).await;
+    let http = chat.http().map_err(BackupError::other)?;
+    let ep = Endpoints::github();
+    let login = login_of(&app, &http, &ep, &token.secret).await?;
+    let (repo, protection) =
+        repos::create_backup(&http, &ep, &token.secret, &login, name.trim()).await?;
+    visibility::remember(&repo.full_name, repo.visibility, Some(protection.clone()));
     let url = repo.clone_url.clone();
     blocking(move || {
-        let mut config = kasten.config();
-        config.git.remote = Some(url.clone());
-        kasten.set_config(config).map_err(|e| e.to_string())?;
+        kasten
+            .update_config(|config| {
+                config.git.remote = Some(url.clone());
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
         crate::commands::vault::confirm(&app, &kasten, Some(&url))?;
         kasten.set_git_token(Some(token));
         let now = Instant::now().millis;
@@ -276,8 +246,9 @@ pub async fn github_create_backup(
         kasten.commit_external().map_err(|e| e.to_string())?;
         kasten.push(now).map_err(|e| e.to_string())
     })
-    .await?;
-    Ok(repo)
+    .await
+    .map_err(BackupError::other)?;
+    Ok(CreatedBackup { repo, protection })
 }
 
 /// What saving a token did.
@@ -339,6 +310,9 @@ pub fn git_token_forget(
 ) -> Result<(), String> {
     let origin = https_origin(url.trim()).ok_or("That is not an https:// address")?;
     secrets::forget_git_token(chat.keys().as_ref(), &origin)?;
+    if origin == github::ORIGIN {
+        session::forget();
+    }
     if let Some(kasten) = state.kasten() {
         kasten.set_git_token(None);
     }

@@ -4,6 +4,7 @@
 
 use serde_json::Value;
 
+use super::super::page_edit::PageText;
 use super::super::{Kasten, Outcome};
 use crate::agent::{AgentOp, ChangeSet, Session, Step};
 use crate::error::{Error, Result};
@@ -31,6 +32,14 @@ fn not_previewed(op: &AgentOp) -> String {
         AgentOp::Edit { .. } => "A full rewrite",
         AgentOp::TagSchema { .. } => "A change to a tag's schema",
         AgentOp::Template { .. } => "A template",
+        AgentOp::SetParent { .. } => "Putting a page inside another",
+        AgentOp::ReorderChildren { .. } => "Putting sub-pages in order",
+        AgentOp::CreateProject { .. } => "A new project",
+        AgentOp::SetProjectState { .. } => "A change to a project's state",
+        AgentOp::SetTagViews { .. } => "A change to a tag's views",
+        AgentOp::SetViewOrder { .. } => "A change to the order of a table's rows",
+        AgentOp::SaveSource { .. } => "A change to a LaTeX file",
+        AgentOp::SaveProjectSetup { .. } => "Saving a project as a setup",
         _ => "This change",
     };
     format!("{what} is not previewed with the other changes, so it waits for your review")
@@ -43,6 +52,7 @@ fn works_on_staged_files(op: &AgentOp) -> bool {
         op,
         AgentOp::Append { .. }
             | AgentOp::ReplaceSection { .. }
+            | AgentOp::EditPage { .. }
             | AgentOp::UpdateProps { .. }
             | AgentOp::Tags { .. }
             | AgentOp::EditDeck { .. }
@@ -126,6 +136,18 @@ impl Kasten {
     /// The refusals no trust lifts, with the notes only the set has taken as
     /// the notes they are.
     pub(super) fn staged_refusals(&self, set: &ChangeSet, op: &AgentOp) -> Result<()> {
+        self.set_refusals(set, op, PageText::Staged(set))
+    }
+
+    /// `staged_refusals`, with the page edits' blocks not tried again: the
+    /// staged page is the result of the set's steps (they named the blocks of
+    /// the page as each step left it), and `apply_changes` weighs what the
+    /// vault holds now when it puts the page together with the set.
+    pub(super) fn applying_refusals(&self, set: &ChangeSet, op: &AgentOp) -> Result<()> {
+        self.set_refusals(set, op, PageText::Unchecked)
+    }
+
+    fn set_refusals(&self, set: &ChangeSet, op: &AgentOp, pages: PageText) -> Result<()> {
         let new_paths = op
             .path()
             .into_iter()
@@ -142,11 +164,54 @@ impl Kasten {
                 )));
             }
         }
-        self.refusals_with(op, &|p| set.is_new(p))
+        self.refusals_with(op, &|p| set.is_new(p), pages)
+    }
+
+    /// Plans a batch into `set`: every change in turn, each as the staged
+    /// notes before it left them. A change that cannot be staged refuses the
+    /// batch, and one that needs review makes the whole batch wait for it
+    /// (`set` is the caller's copy, thrown away unless the batch is staged).
+    fn plan_batch(&self, set: &mut ChangeSet, ops: &[AgentOp], now: Instant) -> Result<Planned> {
+        crate::batch::check_shape(ops)?;
+        let total = ops.len();
+        let mut paths = Vec::new();
+        let mut results = Vec::with_capacity(total);
+        for (index, op) in ops.iter().enumerate() {
+            let planned = self
+                .staged_refusals(set, op)
+                .and_then(|()| self.plan_op(set, op, now))
+                .map_err(|err| crate::batch::refused(index, total, op, &err))?;
+            match planned {
+                Planned::Review(reason) => {
+                    return Ok(Planned::Review(format!(
+                        "{}: {reason}; a batch waits for review as a whole",
+                        crate::batch::position(index, total, op)
+                    )));
+                }
+                Planned::Staged {
+                    paths: staged,
+                    result,
+                    ..
+                } => {
+                    paths.extend(staged);
+                    results.push(result);
+                }
+            }
+        }
+        paths.sort();
+        paths.dedup();
+        Ok(Planned::Staged {
+            paths,
+            result: serde_json::json!({ "changes": total, "results": results }),
+            summary: format!("Batch: {}", crate::batch::describe(ops)),
+        })
     }
 
     /// Plans `op` into `set`.
     fn plan_op(&self, set: &mut ChangeSet, op: &AgentOp, now: Instant) -> Result<Planned> {
+        if let AgentOp::Batch { ops, .. } = op {
+            return self.plan_batch(set, ops, now);
+        }
         if let Some(planned) = self.plan_note_op(set, op, now)? {
             return Ok(planned);
         }

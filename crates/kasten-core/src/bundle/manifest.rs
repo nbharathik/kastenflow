@@ -156,6 +156,10 @@ impl Manifest {
                 )));
             }
         }
+        // A smart page's folder comes in under the limits and the list of
+        // files that writing to it holds: it is served as code.
+        crate::smart::check_listed(manifest.files.iter().map(|f| (f.path.as_str(), f.bytes)))
+            .map_err(|err| refuse(format!("{err}. Nothing was imported")))?;
         let page = format!("projects/{}/_project.md", manifest.project.folder);
         if !manifest.files.iter().any(|f| f.path == page) {
             return Err(refuse("The bundle holds no project page (_project.md)"));

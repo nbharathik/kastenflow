@@ -62,8 +62,30 @@ export class BoardEmbed {
     present.addEventListener("click", (event) => {
       if (event.detail === 0) presentBoard();
     });
+    // Undo and redo ask the board inside, which owns its history (Ctrl+Z works there once it is clicked).
+    const history = (name: "undo" | "redo", label: string) => {
+      const tool = embedTool(`kasten-board-embed-${name}`, `icon:${name}`, label, label);
+      const ask = () => this.dom.dispatchEvent(new CustomEvent(`kasten:${name}`));
+      tool.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        ask();
+      });
+      tool.addEventListener("click", (event) => {
+        if (event.detail === 0) ask();
+      });
+      return tool;
+    };
+    const undo = history("undo", "Undo whiteboard edit");
+    const redo = history("redo", "Redo whiteboard edit");
+    // The board inside says when it has nothing to undo or redo; the buttons grey out meanwhile.
+    this.dom.addEventListener("kasten:history", (event) => {
+      const { canUndo, canRedo } = (event as CustomEvent<{ canUndo: boolean; canRedo: boolean }>).detail;
+      undo.disabled = !canUndo;
+      redo.disabled = !canRedo;
+    });
     const head = el("span", "kasten-embed-head");
-    head.append(withGlyph(el("span", "kasten-embed-icon"), "icon:board", 16), this.title, present, open);
+    head.append(withGlyph(el("span", "kasten-embed-icon"), "icon:board", 16), this.title, undo, redo, present, open);
     this.body = el("div", "kasten-board-embed-body");
     this.cover = el("button", "kasten-board-embed-cover", { type: "button", textContent: "Click to work on the whiteboard" });
     this.cover.addEventListener("mousedown", (event) => {
@@ -73,7 +95,7 @@ export class BoardEmbed {
     });
     const grip = this.grip();
     this.dom.replaceChildren(head, this.body, this.cover, grip);
-    this.chrome = [open, present, grip];
+    this.chrome = [open, present, undo, redo, grip];
   }
 
   /** The grip on the bottom edge: drag it, or use the arrow keys on it, to set the height. */
@@ -153,6 +175,8 @@ export class BoardEmbed {
       this.dom.dataset.active = "true";
       this.cover.hidden = true;
       document.addEventListener("pointerdown", this.outside, true);
+      // The board takes the keys, so Ctrl+Z undoes its edits and not the page's.
+      this.body.querySelector<HTMLElement>(".kasten-board")?.focus({ preventScroll: true });
     } else {
       delete this.dom.dataset.active;
       this.cover.hidden = !this.mounted;

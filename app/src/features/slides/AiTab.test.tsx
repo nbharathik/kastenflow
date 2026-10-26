@@ -14,6 +14,7 @@ const DECK = "library/talk.deck";
 
 function props(over: Partial<AiPanelProps> = {}): AiPanelProps {
   return {
+    status: "idle",
     deckPath: DECK,
     deckTitle: "Tool use",
     theme: "Light",
@@ -127,11 +128,17 @@ describe("the assistant tab", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "New chat" })));
     await screen.findByRole("heading", { name: "Ask for a change to the deck" });
     expect(screen.queryByText("First question")).toBeNull();
-    expect(chat.resets).toHaveLength(1);
+    // The old chat is kept in the list, not discarded or reset; the backend made the new one's id.
+    expect(chat.resets).toHaveLength(0);
+    expect(chat.newThreads).toHaveLength(1);
+    expect(useChat.getState().order[0]).toBe("chat-new-1");
+    expect(chat.newThreads[0]).toBe(useChat.getState().order[1]);
+    expect(useChat.getState().threads[useChat.getState().order[1]!]!.messages).toHaveLength(2);
     view.rerender(<AiTab {...props({ deckPath: "library/other.deck" })} />);
     await screen.findByRole("heading", { name: "Ask for a change to the deck" });
-    expect(chipLabels()).toEqual(["Slide 2: The loop"]);
-    expect(useChat.getState().order).toHaveLength(2);
+    // The other deck's chat is looked for on the backend first, so it arrives a moment later.
+    await expect.poll(() => useChat.getState().order.length).toBe(3);
+    await expect.poll(chipLabels).toEqual(["Slide 2: The loop"]);
   });
 
   it("says what waits for the person's look, and accepts it all from there", async () => {
@@ -147,8 +154,7 @@ describe("the assistant tab", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("brings back a deck's chat from an earlier run, and makes a new one when it is gone", async () => {
-    localStorage.setItem("kasten.chat.decks", JSON.stringify({ [DECK]: "old", "library/lost.deck": "lost" }));
+  it("brings back the chat tied to a deck from an earlier run, and makes a new one for a deck with none", async () => {
     const ui = {
       v: 1,
       id: "old",
@@ -166,15 +172,60 @@ describe("the assistant tab", () => {
       seq: 2,
     };
     chat.loads["old"] = { ui, status: "idle", seq: 2, plan: [], title: "Earlier question", provider: "Claude", model: "model-small", queued: [] };
+    // The backend has the tie (chat_bind); the chat is found by the deck.
+    chat.ties["old"] = { kind: "deck", path: DECK };
+    chat.threadList = [{ id: "old", title: "Earlier question", updated: 1, status: "idle", provider: "Claude", model: "model-small", bound: { kind: "deck", path: DECK } }];
     const view = render(<AiTab {...props()} />);
     await within(await screen.findByRole("log", { name: "Messages" })).findByText("Earlier question");
     expect(useChat.getState().active).toBeNull();
     expect(useChat.getState().order).toEqual(["old"]);
-    // A chat that is not there any more is a new thread.
+    // A deck with no chat tied to it gets a new thread.
     view.rerender(<AiTab {...props({ deckPath: "library/lost.deck" })} />);
     await screen.findByRole("heading", { name: "Ask for a change to the deck" });
     expect(useChat.getState().order).toHaveLength(2);
-    expect(JSON.parse(localStorage.getItem("kasten.chat.decks")!)["library/lost.deck"]).not.toBe("lost");
+  });
+
+  it("hands the old deck-to-chat map in this browser to the backend, once", async () => {
+    localStorage.setItem("kasten.chat.decks", JSON.stringify({ [DECK]: "old" }));
+    render(<AiTab {...props()} />);
+    await screen.findByRole("heading", { name: "Ask for a change to the deck" });
+    expect(chat.imports).toEqual([{ [DECK]: "old" }]);
+    cleanup();
+    resetChat(chat);
+    render(<AiTab {...props()} />);
+    await screen.findByRole("heading", { name: "Ask for a change to the deck" });
+    expect(chat.imports).toHaveLength(1);
+  });
+
+  it("does not hide a chat it cannot read behind an empty one: Retry, or Start a new one", async () => {
+    chat.ties["old"] = { kind: "deck", path: DECK };
+    chat.threadList = [{ id: "old", title: "Earlier question", updated: 1, status: "idle", provider: "Claude", model: "model-small", bound: { kind: "deck", path: DECK } }];
+    chat.loadErrors["old"] = { kind: "adoptFailed", reason: "damaged", message: "This chat's file is damaged." };
+    render(<AiTab {...props()} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Couldn’t reopen this chat");
+    expect(alert.textContent).toContain("This chat's file is damaged.");
+    expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+    expect(useChat.getState().order).toEqual([]);
+    // Retry reads it again.
+    delete chat.loadErrors["old"];
+    chat.loads["old"] = { ui: null, status: "idle", seq: 0, plan: [], title: "Earlier question", provider: "Claude", model: "model-small", queued: [] };
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry" })));
+    await screen.findByRole("textbox", { name: "Message" });
+    expect(useChat.getState().order).toEqual(["old"]);
+  });
+
+  it("starts a new deck chat from the failure notice, leaving the unreadable one alone", async () => {
+    chat.ties["old"] = { kind: "deck", path: DECK };
+    chat.threadList = [{ id: "old", title: "Earlier question", updated: 1, status: "idle", provider: "Claude", model: "model-small", bound: { kind: "deck", path: DECK } }];
+    chat.loadErrors["old"] = { kind: "adoptFailed", reason: "missing", message: "This chat's file is missing." };
+    render(<AiTab {...props()} />);
+    await screen.findByRole("alert");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Start a new one" })));
+    await screen.findByRole("heading", { name: "Ask for a change to the deck" });
+    expect(useChat.getState().order).toHaveLength(1);
+    expect(useChat.getState().order[0]).not.toBe("old");
+    expect(chat.deleted).toEqual([]);
   });
 
   it("says what the assistant is doing, and not what it has finished", async () => {

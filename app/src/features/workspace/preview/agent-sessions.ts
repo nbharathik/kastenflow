@@ -5,7 +5,7 @@
 // chat becomes (the core's `save_chat`).
 
 import { isoDay } from "../../../lib/dates";
-import type { SessionInfo } from "../../../lib/vault/types";
+import type { Digest, DigestSession, SessionInfo } from "../../../lib/vault/types";
 import { yamlScalar } from "../../pages/page/page-meta";
 import type { Version } from "./stored";
 import { newId, newestFirst, slugify, stamps } from "./vault-text";
@@ -41,6 +41,31 @@ export function sessionsIn(versions: Versions, limit = 50): SessionInfo[] {
     by.set(version.session, s);
   }
   return [...by.values()].sort((a, b) => b.last - a.last).slice(0, limit);
+}
+
+/** What agents did since `since`, session by session, from their versions (a person's versions carry no session). A proposal is not a version here. */
+export function digestIn(versions: Versions, since: number): Digest {
+  const undone = undoneIds(versions);
+  const by = new Map<string, { s: DigestSession; paths: Set<string>; allUndone: boolean }>();
+  for (const [path, list] of Object.entries(versions)) {
+    for (const version of list) {
+      if (!version.session) continue;
+      const entry = by.get(version.session) ?? { s: { id: version.session, client: version.client ?? "agent", started: version.time, last: version.time, changes: 0, proposed: 0, notesTouched: 0, notes: [], mode: null, proposalsWaiting: 0, canUndo: false, undone: false }, paths: new Set<string>(), allUndone: true };
+      entry.s.started = Math.min(entry.s.started, version.time);
+      entry.s.last = Math.max(entry.s.last, version.time);
+      entry.allUndone &&= undone.has(version.id);
+      if (version.time >= since) {
+        entry.s.changes += 1;
+        entry.paths.add(path);
+      }
+      by.set(version.session, entry);
+    }
+  }
+  const sessions = [...by.values()]
+    .filter((e) => e.s.changes > 0)
+    .map(({ s, paths, allUndone }) => ({ ...s, notesTouched: paths.size, notes: [...paths].sort().slice(0, 50), undone: allUndone, canUndo: !allUndone }))
+    .sort((a, b) => b.last - a.last);
+  return { since, sessions, changes: sessions.reduce((n, s) => n + s.changes, 0), waiting: 0 };
 }
 
 export interface SessionEdit {

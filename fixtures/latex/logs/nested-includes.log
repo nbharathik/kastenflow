@@ -1,0 +1,34 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:33
+entering extended mode
+ restricted \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/bk10.clo))
+(/usr/share/texlive/texmf-dist/tex/latex/pgf/frontendlayer/tikz/libraries/tikzl
+ibrarycalc.code.tex)
+(./main.aux) (./main.toc)
+(./chapters/intro.tex
+Chapter 1.
+) ("./chapters/my notes.tex"
+Chapter 2.
+
+LaTeX Warning: Reference `eq:main' on page 3 undefined on input line 5.
+
+./chapters/my notes.tex:9: Undefined control sequence.
+l.9 \emphh
+          {important (really)}
+?
+) [1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./chapters/final.tex
+Underfull \hbox (badness 5000) in paragraph at lines 3--4
+[]\OT1/cmr/m/n/10 Thanks to (all of) you.
+ []
+
+) (./main.aux) )
+Output written on main.pdf (3 pages, 5678 bytes).
+Transcript written on main.log.

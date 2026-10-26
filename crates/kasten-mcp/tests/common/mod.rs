@@ -55,6 +55,8 @@ pub struct Client {
     next: u64,
     /// What the server told the client about the vault when it connected.
     pub instructions: String,
+    /// The methods of the notifications the server sent, in order.
+    pub notices: Vec<String>,
 }
 
 impl Drop for Client {
@@ -92,6 +94,7 @@ impl Client {
             stdout,
             next: 1,
             instructions: String::new(),
+            notices: Vec::new(),
         };
         let init = c.request(
             "initialize",
@@ -124,6 +127,11 @@ impl Client {
             let read = self.stdout.read_line(&mut line).unwrap();
             assert!(read > 0, "the server closed its output");
             let message: Value = serde_json::from_str(&line).unwrap();
+            if message.get("id").is_none()
+                && let Some(method) = message["method"].as_str()
+            {
+                self.notices.push(method.to_owned());
+            }
             if message["id"] == json!(id) {
                 return if message.get("error").is_some() {
                     message["error"].clone()

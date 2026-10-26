@@ -20,9 +20,12 @@ import { deckLinks } from "./deck-links";
 import { diagramLinks } from "./diagram-links";
 import { HOLDS_PAGES, newPageHome } from "./new-page-home";
 import { pageFiles } from "./page-files";
+import { readLayout } from "./page-layout";
+import { smartLinks } from "./smart-links";
 import { clicksOpen, linkedNote, pageLink, pageLinks } from "./page-links";
 import type { PageSession } from "./page-session";
 import { peopleLinks } from "./people-links";
+import { tableDatabaseLinks } from "./table-database";
 
 /** `linksOpen` is where a plain click on the page's links opens. */
 export function usePageLinks(client: VaultClient, session: PageSession, linksOpen: LinkHow): LinkProvider {
@@ -61,9 +64,17 @@ export function usePageLinks(client: VaultClient, session: PageSession, linksOpe
           () => toast("The link could not be copied"),
         );
       },
+      copyText: (text, done) => {
+        const { toast } = useWorkspace.getState();
+        void navigator.clipboard?.writeText(text).then(
+          () => toast(done),
+          () => toast("It could not be copied"),
+        );
+      },
       ...boardLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
       ...deckLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
       ...diagramLinks(client, () => noteAt(useWorkspace.getState().notes, session.path)),
+      ...smartLinks(() => session.path),
       ...peopleLinks(),
       webTitle,
       openMenu: (event, path) => {
@@ -71,17 +82,23 @@ export function usePageLinks(client: VaultClient, session: PageSession, linksOpe
         return true;
       },
       ...databaseLinks(() => (HOLDS_PAGES.has(noteAt(useWorkspace.getState().notes, session.path)?.kind ?? "") ? session.path : null)),
+      ...tableDatabaseLinks(client, session, () => noteAt(useWorkspace.getState().notes, session.path)),
       embed: (target) => {
         const note = linkedNote(session.path, target);
         if (!note) return null;
         return {
           stamp: `${note.path}:${note.modified}`,
-          load: async () => ({
-            title: titleOf(note),
-            icon: iconOf(note),
-            markdown: splitFrontmatter((await client.read(note.path)).text).body,
-            url: pageFiles(client, () => note.path).url,
-          }),
+          load: async () => {
+            const { prefix, body } = splitFrontmatter((await client.read(note.path)).text);
+            return {
+              title: titleOf(note),
+              icon: iconOf(note),
+              markdown: body,
+              url: pageFiles(client, () => note.path).url,
+              // A smart page shows as its live view; its Markdown is its notes.
+              ...(note.id && readLayout(prefix).layout === "smart" ? { smart: { path: note.path, id: note.id } } : {}),
+            };
+          },
         };
       },
     }, linksOpen),

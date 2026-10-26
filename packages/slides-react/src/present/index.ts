@@ -1,6 +1,9 @@
 export { PresentMode, imagesOf } from "./PresentMode.tsx";
 export type { PresentModeProps } from "./PresentMode.tsx";
 export { openPresentation, presenting } from "./open.tsx";
+export { readControls, writeControls } from "./options.ts";
+export { showScreen } from "./screen.ts";
+export type { ShowScreen } from "./screen.ts";
 export type { PresentRequest, Presentation } from "./open.tsx";
 export { Presenter } from "./Presenter.tsx";
 export type { PresenterProps } from "./Presenter.tsx";
@@ -10,7 +13,11 @@ export { Rehearsal, compareRuns, lastRunFor, recordOf, revisionOf } from "./rehe
 export type { RehearsalRecord, RunComparison, RunRow, SlideTime, StepTime, Timing } from "./rehearsal.ts";
 export { LOCAL_KEPT, localRehearsals } from "./rehearsal-store.ts";
 export type { RehearsalStore } from "./rehearsal-store.ts";
+export { WebPreviewPanel } from "./WebPreviewPanel.tsx";
+export type { WebPreviewPanelProps } from "./WebPreviewPanel.tsx";
 export { ScrollView } from "./ScrollView.tsx";
 export type { ScrollViewProps } from "./ScrollView.tsx";
 export { broadcastSync, memorySyncPair, readMessage } from "./sync.ts";
 export type { PresentMessage, PresentSync } from "./sync.ts";
+export { echoBus, echoingPair, linkOver } from "./wire.ts";
+export type { Wire } from "./wire.ts";

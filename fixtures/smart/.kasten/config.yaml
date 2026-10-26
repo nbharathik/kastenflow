@@ -1,0 +1,19 @@
+# Smart-page fixture vault (KASTEN_VAULT=./fixtures/smart). Plain text only.
+# The defaults, as docs/vault-format.md lists them.
+name: Smart fixture
+git:
+  remote: null            # fixtures never push
+  push_delay_seconds: 120
+  push_interval_minutes: 60
+guardrails:
+  max_removed_fraction: 0.4
+  max_notes_per_session_10min: 25
+  max_trash_per_session: 5
+  max_board_nodes_removed: 10
+  max_slides_removed: 3
+  max_write_bytes: 204800
+  max_asset_bytes: 10485760
+  max_assets_per_session_10min: 30
+  max_asset_bytes_per_session_10min: 52428800
+ai:
+  providers: []

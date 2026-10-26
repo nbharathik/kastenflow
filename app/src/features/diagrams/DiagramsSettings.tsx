@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
 import { Button } from "../../ui/Button";
 import { Group, Note, Row } from "../workspace/views/settings/parts";
@@ -16,7 +17,7 @@ export function DiagramsSettings() {
     void useDiagramEditor.getState().refresh();
   }, []);
 
-  const desktop = inTauri();
+  const desktop = inTauri() || inDemo();
   const size = info ? megabytes(info.bytes) : "48 MB";
   const version = info?.version && info.version !== "stub" ? ` v${info.version}` : "";
   const known = progress && progress.total > 0;
@@ -30,7 +31,7 @@ export function DiagramsSettings() {
         help={
           info?.installed
             ? "Kept in this app's own data folder; it never reaches the network."
-            : `A ${size} download from GitHub, checked against a fixed checksum before it is unpacked. Apache-2.0.`
+            : `A ${size} download from GitHub, checked to be exactly the file KastenFlow expects before it is installed. Apache-2.0.`
         }
         detail={installing ? <span role="status">{words}</span> : info?.installed ? `Version${version || " for this computer"}` : `${size} download`}
       >

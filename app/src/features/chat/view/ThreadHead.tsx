@@ -77,6 +77,18 @@ export function ThreadTitle({ thread, as: Tag = "span" }: TitleProps) {
   );
 }
 
+/** Puts the chat away under Archived (nothing is deleted; "Move back to the list" undoes it).
+ * Not while it answers, and not for a chat with nothing in it. */
+export function ArchiveButton({ thread, compact = false }: { thread: Thread; compact?: boolean }) {
+  const disabled = thread.messages.length === 0 || thread.streaming;
+  const title = thread.streaming ? "Stop the chat first to archive it" : "Move this chat to Archived";
+  return (
+    <button type="button" className={compact ? "kasten-chat-icon-button" : "kasten-chat-head-button"} aria-label="Archive chat" title={title} disabled={disabled} onClick={() => void useChat.getState().discard(thread.id)}>
+      {compact ? <Icon name="archive" className="size-4" /> : "Archive"}
+    </button>
+  );
+}
+
 /** "Claude · model-small · High effort": the model this thread answers with
  * and what is set for it. */
 export function ThreadModel({ thread }: { thread: Thread }) {

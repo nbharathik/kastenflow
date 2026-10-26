@@ -18,6 +18,8 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   menu?: boolean;
   /** Text after the icon. */
   text?: string;
+  /** A small dot at the corner of the icon; the value says what it stands for (it pulses for `working`). The button's label must say it in words. */
+  dot?: "working" | "paused" | "failed";
   ref?: Ref<HTMLButtonElement>;
 }
 
@@ -26,7 +28,7 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
  * assistive technology is `aria-label`. `data-ks-keep-focus` stops a text
  * editor from ending its edit when this button takes the focus.
  */
-export function IconButton({ icon, label, keys, on, menu, text, className = "", ref, ...rest }: IconButtonProps) {
+export function IconButton({ icon, label, keys, on, menu, text, dot, className = "", ref, ...rest }: IconButtonProps) {
   return (
     <button
       type="button"
@@ -40,6 +42,7 @@ export function IconButton({ icon, label, keys, on, menu, text, className = "", 
       {...rest}
     >
       <Icon name={icon} />
+      {dot ? <span className="ks-btn-dot" data-status={dot} aria-hidden="true" /> : null}
       {text ? <span className="ks-btn-text">{text}</span> : null}
       {menu ? <Icon name="chevron-down" size={12} /> : null}
     </button>

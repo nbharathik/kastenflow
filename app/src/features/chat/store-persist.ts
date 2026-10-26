@@ -6,7 +6,7 @@
 
 import type { StoreApi } from "zustand";
 
-import type { ThreadSummary } from "./agent-types";
+import { adoptFailureOf, type AdoptFailure, type ThreadSummary } from "./agent-types";
 import type { ChatClient } from "./client";
 import { Persister, blobOf, reconcile, restore } from "./saved-thread";
 import type { ChatState } from "./store";
@@ -18,6 +18,13 @@ const MOST_BUFFERED = 5000;
 
 const bySeq = (a: ChatEvent, b: ChatEvent) => (a.seq ?? 0) - (b.seq ?? 0);
 
+/** `map` without `id`. */
+function without(map: Record<string, AdoptFailure>, id: string): Record<string, AdoptFailure> {
+  const next = { ...map };
+  delete next[id];
+  return next;
+}
+
 export interface Persistence {
   /** Starts writing threads through `client`, or stops (null). */
   watch(client: ChatClient | null): void;
@@ -28,10 +35,14 @@ export interface Persistence {
   removeSaved(id: string): Promise<boolean>;
   /** An event for a chat the window does not have: it is kept while the chat is loaded. */
   unknown(event: ChatEvent): void;
-  /** Takes in what a thread missed. */
+  /** Takes in what a thread missed; when the backend can no longer replay it all, the thread is read again. */
   catchUp(id: string): Promise<void>;
+  /** Tries a chat that could not be reopened once more. Whether it is there now. */
+  retry(id: string): Promise<boolean>;
   /** A thread was removed here: nothing of it comes back. */
   gone(id: string): void;
+  /** A chat put away here may be brought in again (the person opened it). */
+  allow(id: string): void;
 }
 
 let active: Persistence | null = null;
@@ -47,8 +58,10 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
   let stopHiding: (() => void) | null = null;
   const loading = new Map<string, Promise<boolean>>();
   const buffered = new Map<string, ChatEvent[]>();
-  /** Chats that could not be loaded, or were removed here: their events are left alone. */
+  /** Chats that were removed here: their events are left alone. */
   const ignored = new Set<string>();
+  /** Chats that could not be reopened: left alone until the person retries. */
+  const failed = new Set<string>();
   /** Threads just brought back: writing them again would change nothing. */
   const fresh = new WeakSet<Thread>();
 
@@ -62,6 +75,7 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
     loading.clear();
     buffered.clear();
     ignored.clear();
+    failed.clear();
     if (!client) return;
     const mine = new Persister(async (id) => {
       const thread = get().threads[id];
@@ -92,24 +106,32 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
     const going = loading.get(id);
     if (going) return going;
     const client = get().client;
-    if (!client || ignored.has(id)) return false;
+    if (!client || ignored.has(id) || failed.has(id)) return false;
     const task = (async () => {
       try {
         const loaded = await client.load(id);
         const thread = restore(id, loaded);
-        // What happened after the copy was written: the events from its place on.
-        const snapshot = await client.state(id, loaded.seq).catch(() => null);
+        // What happened after the copy was written: the events from its place on. Past a gap
+        // the backend cannot replay them all, and half of them would leave the screen wrong:
+        // the saved screen and the conversation are shown as they are.
+        const snapshot = loaded.gap ? null : await client.state(id, loaded.seq).catch(() => null);
         fresh.add(thread);
         set((s) => ({ threads: { ...s.threads, [id]: thread }, order: s.order.includes(id) ? s.order : [...s.order, id] }));
-        const events = [...(snapshot?.events ?? []), ...(buffered.get(id) ?? [])].sort(bySeq);
+        // A gap in the backend's ring (`gap` on the snapshot) is the same: nothing of it is replayed.
+        const replay = snapshot?.gap ? [] : (snapshot?.events ?? []);
+        const events = [...replay, ...(loaded.gap ? [] : (buffered.get(id) ?? []))].sort(bySeq);
         buffered.delete(id);
         fold(events);
         const now = get().threads[id];
         if (now) set((s) => ({ threads: { ...s.threads, [id]: reconcile(now, loaded.status) } }));
+        if (get().adoptFailures[id]) set((s) => without(s.adoptFailures, id));
         return true;
-      } catch {
-        ignored.add(id);
+      } catch (err) {
+        // Never an empty new thread: the person is told, and offered Retry or a new chat.
+        failed.add(id);
         buffered.delete(id);
+        const failure = adoptFailureOf(err) ?? { kind: "adoptFailed" as const, reason: "missing" as const, message: "This chat could not be opened." };
+        set((s) => ({ adoptFailures: { ...s.adoptFailures, [id]: failure } }));
         return false;
       } finally {
         loading.delete(id);
@@ -134,9 +156,21 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
         return;
       }
       if (get().client !== client) return;
-      set({ saved: Object.fromEntries(list.map((s) => [s.id, s])), savedLoaded: true });
-      // What still works is taken up now, so the dot says so.
-      for (const s of list) if (s.status === "running") void adopt(s.id);
+      set((s) => {
+        // A thread already in the window learns whether it is archived or tied from the list.
+        const threads = { ...s.threads };
+        for (const found of list) {
+          const there = threads[found.id];
+          if (there && ((there.archived ?? false) !== (found.archived ?? false) || JSON.stringify(there.bound ?? null) !== JSON.stringify(found.bound ?? null))) {
+            threads[found.id] = { ...there, archived: found.archived ?? false, bound: found.bound ?? null };
+            // The tie and the archive live on the backend: this is not a change to write.
+            fresh.add(threads[found.id]!);
+          }
+        }
+        return { saved: Object.fromEntries(list.map((one) => [one.id, one])), savedLoaded: true, threads };
+      });
+      // What still works (or waits for a place) is taken up now, so the dot says so.
+      for (const s of list) if (s.status === "running" || s.status === "waiting") void adopt(s.id);
     },
 
     adopt,
@@ -158,7 +192,7 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
     },
 
     unknown(event) {
-      if (ignored.has(event.chat)) return;
+      if (ignored.has(event.chat) || failed.has(event.chat)) return;
       const held = buffered.get(event.chat) ?? [];
       if (held.length < MOST_BUFFERED) buffered.set(event.chat, [...held, event]);
       void adopt(event.chat);
@@ -169,12 +203,32 @@ export function persistence(api: StoreApi<ChatState>, fold: (events: ChatEvent[]
       const seq = get().threads[id]?.seq;
       if (!client || seq === undefined) return;
       const snapshot = await client.state(id, seq).catch(() => null);
-      if (snapshot) fold(snapshot.events);
+      if (!snapshot) return;
+      if (!snapshot.gap) return fold(snapshot.events);
+      // Some events were dropped: the thread is read again, and shown as the backend has it.
+      try {
+        const loaded = await client.load(id);
+        const thread = reconcile(restore(id, loaded), loaded.status);
+        fresh.add(thread);
+        set((s) => (s.threads[id] ? { threads: { ...s.threads, [id]: thread } } : s));
+      } catch {
+        // What the window has stays.
+      }
+    },
+
+    retry(id) {
+      failed.delete(id);
+      set((s) => without(s.adoptFailures, id));
+      return adopt(id);
     },
 
     gone(id) {
       ignored.add(id);
       buffered.delete(id);
+    },
+
+    allow(id) {
+      ignored.delete(id);
     },
   };
 }

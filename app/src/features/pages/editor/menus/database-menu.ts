@@ -11,7 +11,7 @@ import type { MenuItem, MenuSection } from "../ui/popover";
 
 const MAX = 8;
 
-export const VIEW_NAMES: Record<TagViewKind, string> = { table: "Table", kanban: "Board", list: "List", gallery: "Gallery", calendar: "Calendar" };
+export const VIEW_NAMES: Record<TagViewKind, string> = { table: "Table", kanban: "Board", list: "List", gallery: "Gallery", calendar: "Calendar", timeline: "Timeline" };
 
 /** The picker's name: "Table view", or "Show a tag database". */
 export const databaseLabel = (view: TagViewKind | undefined) => (view ? `${VIEW_NAMES[view]} view` : "Show a tag database");

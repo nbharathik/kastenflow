@@ -1,0 +1,15 @@
+note: connected to https://relay.fullyjustified.net/default_bundle_v33.tar
+note: Running TeX ...
+(main.tex
+LaTeX2e <2022-11-01> patch level 1
+(article.cls
+Document Class: article 2022/07/02 v1.4n Standard LaTeX document class
+(size10.clo))
+(main.aux)
+warning: main.tex:10: Overfull \hbox (12.4pt too wide) in paragraph at lines 10--11
+warning: main.tex:14: LaTeX Warning: Reference `fig:a' on page 1 undefined on input line 14.
+error: main.tex:16: Undefined control sequence
+l.16 \foo
+         bar baz (with a paren
+warning: warnings were issued by the TeX engine; use --print and/or --keep-logs for details.
+error: halted on potentially-recoverable error as specified

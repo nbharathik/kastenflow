@@ -5,6 +5,10 @@
   --page-width: 44.25rem;
   --page-gutter: 96px;
 
+  &.is-wide {
+    --page-width: 60rem;
+  }
+
   &.is-full-width {
     --page-width: 100%;
   }

@@ -1,0 +1,8 @@
+version: 1
+title: Map
+kit: "1"
+queries:
+  places:
+    tag: place
+size:
+  height: 560

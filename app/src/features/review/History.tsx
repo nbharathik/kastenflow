@@ -1,8 +1,10 @@
 import "./review.css";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CommitInfo, SessionInfo } from "../../lib/vault/types";
+import { HistoryOnlyHere } from "../backup/told-up-front";
+import { TODAY_BY_AGENTS } from "./today-by-agents";
+import type { Checkpoint, CommitInfo, SessionInfo } from "../../lib/vault/types";
 import { useWorkspace } from "../workspace/store";
 import { ChangesTab } from "./ChangesTab";
 import { useSessionRequests } from "./session-request";
@@ -31,9 +33,16 @@ export function History() {
   const [limit, setLimit] = useState(HISTORY_BATCH);
   const [commits, setCommits] = useState<CommitInfo[] | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState<SessionFocus | null>(null);
   const reads = useRef(0);
+  // Home's "Agents today" opens History on the changes agents made today.
+  const asked = useWorkspace((s) => s.place.view === "history" && s.place.path === TODAY_BY_AGENTS);
+  const preset = useMemo(() => (asked ? { who: "today" as const, at: Date.now() } : null), [asked]);
+  useEffect(() => {
+    if (asked) setTab("changes");
+  }, [asked]);
 
   // "See in History" on an agent's writing opens its session here.
   useSessionRequests((id) => {
@@ -45,8 +54,10 @@ export function History() {
     if (!client) return;
     const read = ++reads.current;
     try {
-      const [found, runs] = await Promise.all([client.history(null, limit), client.sessions(SESSION_LIMIT)]);
+      // The restore points are a convenience: not having them never hides the history.
+      const [found, runs, points] = await Promise.all([client.history(null, limit), client.sessions(SESSION_LIMIT), Promise.resolve().then(() => client.checkpoints()).catch((): Checkpoint[] => [])]);
       if (read !== reads.current) return;
+      setCheckpoints(points);
       setCommits(found);
       setSessions([...runs].sort((a, b) => b.last - a.last || (a.id < b.id ? 1 : -1)));
       setError(null);
@@ -72,6 +83,8 @@ export function History() {
         History
       </h1>
       <p className="mt-1 text-14 text-muted">Every change to your notes, newest first. Agent work comes in sessions, and each session can be undone in one step.</p>
+
+      <HistoryOnlyHere />
 
       <div role="tablist" aria-label="History" className="mt-6 flex gap-5 border-b border-line">
         {TABS.map((t) => (
@@ -103,9 +116,9 @@ export function History() {
         {commits === null || sessions === null ? (
           <p className="py-10 text-center text-13 text-muted">Reading the history…</p>
         ) : tab === "changes" ? (
-          <ChangesTab commits={commits} full={commits.length >= limit} onOlder={() => setLimit((l) => l + HISTORY_BATCH)} />
+          <ChangesTab commits={commits} full={commits.length >= limit} onOlder={() => setLimit((l) => l + HISTORY_BATCH)} preset={preset} />
         ) : (
-          <SessionsTab sessions={sessions} commits={commits} onChanged={load} focus={focus} />
+          <SessionsTab sessions={sessions} commits={commits} checkpoints={checkpoints} onChanged={load} focus={focus} />
         )}
       </div>
     </div>

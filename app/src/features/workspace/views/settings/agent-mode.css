@@ -1,0 +1,85 @@
+/* Settings → AI agents → How much agents may do: three cards to pick from, and
+   a row per project with a mode of its own. Tokens only, so light and dark follow. */
+
+.kasten-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 8px;
+  padding: 4px 16px 12px;
+}
+
+.kasten-mode-card {
+  display: flex;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+}
+
+.kasten-mode-card:hover {
+  background: var(--color-hover);
+}
+
+.kasten-mode-card[data-checked="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-soft);
+}
+
+/* The radio is hidden, so its focus shows on the card. */
+.kasten-mode-card:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.kasten-mode-card:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.kasten-mode-name {
+  font-size: var(--text-14);
+  font-weight: 600;
+}
+
+.kasten-mode-sentence {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  line-height: 1.4;
+}
+
+.kasten-mode-project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 6px 16px;
+}
+
+.kasten-mode-project-name {
+  min-width: 0;
+  flex: 1 1 10rem;
+  overflow: hidden;
+  font-size: var(--text-14);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-mode-empty,
+.kasten-mode-foot {
+  margin: 0;
+  padding: 6px 16px 10px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kasten-mode-card {
+    transition: none;
+  }
+}

@@ -10,8 +10,9 @@ use kasten_core::{Instant, Kasten, ulid_at};
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{Chats, Inner, Thread, new_thread, now_ms};
+use super::{AdoptFailed, AdoptReason, Chats, Inner, Thread, new_thread, now_ms};
 use crate::chat::attach::Attachments;
+use crate::chat::binding::Binding;
 use crate::chat::event::Log;
 use crate::chat::plan::PlanItem;
 use crate::chat::store::{MAX_UI_BYTES, Record, Status, Store, VERSION, title_from};
@@ -35,6 +36,22 @@ pub struct Loaded {
     pub model: String,
     /// Messages sent but not yet taken up by a turn.
     pub queued: Vec<String>,
+    /// Older than the list's size.
+    pub archived: bool,
+    /// What the thread is tied to, if anything.
+    pub bound: Option<Binding>,
+    /// Events the window can no longer get from `chat_state`: it holds the
+    /// saved screen up to `seq`, and the numbers after it up to the end of
+    /// this range are gone. The screen (`ui`) is then the best there is; the
+    /// conversation itself is whole.
+    pub gap: Option<Gap>,
+}
+
+/// A run of event numbers, first to last, that were not kept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Gap {
+    pub from: u64,
+    pub to: u64,
 }
 
 fn titled(text: &str) -> String {
@@ -80,6 +97,8 @@ impl Inner {
             change_set: Some(set),
             ui: thread.ui.clone(),
             attachments: thread.attachments.iter().cloned().collect(),
+            archived: thread.archived,
+            bound: thread.bound.clone(),
             rev,
         };
         Some((store, record))
@@ -110,11 +129,14 @@ fn rebuilt(record: Record, kasten: &Kasten, files: Option<&Arc<Attachments>>) ->
     thread.messages = messages;
     thread.changes = Arc::new(std::sync::Mutex::new(set));
     thread.plan = record.plan;
-    // Found working with nothing working: the app closed on it.
-    thread.status = match record.status {
-        Status::Running => Status::Interrupted,
-        other => other,
+    // Found working (or waiting) with nothing working: the app closed on it.
+    thread.status = if record.status.was_working() {
+        Status::Interrupted
+    } else {
+        record.status
     };
+    thread.archived = record.archived;
+    thread.bound = record.bound;
     thread.created = record.created;
     thread.updated = record.updated;
     thread.title = record.title;
@@ -128,7 +150,7 @@ fn rebuilt(record: Record, kasten: &Kasten, files: Option<&Arc<Attachments>>) ->
 }
 
 /// A record for a chat that has only a screen so far.
-fn stub(chat: &str) -> Record {
+pub(super) fn stub(chat: &str) -> Record {
     let now = Instant::now();
     Record {
         version: VERSION,
@@ -150,6 +172,8 @@ fn stub(chat: &str) -> Record {
         change_set: None,
         ui: None,
         attachments: Vec::new(),
+        archived: false,
+        bound: None,
         rev: 0,
     }
 }
@@ -159,10 +183,14 @@ impl Chats {
     /// the app last closed are marked interrupted.
     pub fn use_store(&self, store: Arc<Store>, files: Option<Arc<Attachments>>) {
         store.interrupt_the_working();
-        let mut inner = self.lock();
-        inner.store = Some(store);
-        inner.files = files;
-        inner.closing = false;
+        {
+            let mut inner = self.lock();
+            inner.store = Some(store);
+            inner.files = files;
+            inner.closing = false;
+        }
+        // A smaller list size than before archives the oldest threads; nothing is deleted.
+        self.archive_overflow();
     }
 
     pub fn store(&self) -> Option<Arc<Store>> {
@@ -200,41 +228,50 @@ impl Chats {
             thread.attachments.extend(attachments.iter().cloned());
             thread.status = Status::Running;
             thread.updated = now_ms();
+            // Writing in an archived chat brings it back to the list.
+            thread.archived = false;
         }
         self.persist(chat);
+        // The list holds its size: the oldest threads beyond it are archived, never deleted.
+        self.archive_overflow();
     }
 
     /// Brings the thread back from the store if it is not in memory. Whether
     /// it is there now.
     pub fn ensure_loaded(&self, chat: &str, kasten: &Kasten) -> bool {
+        self.adopt(chat, kasten).is_ok()
+    }
+
+    /// `ensure_loaded`, saying why a thread could not be brought back.
+    pub fn adopt(&self, chat: &str, kasten: &Kasten) -> Result<(), AdoptFailed> {
         let (store, files) = {
             let inner = self.lock();
             if inner.threads.contains_key(chat) {
-                return true;
+                return Ok(());
             }
             (inner.store.clone(), inner.files.clone())
         };
-        let Some(record) = store.and_then(|s| s.load(chat)) else {
-            return false;
+        let Some(store) = store else {
+            return Err(AdoptFailed::new(AdoptReason::Missing));
         };
+        let record = store.load_checked(chat).map_err(AdoptFailed::from)?;
         let seq = record.seq;
         let thread = rebuilt(record, kasten, files.as_ref());
         let mut inner = self.lock();
         inner.threads.entry(chat.to_owned()).or_insert(thread);
         inner.logs.entry(chat.to_owned()).or_default().at_least(seq);
-        true
+        Ok(())
     }
 
-    /// What the window needs to show a saved thread again.
-    pub fn loaded(&self, chat: &str, kasten: &Kasten) -> Result<Loaded, String> {
-        if !self.ensure_loaded(chat, kasten) {
-            return Err("There is no saved chat with that name".to_owned());
-        }
+    /// What the window needs to show a saved thread again. A thread that
+    /// cannot be brought back is an `AdoptFailed`, never an empty new one.
+    pub fn loaded(&self, chat: &str, kasten: &Kasten) -> Result<Loaded, AdoptFailed> {
+        self.adopt(chat, kasten)?;
         let inner = self.lock();
         let thread = inner
             .threads
             .get(chat)
-            .ok_or("There is no saved chat with that name")?;
+            .ok_or_else(|| AdoptFailed::new(AdoptReason::Missing))?;
         let live = inner.logs.get(chat).map_or(0, Log::seq);
         // The screen was saved up to the event it says; else up to the last.
         let seq = thread
@@ -242,6 +279,12 @@ impl Chats {
             .as_ref()
             .and_then(|ui| ui["seq"].as_u64())
             .unwrap_or(live);
+        // Events after the screen that the ring no longer holds.
+        let gap = inner
+            .logs
+            .get(chat)
+            .and_then(|log| log.missing_after(seq))
+            .map(|(from, to)| Gap { from, to });
         Ok(Loaded {
             ui: thread.ui.clone(),
             status: thread.status,
@@ -251,6 +294,9 @@ impl Chats {
             provider: thread.provider.clone(),
             model: thread.model.clone(),
             queued: thread.queue.iter().map(|q| q.text.clone()).collect(),
+            archived: thread.archived,
+            bound: thread.bound.clone(),
+            gap,
         })
     }
 

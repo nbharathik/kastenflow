@@ -7,10 +7,11 @@
 // core does with git. Agents that connect over MCP need a vault on disk, so
 // the preview has no proposals.
 
-import type { AgentMark, DeckFile, NewNote, NoteFile, Proposal, Renamed, SessionInfo, Undone } from "../../../lib/vault/types";
+import type { AgentMark, AgentMode, AgentPolicy, AgentPolicyView, Checkpoint, DeckFile, Digest, NewNote, NoteFile, Proposal, Renamed, SessionInfo, Undone, VaultRestore } from "../../../lib/vault/types";
+import { ended, timeOf } from "../../agents/policy";
 import type { Brainstormed, Idea } from "../../chat/types";
 import { blame } from "./agent-blame";
-import { chatFile, sessionEdits, sessionsIn, type Agent } from "./agent-sessions";
+import { chatFile, digestIn, sessionEdits, sessionsIn, type Agent } from "./agent-sessions";
 import { deckHead } from "./memory-decks";
 import { MemoryDiagrams } from "./memory-diagrams";
 import { addFiles, below, boardTitle, group, writeCanvas, type Canvas } from "./memory-extras";
@@ -84,6 +85,10 @@ export class MemoryAgents extends MemoryDiagrams {
 
   async sessions(limit = 50): Promise<SessionInfo[]> {
     return sessionsIn(this.data.versions ?? {}, limit);
+  }
+
+  async activityDigest(since: number): Promise<Digest> {
+    return digestIn(this.data.versions ?? {}, since);
   }
 
   /** Reverts a session's versions newest first, each as a new version; a
@@ -189,6 +194,38 @@ export class MemoryAgents extends MemoryDiagrams {
   }
 
   async trustSession(): Promise<void> {}
+
+  /** How much agents may do, kept while the page is open: the preview's stand-in agents have no MCP to hold back. */
+  private policy: AgentPolicy = { mode: "balanced", until: null, projects: {} };
+
+  async agentPolicy(): Promise<AgentPolicyView> {
+    const now = this.now();
+    // A time box that has run out is over, for the vault and for a project.
+    const holds = (mode: AgentMode): AgentMode => (mode === "autonomous" && ended(this.policy.until, now) ? "balanced" : mode);
+    return {
+      mode: this.policy.mode,
+      until: this.policy.until,
+      projects: { ...this.policy.projects },
+      active: holds(this.policy.mode),
+      autonomousProjects: Object.entries(this.policy.projects)
+        .filter(([, mode]) => holds(mode) === "autonomous")
+        .map(([folder]) => folder),
+    };
+  }
+
+  async setAgentPolicy(policy: AgentPolicy): Promise<AgentPolicyView> {
+    if (policy.until && timeOf(policy.until) === null) throw new Error(`“${policy.until}” is not a date and time (for example 2026-12-01 18:00)`);
+    this.policy = { mode: policy.mode, until: policy.until || null, projects: { ...policy.projects } };
+    return this.agentPolicy();
+  }
+
+  async checkpoints(): Promise<Checkpoint[]> {
+    return [];
+  }
+
+  async restoreToCheckpoint(_id: string): Promise<VaultRestore> {
+    throw new Error("The browser preview keeps no restore points");
+  }
 
   /** The lines an agent wrote that nobody has edited or accepted since
    * (agent-blame.ts). */

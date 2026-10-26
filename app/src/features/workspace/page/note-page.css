@@ -241,8 +241,8 @@
   margin: -4px auto 14px;
   padding: 8px 12px;
   border-radius: var(--radius-xl);
-  background: color-mix(in srgb, #f2c500 12%, var(--color-canvas));
-  box-shadow: inset 3px 0 0 #f2c500;
+  background: color-mix(in srgb, var(--color-favourite) 12%, var(--color-canvas));
+  box-shadow: inset 3px 0 0 var(--color-favourite);
   color: var(--color-muted);
   font-size: var(--text-13);
 

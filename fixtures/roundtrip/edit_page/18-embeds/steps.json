@@ -1,0 +1,4 @@
+[
+  { "op": "embed", "after": { "block": "b1" }, "target": "Network.drawio" },
+  { "op": "embed", "after": { "block": "b2" }, "target": "tags/paper.yaml", "view": "Board" }
+]

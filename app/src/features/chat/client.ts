@@ -5,12 +5,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
 import { isoDay } from "../../lib/dates";
 import type { NoteFile } from "../../lib/vault/types";
 import { useWorkspace } from "../workspace/store";
 import type { ModelCapabilities } from "./capabilities";
-import type { AttachKind, AttachmentInfo, ChatBudgets, ChatSnapshot, LoadedThread, RequestOutcome, ThreadSummary } from "./agent-types";
+import type { AttachKind, AttachmentInfo, Binding, ChatBudgets, ChatLimits, ChatSnapshot, DeletedArchived, ImportedBindings, LoadedThread, RequestOutcome, ThreadSummary } from "./agent-types";
 import { lazyPreviewChat } from "./preview/lazy-chat";
 import type { ActionCatalog, ActionRun, ApplyResult, Brainstormed, BrainstormRequest, ChangesView, ChatEvent, ChatProvider, ChatRequest, ChatTurn, ProviderCheck, ProviderDraft, Recalculated, WriteRequest, Written } from "./types";
 
@@ -51,8 +52,29 @@ export interface ChatClient {
   send(request: ChatRequest): Promise<ChatTurn>;
   /** Stops the turn under way; a done event with `stopped` follows. */
   stop(chat: string): Promise<void>;
-  /** Forgets the thread: its next turn starts a new session. */
+  /** Unloads the thread (and stops a turn under way): the saved chat and its staged changes stay, and its next message brings it back. */
   reset(chat: string): Promise<void>;
+  /** A new thread id from the backend; with `from`, a page tie moves to the new thread and `from` stays in the list. */
+  newThread(from?: string): Promise<{ id: string; bound?: Binding | null }>;
+  /** Moves a chat to Archived; it stays saved. Rejects while the chat is answering. */
+  archive(id: string): Promise<boolean>;
+  /** Brings an archived chat back into the list. Whether it was archived. */
+  unarchive(id: string): Promise<boolean>;
+  /** Removes the archived chats named, for good; those that work or have changes waiting are skipped with a reason. */
+  deleteArchived(ids: string[]): Promise<DeletedArchived>;
+  /** How many chats the list keeps and how many work at once. */
+  limits(): Promise<ChatLimits>;
+  setLimits(limits: ChatLimits): Promise<ChatLimits>;
+  /** Ties a thread to a page, deck, diagram or LaTeX document; the ids of the threads that lost the tie. */
+  bind(thread: string, target: Binding): Promise<string[]>;
+  /** Whether the thread had a tie. */
+  unbind(thread: string): Promise<boolean>;
+  /** The thread tied to `target`, if any. */
+  threadFor(target: Binding): Promise<ThreadSummary | null>;
+  /** Paths that moved or were renamed (a folder carries its contents): ties follow. How many changed. */
+  rebind(moves: { from: string; to: string }[]): Promise<number>;
+  /** One-time: the window's old deck-to-chat map becomes ties. */
+  importBindings(map: Record<string, string>, kind?: "deck"): Promise<ImportedBindings>;
   /** Takes the thread back to its first `keep` questions, for asking the
    * last again or another way; the session and what it changed stay. */
   rewind(chat: string, keep: number): Promise<number>;
@@ -144,6 +166,17 @@ export function tauriChat(): ChatClient {
     },
     stop: (chat) => invoke<void>("chat_stop", { chat }),
     reset: (chat) => invoke<void>("chat_reset", { chat }),
+    newThread: (from) => invoke<{ id: string; bound?: Binding | null }>("chat_new_thread", from ? { from } : {}),
+    archive: (id) => invoke<boolean>("chat_archive", { id }),
+    unarchive: (id) => invoke<boolean>("chat_unarchive", { id }),
+    deleteArchived: (ids) => invoke<DeletedArchived>("chat_delete_archived", { ids }),
+    limits: () => invoke<ChatLimits>("chat_limits"),
+    setLimits: (limits) => invoke<ChatLimits>("set_chat_limits", { limits }),
+    bind: (thread, target) => invoke<string[]>("chat_bind", { thread, target }),
+    unbind: (thread) => invoke<boolean>("chat_unbind", { thread }),
+    threadFor: (target) => invoke<ThreadSummary | null>("chat_thread_for", { target }),
+    rebind: (moves) => invoke<number>("chat_rebind", { moves }),
+    importBindings: (map, kind) => invoke<ImportedBindings>("chat_import_bindings", { ...(kind ? { kind } : {}), map }),
     rewind: (chat, keep) => invoke<number>("chat_rewind", { chat, keep }),
     changes: (chat) => invoke<ChangesView>("chat_changes", { chat }),
     applyChanges: (chat) => invoke<ApplyResult>("chat_apply_changes", { chat }),
@@ -178,5 +211,8 @@ export function tauriChat(): ChatClient {
  * the app's inside Tauri, the preview's stand-in on the preview vault
  * everywhere else (loaded when first used, so the app never carries it). */
 export function connectChat(): ChatClient {
-  return inTauri() ? tauriChat() : lazyPreviewChat(() => useWorkspace.getState().client);
+  const vault = () => useWorkspace.getState().client;
+  if (inTauri()) return tauriChat();
+  // The demo (`?demo=1.2.2`) answers the planning request with proposed changes; its code loads only then.
+  return inDemo() ? lazyPreviewChat(vault, () => import("./demo/chat").then((m) => m.demoChat(vault))) : lazyPreviewChat(vault);
 }

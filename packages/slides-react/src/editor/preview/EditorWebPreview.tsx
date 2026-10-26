@@ -10,7 +10,9 @@ import { previewOf } from "./preview-store.ts";
 export function EditorWebPreview({ session }: { session: EditorSession }): JSX.Element | null {
   const store = previewOf(session);
   const address = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const asks = useSyncExternalStore(store.subscribe, store.getAsks, store.getAsks);
   const { host } = session;
+  const way = store.getWay();
   if (address === null || !host.webPreview) return null;
   return (
     <WebPreviewPanel
@@ -19,6 +21,8 @@ export function EditorWebPreview({ session }: { session: EditorSession }): JSX.E
       surface="editor"
       onClose={() => store.close()}
       openExternally={(url) => (host.openUrl ? host.openUrl(url) : openInWindow(url))}
+      {...(host.openInTab ? { openInTab: (url: string) => host.openInTab?.(url) } : {})}
+      {...(way ? { request: { mode: way, n: asks } } : {})}
       returnTo={() => homeOf()}
     />
   );

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="smart://kit/1/kit.css">
+  <link rel="stylesheet" href="smart://kit/1/kit-visual.css">
+</head>
+<body>
+  <main>
+    <h1>Dashboard</h1>
+    <p id="empty" class="kit-empty" role="status" hidden></p>
+    <div id="content" class="kit-stack" hidden>
+      <section aria-labelledby="h-summary">
+        <h2 id="h-summary" class="kit-sr">Summary</h2>
+        <div id="stats"></div>
+      </section>
+      <section aria-labelledby="h-status">
+        <h2 id="h-status">By status</h2>
+        <div id="chart"></div>
+      </section>
+      <section aria-labelledby="h-notes">
+        <h2 id="h-notes">Notes</h2>
+        <div id="table"></div>
+      </section>
+    </div>
+  </main>
+  <script src="smart://kit/1/kit.js"></script>
+  <script src="smart://kit/1/lib/dom.js"></script>
+  <script src="smart://kit/1/lib/dates.js"></script>
+  <script src="smart://kit/1/lib/format.js"></script>
+  <script src="smart://kit/1/lib/keys.js"></script>
+  <script src="smart://kit/1/components/legend.js"></script>
+  <script src="smart://kit/1/components/charts.js"></script>
+  <script src="smart://kit/1/components/stat.js"></script>
+  <script src="smart://kit/1/components/table.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

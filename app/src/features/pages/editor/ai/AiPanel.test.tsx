@@ -279,7 +279,7 @@ describe("AI actions in the panel", () => {
     const panel = await opened("ask", "Ask AI");
     const row = await within(panel).findByRole("group", { name: "AI actions" });
     // Compare sources works from the chat and the reader; Draft project update needs a project.
-    expect(within(row).getAllByRole("button").map((b) => b.textContent)).toEqual(["Explain", "Outline", "Extract action items"]);
+    expect(within(row).getAllByRole("button").map((b) => b.textContent)).toEqual(["Explain", "Outline", "Extract action items", "Lay out this page", "Make a smart page from this"]);
 
     await act(async () => fireEvent.click(within(row).getByRole("button", { name: "Outline" })));
     expect(screen.getByRole("dialog", { name: "Outline" })).toBeTruthy();
@@ -293,6 +293,24 @@ describe("AI actions in the panel", () => {
     // It writes, so it is taken like Ask AI's answer: one change.
     await act(async () => fireEvent.click(within(panel).getByRole("button", { name: "Insert below" })));
     expect(editor.save()).toBe("Pack the tent. Check the poles.\n\nA clearer sentence.\n\nThe tent goes last.\n");
+  });
+
+  it("lays out the page in a chat that previews its changes, and puts nothing in the page from here", async () => {
+    useShell.setState({ chatOpen: false });
+    editor.caret("The tent goes last.", true);
+    const panel = await opened("ask", "Ask AI");
+    const row = await within(panel).findByRole("group", { name: "AI actions" });
+    await act(async () => fireEvent.click(within(row).getByRole("button", { name: "Lay out this page" })));
+    // The panel is gone and the chat is open, asked what the action says.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(chat.requests).toHaveLength(1));
+    expect(chat.requests[0]!.text).toContain("read_page_blocks");
+    expect(chat.requests[0]!.text).toContain("edit_page");
+    expect(useShell.getState().chatOpen).toBe(true);
+    // Nothing was asked of the writing model, and nothing was put in the page.
+    expect(chat.writes).toEqual([]);
+    expect(chat.runs).toEqual([]);
+    expect(editor.save()).toBe(BODY);
   });
 
   it("explains through its own request, with the toggles for the text it reads", async () => {

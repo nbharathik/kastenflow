@@ -40,6 +40,7 @@ fn sets_and_clears_a_page_s_font_width_and_text_one_line_each() {
         ("font", "sans"),
         ("font", "mono"),
         ("width", "normal"),
+        ("width", "wide"),
         ("text", "normal"),
     ] {
         let note = set_meta(&t.vault, PAGE, key, Some(value), NOW).unwrap();
@@ -94,7 +95,8 @@ fn refuses_values_the_app_does_not_know() {
     for (key, bad) in [
         ("font", "comic"),
         ("font", "Serif"),
-        ("width", "wide"),
+        ("width", "Wide"),
+        ("width", "huge"),
         ("text", "huge"),
         ("text", ""),
         ("opens", "elsewhere"),

@@ -4,6 +4,8 @@ KastenFlow is a desktop app for notes, whiteboards and a journal. Everything it
 keeps is a plain file in one folder you choose, the *vault*, and every
 change is saved in the vault's history.
 
+- [Back up to GitHub](#back-up-to-github)
+- [Use on another computer](#use-on-another-computer)
 - [Your vault](#your-vault)
 - [A tour of the app](#a-tour-of-the-app)
 - [Projects](#projects)
@@ -19,14 +21,63 @@ change is saved in the vault's history.
 - [Backup and restore](#backup-and-restore)
 - [Updates](#updates)
 
+Longer guides, one for each bigger feature:
+
+- [Back up to GitHub](backup.md): the setup, sign-in choices, status, other computers
+- [Plugins](plugins.md): draw.io, LaTeX and Browser
+- [LaTeX documents](latex.md)
+- [The chat panel](chat.md): selected text, chat history, switching pages
+- [Agent modes](agents.md): Review everything, Balanced, Autonomous
+- [Pages](pages.md): columns, page width, folded properties, order of sub-pages
+- [Tables and databases](databases.md): sub-items, grouping, bulk changes, paste, timeline, formulas
+- [Presenting](presenting.md): full screen, two displays, links, the presenter view
+- [Smart pages](smart-pages.md): pages that draw themselves from your notes
+- [MCP tools](mcp-tools.md): everything agents can do
+
+## Back up to GitHub
+
+Back up your notes to a private GitHub repository of your own, so a lost or
+broken computer never loses them. Open Settings → Backup (the full guide is
+[Back up to GitHub](backup.md)).
+
+1. **Sign in.** Choose **Sign in with GitHub**. GitHub shows a code to confirm
+   in your browser. Prefer another way? Paste a fine-grained token, or use the
+   GitHub command line if it is already signed in on this computer.
+2. **Make or pick a private repository.** KastenFlow can create one for you, or
+   you can pick one you already have.
+3. **Done.** Every change is backed up within minutes. The status bar says
+   "Backed up" or, for example, "Backed up · 3 changes waiting".
+
+What to know:
+
+- Your notes, whiteboards and their full history are backed up. Saved chats and
+  app settings are not: they stay on your computer.
+- Files over 100 MB are left out and listed, so you can see what was skipped.
+- The repository must stay private. If it is made public, backup pauses until
+  you make it private again.
+- Nothing is ever force-pushed, so the history on GitHub is never rewritten.
+
+## Use on another computer
+
+1. On the new computer, choose **Restore from a backup** where you open a vault.
+2. Sign in with GitHub and pick your notes repository. The folder you restore
+   into must be empty.
+3. Your notes come back with every page and their whole history.
+
+Later, use **Get latest** to bring in changes made on the other computer. It
+never overwrites: if both changed a page, the other version is kept beside
+yours as a copy. Saved chats and app settings do not come along; set those up
+again on the new computer. More ways to back up are under
+[Backup and restore](#backup-and-restore).
+
 ## Your vault
 
 - Pages, cards and journal days are Markdown files; tag databases are
   YAML; whiteboards are JSON Canvas. [The vault format](vault-format.md)
   describes every file.
 - Each project is a folder of its own, with its pages inside.
-- Every change is a git commit, so any change can be taken back. History
-  and the trash are how things are removed; nothing is deleted outright.
+- Every change is saved in the vault's history, so any change can be taken back.
+  History and the trash are how things are removed; nothing is deleted outright.
 - Open the folder in any editor. KastenFlow notices changes made outside it
   and keeps both versions if the same note changed in two places.
 - Keep the vault out of folders a sync app copies, such as OneDrive,
@@ -41,14 +92,14 @@ change is saved in the vault's history.
 - Pages are made of blocks: type `/` for any block, including callouts, toggles, tables, code, to-dos and colours.
 - Equations are TeX between dollar signs: `$E = mc^2$` in a line, `$$` on lines of their own, drawn with KaTeX. A price like $5 stays text.
 - `[[` links a page, and `@` links a page or a day.
-- Pages have covers and icons. A page's ••• menu gives it its own font, small text or full width; Settings → Pages sets them for every page.
+- Pages have covers and icons. A page's ••• menu gives it its own font, small text or a normal, wide or full width; Settings → Pages sets them for every page.
 - A page's tags and properties sit under its title, and Add property starts one.
 - Ctrl+F finds in the page you are on, and Ctrl+Alt+F replaces too; Replace all is one step Ctrl+Z takes back. **Aa** (Alt+C) matches case and **ab** (Alt+W) whole words. **+ sub-pages** looks through the page and every page inside it, lists them with the lines around each match, and replaces in all of them at once as one change you can undo from its notice; a title that holds the text gets **Rename…** instead.
 - `@` links a day, a person, a page, a whiteboard, a deck or a tag. For a day, type it your way: `@friday`, `@next fri 3pm`, `@oct 12`, `@in 3 days` or `@14:00` write the day as a link and the time after it (`[[2026-10-16]] 15:00`), and the Calendar shows the time on that day. `@` in a page's title sets the page's date, shown beside the title.
 - Paste a web address over selected text to link it.
 - **Copy link to this location** is in a heading's menu, on a PDF highlight and in a whiteboard section's menu. It copies a `kasten:` link that still opens the right place after the page is renamed or moved; following one only opens it, and one whose target is gone says so.
-- `---` on a line of its own splits a page into **sections**. Point at a divider, or tab to it, for two small icons, fold and present, whose tooltips carry the section's name; folding changes only how the page looks, never the file. **Present this page** shows one section at a time, full screen. **Smart layout** (in the page's ••• menu) draws each section as a card with an outline strip to jump to a section or move it, and **Turn sections into a deck** makes slides from them (see [Slides](#slides)).
-- **Comments** are notes about a page that stay out of its text. **Comments on this page** (the palette, or the Comments tab, the third tab of the right panel) lists them; on a smart-layout page they also sit in a column beside the section they are about, when the pane is wide enough. Select some words if you want the comment to remember them, then type in the **Add a comment…** box of a section, or of the whole page. **Resolve** puts a comment away (**Show resolved** brings it back); there is no delete. A comment whose words were rewritten moves to a **Detached** stack, where **Attach here** pins it to the words you have selected (or to the section the cursor is in). Comments are kept in a small file beside the page (`name.comments.json`) and go with it when it is renamed, moved, duplicated, trashed or restored; Undo takes them along.
+- `---` on a line of its own splits a page into **sections**. Point at a divider, or tab to it, for two small icons, fold and present, whose tooltips carry the section's name; folding changes only how the page looks, never the file. **Present this page** shows one section at a time, full screen. **Sections layout** (in the page's ••• menu, under View) draws each section as a card with an outline strip to jump to a section or move it, and **Turn sections into a deck** makes slides from them (see [Slides](#slides)).
+- **Comments** are notes about a page that stay out of its text. **Comments on this page** (the palette, or the Comments tab, the third tab of the right panel) lists them; on a page in the sections layout they also sit in a column beside the section they are about, when the pane is wide enough. Select some words if you want the comment to remember them, then type in the **Add a comment…** box of a section, or of the whole page. **Resolve** puts a comment away (**Show resolved** brings it back); there is no delete. A comment whose words were rewritten moves to a **Detached** stack, where **Attach here** pins it to the words you have selected (or to the section the cursor is in). Comments are kept in a small file beside the page (`name.comments.json`) and go with it when it is renamed, moved, duplicated, trashed or restored; Undo takes them along.
 - `[@key]` cites a paper from your `.bib` files (`/citation`, or **Insert citation…** in the palette); the page shows the authors and year. See [References and papers](#references-and-papers).
 - A whiteboard, a tag database or another page can sit inside a page (`/whiteboard`, `/database`, `![[Page]]`). Their buttons (Open, Present, Properties, New and the like) are small icons that appear when you point at the block or tab into it; each has a name for screen readers and a tooltip.
 - Pages start blank, with just a title. On an empty page, type `/` and pick **Template…** to start from a template, or **Ask AI…** to draft it. See [Templates and starter kits](#templates-and-starter-kits).
@@ -189,7 +240,7 @@ KastenFlow Slides is an editor for talks, lectures and reviews. A deck is one pl
 
 **Papers and citations.** Keep the bibliographies of your papers in `.bib` files anywhere in the vault. **Insert → Citation…** finds a work by key, author, title or year and adds it to the slide's footer as "Vaswani et al., 2017 (NeurIPS)", as a number, or as a full reference; a slide made of a citation list prints every work the deck cites, in order. A key that names no work is marked, and the lint says which work it may be. Select the citation and turn on **Link each work** in its Format section to make every work a link to its DOI (or its web address, or its arXiv page); the link shows in the editor, in the show and in exports. Add and edit the works themselves in [References and papers](#references-and-papers). In the PDF reader, choose **Clip** and drag a box around a figure to keep it at 300 dpi, with its paper, page and box remembered; placing it on a slide adds the paper to that slide's citations.
 
-**Work with AI.** The deck tools are part of KastenFlow's MCP server (see [Connect AI agents](#connect-ai-agents)), and the chat can use them too: an agent can outline a deck, build slides and diagrams, fill and reshape tables (set cells, add and delete rows and columns, merge cells), place pictures, cite works and check the result with the lint. Its changes are commits like any other. Over MCP a small edit goes straight in (the app's own chat holds its changes for your review first: see [AI in KastenFlow](#ai-in-kastenflow)); taking many slides out (removing them, or emptying them) waits for your review (`guardrails.max_slides_removed` in `.kasten/config.yaml`, 3 in ten minutes by default) with the slides before and after side by side, and **undo session** takes back everything a session did. [skills/kasten-slides/SKILL.md](../skills/kasten-slides/SKILL.md) teaches Claude Code the loop: outline first, then build, render, lint and repeat until nothing is an error.
+**Work with AI.** The deck tools are part of KastenFlow's MCP server (see [Connect AI agents](#connect-ai-agents)), and the chat can use them too: an agent can outline a deck, build slides and diagrams, fill and reshape tables (set cells, add and delete rows and columns, merge cells), place pictures, cite works and check the result with the lint. Its changes are saved in history like any other. Over MCP a small edit goes straight in (the app's own chat holds its changes for your review first: see [AI in KastenFlow](#ai-in-kastenflow)); taking many slides out (removing them, or emptying them) waits for your review (`guardrails.max_slides_removed` in `.kasten/config.yaml`, 3 in ten minutes by default) with the slides before and after side by side, and **undo session** takes back everything a session did. [skills/kasten-slides/SKILL.md](../skills/kasten-slides/SKILL.md) teaches Claude Code the loop: outline first, then build, render, lint and repeat until nothing is an error.
 
 **The assistant tab.** **View → Assistant** (or the sparkle button at the top right) opens KastenFlow's chat beside the slide. It knows which slide you are on and which elements you have selected, so "tighten this" and "add a diagram that shows the loop" mean what you are looking at. Each deck has a conversation of its own, saved with your other chats: start a job, go to another deck or page, and come back to find the conversation, its plan and its answer where you left them, and it keeps working while you are away. What it changes waits as a preview you can apply or discard (see [AI in KastenFlow](#ai-in-kastenflow)); once applied it is one session you can take back with **Undo this chat's changes**.
 - **Stars mark the assistant's work.** Whatever an assistant makes or changes in a deck, from this tab or over MCP, carries a small star until you accept it or change it yourself: one in the corner of the element, and one on the slide's thumbnail in the filmstrip. Right-click an element and choose **Accept**, or use **Accept all** in the tab or in the **Tools** menu. Changing an element yourself takes its star off. An assistant cannot accept its own work. The stars are kept in the deck file (see [the format](slides-format.md)); they never show when you present or export.
@@ -628,7 +679,8 @@ KastenFlow serves its vault over [MCP](https://modelcontextprotocol.io). Agents 
 
 - locked notes and oversized writes are refused (lock a page from its menu with **Lock for agents**);
 - templates, big removals (a diagram that loses a lot of its drawing, a deck that loses slides) and bursts of changes wait for your review, and so does anything sent to the trash that is a whiteboard, a deck or a diagram;
-- every agent session can be undone.
+- every agent session can be undone;
+- how much agents may do without asking is yours to set, for the whole vault or per project: Review everything, Balanced or Autonomous. See [Agent modes](agents.md), and [MCP tools](mcp-tools.md) for what agents can do.
 
 Turn on history for the vault first, in Settings or with `kastenflow start-history --vault ~/Notes`. The command-line tool is `kastenflow`; the older name `kasten` still works as an alias.
 
@@ -648,9 +700,17 @@ For Claude Desktop, Cursor and other apps with an `mcpServers` setting, Settings
 The command-line `kasten-mcp` prints these lines for itself, with its own path and your vault's full path, and checks itself (the installed app has no console on Windows, so Settings is where it shows the same lines):
 
 ```sh
-kasten-mcp --vault ~/Notes --setup claude-code   # or claude-desktop, or http
+kasten-mcp --vault ~/Notes --setup claude-code   # or claude-desktop, codex, or http
 kasten-mcp --vault ~/Notes --check               # says how it is doing; exits 1 when something is wrong
 ```
+
+`--setup codex` prints a block for Codex's settings file, `~/.codex/config.toml` (`.codex\config.toml` in your user folder on Windows): a stdio server that runs `kasten-mcp` with its full path and your vault in `KASTEN_VAULT`. It only prints; paste it in yourself.
+
+### Routines and what agents did today
+
+A routine is an agent run you set up to repeat, such as a daily check of the conference notes. Claude Code and Codex connect to `kasten-mcp` over stdio, so a routine works with KastenFlow closed. Each run is one session named as the agent names itself (for example `routine: conference tracking`), and two runs show as two sessions with the same name and different start times. A routine updates its notes with one `batch`, so a run is one change you can take back with one undo, and it can stamp a `last_checked` property on the notes it looked at.
+
+**Home → Agents today** lists, for each agent session today, the agent's name, how many changes it made, the notes it touched, the proposals still waiting for you, and **Undo**. In **History**, **Today by agents** shows the same changes. Your own edits are never in either. Agents can ask the same with the `activity_digest` tool.
 
 An agent can ask the same with the `server_status` tool. It says whether the vault keeps history and whether this program can draw slides for the agent (`render_slide`, `render_grid`, and the exact text sizes `lint_deck` uses). Drawing needs Chrome, Chromium or Edge on your computer: KastenFlow never installs one, and never runs it without its sandbox. The `kasten-mcp` program from the command-line download draws slides. The installed app does not carry the page it draws them with (it would add about 5 MiB to the installer), so it says so in one sentence and its agents use `lint_deck` to check slides instead.
 
@@ -666,7 +726,7 @@ kastenflow undo-session ID     # revert a session as new commits
 
 KastenFlow is desktop-first: backup keeps your notes safe and moves them to a
 new computer. It isn't live sync. Everything below is in Settings →
-History and backup, and the status bar says how the last backup went
+Backup (restoring a point in time is under History), and the status bar says how the last backup went
 ("Saved · Backed up 2 hours ago").
 
 - **GitHub.** **Sign in with GitHub**: GitHub shows a code to confirm,

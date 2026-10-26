@@ -21,7 +21,7 @@ use crate::vault::Vault;
 
 pub use restore::{
     restore_board, restore_collection, restore_deck, restore_diagram, restore_note,
-    restore_note_with_sub_pages,
+    restore_note_with_sub_pages, restore_smart_file,
 };
 
 /// What the trash holds: notes, boards, decks and diagrams (the source, and
@@ -57,7 +57,10 @@ fn walk(dir: &Path, rel: &str, out: &mut Vec<String>) -> Result<()> {
         let path = format!("{rel}/{name}");
         let kind = entry.file_type()?;
         if kind.is_dir() {
-            walk(&entry.path(), &path, out)?;
+            // A smart page's folder is not a list of pages: it comes and goes with its page.
+            if !crate::companions::in_folder(&format!("{path}/x")) {
+                walk(&entry.path(), &path, out)?;
+            }
         } else if kind.is_file()
             && (KINDS.iter().any(|ext| name.ends_with(ext))
                 || crate::collections::is_path(path.trim_start_matches('/')))
@@ -257,6 +260,60 @@ fn trash_kinds(
     now: Instant,
     kinds: &[&str],
 ) -> Result<Vec<String>> {
+    trash_files_and_folders(vault, rels, &[], now, kinds).map(|(files, _)| files)
+}
+
+/// `trash_all`, also moving the code folders of smart pages (`a/b.smart`,
+/// each as a whole, keeping its path inside the new trash folder). Returns
+/// where the files went and where the folders did. All go, or none.
+pub(crate) fn trash_all_with_folders(
+    vault: &Vault,
+    rels: &[String],
+    folders: &[String],
+    now: Instant,
+) -> Result<(Vec<String>, Vec<String>)> {
+    trash_files_and_folders(vault, rels, folders, now, &MOVABLE)
+}
+
+/// Moves one file of a smart page's folder into a new trash folder, keeping
+/// its path inside it; returns where it went. The file stays where history can
+/// find it and a person can move it back (`restore_smart_file`).
+pub(crate) fn trash_smart_file(vault: &Vault, rel: &str, now: Instant) -> Result<String> {
+    if !crate::companions::in_folder(rel) {
+        return Err(Error::InvalidPath(rel.to_owned()));
+    }
+    let source = vault.tracked_file(rel)?;
+    if !fs::symlink_metadata(&source).is_ok_and(|meta| meta.is_file()) {
+        return Err(Error::NotFound(rel.to_owned()));
+    }
+    let stamp = free_stamp(vault, now);
+    let target = vault.root().join(".trash").join(&stamp).join(rel);
+    let mut done = Rollback::default();
+    if let Err(err) = done.rename(&source, &target) {
+        done.put_back();
+        return Err(err.into());
+    }
+    Ok(format!(".trash/{stamp}/{rel}"))
+}
+
+/// A trash folder name that is not taken: the time stamp, or with `-2`, `-3`…
+pub(crate) fn free_stamp(vault: &Vault, now: Instant) -> String {
+    let mut stamp = now.compact();
+    let mut n = 2;
+    while vault.root().join(".trash").join(&stamp).exists() {
+        stamp = format!("{}-{n}", now.compact());
+        n += 1;
+    }
+    stamp
+}
+
+fn trash_files_and_folders(
+    vault: &Vault,
+    rels: &[String],
+    folders: &[String],
+    now: Instant,
+    kinds: &[&str],
+) -> Result<(Vec<String>, Vec<String>)> {
     let mut sources = Vec::with_capacity(rels.len());
     for rel in rels {
         let source = vault.file_of(rel, kinds)?;
@@ -265,22 +322,41 @@ fn trash_kinds(
         }
         sources.push(source);
     }
-    // A folder of its own, so what went together comes back together.
-    let mut stamp = now.compact();
-    let mut n = 2;
-    while vault.root().join(".trash").join(&stamp).exists() {
-        stamp = format!("{}-{n}", now.compact());
-        n += 1;
+    let mut dirs = Vec::with_capacity(folders.len());
+    for rel in folders {
+        let dir = vault.file_of(rel, &[crate::companions::FOLDER_SUFFIX])?;
+        if !fs::symlink_metadata(&dir).is_ok_and(|meta| meta.is_dir()) {
+            return Err(Error::NotFound(rel.clone()));
+        }
+        dirs.push(dir);
     }
+    // A folder of its own, so what went together comes back together.
+    let stamp = free_stamp(vault, now);
     let mut done = Rollback::default();
     let mut out = Vec::with_capacity(rels.len());
-    for (rel, source) in rels.iter().zip(&sources) {
+    let mut went = Vec::with_capacity(folders.len());
+    let moves = rels
+        .iter()
+        .zip(&sources)
+        .map(|(rel, source)| (rel, source, true))
+        .chain(
+            folders
+                .iter()
+                .zip(&dirs)
+                .map(|(rel, dir)| (rel, dir, false)),
+        );
+    for (rel, source, is_file) in moves {
         let target = vault.root().join(".trash").join(&stamp).join(rel);
         if let Err(err) = done.rename(source, &target) {
             done.put_back();
             return Err(err.into());
         }
-        out.push(format!(".trash/{stamp}/{rel}"));
+        let trashed = format!(".trash/{stamp}/{rel}");
+        if is_file {
+            out.push(trashed);
+        } else {
+            went.push(trashed);
+        }
     }
-    Ok(out)
+    Ok((out, went))
 }

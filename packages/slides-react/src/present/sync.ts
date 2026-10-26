@@ -15,6 +15,10 @@ export type PresentMessage =
   | { type: "state"; state: RevealState }
   /** The talk was started as a rehearsal: the presenter's view starts timing it. Said again with every deck, so a window that opens late hears it. */
   | { type: "rehearse" }
+  /** The show is alive: said every couple of seconds, so the presenter's window can tell a show that went away without a word. */
+  | { type: "beat" }
+  /** The presenter's window asks for the show to end. */
+  | { type: "end" }
   | { type: "bye" };
 
 export interface PresentSync {
@@ -33,6 +37,8 @@ export function readMessage(data: unknown): PresentMessage | null {
   switch (message.type) {
     case "hello":
     case "rehearse":
+    case "beat":
+    case "end":
     case "bye":
       return { type: message.type };
     case "state": {

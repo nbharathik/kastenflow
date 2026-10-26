@@ -166,10 +166,12 @@ pub(crate) fn may_navigate(window: &str, url: &Url, embeds: Option<&Embeds>) -> 
     }
     // A frame is a navigation, and the window cannot tell one from its own:
     // the diagram editor's pages may load, in the main window only. Nothing
-    // that shows one is a page of Kasten's, so it can call no command.
+    // that shows one is a page of Kasten's, so it can call no command. The
+    // same holds for a smart page's sandboxed frame (the `smart` scheme).
     own_page(url)
         || (window == MAIN
             && (diagrams_page_on(url, cfg!(windows))
+                || crate::smart::guard::smart_page(url)
                 || embeds.is_some_and(|embeds| embeds.allows(url))))
 }
 

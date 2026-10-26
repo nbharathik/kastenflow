@@ -12,6 +12,41 @@
 .ks-title-spacer {
   flex: 1;
 }
+/* What the assistant is doing, as a dot at the corner of its button: it pulses while the assistant works, and keeps still where the host
+   or the computer asks for no motion (the button's name says the same in words). */
+.ks-btn-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ks-accent);
+  box-shadow: 0 0 0 2px var(--ks-panel);
+  pointer-events: none;
+}
+.ks-btn-dot[data-status="paused"] {
+  background: var(--ks-warning);
+}
+.ks-btn-dot[data-status="failed"] {
+  background: var(--ks-danger);
+}
+.ks-btn-dot[data-status="working"] {
+  animation: ks-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ks-dot-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+:root[data-motion="off"] .ks-btn-dot {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="on"]) .ks-btn-dot {
+    animation: none;
+  }
+}
 /* The name may shrink to its minimum, but never below room for the star and where saving stands. */
 .ks-title-block {
   display: flex;

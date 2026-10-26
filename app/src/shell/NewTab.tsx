@@ -8,11 +8,13 @@ import { useRef, useState } from "react";
 import { startNewBoard } from "../features/boards/store";
 import { onBrowserTab, openWebTab } from "../features/browser/commands";
 import { keyTitle } from "../features/shortcuts/store";
+import { newItems } from "../plugins/contributions";
+import { smartChoices } from "../features/smart/author/starter-list";
 import { startNewDeck } from "../features/slides/store";
 import { usePrefs } from "../features/workspace/prefs";
 import { useWorkspace } from "../features/workspace/store";
 import { Icon } from "../ui/Icon";
-import type { MenuItem } from "./Menu";
+import type { MenuEntry } from "./Menu";
 import { availableNav } from "./nav";
 import { PointMenu } from "./PointMenu";
 
@@ -21,7 +23,7 @@ const icon = (name: Parameters<typeof Icon>[0]["name"]) => <Icon name={name} cla
 /** What the "+" menu offers: pages and journal days in a new tab or to the
  * right, the Slides view, a new deck or whiteboard, the Graph, and the
  * switch that sends a plain "+" to the right. */
-export function newTabItems(): (MenuItem | "divider")[] {
+export function newTabItems(): MenuEntry[] {
   const ws = useWorkspace.getState();
   const prefs = usePrefs.getState();
   return [
@@ -34,9 +36,12 @@ export function newTabItems(): (MenuItem | "divider")[] {
     { label: "Slides", icon: icon("present"), onSelect: () => ws.go({ view: "slides" }, "tab") },
     { label: "New deck", icon: icon("present"), onSelect: () => startNewDeck(null, "tab") },
     { label: "New whiteboard", icon: icon("board"), onSelect: () => startNewBoard(null, "tab") },
+    { label: "New smart page", icon: icon("code"), submenu: smartChoices().map((choice) => ({ label: choice.label, icon: icon(choice.icon), onSelect: choice.run })) },
     // Views that are not there yet stay off the menu (the registry says which are).
     ...(availableNav().some((item) => item.id === "graph") ? [{ label: "Graph", icon: icon("graph"), onSelect: () => ws.go({ view: "graph" }, "tab") }] : []),
     ...(availableNav().some((item) => item.id === "browser") ? [{ label: "Browser", icon: icon("globe"), onSelect: () => ws.go({ view: "web" }, "tab") }] : []),
+    // What plugins start, after the app's own.
+    ...newItems().map((item) => ({ label: item.label, icon: icon(item.icon), onSelect: item.run })),
     "divider",
     { label: "New tabs open to the right", checked: prefs.plusOpensRight, onSelect: () => prefs.set({ plusOpensRight: !prefs.plusOpensRight }) },
   ];

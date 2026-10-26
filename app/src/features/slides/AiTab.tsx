@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
 import { ChangeSetBar } from "../chat/changes/ChangeSetBar";
+import { usePanelPrefs } from "../chat/panel-prefs";
 import { useChat } from "../chat/store";
 import { threadStatus, threadTitle } from "../chat/thread";
 import { STATUS_WORDS, useViewing } from "../chat/unread";
@@ -22,7 +23,12 @@ import { useChatSetup } from "../chat/view/Conversation";
 import { NoProvider } from "../chat/view/Empty";
 import { LinksContext, linksFor } from "../chat/view/links";
 import { MessageList } from "../chat/view/MessageList";
-import { followSlide, leaveSlide, restoreDeckThread, slideChip, threadOfDeck } from "./ai-thread";
+import { AdoptFailed } from "../chat/view/AdoptFailed";
+import { WaitingNotice } from "../chat/view/WaitingNotice";
+import { followSlide, leaveSlide, newDeckThread, restoreDeckThread, retryDeckThread, slideChip, threadOfDeck } from "./ai-thread";
+
+/** Settings → AI → Chat panel → "Links from the assistant open", as the way the workspace opens a place. */
+export const OPENS = { beside: "right", tab: "tab", here: "here" } as const;
 
 const ASKS = ["Tighten the words on this slide", "Suggest a diagram that shows this", "Check the deck and fix what lint reports"];
 
@@ -47,6 +53,8 @@ function Welcome({ onPick }: { onPick: (text: string) => void }) {
 export function AiTab(props: AiPanelProps) {
   useChatSetup();
   const [thread, setThread] = useState<string | null>(null);
+  /** The saved chat of this deck that could not be read back. */
+  const [failed, setFailed] = useState<string | null>(null);
   const shown = useRef<{ thread: string; key: string } | null>(null);
   const deck = props.deckPath ?? "";
   const chip = useMemo(
@@ -58,14 +66,18 @@ export function AiTab(props: AiPanelProps) {
   const problem = useChat((s) => s.providersError);
   const active = useChat((s) => (thread ? s.threads[thread] : undefined));
   const composer = useRef<{ fill(text: string): void }>(null);
+  // A link in the assistant never takes the deck's own tab over unless Settings say so: it opens beside the deck, or in a tab of its own.
+  const where = usePanelPrefs((s) => s.assistantLinks);
+  const links = useMemo(() => linksFor("dock", OPENS[where]), [where]);
 
   // The deck's thread; one kept from an earlier run is brought back first.
   useEffect(() => {
     let live = true;
+    setFailed(null);
     const found = deck ? restoreDeckThread(deck) : null;
     // Usually there at once; a thread kept from an earlier run has to be read first.
     if (typeof found === "string" || found === null) setThread(found);
-    else void found.then((id) => live && setThread(id));
+    else void found.then((got) => live && (typeof got === "string" ? setThread(got) : (setThread(null), setFailed(got.failed))));
     return () => {
       live = false;
     };
@@ -89,13 +101,34 @@ export function AiTab(props: AiPanelProps) {
   );
 
   if (!deck) return <p className="ks-ai-note">The assistant works on decks kept in the vault.</p>;
+  // Never an empty chat in the place of one that could not be read: Retry, or start a new one.
+  if (failed) {
+    return (
+      <section className="kasten-chat ks-ai" data-variant="dock" aria-label="Assistant">
+        <AdoptFailed
+          id={failed}
+          onRetry={async () => {
+            const got = await retryDeckThread(deck, failed);
+            if (typeof got === "string") {
+              setFailed(null);
+              setThread(got);
+            }
+          }}
+          onNew={() => {
+            setFailed(null);
+            setThread(threadOfDeck(deck, true));
+          }}
+        />
+      </section>
+    );
+  }
   if (!thread || !active) return null;
   const none = providers !== null && providers.length === 0;
   // What the assistant is doing here, said when it is not simply at rest.
   const status = threadStatus(active);
   const word = status === "done" ? "" : STATUS_WORDS[status];
   return (
-    <LinksContext.Provider value={linksFor("dock")}>
+    <LinksContext.Provider value={links}>
       <section className="kasten-chat ks-ai" data-variant="dock" aria-label="Assistant">
         <header className="kasten-chat-head">
           <span className="kasten-chat-title" title={threadTitle(active)}>
@@ -112,10 +145,8 @@ export function AiTab(props: AiPanelProps) {
             aria-label="New chat"
             title="New chat"
             disabled={active.messages.length === 0 || active.streaming}
-            onClick={() => {
-              void useChat.getState().discard(thread);
-              setThread(threadOfDeck(deck));
-            }}
+            // The old chat stays in the list; the deck's tie moves to the new one.
+            onClick={() => void newDeckThread(deck, thread).then(setThread)}
           >
             <Icon name="compose" className="size-4" />
           </button>
@@ -133,6 +164,7 @@ export function AiTab(props: AiPanelProps) {
           </div>
         )}
         <div className="kasten-chat-foot">
+          <WaitingNotice thread={active} />
           <ChangeSetBar thread={active} />
           <Composer key={active.id} ref={composer} thread={active} page={null} ask="Ask for a change to the deck…" showFollow={false} />
         </div>

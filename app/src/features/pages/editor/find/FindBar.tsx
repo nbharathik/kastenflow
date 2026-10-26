@@ -15,6 +15,7 @@ import { useEffect, useReducer, useRef, useState, type KeyboardEvent as ReactKey
 
 import { IconButton } from "../../../../ui/Button";
 import { Segmented } from "../../../../ui/Segmented";
+import { firstVisible } from "../../../../shell/visible-dom";
 import { clearFind, findState, onFindChange, replaceAll, replaceCurrent, setOptions, setQuery, step, type FindOptions } from "./find";
 import { FindResults } from "./FindResults";
 import { readFindOptions, writeFindOptions } from "./options";
@@ -39,7 +40,7 @@ export function useFindKeys(root: RefObject<HTMLElement | null>, crepe: RefObjec
       const editor = crepe.current;
       if (!el || !editor) return;
       const active = document.activeElement;
-      const first = document.querySelector(".kasten-pane.is-focused .kasten-page-editor") ?? document.querySelector(".kasten-page-editor");
+      const first = firstVisible(".kasten-pane.is-focused .kasten-page-editor") ?? firstVisible(".kasten-page-editor");
       const here = active && active !== document.body ? (el.closest(".kasten-page") ?? el).contains(active) : first === el;
       if (!here) return;
       event.preventDefault();

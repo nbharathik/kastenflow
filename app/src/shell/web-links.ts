@@ -3,10 +3,12 @@
 // right; Shift+click uses the other): the app's window opens no other page, so
 // a link card, a chat's link or a URL property would otherwise do nothing. In
 // text being written, as in any editor, a click places the caret and Ctrl or
-// Cmd with it follows the link.
+// Cmd with it follows the link. A right-click on a web link opens the link
+// menu (preview, open in a tab or the browser, copy), the same as in a slide show.
 
 import { useEffect } from "react";
 
+import { inDemo } from "../demo/flag";
 import { inTauri, openUrl } from "../lib/api";
 import { isKastenLink } from "../lib/kasten-links";
 import { windowCovered } from "../features/browser/cover";
@@ -29,6 +31,17 @@ export function followWebLink(event: MouseEvent, open: (url: string) => void): v
   const editing = anchor.closest('[contenteditable]:not([contenteditable="false"])');
   if (editing && !(event.ctrlKey || event.metaKey)) return;
   open(href);
+}
+
+/** The address a right-click is on when it is a web page the link menu is for; null for anything else (mail, a script, the app's own `#`
+ * links, text being written, where the system's menu is the one that helps). */
+export function webLinkForMenu(event: MouseEvent): string | null {
+  if (event.defaultPrevented) return null;
+  const anchor = (event.target as Element | null)?.closest?.<HTMLAnchorElement>("a[href]");
+  const href = anchor?.getAttribute("href")?.trim();
+  if (!anchor || !href || !/^https?:\/\//i.test(href)) return null;
+  if (anchor.closest('[contenteditable]:not([contenteditable="false"])')) return null;
+  return href;
 }
 
 /** Opens a web link where Settings says (Browser: the system's browser, or a
@@ -71,14 +84,25 @@ export function useWebLinks(): void {
       document.removeEventListener("click", kasten);
       document.removeEventListener("auxclick", kasten);
     };
-    if (!inTauri()) return removeKasten;
+    // The demo (`?demo=1.2.2`) shows the link menu and the browser tab in the preview too.
+    if (!inTauri() && !inDemo()) return removeKasten;
     const follow = (event: MouseEvent) => followWebLink(event, (url) => openWeb(url, event.shiftKey));
+    // A right-click on a web link: the same six choices as in a slide show (the app's own menu, not the web view's).
+    const menu = (event: MouseEvent) => {
+      const url = webLinkForMenu(event);
+      if (url === null) return;
+      event.preventDefault();
+      void import("./web-link-menu").then((m) => m.showWebLinkMenu(url, event.clientX, event.clientY));
+    };
     document.addEventListener("click", follow);
     document.addEventListener("auxclick", follow);
+    // Heard first (capture), before the window's own handling of the right-click settles whether it is taken.
+    document.addEventListener("contextmenu", menu, true);
     return () => {
       removeKasten();
       document.removeEventListener("click", follow);
       document.removeEventListener("auxclick", follow);
+      document.removeEventListener("contextmenu", menu, true);
     };
   }, []);
 }

@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::Kasten;
 use crate::agent::{AgentOp, Proposal, Session, load_trust};
 use crate::error::{Error, Result};
-use crate::frontmatter::split;
+use crate::policy::Decision;
 use crate::time::Instant;
 
 /// A note as an agent sees it after a write.
@@ -80,18 +80,21 @@ impl Kasten {
         }
     }
 
-    /// Runs an agent op: refused with an error, done, or kept for review.
+    /// Runs an agent op: refused with an error, done, or kept for review, as
+    /// the mode that holds for what it touches says (`decide`).
     pub fn agent_run(&self, session: &Session, op: &AgentOp, now: Instant) -> Result<Outcome> {
         let _turn = self
             .agent_turn
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        self.refusals(op)?;
-        if let Some(reason) = self.review_reason(session, op, now)? {
-            return self.hold_for_review(session, op, reason, now);
+        match self.decide(session, op, now)? {
+            Decision::Refuse(err) => Err(err),
+            Decision::Propose(reason) => self.hold_for_review(session, op, reason, now),
+            Decision::Commit(how) => {
+                let result = self.execute_committed(session, op, how, now)?;
+                Ok(Outcome::Done { result })
+            }
         }
-        let result = self.execute(&session.actor(), op, now)?;
-        Ok(Outcome::Done { result })
     }
 
     /// Keeps `op` for review, for `reason`: the session's proposals are
@@ -134,185 +137,5 @@ impl Kasten {
             trust.insert(session.to_owned(), until);
             crate::agent::save_trust(self.vault.root(), &trust)
         })
-    }
-
-    /// A path agents may write by its form alone: not a template or a
-    /// private file.
-    pub(super) fn writable_form(path: &str) -> Result<()> {
-        if crate::vault::in_templates(path) || path.starts_with('.') || path.contains("/.") {
-            return Err(Error::Invalid(format!(
-                "{path} is read-only for agents (templates and hidden folders)"
-            )));
-        }
-        Ok(())
-    }
-
-    /// A note or board agents may write: not a template or private file,
-    /// not locked.
-    pub(super) fn writable(&self, path: &str) -> Result<()> {
-        Self::writable_form(path)?;
-        // A diagram's picture is as writable as its source, which is what an agent changes.
-        if let Some(source) = path
-            .strip_suffix(".svg")
-            .filter(|s| s.ends_with(crate::diagrams::EXT))
-        {
-            return self.writable(source);
-        }
-        // Boards, decks and diagrams have no lock: the folders and the file being there are all that is asked.
-        if let Some(ext) = [".canvas", ".deck", crate::diagrams::EXT]
-            .into_iter()
-            .find(|e| path.ends_with(e))
-        {
-            return match self.vault.file_of(path, &[ext])?.is_file() {
-                true => Ok(()),
-                false => Err(Error::NotFound(path.to_owned())),
-            };
-        }
-        let note = self.vault.read(path)?;
-        if note.meta.locked {
-            return Err(Error::Invalid(format!(
-                "“{}” is locked: read-only for agents. Ask the owner to unlock it or use propose_edit elsewhere",
-                note.meta.title
-            )));
-        }
-        Ok(())
-    }
-
-    /// Refuses when a locked note other than `path` links to `title`: the
-    /// op would rewrite that link.
-    fn no_locked_links(&self, title: &str, path: &str, doing: &str) -> Result<()> {
-        for other in self.index().linking(title)? {
-            if other != path && self.vault.read(&other).is_ok_and(|n| n.meta.locked) {
-                return Err(Error::Invalid(format!(
-                    "{other} is locked and links to “{title}”, so an agent cannot {doing}"
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    /// `no_locked_links` for a new note, when its title is already in use.
-    fn no_locked_links_to_namesake(&self, title: &str) -> Result<()> {
-        let title = title.trim();
-        if self.index().by_title(title)?.is_empty() {
-            return Ok(());
-        }
-        self.no_locked_links(title, "", "make another note with that title")
-    }
-
-    /// Guardrails no trust or approval lifts: these ops are refused.
-    pub(crate) fn refusals(&self, op: &AgentOp) -> Result<()> {
-        self.refusals_with(op, &|_| false)
-    }
-
-    /// `refusals`, where `staged_new` says which paths are notes only a
-    /// staged change has: they are not in the vault to be read, so they are
-    /// held to the rules of their form (they cannot be locked yet).
-    pub(crate) fn refusals_with(
-        &self,
-        op: &AgentOp,
-        staged_new: &dyn Fn(&str) -> bool,
-    ) -> Result<()> {
-        let writable = |path: &str| {
-            if staged_new(path) {
-                Self::writable_form(path)
-            } else {
-                self.writable(path)
-            }
-        };
-        let limit = self.config().guardrails.max_write_bytes;
-        if op.bytes() as u64 > limit {
-            return Err(Error::Invalid(format!(
-                "A single write may be at most {} KB; this one is {} KB",
-                limit / 1024,
-                op.bytes() / 1024
-            )));
-        }
-        if let Some(path) = op.path() {
-            writable(path)?;
-        }
-        match op {
-            AgentOp::CreateNote {
-                title,
-                parent,
-                template,
-                ..
-            } => {
-                if let Some(parent) = parent {
-                    writable(parent)?;
-                }
-                if let Some(name) = template {
-                    crate::ops::not_an_action(name)?;
-                    let path = format!("templates/{}.md", crate::slug::slugify(name));
-                    if !self.vault.exists(&path) {
-                        return Err(Error::Invalid(format!(
-                            "No template called “{name}”; list_templates names them"
-                        )));
-                    }
-                }
-                // A title in use makes links to the other note name its path.
-                self.no_locked_links_to_namesake(title)?;
-            }
-            AgentOp::Rename { path, .. } => {
-                let title = self.vault.read(path)?.meta.title;
-                self.no_locked_links(&title, path, "rename it")?;
-            }
-            // Sub-pages go to the trash along with their page.
-            AgentOp::Trash { path, .. } => {
-                for going in self.with_sub_pages(path)? {
-                    self.writable(&going)?;
-                }
-            }
-            // Sub-pages go along, and links to what moves may be rewritten.
-            AgentOp::Move { path, .. } => {
-                let notes = self.index().notes()?;
-                if let Some(root) = notes.iter().find(|n| n.path == *path) {
-                    for moved in crate::moving::subtree(&notes, root) {
-                        self.writable(&moved.path)?;
-                        self.no_locked_links(&moved.title, &moved.path, "move it")?;
-                    }
-                }
-            }
-            AgentOp::Capture { markdown, .. } => {
-                self.no_locked_links_to_namesake(&crate::capture::split(markdown).0)?;
-            }
-            AgentOp::JournalAppend { date, .. } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
-                if self.vault.exists(&path) {
-                    self.writable(&path)?;
-                }
-            }
-            AgentOp::TagSchema { tag, schema } => {
-                crate::tags::schema_yaml(tag, schema)?;
-            }
-            AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => self.deck_refusals(op)?,
-            AgentOp::CreateDiagram { .. }
-            | AgentOp::UpdateDiagram { .. }
-            | AgentOp::EditDiagram { .. } => {
-                self.diagram_refusals(op)?;
-            }
-            AgentOp::Template {
-                name, text, base, ..
-            } => {
-                let path = AgentOp::template_path(name)
-                    .ok_or_else(|| Error::Invalid("A template needs a name".to_owned()))?;
-                if !crate::frontmatter::yaml_ok(split(text).prefix) {
-                    return Err(Error::Invalid(
-                        "The template's frontmatter is not valid YAML".to_owned(),
-                    ));
-                }
-                match (base, self.vault.exists(&path)) {
-                    (None, true) => {
-                        return Err(Error::Invalid(format!(
-                            "A template called “{name}” already exists; update_template changes it"
-                        )));
-                    }
-                    (Some(_), false) => return Err(Error::NotFound(path)),
-                    _ => {}
-                }
-            }
-            _ => {}
-        }
-        Ok(())
     }
 }

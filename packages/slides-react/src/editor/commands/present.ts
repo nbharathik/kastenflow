@@ -8,8 +8,10 @@ export const presentCommands: Command[] = [
     id: "view.presenter",
     label: "Presenter view",
     icon: "users",
-    keys: ["Mod+Alt+Enter"],
+    // Alt+F5 is PowerPoint's presenter view.
+    keys: ["Mod+Alt+Enter", "Alt+F5"],
     scope: "global",
+    inFields: true,
     run: ({ ui }) => ui.actions.present?.("current", { presenter: true }),
   },
   {

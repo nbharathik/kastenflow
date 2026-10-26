@@ -25,26 +25,8 @@ pub const LIMITS: Limits = Limits {
     bytes: 600 * 1024 * 1024,
 };
 
-/// Why an install stopped.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Failure {
-    Cancelled,
-    Failed(String),
-}
-
-impl Failure {
-    /// What to tell the person.
-    pub fn message(&self) -> String {
-        match self {
-            Failure::Cancelled => "The installation was cancelled".to_owned(),
-            Failure::Failed(why) => why.clone(),
-        }
-    }
-}
-
-pub(super) fn failed<T>(why: impl Into<String>) -> Result<T, Failure> {
-    Err(Failure::Failed(why.into()))
-}
+// Why an install stopped is the plugin installer's, shared with this unpacker.
+pub use crate::plugins::payload::{Failure, failed};
 
 /// What was unpacked.
 #[derive(Debug, PartialEq, Eq)]

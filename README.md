@@ -39,6 +39,21 @@ have been tested on each platform.
 
 KastenFlow is desktop-first. Backup must be configured, and it is not live sync.
 
+## Your notes are safe
+
+KastenFlow backs your notes up to a private GitHub repository that belongs to
+you, with their full history. Set it up once:
+
+1. **Sign in** with GitHub (or use a token, or the GitHub command line).
+2. **A private repository** is made for you, or you pick one you have.
+3. **Every change is backed up** within minutes. The status bar shows how many
+   changes are waiting.
+
+Saved chats and app settings are not part of the backup. Files over 100 MB are
+left out and listed. If the repository is made public, backup pauses until it is
+private again. Nothing is ever force-pushed. See
+[Back up to GitHub](docs/backup.md) in the guide.
+
 ## Get KastenFlow
 
 Follow [CONTRIBUTING.md](CONTRIBUTING.md) for the pinned toolchain,
@@ -70,6 +85,12 @@ Slides WebAssembly package also requires the pinned Rust toolchain and
 - **Back up** to GitHub, any git host, or a folder Dropbox, Google Drive or
   OneDrive keeps; restore on a new computer, and bring changes across with
   Get latest.
+- **Add plugins**: draw.io diagrams, LaTeX documents with a live PDF, and a
+  browser tab, each switched on in Settings → Plugins.
+- **Build pages that draw themselves**: smart pages show dashboards, maps and
+  timelines of your notes, and run in a closed box.
+- **Choose how much agents may do**: Review everything, Balanced or Autonomous,
+  for the vault or one project.
 
 The [user guide](docs/guide.md) tours all of it.
 
@@ -94,6 +115,11 @@ for the trust model, reporting, and the
 
 - [User guide](docs/guide.md): a tour, templates and kits, AI, quick
   capture, agents, backup and restore, and updates
+- Longer guides: [Back up to GitHub](docs/backup.md), [Plugins](docs/plugins.md),
+  [LaTeX](docs/latex.md), [the chat panel](docs/chat.md), [agent modes](docs/agents.md),
+  [pages](docs/pages.md), [tables and databases](docs/databases.md),
+  [presenting](docs/presenting.md), [smart pages](docs/smart-pages.md) and
+  [MCP tools](docs/mcp-tools.md)
 - [Vault format](docs/vault-format.md): every file KastenFlow writes
 - [Slides deck format](docs/slides-format.md): what is in a `.deck` file
 - [Contributing](CONTRIBUTING.md): building, testing and the project's rules

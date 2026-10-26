@@ -3,6 +3,7 @@
 
 import { type CSSProperties, type JSX, type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useRef, useState } from "react";
 
+import type { EditorUi } from "../ui-state.ts";
 import { FILMSTRIP_WIDTH_KEY, readNumber, writeNumber } from "../ui-prefs.ts";
 import { FILMSTRIP_MAX, FILMSTRIP_MIN, FILMSTRIP_W } from "./model.ts";
 
@@ -11,15 +12,23 @@ const STEP = 16;
 const BIG_STEP = 48;
 
 /** The width the filmstrip has now, and how to change it (`keep` false while it is being dragged: the last value is kept when it stops). */
-export function useFilmstripWidth(): { width: number; set(next: number, keep?: boolean): void; keep(): void } {
-  const [width, setWidth] = useState(() => readNumber(FILMSTRIP_WIDTH_KEY, FILMSTRIP_W, FILMSTRIP_MIN, FILMSTRIP_MAX));
+export function useFilmstripWidth(ui?: EditorUi): { width: number; set(next: number, keep?: boolean): void; keep(): void } {
+  // A host that kept this deck's window (`initialUi`) has the width the person made it here; otherwise the one kept in this browser.
+  const [width, setWidth] = useState(() => {
+    const own = ui?.memory.filmstripWidth;
+    return typeof own === "number" ? Math.min(Math.max(Math.round(own), FILMSTRIP_MIN), FILMSTRIP_MAX) : readNumber(FILMSTRIP_WIDTH_KEY, FILMSTRIP_W, FILMSTRIP_MIN, FILMSTRIP_MAX);
+  });
   const latest = useRef(width);
-  const set = useCallback((next: number, keep = true) => {
-    const clamped = Math.min(Math.max(Math.round(next), FILMSTRIP_MIN), FILMSTRIP_MAX);
-    latest.current = clamped;
-    setWidth(clamped);
-    if (keep) writeNumber(FILMSTRIP_WIDTH_KEY, clamped);
-  }, []);
+  const set = useCallback(
+    (next: number, keep = true) => {
+      const clamped = Math.min(Math.max(Math.round(next), FILMSTRIP_MIN), FILMSTRIP_MAX);
+      latest.current = clamped;
+      setWidth(clamped);
+      ui?.remember({ filmstripWidth: clamped });
+      if (keep) writeNumber(FILMSTRIP_WIDTH_KEY, clamped);
+    },
+    [ui],
+  );
   const keep = useCallback(() => writeNumber(FILMSTRIP_WIDTH_KEY, latest.current), []);
   return { width, set, keep };
 }

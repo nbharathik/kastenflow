@@ -7,6 +7,7 @@ import type { ToolbarFeatureConfig } from "@milkdown/crepe/feature/toolbar";
 import { editorViewCtx, schemaCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 
+import { selectionTools } from "../../../../plugins/contributions";
 import { openAi } from "../ai/ai";
 import { applyColor } from "../blocks/color";
 import { closesWith } from "../ui/close-with-editor";
@@ -14,6 +15,7 @@ import { Popover } from "../ui/popover";
 import { colorSections, openBlockMenu } from "./block-menu";
 import { currentBlock } from "./block-nav";
 import { blocksOfSelection } from "./block-range";
+import { selectionMarkdown } from "./selection-markdown";
 
 const COLOR_ICON =
   '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 16 12 5l4.5 11M9.2 12h5.6"/><path d="M5.5 20h13" stroke-width="2.4"/></svg>';
@@ -30,6 +32,9 @@ const AI_ICON =
 // A line icon (a lightbulb), drawn with its own fill so the toolbar's filled-icon style leaves it open.
 const EXPLAIN_ICON =
   '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6M10 22h4"/></svg>';
+
+const CHAT_ICON =
+  '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" style="fill:none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/></svg>';
 
 const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const shortcut = (keys: string) => (mac ? keys.replace("Ctrl+", "⌘").replace("Shift+", "⇧") : keys);
@@ -111,5 +116,12 @@ export const buildToolbar: NonNullable<ToolbarFeatureConfig["buildToolbar"]> = (
   builder
     .addGroup("kasten", "Colour")
     .addItem("kasten-color", { icon: COLOR_ICON, label: "Colour", shortcut: shortcut("Ctrl+Shift+H"), active: hasColor, onRun: openColorMenu })
-    .addItem("kasten-turn", { icon: TURN_ICON, label: "Turn into", shortcut: shortcut("Ctrl+/"), active: () => false, onRun: openTurnInto });
+    .addItem("kasten-turn", { icon: TURN_ICON, label: "Turn into", shortcut: shortcut("Ctrl+/"), active: () => false, onRun: openTurnInto })
+    // Keeps the selection with the chat (loaded on demand: the chat is not part of the editor).
+    .addItem("kasten-to-chat", { icon: CHAT_ICON, label: "Add to chat", shortcut: shortcut("Ctrl+Alt+L"), active: () => false, onRun: () => void import("../../../chat/selection/add").then((m) => m.addSelectionToChat()) });
+  // What plugins that are on add over a selection (Send to LaTeX).
+  const kasten = builder.getGroup("kasten");
+  for (const tool of selectionTools()) {
+    kasten.addItem(`kasten-plugin-${tool.id}`, { icon: tool.icon, label: tool.label, active: () => false, onRun: (ctx: Ctx) => tool.run(selectionMarkdown(ctx)) });
+  }
 };

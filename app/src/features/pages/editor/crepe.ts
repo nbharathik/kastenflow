@@ -19,6 +19,8 @@ import { remarkKastenMath, remarkMathSyntax } from "./blocks/math-remark";
 import { mathBlockView, mathEditing, mathInlineView } from "./blocks/math-view";
 import { bgColorSchema, remarkColor, textColorSchema } from "./blocks/color";
 import { remarkToggle, toggleSchema, wrapInToggleCommand } from "./blocks/toggle";
+import { columns } from "./columns";
+import { setTableLinks, tables } from "./tables";
 import { toggleView } from "./blocks/toggle-view";
 import { remarkUnderline, underlineSchema } from "./blocks/underline";
 import { aloneLinks } from "./blocks/alone";
@@ -73,11 +75,21 @@ export interface KastenCrepeOptions {
   onSmartPage?: () => void;
 }
 
-const noUploads = () => Promise.reject(new Error("This editor keeps no files; paste a link instead."));
+/** The token-built code theme, loaded on demand; without it Crepe keeps its own. */
+async function codeTheme() {
+  try {
+    return (await import("../../../ui/codemirror-theme")).codemirrorTheme();
+  } catch {
+    return null;
+  }
+}
+
+const noUploads =() => Promise.reject(new Error("This editor keeps no files; paste a link instead."));
 
 /** Creates and mounts the editor under `root`. */
 export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeOptions = {}): Promise<Crepe> {
   const { files } = options;
+  const theme = await codeTheme();
   const crepe = new Crepe({
     root,
     defaultValue: "",
@@ -96,6 +108,8 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
       // The native caret, as in Notion. The virtual one measures the page on
       // every keystroke, which shows on long notes.
       [Crepe.Feature.Cursor]: { virtual: false },
+      // Code blocks take their colours from the tokens, so they follow the theme.
+      ...(theme ? { [Crepe.Feature.CodeMirror]: { theme } } : {}),
       // Crepe's default keeps uploads as blob: URLs, which would be saved
       // into the note. Kasten keeps them in assets/ and links them relatively.
       [Crepe.Feature.ImageBlock]: {
@@ -138,6 +152,8 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
     .use([dividerView, sectionsPlugin, smartDecorations].flat())
     .use([remarkCallout, calloutSchema, calloutView, wrapInCalloutCommand].flat())
     .use([remarkToggle, toggleSchema, toggleView, wrapInToggleCommand].flat())
+    .use(columns)
+    .use(tables)
     .use([remarkColor, textColorSchema, bgColorSchema].flat())
     .use([remarkUnderline, underlineSchema].flat())
     .use([remarkMathSyntax, remarkKastenMath, mathInlineSchema, mathBlockSchema, mathInlineView, mathBlockView, mathEditing, mathKeymap].flat())
@@ -149,5 +165,6 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
   await crepe.create();
   // The block menu's "Copy link to this location" asks the page, which knows what it is.
   setLocationCopier(crepe.editor.ctx.get(editorViewCtx), options.links?.copyLocation);
+  setTableLinks(crepe.editor.ctx.get(editorViewCtx), options.links);
   return crepe;
 }

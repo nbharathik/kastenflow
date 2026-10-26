@@ -1,0 +1,317 @@
+/* A smart page's frame, the line it shows while waiting, and the small chip
+   that counts its errors. Colours, sizes and radii come from the app's tokens. */
+
+.kasten-smart {
+  position: relative;
+  width: 100%;
+}
+
+.kasten-smart[data-fill="true"] {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.kasten-smart-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: var(--color-canvas);
+  color-scheme: normal;
+}
+
+.kasten-smart[data-fill="true"] .kasten-smart-frame {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.kasten-smart-wait,
+.kasten-smart-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
+.kasten-smart-errors {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.kasten-smart-error-list {
+  width: 100%;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+}
+
+.kasten-smart-error-list ul {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.kasten-smart-error-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.kasten-smart-error-list li:last-child {
+  border-bottom: 0;
+}
+
+.kasten-smart-error-message {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kasten-smart-error-where {
+  color: var(--color-muted);
+}
+
+/* The page around the frame: a smart page opened on its own, a smart block in
+   another page, the "Allow to run" card, and the History of a page's code. */
+
+.kasten-page.is-smart-view > .kasten-smart-page {
+  flex: 1;
+  min-width: 0;
+}
+
+.kasten-smart-notes-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 0;
+}
+
+.kasten-smart-page {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 8px 16px 12px;
+}
+
+.kasten-smart-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.kasten-smart-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-16);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-smart-stage {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.kasten-smart-block {
+  margin: 4px 0;
+}
+
+.kasten-smart-paused {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kasten-smart-full {
+  flex-basis: 100%;
+  color: var(--color-muted);
+}
+
+.kasten-smart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kasten-smart-empty p {
+  margin: 0;
+}
+
+.kasten-smart-off {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
+.kasten-smart-allow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  font-size: var(--text-13);
+}
+
+.kasten-smart-allow p {
+  margin: 0;
+}
+
+.kasten-smart-allow-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.kasten-smart-allow.is-compact {
+  padding: 8px 12px;
+}
+
+.kasten-smart-allow-note,
+.kasten-smart-warning {
+  color: var(--color-muted);
+}
+
+.kasten-smart-allow-problem {
+  color: var(--color-ink);
+}
+
+.kasten-smart-options {
+  font-size: var(--text-13);
+}
+
+.kasten-smart-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kasten-smart-warning {
+  margin: 4px 0 0;
+}
+
+.kasten-smart-history {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  font-size: var(--text-13);
+}
+
+@media (max-width: 720px) {
+  .kasten-smart-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kasten-smart-versions {
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.kasten-smart-versions button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  text-align: left;
+}
+
+.kasten-smart-versions button:hover,
+.kasten-smart-versions button[aria-current="true"] {
+  background: var(--color-raised);
+}
+
+.kasten-smart-version-when {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-smart-version {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow: auto;
+}
+
+.kasten-smart-version-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kasten-smart-version-head .ui-btn {
+  margin-left: auto;
+}
+
+.kasten-smart-file {
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 20rem;
+}
+
+.kasten-smart-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-raised);
+  font-size: var(--text-12);
+}
+
+.kasten-smart-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  text-overflow: ellipsis;
+}
+
+.kasten-smart-file-status {
+  color: var(--color-muted);
+}

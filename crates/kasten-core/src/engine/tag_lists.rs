@@ -15,11 +15,8 @@ use crate::frontmatter::yaml_scalar;
 use crate::history::Actor;
 use crate::slug::slugify;
 use crate::tag_yaml::set_list;
-use crate::tags::{KINDS, TagSchema, parse_schema};
+use crate::tags::{KINDS, TagSchema, VIEW_KINDS, parse_schema};
 use crate::time::Instant;
-
-/// View types a tag database shows.
-pub const VIEW_KINDS: [&str; 5] = ["table", "kanban", "list", "calendar", "gallery"];
 
 fn text_of<'a>(item: &'a Value, key: &str) -> Option<&'a str> {
     item.get(key)
@@ -30,7 +27,7 @@ fn text_of<'a>(item: &'a Value, key: &str) -> Option<&'a str> {
 
 /// Whether a tag database shows a view: a mapping with a name and a type
 /// it knows. Others, written by another tool, are kept as they are.
-fn shown(view: &Value) -> bool {
+pub(super) fn shown(view: &Value) -> bool {
     view.is_object()
         && text_of(view, "name").is_some()
         && view
@@ -39,7 +36,7 @@ fn shown(view: &Value) -> bool {
             .is_some_and(|kind| VIEW_KINDS.contains(&kind))
 }
 
-fn check_views(tag: &str, views: &[Value]) -> Result<()> {
+pub(super) fn check_views(tag: &str, views: &[Value]) -> Result<()> {
     let bad = |why: String| Error::Invalid(format!("Views of “{tag}”: {why}"));
     let mut names: Vec<String> = Vec::new();
     for view in views {
@@ -49,8 +46,13 @@ fn check_views(tag: &str, views: &[Value]) -> Result<()> {
         let name = text_of(view, "name").ok_or_else(|| bad("each view needs a name".into()))?;
         let kind = view.get("type").and_then(Value::as_str).unwrap_or("");
         if !VIEW_KINDS.contains(&kind) {
-            return Err(bad(format!("“{name}” has an unknown type “{kind}”")));
+            return Err(bad(format!(
+                "“{name}” has an unknown type “{kind}”; the view types are {}",
+                VIEW_KINDS.join(", ")
+            )));
         }
+        crate::tags::sub_items::check_view(view).map_err(bad)?;
+        crate::tags::view_order::check_view(view).map_err(bad)?;
         let lower = name.to_lowercase();
         if names.contains(&lower) {
             return Err(bad(format!("two views are called “{name}”")));
@@ -87,10 +89,49 @@ fn check_properties(tag: &str, properties: &[Value]) -> Result<()> {
         }
         keys.push(key);
     }
+    crate::tags::formula::check_list(properties).map_err(bad)?;
     Ok(())
 }
 
 impl Kasten {
+    /// Timeline views read the tag's date and choice properties, and table
+    /// views group and calculate by them; they are checked against the tag's
+    /// schema as it is saved.
+    fn check_timelines(&self, tag: &str, views: &[Value]) -> Result<()> {
+        let timelines = || {
+            views
+                .iter()
+                .filter(|v| v.get("type").and_then(Value::as_str) == Some("timeline"))
+        };
+        let tables = || {
+            views
+                .iter()
+                .filter(|v| v.get("type").and_then(Value::as_str) == Some("table"))
+        };
+        if timelines().next().is_none() && tables().next().is_none() {
+            return Ok(());
+        }
+        let schemas = self.tag_schemas()?;
+        let known = schemas.iter().find(|s| s.name.eq_ignore_ascii_case(tag));
+        let props: &[crate::tags::PropDef] = known.map_or(&[], |s| s.properties.as_slice());
+        // A view saved as it already is stays saved even when a property it
+        // names has gone since (the properties are changed on their own and
+        // do not look at views): only what is new or changed is checked, so a
+        // stale setting never blocks saving another view.
+        let stored: &[Value] = known.map_or(&[], |s| s.views.as_slice());
+        let changed = |view: &&Value| !stored.contains(view);
+        let kind_of = |key: &str| props.iter().find(|p| p.key == key).map(|p| p.kind.as_str());
+        for view in timelines().filter(changed) {
+            crate::tags::timeline::check_view(view, &kind_of)
+                .map_err(|why| Error::Invalid(format!("Views of “{tag}”: {why}")))?;
+        }
+        for view in tables().filter(changed) {
+            crate::tags::table_options::check_view(view, &kind_of)
+                .map_err(|why| Error::Invalid(format!("Views of “{tag}”: {why}")))?;
+        }
+        Ok(())
+    }
+
     /// Replaces the views a tag database shows in the tag's YAML, keeping
     /// after them the views it does not show (another tool's), and the rest
     /// of the file as written; makes the file for a tag that has none.
@@ -103,6 +144,12 @@ impl Kasten {
     ) -> Result<TagSchema> {
         let name = tag.trim().trim_start_matches('#').trim();
         check_views(name, views)?;
+        self.check_timelines(name, views)?;
+        // An agent changes the views of a tag that has a schema; making the
+        // schema is `update_tag_schema`, which waits for review.
+        if actor.is_agent() {
+            self.tag_views_refusals(name, views)?;
+        }
         self.set_tag_list(actor, name, "views", views, true, now)
     }
 

@@ -25,7 +25,7 @@ export interface Command {
   /** Key combinations, such as "Mod+B" or "Mod+Shift+Z"; the first is shown. `Mod` is Ctrl, or Cmd on a Mac. */
   keys?: string[];
   scope?: KeyScope;
-  /** Its keys work while a field (the notes, a name) has the focus too. Only for a chord with Ctrl or Cmd, which is never typing. */
+  /** Its keys work while a field (the notes, a name) has the focus too. Only for a chord with Ctrl or Cmd, or a function key, which are never typing. */
   inFields?: boolean;
   /** What its keys do where that is not what a click on its menu item or button does (the click arms a tool, the key adds at once). */
   byKey?(context: CommandContext): void | Promise<void>;

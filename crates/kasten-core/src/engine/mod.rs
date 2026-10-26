@@ -6,6 +6,9 @@
 
 mod agent;
 mod agent_assets;
+mod agent_checkpoints;
+mod agent_policy;
+mod agent_refusals;
 mod agent_review;
 mod ai_actions;
 mod annotations;
@@ -15,7 +18,16 @@ mod asset_meta;
 mod asset_thumbs;
 mod asset_usage;
 mod assets;
+mod backup_check;
+mod backup_extra;
 mod backup_file;
+mod backup_link;
+mod backup_now;
+mod backup_pull;
+mod batch_apply;
+mod batch_decide;
+mod batch_person;
+mod batch_rollback;
 mod bibliography;
 mod board_stats;
 mod boards;
@@ -30,10 +42,12 @@ mod decks;
 mod diagram_agent;
 mod diagram_edit;
 mod diagrams;
+mod digest;
 mod edit;
 mod empty_trash;
 mod execute;
 mod file_cache;
+mod formula_rows;
 mod graph;
 mod health;
 mod highlight_cards;
@@ -41,11 +55,22 @@ mod init;
 mod kits;
 mod latest;
 mod latest_apply;
+mod latex_agent;
+mod latex_docs;
+mod latex_send;
+mod latex_source;
+mod latex_tools;
 mod link_checks;
 mod links;
+mod live_config;
 mod marks;
 mod ops;
+mod page_edit;
+mod parity;
+mod parity_refusals;
+mod parity_words;
 mod placing;
+mod plugin_state;
 mod project_summaries;
 mod projects;
 mod push;
@@ -55,16 +80,35 @@ mod replace;
 mod restore;
 mod review;
 mod revision;
+mod setup_agent;
+mod setup_manage;
 mod setup_plan;
+mod setup_save;
+mod setup_save_manifest;
+mod setup_save_plan;
+mod setup_saved;
+mod setup_skeleton;
 mod setups;
+mod smart;
+mod smart_agent;
+mod smart_author;
+mod smart_create;
+mod smart_history;
+mod smart_search;
+mod smart_template;
+pub use smart_author::{MadeSmart, NewSmartPage};
+pub use smart_template::{SavedSmartTemplate, SmartTemplate, SmartTemplateInfo};
 mod sources;
 mod stage;
 mod state;
+mod structure;
+mod structure_agent;
 mod tag_lists;
 mod tag_many;
 mod undo;
 mod verify;
 mod verify_names;
+mod view_order;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, RwLock};
@@ -84,11 +128,13 @@ pub use assets::MAX_ASSET_BYTES;
 pub use backup_file::{
     BackupFile, BackupFileRecord, BackupFileStatus, KEEP as BACKUP_FILES_KEPT, computer_name,
 };
+pub use batch_person::PersonBatch;
 pub use board_stats::NoteStats;
 pub use boards::{BoardApplied, BoardInfo};
 pub use brainstorm::{Brainstormed, Idea, MAX_IDEAS};
 pub use commits::Tick;
 pub use decks::{DeckEdit, DeckInfo, DecksSaved, MAX_SAVE_DECKS, SaveDecksRequest};
+pub use digest::{Digest, DigestSession};
 pub use empty_trash::Emptied;
 pub use health::{Health, HealthCounts, HistoryHealth, IndexHealth, LastCheck, TrashHealth};
 pub use init::shipped_template;
@@ -104,7 +150,10 @@ pub use replace::{
 };
 pub use restore::VaultRestore;
 pub use revision::{Revision, RevisionArea, area_of};
+pub use setup_manage::SetupGone;
+pub use setup_save::{SavedSetup, SetupPage, SetupSource};
 pub use setups::{AppliedSetup, SetupInfo, SetupPlan, SetupTarget, setups};
+pub use structure::NewProject;
 pub use tag_many::{MAX_TAGGED, TagAdded};
 pub use undo::{ChangedFile, SessionInfo, UndoConflict, Undone};
 pub use verify::{Problem, Report};
@@ -128,6 +177,8 @@ fn own_folders_in_place(root: &Path) -> Result<()> {
 pub struct Kasten {
     vault: Vault,
     config: RwLock<Config>,
+    /// What was last seen of `.kasten/config.yaml` (engine/live_config.rs).
+    config_watch: Mutex<live_config::ConfigWatch>,
     lock: WriteLock,
     history: OnceLock<History>,
     index: Mutex<Index>,
@@ -204,10 +255,12 @@ impl Kasten {
             let _ = history.set(found);
         }
         let vectors = vault.root().join(crate::vectors::VECTORS_PATH);
+        let watch = live_config::ConfigWatch::new(vault.root());
         let kasten = Kasten {
             lock: WriteLock::new(vault.root()),
             vault,
             config: RwLock::new(config),
+            config_watch: Mutex::new(watch),
             history,
             index: Mutex::new(index),
             state: Mutex::new(State::default()),
@@ -235,13 +288,6 @@ impl Kasten {
         self.vault.root()
     }
 
-    pub fn config(&self) -> Config {
-        self.config
-            .read()
-            .unwrap_or_else(|p| p.into_inner())
-            .clone()
-    }
-
     /// Replaces the vault's config and writes it.
     pub fn set_config(&self, config: Config) -> Result<()> {
         if let Some(remote) = &config.git.remote {
@@ -249,6 +295,27 @@ impl Kasten {
         }
         self.lock.hold(|| config.save(self.vault.root()))?;
         *self.config.write().unwrap_or_else(|p| p.into_inner()) = config;
+        self.config_saved();
+        Ok(())
+    }
+
+    /// Changes the vault's config as it is in the file now, under the write
+    /// lock: `change` sees what another program saved a moment ago, so a
+    /// small change (the backup address, one setting) cannot undo it, which
+    /// `set_config` of a copy read earlier can. An error from `change` writes
+    /// nothing.
+    pub fn update_config(&self, change: impl FnOnce(&mut Config) -> Result<()>) -> Result<()> {
+        let config = self.lock.hold(|| {
+            let mut config = Config::load(self.vault.root())?;
+            change(&mut config)?;
+            if let Some(remote) = &config.git.remote {
+                crate::history::check_remote(remote)?;
+            }
+            config.save(self.vault.root())?;
+            Ok(config)
+        })?;
+        *self.config.write().unwrap_or_else(|p| p.into_inner()) = config;
+        self.config_saved();
         Ok(())
     }
 
@@ -311,9 +378,12 @@ impl Kasten {
         run: impl FnOnce(&Vault) -> Result<Change<T>>,
     ) -> Result<(T, Option<String>)> {
         let mut counted = None;
+        // An op of a batch in this thread (engine/batch_apply.rs): the batch
+        // holds the lock and makes the one commit.
+        let in_batch = self.in_batch();
         let done = self.lock.hold(|| {
             let batched = batch && !actor.is_agent();
-            if let Some(history) = self.history.get().filter(|_| !batched) {
+            if let Some(history) = self.history.get().filter(|_| !batched && !in_batch) {
                 // A git command run by hand is at work: the op waits, with
                 // nothing written, so trying again neither loses nor
                 // repeats a change.
@@ -325,7 +395,10 @@ impl Kasten {
                 // change and undoing it never takes their typing (or an
                 // outside edit, before an agent's op) with it.
                 self.commit_edits_held(history)?;
-                if actor.is_agent() {
+                // A batch is undone as one step, and a failed one puts back
+                // only the files it wrote: changes made outside go in first,
+                // for a person's batch as for an agent's.
+                if actor.is_agent() || op == "batch" {
                     self.commit_external_held(history)?;
                 }
             }
@@ -350,7 +423,13 @@ impl Kasten {
                         .count();
                 }
             }
+            if in_batch {
+                self.joins_batch(&change.paths);
+                return Ok((change.value, None));
+            }
             let mut commit = None;
+            // An autonomous session's commits say so (engine/agent_policy.rs).
+            let trailers = self.mode_trailers(actor, trailers);
             if let Some(history) = self.history.get() {
                 if batched {
                     let mut state = self.state();
@@ -360,8 +439,13 @@ impl Kasten {
                     state.last_edit = Some(now);
                     state.typed = Some(now);
                 } else {
-                    commit =
-                        history.commit_with(&change.paths, &change.message, actor, op, trailers)?;
+                    commit = history.commit_with(
+                        &change.paths,
+                        &change.message,
+                        actor,
+                        op,
+                        &trailers,
+                    )?;
                     let mut state = self.state();
                     for path in &change.paths {
                         state.edits.remove(path);
@@ -373,7 +457,8 @@ impl Kasten {
             }
             Ok((change.value, commit))
         });
-        if let Some(revision) = counted {
+        // The listener hears of a batch once, when it is done.
+        if let Some(revision) = counted.filter(|_| !in_batch) {
             self.announce(revision);
         }
         done

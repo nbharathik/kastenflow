@@ -171,8 +171,10 @@ describe("saved tables", () => {
     await makeTable("Blank table");
     const panel = screen.getByRole("tabpanel");
     fireEvent.click(await within(panel).findByRole("button", { name: "+ Filter" }));
-    fireEvent.change(screen.getByLabelText("Property"), { target: { value: "tags" } });
-    fireEvent.change(screen.getByLabelText("Condition"), { target: { value: "contains" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Property:/ }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Property" })).getByRole("option", { name: "Tags" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Condition:/ }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Condition" })).getByRole("option", { name: "contains" }));
     fireEvent.change(screen.getByLabelText("Value"), { target: { value: "paper" } });
     fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
     await waitFor(async () => expect(await projectText()).toContain("paper"));

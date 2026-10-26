@@ -10,21 +10,27 @@ import { afterEach, describe, expect, it } from "vitest";
 import { usePrefs } from "../workspace/prefs";
 import { BlankDay } from "./BlankDay";
 
-afterEach(() => usePrefs.setState({ fullWidth: false }));
+afterEach(() => usePrefs.setState({ pageWidth: "normal" }));
 
 describe("a blank journal day", () => {
   it("has the page column, and the whole width when pages are set to use it", () => {
     const { container, rerender } = render(<BlankDay day="2026-10-02" />);
     const blank = () => container.querySelector<HTMLElement>(".kasten-journal-blank")!;
     expect(blank().classList.contains("is-full-width")).toBe(false);
-    usePrefs.setState({ fullWidth: true });
+    usePrefs.setState({ pageWidth: "wide" });
+    rerender(<BlankDay day="2026-10-02" />);
+    expect(blank().classList.contains("is-wide")).toBe(true);
+    expect(blank().classList.contains("is-full-width")).toBe(false);
+    usePrefs.setState({ pageWidth: "full" });
     rerender(<BlankDay day="2026-10-02" />);
     expect(blank().classList.contains("is-full-width")).toBe(true);
+    expect(blank().classList.contains("is-wide")).toBe(false);
   });
 
   it("sets no width in pixels of its own", () => {
     const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "blank-day.css"), "utf8");
     expect(css).not.toMatch(/--page-width:\s*\d+px/);
     expect(css).toMatch(/is-full-width/);
+    expect(css).toMatch(/is-wide/);
   });
 });

@@ -11,7 +11,8 @@ import { isSmart, setSmart } from "./api";
 const kept = vi.fn();
 const editor = useTestEditor({ foldKey: "note-1", onSmartPage: () => kept() });
 
-const smartPage = () => matchChoices(SLASH_CHOICES, "smart")[0]!;
+// "Smart page" is the name of a page with a view of its own; this one cuts a page into sections.
+const smartPage = () => matchChoices(SLASH_CHOICES, "sections")[0]!;
 const run = () => editor.run(choiceCommand(smartPage(), editor.ctx));
 
 beforeEach(() => {
@@ -26,7 +27,8 @@ afterEach(() => {
 describe("/smart page", () => {
   it("is in the slash menu, found by what it is", () => {
     expect(smartPage().key).toBe("smart-page");
-    expect(smartPage().label).toBe("Smart page");
+    expect(smartPage().label).toBe("Sections layout");
+    expect(SLASH_CHOICES.some((c) => c.label === "Smart page")).toBe(false);
     for (const word of ["sections", "slides", "present", "cards"]) expect(matchChoices(SLASH_CHOICES, word).map((c) => c.key), word).toContain("smart-page");
     // It does not take the page block's place when asked for a page.
     expect(matchChoices(SLASH_CHOICES, "page")[0]!.key).toBe("page");

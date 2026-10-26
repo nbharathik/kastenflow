@@ -96,6 +96,7 @@ fn refuses_views_it_cannot_show() {
     for bad in [
         json!({"type": "table"}),
         json!({"name": "", "type": "table"}),
+        json!({"name": "X", "type": "roadmap"}),
         json!({"name": "X", "type": "timeline"}),
         json!("table"),
     ] {
@@ -117,7 +118,7 @@ fn keeps_the_views_another_tool_wrote() {
     let (t, k) = open();
     fs::write(
         t.vault.root().join("tags/reading-list.yaml"),
-        "name: Reading\nviews:\n  - {name: All, type: table}\n  - {name: Timeline, type: timeline, start: due}\n  - {type: table, note: unnamed}\n",
+        "name: Reading\nviews:\n  - {name: All, type: table}\n  - {name: Roadmap, type: roadmap, start: due}\n  - {type: table, note: unnamed}\n",
     )
     .unwrap();
     let views = [json!({"name": "Shelf", "type": "gallery"})];
@@ -128,7 +129,7 @@ fn keeps_the_views_another_tool_wrote() {
         schema.views,
         [
             json!({"name": "Shelf", "type": "gallery"}),
-            json!({"name": "Timeline", "type": "timeline", "start": "due"}),
+            json!({"name": "Roadmap", "type": "roadmap", "start": "due"}),
             json!({"type": "table", "note": "unnamed"}),
         ]
     );

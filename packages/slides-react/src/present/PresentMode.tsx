@@ -5,16 +5,20 @@
 import { Deck as RevealDeck, type DeckProps } from "@revealjs/react";
 import { type Deck, picturePaths } from "@kasten-slides/wasm";
 import type { RevealApi } from "reveal.js";
-import { type CSSProperties, type JSX, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, type JSX, type MouseEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 
+import type { PreviewMode } from "../editor/web-preview-host.ts";
+import { type Anchor, anchorOf, pointAnchor } from "../editor/ui/Popover.tsx";
 import type { PageAccess } from "../embed/usePageText.ts";
 import { posterPaths } from "../export/posters.ts";
 import { type LinkWays, followLink, kindOfLink, linkAt, linkHint, openInWindow } from "../pages/follow.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { PresentContext } from "./context.ts";
 import { DeckTree } from "./DeckTree.tsx";
+import { type LinkChoice, LinkMenu, copyLink, isWebPage } from "./link-menu.tsx";
 import { PagePanel } from "./PagePanel.tsx";
+import { readPreviewMode, writePreviewMode } from "./preview-mode.ts";
 import { type Matte, matteColor } from "./matte.ts";
 import { type Plan, type Position, fromState, planOf, startPosition } from "./plan.ts";
 import { installRevealCss } from "./reveal-css.ts";
@@ -47,6 +51,8 @@ export interface PresentModeProps {
   view?: "slides" | "scroll";
   /** The colour round the slide on a screen of another shape than the slide's own: black when left out. The slide itself is always whole and centred. */
   matte?: Matte;
+  /** Whether reveal.js's arrows and progress bar show. Off when left out: a show is the slide and nothing else. */
+  controls?: boolean;
   /**
    * What the host gives the slides to do with pages of its own: read the pages a deck embeds, open a web address, and show a page
    * in a panel at the side when a link to it is followed. Without it those links do nothing (a web address opens a window).
@@ -64,6 +70,9 @@ export function imagesOf(deck: Deck, imageUrl: ImageUrl): Record<string, string>
   return found;
 }
 
+/** How often the show tells the presenter's window it is there. */
+export const BEAT_MS = 2000;
+
 /** The events of reveal.js that change where the person is. */
 const MOVES = ["ready", "slidechanged", "fragmentshown", "fragmenthidden", "overviewshown", "overviewhidden", "paused", "resumed"] as const;
 
@@ -72,7 +81,7 @@ function locator(plan: Plan): (number: number) => [number, number] | null {
   return (number) => bySlide.get(Math.min(Math.max(Math.trunc(number) || 1, 1), plan.count)) ?? null;
 }
 
-function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", pages }: PresentModeProps): JSX.Element {
+function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", controls = false, pages }: PresentModeProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const store = useMemo(() => new PresentStore(startPosition(plan, start)), [plan, start]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -94,8 +103,20 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
   // The links of the slides: to another slide, to a page of the host (a calm panel at the side, which Esc puts away), or out to the web
   // (a peek the host draws at the side, which Esc steps back out of; or the person's own browser where the host has no peek).
   const [panel, setPanel] = useState<{ path: string; section: string | null } | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  // The page being previewed, and how it was last asked to sit (`n` counts the asks that named a way, so the panel can follow them).
+  const [preview, setPreview] = useState<{ url: string; mode: PreviewMode; n: number } | null>(null);
+  const [linkMenu, setLinkMenu] = useState<{ url: string; anchor: Anchor } | null>(null);
   const openOutside = useCallback((address: string) => (pages?.openUrl ? pages.openUrl(address) : openInWindow(address)), [pages]);
+  const deckId = deck.id;
+  const showPreview = useCallback(
+    (address: string, mode?: PreviewMode) => {
+      // One thing at the side at a time: the page panel gives way to the preview.
+      setPanel(null);
+      if (mode) writePreviewMode(deckId, mode);
+      setPreview((now) => ({ url: address, mode: mode ?? now?.mode ?? readPreviewMode(deckId), n: (now?.n ?? 0) + (mode ? 1 : 0) }));
+    },
+    [deckId],
+  );
   const ways = useMemo<LinkWays>(
     () => ({
       slide: (id) => {
@@ -111,15 +132,34 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
             },
           }
         : {}),
-      web: (address) => {
-        // One thing at the side at a time: the page panel gives way to the peek.
-        if (!pages?.webPreview) return openOutside(address);
-        setPanel(null);
-        setPreview(address);
-      },
+      // A web page opens over the slide; mail, phone and the like go out to the program that handles them.
+      web: (address) => (pages?.webPreview && isWebPage(address) ? showPreview(address) : openOutside(address)),
     }),
-    [plan, reveal, pages, openOutside],
+    [plan, reveal, pages, openOutside, showPreview],
   );
+  const choose = useCallback(
+    (address: string, choice: LinkChoice) => {
+      const way = { here: "center", side: "side", full: "full" } as const;
+      if (choice === "here" || choice === "side" || choice === "full") {
+        if (pages?.webPreview) showPreview(address, way[choice]);
+        else openOutside(address);
+      } else if (choice === "tab") (pages?.openInTab ?? openOutside)(address);
+      else if (choice === "browser") openOutside(address);
+      else copyLink(address);
+    },
+    [pages, showPreview, openOutside],
+  );
+  // A right-click on a link to a web page: the six choices, in a menu of the page (the system's is not the app's, and is not on during a show).
+  const onContextMenu = (event: MouseEvent): void => {
+    const href = linkAt(event.target)?.trim();
+    if (!href || !isWebPage(href) || kindOfLink(href) !== "web") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const from = event.target instanceof Element ? event.target.closest("[data-href], [data-link]") : null;
+    // A key (the menu key, Shift+F10) sends the event with no pointer: the menu opens at the link.
+    const anchor = event.clientX === 0 && event.clientY === 0 && from ? anchorOf(from) : pointAnchor(event.clientX, event.clientY);
+    setLinkMenu({ url: href, anchor });
+  };
   const follow = useCallback((href: string) => followLink(href, ways), [ways]);
   const context = useMemo(() => ({ pages, onLink: follow }), [pages, follow]);
 
@@ -144,7 +184,11 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     return () => before?.focus({ preventScroll: true });
   }, []);
 
-  const config = useMemo(() => revealConfig(deck.size, { autoAnimateMatcher: matchSlides }) as DeckProps["config"], [deck.size.w, deck.size.h]);
+  // The pointer goes after 2 s at rest; the arrows and the progress bar are the person's choice (off to begin with).
+  const config = useMemo(
+    () => revealConfig(deck.size, { autoAnimateMatcher: matchSlides, controls, progress: controls, hideCursorTime: 2000 }) as DeckProps["config"],
+    [deck.size.w, deck.size.h, controls],
+  );
 
   // Once reveal.js is up: follow it, give it the presentation's keys and morphs, and take it to where the person asked to begin.
   const teardown = useRef<(() => void) | null>(null);
@@ -187,16 +231,20 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     [],
   );
 
-  // The presenter's window: it gets the deck when it asks, and the two follow each other.
+  // The presenter's window: it gets the deck (and the addresses of its pictures, worked out once) when it comes and when it asks, and
+  // after that only where the talk is. The two follow each other, and the show says every 2 s that it is there.
   useEffect(() => {
     if (!reveal || !sync) return;
+    const images = imagesOf(deck, imageUrl);
     const introduce = () => {
-      sync.post({ type: "deck", deck, images: imagesOf(deck, imageUrl), state: reveal.getState(), since: since.current });
+      sync.post({ type: "deck", deck, images, state: reveal.getState(), since: since.current });
       // Said with every deck: the presenter's window may open after the talk began, and hears it when it asks.
       if (rehearse) sync.post({ type: "rehearse" });
     };
+    const beat = setInterval(() => sync.post({ type: "beat" }), BEAT_MS);
     const stop = sync.subscribe((message) => {
       if (message.type === "hello") introduce();
+      else if (message.type === "end") latest.current.onExit();
       else if (message.type === "state") {
         applying.current = true;
         try {
@@ -208,7 +256,10 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
       }
     });
     introduce();
-    return stop;
+    return () => {
+      clearInterval(beat);
+      stop();
+    };
   }, [reveal, sync, deck, imageUrl, rehearse]);
 
   // The slide is whole and centred at its own proportions whatever the screen is; what is left round it is the matte.
@@ -224,6 +275,7 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
       data-paused={snapshot.paused || undefined}
       data-matte={matte}
       style={{ "--ks-show-matte": bars } as CSSProperties}
+      onContextMenu={onContextMenu}
       onClick={(event) => {
         const href = linkAt(event.target);
         if (href && follow(href)) {
@@ -258,7 +310,28 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
         />
       ) : null}
       {preview && pages?.webPreview ? (
-        <WebPreviewPanel host={pages.webPreview} url={preview} surface="show" onClose={() => setPreview(null)} openExternally={openOutside} returnTo={() => stage.current} />
+        <WebPreviewPanel
+          host={pages.webPreview}
+          url={preview.url}
+          surface="show"
+          initialMode={preview.mode}
+          request={{ mode: preview.mode, n: preview.n }}
+          onMode={(mode) => writePreviewMode(deckId, mode)}
+          aspect={deck.size.w / deck.size.h}
+          onClose={() => setPreview(null)}
+          openExternally={openOutside}
+          {...(pages.openInTab ? { openInTab: pages.openInTab } : {})}
+          returnTo={() => stage.current}
+        />
+      ) : null}
+      {linkMenu ? (
+        <LinkMenu
+          anchor={linkMenu.anchor}
+          previews={Boolean(pages?.webPreview)}
+          tab={Boolean(pages?.openInTab)}
+          onClose={() => setLinkMenu(null)}
+          onChoose={(choice) => choose(linkMenu.url, choice)}
+        />
       ) : null}
     </div>
   );

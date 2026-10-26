@@ -2,6 +2,7 @@
 // speed with, kept in memory and in this browser's storage. Loaded only in a
 // browser, so the desktop app never parses the preview's code or its files.
 
+import { inDemo } from "../../../demo/flag";
 import type { Connection } from "../vault";
 import { bigBoard, bigBoardSize } from "./big-board";
 import { bigVault, bigVaultSize } from "./big-vault";
@@ -51,5 +52,7 @@ export async function connectPreview(): Promise<Connection> {
   const samples = dev ? await loadDevSamples() : await loadSamples();
   const client = big || board || dev ? new MemoryVault({ ...samples, ...(big ? bigVault(big) : {}), ...(board ? bigBoard(board) : {}) }) : new MemoryVault(samples, browserStorage);
   if (dev) for (const [path, load] of devSources()) client.addSampleSource(path, load);
+  // `?demo=1.2.2` puts canned stand-ins behind the real screens of the 1.2.2 promo video; its code loads only then.
+  if (inDemo()) await (await import("../../../demo")).installDemo(client);
   return { client };
 }

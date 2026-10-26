@@ -20,6 +20,7 @@ mod session;
 mod specs;
 mod steps;
 mod store;
+mod template;
 #[cfg(test)]
 mod tests;
 

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useShell } from "../../lib/store";
 import type { NoteFile, NoteMeta, VaultClient } from "../../lib/vault/types";
+import { usePlugins } from "../../plugins/registry";
 import { useBoards } from "../boards/store";
 import { useDecks } from "../slides/store";
 import { useWorkspace } from "../workspace/store";
@@ -45,14 +46,19 @@ function setup(kind = "memory") {
 const type = (box: HTMLElement, value: string) => fireEvent.change(box, { target: { value } });
 const options = () => within(screen.getByRole("listbox", { name: "Actions" })).getAllByRole("option");
 
-beforeEach(() => {
+beforeEach(async () => {
+  // "New diagram" is the diagrams plugin's, which is on unless the person turned it off.
+  await usePlugins.getState().enable("diagrams");
   capture.mockClear();
   clipUrl.mockClear();
   useShell.setState({ paletteOpen: false, gallery: null });
   useDecks.setState({ creating: false, draftProject: null });
   useBoards.setState({ creating: false, draftProject: null });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePlugins.getState().disable("diagrams");
+});
 
 describe("the capture field", () => {
   it("invites a thought, or a slash for actions", () => {
@@ -116,7 +122,23 @@ describe("a slash at the start", () => {
     const box = setup();
     expect(screen.queryByRole("listbox", { name: "Actions" })).toBeNull();
     type(box, "/");
-    expect(options().map((o) => o.textContent?.replace(/Ctrl.*|Alt.*/, ""))).toEqual(["New page", "Quick note", "Today's journal", "From a template", "New deck", "New whiteboard", "New diagram", "Search"]);
+    expect(options().map((o) => o.textContent?.replace(/Ctrl.*|Alt.*/, ""))).toEqual([
+      "New page",
+      "Quick note",
+      "Today's journal",
+      "From a template",
+      "New deck",
+      "New whiteboard",
+      "New smart page",
+      "Smart page: Dashboard",
+      "Smart page: Tracker",
+      "Smart page: Gallery",
+      "Smart page: Map",
+      "Smart page: Timeline",
+      "Smart page: more…",
+      "New diagram",
+      "Search",
+    ]);
     expect(options()[0]!.getAttribute("aria-selected")).toBe("true");
     expect(box.getAttribute("aria-controls")).toBe(screen.getByRole("listbox", { name: "Actions" }).id);
     type(box, "/DEC");

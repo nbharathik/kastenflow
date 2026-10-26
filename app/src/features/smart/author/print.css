@@ -1,0 +1,16 @@
+/* Printing (or saving as PDF) a smart page: the page alone, its whole frame. The
+   app's own print rules free every height, which would shrink a frame, so the
+   frame is given a page's height here. The page's own style is the kit's print
+   style, inside the frame. */
+@media print {
+  .kasten-smart-page .kasten-smart-frame {
+    height: 100vh !important;
+    min-height: 40rem;
+  }
+
+  .kasten-smart-bar,
+  .kasten-smart-options,
+  .kasten-smart-errors {
+    display: none !important;
+  }
+}

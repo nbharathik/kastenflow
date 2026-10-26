@@ -79,6 +79,24 @@ pub(super) struct Launch<M> {
     pub mode: Mode,
 }
 
+/// Whether the chat's writes wait as staged changes for the person to apply.
+/// The agent mode decides (`chat_writes_staged`): always on review, never on
+/// autonomous, and in between the thread's own "Apply directly". A turn may
+/// write anywhere, so a project whose mode holds changes back holds the
+/// whole chat's.
+pub(crate) fn stages_writes(kasten: &Kasten, writes: WriteMode) -> bool {
+    let direct = writes == WriteMode::Direct;
+    let now = Instant::now();
+    let projects: Vec<String> = kasten
+        .config()
+        .agents
+        .map(|agents| agents.projects.into_keys().collect())
+        .unwrap_or_default();
+    std::iter::once(None)
+        .chain(projects.iter().map(|project| Some(project.as_str())))
+        .any(|project| kasten.chat_writes_staged(project, direct, now))
+}
+
 pub(super) fn launch<M: Model + 'static>(job: Launch<M>) -> Result<(ChatTurn, Work), String> {
     let Launch {
         chats,
@@ -117,6 +135,20 @@ pub(super) fn launch<M: Model + 'static>(job: Launch<M>) -> Result<(ChatTurn, Wo
     let work = async move {
         // The whole guard, not just the field set below, lives in the work.
         let mut guard = guard;
+        // As many chats work at once as the person allows; the rest wait here, and say so.
+        let Some(_place) = chats
+            .take_place(events.as_ref(), &chat, &begun.turn, &begun.cancel)
+            .await
+        else {
+            // Stopped while it waited: nothing ran, so the message can be sent again.
+            let _ = chats.settle(&chat, &begun.turn, None, &Ending::Done { stopped: true });
+            guard.armed = false;
+            let mut event = ChatEvent::new(&chat, &begun.turn, EventKind::Done);
+            event.stopped = Some(true);
+            events.emit(event);
+            chats.persist(&chat);
+            return;
+        };
         let mut messages = begun.messages;
         let mut plan = begun.plan;
         repair(&mut messages);
@@ -168,7 +200,7 @@ pub(super) fn launch<M: Model + 'static>(job: Launch<M>) -> Result<(ChatTurn, Wo
             chat: &chat,
             turn: &begun.turn,
             cancel: &begun.cancel,
-            changes: (writes == WriteMode::Preview).then_some(&begun.changes),
+            changes: stages_writes(&kasten, writes).then_some(&begun.changes),
             link: &link,
             budgets: chats.budgets(),
             window: profile.window,

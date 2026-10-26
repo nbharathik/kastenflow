@@ -1,5 +1,6 @@
 // Settings → Pages: where links and sub-pages open, and what "to the right" does.
 
+import { KEEP_DEFAULT, KEEP_MAX } from "../../../../shell/keep-alive";
 import { isOpens, OPENS, OPENS_LABEL } from "../../opens";
 import { usePrefs } from "../../prefs";
 import { Row, resetOf, Segmented } from "./parts";
@@ -30,6 +31,15 @@ export function OpeningRows() {
       </Row>
       <Row id="pages.right" {...resetOf(prefs.rightReplaces, true, (rightReplaces) => prefs.set({ rightReplaces }))}>
         <Segmented label="Open to the right" value={prefs.rightReplaces ? "replace" : "add"} options={[...RIGHT]} onChange={(value) => prefs.set({ rightReplaces: value === "replace" })} />
+      </Row>
+      <Row id="pages.keepTabs" {...resetOf(prefs.keepTabs, KEEP_DEFAULT, (keepTabs) => prefs.set({ keepTabs }))}>
+        <select aria-label="Keep recent tabs ready" value={prefs.keepTabs} onChange={(event) => prefs.set({ keepTabs: Number(event.target.value) })} className="ui-field kasten-set-select">
+          {Array.from({ length: KEEP_MAX + 1 }, (_, n) => (
+            <option key={n} value={n}>
+              {n === 0 ? "Off" : n}
+            </option>
+          ))}
+        </select>
       </Row>
     </>
   );

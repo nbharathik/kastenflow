@@ -20,6 +20,10 @@ export interface MarkdownCodec<N> {
    * editor adds to a document that would otherwise be empty. Defaults to
    * serializing it. */
   isBlank?(node: N): boolean;
+  /** Offered a block the editor changed: its old source (lines ended by `\n`), the node
+   * now, and the text the serializer wrote for it. Returns that text said in the old
+   * source's own bytes where it can, else null to keep the serializer's. Optional. */
+  refine?(source: string, node: N, written: string): string | null;
 }
 
 export interface Unit<N> {

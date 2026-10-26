@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { inDemo } from "../../../demo/flag";
 import { canBackUp } from "../../backup/api";
 import { BackupFileRow } from "../../backup/BackupFileRow";
 import { GitHubRow } from "../../backup/GitHubRow";
@@ -17,7 +18,7 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 
 /** History, backup somewhere else (GitHub, any git host, or backup files
  * in a sync folder), Get latest, and the integrity check. */
-export function VaultSafety({ Row }: { Row: RowComponent }) {
+export function VaultSafety({ Row, part = "all" }: { Row: RowComponent; part?: "all" | "history" | "backup" }) {
   const client = useWorkspace((s) => s.client);
   const status = useVaultStatus((s) => s.status);
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,11 +42,14 @@ export function VaultSafety({ Row }: { Row: RowComponent }) {
       void useVaultStatus.getState().refresh();
     }
   };
-  const preview = client.kind === "preview";
+  // The demo (`?demo=1.2.2`) shows the real backup rows over its own pretend account.
+  const preview = client.kind === "preview" && !inDemo();
+  const history = part !== "backup";
+  const backup = part !== "history";
 
   return (
     <>
-      {status?.synced && (
+      {history && status?.synced && (
         <Row
           label="Vault folder"
           detail={`This vault is ${syncedWords(status.synced)} Quit KastenFlow, move the vault folder out of it, then open the folder from its new place. Backup below keeps a copy in the cloud instead.`}
@@ -55,41 +59,46 @@ export function VaultSafety({ Row }: { Row: RowComponent }) {
           </span>
         </Row>
       )}
-      <Row
-        label="History"
-        detail={
-          status?.history
-            ? "Saved changes are recorded in local Git history so you can restore earlier versions."
-            : "Record saved changes in local Git history to help recover earlier versions."
-        }
-      >
-        {status?.history ? (
-          <span className="text-13 text-success">On</span>
-        ) : (
-          <button type="button" className={button} disabled={busy !== null} onClick={() => void run("history", async () => {
-            await client.startHistory();
-            toast("History is on: every change is now kept");
-          })}>
-            Turn on
-          </button>
-        )}
-      </Row>
-      {preview ? (
-        <PreviewBackup Row={Row} />
-      ) : (
-        <>
-          {canBackUp() && <GitHubRow Row={Row} />}
-          <RemoteRow Row={Row} />
-          <LatestRow Row={Row} />
-          {canBackUp() && <BackupFileRow Row={Row} />}
-        </>
+      {history && (
+        <Row
+          label="History"
+          detail={
+            status?.history
+              ? "Saved changes are recorded in local Git history so you can restore earlier versions."
+              : "Record saved changes in local Git history to help recover earlier versions."
+          }
+        >
+          {status?.history ? (
+            <span className="text-13 text-success">On</span>
+          ) : (
+            <button type="button" className={button} disabled={busy !== null} onClick={() => void run("history", async () => {
+              await client.startHistory();
+              toast("History is on: every change is now kept");
+            })}>
+              Turn on
+            </button>
+          )}
+        </Row>
       )}
-      <Row label="Check the vault" detail="Looks for broken frontmatter, repeated ids, links to missing pages and damaged history.">
+      {backup &&
+        (preview ? (
+          <PreviewBackup Row={Row} />
+        ) : (
+          <>
+            {canBackUp() && <GitHubRow Row={Row} />}
+            <RemoteRow Row={Row} />
+            <LatestRow Row={Row} />
+            {canBackUp() && <BackupFileRow Row={Row} />}
+          </>
+        ))}
+      {history && (
+      <Row label="Check the vault" detail="Looks for pages with broken properties, pages that clash with each other, links to missing pages and damaged history.">
         <button type="button" className={button} disabled={busy !== null} onClick={() => void run("verify", async () => void (await useHealth.getState().check()))}>
           {busy === "verify" ? "Checking…" : "Check now"}
         </button>
       </Row>
-      {report && (
+      )}
+      {history && report && (
         <div className="py-3 text-13" role="status">
           {report.problems.length === 0 ? (
             <p className="text-success">All {report.notes} notes look fine.</p>

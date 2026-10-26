@@ -16,6 +16,7 @@ import { HOME_SECTIONS, type HomeSection } from "./sections";
 
 const Schedule = lazy(() => import("./Schedule").then((m) => ({ default: m.Schedule })));
 const ExtraCard = lazy(() => import("./ExtraCards").then((m) => ({ default: m.ExtraCard })));
+const AgentsToday = lazy(() => import("./AgentsToday").then((m) => ({ default: m.AgentsToday })));
 /** Apart from the others: their pictures bring the Slides package with them. */
 const ThumbCard = lazy(() => import("./ThumbCards").then((m) => ({ default: m.ThumbCard })));
 
@@ -60,6 +61,14 @@ export function HomeSectionView({ id, withToday = false }: { id: HomeSection; wi
         <CardBoundary name={HOME_SECTIONS.find((d) => d.id === id)!.label}>
           <Suspense fallback={null}>
             <ExtraCard id={id} />
+          </Suspense>
+        </CardBoundary>
+      );
+    case "agents":
+      return (
+        <CardBoundary name="Agents today">
+          <Suspense fallback={null}>
+            <AgentsToday />
           </Suspense>
         </CardBoundary>
       );

@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setDemoForTests } from "../../demo/flag";
 import type { VaultClient } from "../../lib/vault/types";
+import { fillShowScreen, presentScreens } from "../../lib/present-screen";
 import { windowCovered } from "../browser/cover";
+import { useOcclusion } from "../browser/occlusion";
+import { SHOW_HOLD, showing } from "../browser/show";
 import { kastenHost } from "./kasten-host";
 import { allowEmbeds } from "./presenter-link";
 
@@ -67,6 +71,15 @@ describe("the web preview", () => {
     expect(typeof preview!.open).toBe("function");
     expect(typeof preview!.turnOn).toBe("function");
   });
+
+  it("is offered in the promo demo too, where stand-in views serve it", () => {
+    setDemoForTests(true);
+    try {
+      expect(typeof host().webPreview?.open).toBe("function");
+    } finally {
+      setDemoForTests(null);
+    }
+  });
 });
 
 describe("presenting in the desktop app", () => {
@@ -85,5 +98,28 @@ describe("presenting in the desktop app", () => {
     vi.mocked(allowEmbeds).mockRejectedValueOnce(new Error("no"));
     await expect(host().willPresent!({} as never)).rejects.toThrow("no");
     expect(windowCovered()).toBe(false);
+    expect(showing()).toBe(false);
+    expect(useOcclusion.getState().holds[SHOW_HOLD]).toBeUndefined();
+  });
+
+  it("holds the whole window while the show lasts, so no native web view paints above it, and lets go when it ends", async () => {
+    desktop.on = true;
+    const finish = await host().willPresent!({} as never);
+    expect(showing()).toBe(true);
+    expect(useOcclusion.getState().holds[SHOW_HOLD]).toBe("all");
+    (finish as () => void)();
+    expect(showing()).toBe(false);
+    expect(useOcclusion.getState().holds[SHOW_HOLD]).toBeUndefined();
+  });
+
+  it("fills the screen through the display choice, and offers the choice of displays", async () => {
+    desktop.on = true;
+    const h = host();
+    expect(h.fillScreen).toBe(fillShowScreen);
+    expect(h.screens).toBe(presentScreens);
+  });
+
+  it("has no choice of displays in a browser", () => {
+    expect(host().screens).toBeUndefined();
   });
 });

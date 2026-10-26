@@ -1,4 +1,4 @@
-//! `kasten-mcp --setup claude-code|claude-desktop|http`: the lines that point
+//! `kasten-mcp --setup claude-code|claude-desktop|codex|http`: the lines that point
 //! an agent at a vault, for this very program. Settings in the app shows the
 //! same lines (`connect.ts`); `fixtures/mcp-setup.json` holds what both must
 //! say, and both are tested against it.
@@ -32,6 +32,7 @@ impl Server {
 pub(crate) enum Target {
     ClaudeCode,
     ClaudeDesktop,
+    Codex,
     Http,
 }
 
@@ -40,6 +41,7 @@ impl Target {
         match word {
             "claude-code" => Some(Target::ClaudeCode),
             "claude-desktop" => Some(Target::ClaudeDesktop),
+            "codex" => Some(Target::Codex),
             "http" => Some(Target::Http),
             _ => None,
         }
@@ -106,6 +108,46 @@ pub(crate) fn mcp_config(server: &Server, vault: &str) -> Value {
     json!({ "mcpServers": { "kasten": { "command": server.command, "args": args } } })
 }
 
+/// A TOML basic string: quoted, with the backslash, the quote and control
+/// characters escaped (a Windows path is full of backslashes).
+fn toml_string(text: &str) -> String {
+    let mut out = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04X}", u32::from(c))),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// The server as Codex reads it from `~/.codex/config.toml`: a stdio server
+/// started by this program, told its vault through the environment.
+pub(crate) fn codex_block(server: &Server, vault: &str) -> String {
+    let args: Vec<String> = server.args.iter().map(|a| toml_string(a)).collect();
+    format!(
+        "[mcp_servers.kasten]\ncommand = {}\nargs = [{}]\n\n[mcp_servers.kasten.env]\nKASTEN_VAULT = {}\n",
+        toml_string(&server.command),
+        args.join(", "),
+        toml_string(vault),
+    )
+}
+
+/// What `--setup codex` prints: where the block goes, then the block. The
+/// program writes nothing to the person's Codex settings.
+fn codex(server: &Server, vault: &str) -> String {
+    format!(
+        "Add this to Codex's settings file, ~/.codex/config.toml (on Windows .codex\\config.toml in your user folder), then start Codex again. KastenFlow does not change that file itself.\n\n{}",
+        codex_block(server, vault)
+    )
+}
+
 /// Starts the local HTTP server; clients send the token as a bearer.
 pub(crate) fn http_command(server: &Server, vault: &str) -> String {
     line(server, vault, &["--http"])
@@ -141,6 +183,7 @@ pub(crate) fn text(target: Target, server: &Server, vault: &str, port: u16) -> S
     match target {
         Target::ClaudeCode => format!("{}\n", claude_code(server, vault)),
         Target::ClaudeDesktop => format!("{}\n", pretty(&mcp_config(server, vault))),
+        Target::Codex => codex(server, vault),
         Target::Http => format!(
             "Start the server:\n{}\n\nThen point a client at {} with the token that is kept in {}:\n{}\n",
             http_command(server, vault),
@@ -152,107 +195,5 @@ pub(crate) fn text(target: Target, server: &Server, vault: &str, port: u16) -> S
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const FIXTURE: &str = include_str!("../../../fixtures/mcp-setup.json");
-
-    fn fixture() -> Value {
-        serde_json::from_str(FIXTURE).expect("the fixture is JSON")
-    }
-
-    fn strings(value: &Value) -> Vec<String> {
-        value
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|s| s.as_str().unwrap().to_owned())
-            .collect()
-    }
-
-    #[test]
-    fn every_line_is_what_the_shared_fixture_says_and_settings_says_the_same() {
-        let fixture = fixture();
-        let cases = fixture["cases"].as_array().unwrap();
-        assert!(cases.len() >= 4);
-        for case in cases {
-            let name = case["name"].as_str().unwrap();
-            let server = Server {
-                command: case["command"].as_str().unwrap().to_owned(),
-                args: strings(&case["args"]),
-            };
-            let vault = case["vault"].as_str().unwrap();
-            assert_eq!(
-                claude_code(&server, vault),
-                case["claudeCode"].as_str().unwrap(),
-                "{name}"
-            );
-            assert_eq!(mcp_config(&server, vault), case["mcpConfig"], "{name}");
-            assert_eq!(
-                http_command(&server, vault),
-                case["httpCommand"].as_str().unwrap(),
-                "{name}"
-            );
-        }
-        assert_eq!(
-            http_url(crate::DEFAULT_PORT),
-            fixture["url"].as_str().unwrap()
-        );
-        assert_eq!(url_config(crate::DEFAULT_PORT), fixture["urlConfig"]);
-        for pair in fixture["tokenPaths"].as_array().unwrap() {
-            assert_eq!(
-                token_path(pair[0].as_str().unwrap()),
-                pair[1].as_str().unwrap()
-            );
-        }
-    }
-
-    #[test]
-    fn the_app_is_asked_to_serve_with_mcp_and_the_command_line_program_is_not() {
-        let app = Server::of("/usr/bin/kasten-app", true);
-        assert_eq!(app.args, ["--mcp"]);
-        assert_eq!(
-            claude_code(&app, "/v"),
-            "claude mcp add --scope user kasten -- /usr/bin/kasten-app --mcp --vault \"/v\""
-        );
-        assert!(Server::of("/usr/bin/kasten-mcp", false).args.is_empty());
-    }
-
-    #[test]
-    fn what_is_printed_is_ready_to_paste_and_names_the_token() {
-        let server = Server::of("kasten-mcp", false);
-        let code = text(Target::ClaudeCode, &server, "/v", 7433);
-        assert!(
-            code.starts_with("claude mcp add") && code.ends_with("\"/v\"\n"),
-            "{code}"
-        );
-        let desktop = text(Target::ClaudeDesktop, &server, "/v", 7433);
-        let parsed: Value = serde_json::from_str(&desktop).unwrap();
-        assert_eq!(parsed, mcp_config(&server, "/v"));
-        let http = text(Target::Http, &server, "/v", 7433);
-        assert!(
-            http.contains("kasten-mcp --vault \"/v\" --http")
-                && http.contains("http://127.0.0.1:7433/mcp")
-                && http.contains("/v/.kasten/cache/mcp-token")
-                && http.contains("Bearer <token>"),
-            "{http}"
-        );
-        assert_eq!(Target::parse("claude-code"), Some(Target::ClaudeCode));
-        assert_eq!(Target::parse("claude-desktop"), Some(Target::ClaudeDesktop));
-        assert_eq!(Target::parse("http"), Some(Target::Http));
-        assert_eq!(Target::parse("cursor"), None);
-    }
-
-    #[test]
-    fn a_resolved_windows_path_is_written_the_way_a_person_writes_it() {
-        assert_eq!(
-            plain(Path::new(r"\\?\C:\Users\me\Notes")),
-            r"C:\Users\me\Notes"
-        );
-        assert_eq!(
-            plain(Path::new(r"\\?\UNC\server\share\Notes")),
-            r"\\server\share\Notes"
-        );
-        assert_eq!(plain(Path::new("/home/me/Notes")), "/home/me/Notes");
-    }
-}
+#[path = "setup_tests.rs"]
+mod tests;

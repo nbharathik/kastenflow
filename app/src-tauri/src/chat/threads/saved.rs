@@ -65,9 +65,12 @@ impl Chats {
                 (None, live) => {
                     // Not in memory: what the store has, no events.
                     let record = saved.and_then(|s| s.load(chat));
-                    let status = record.as_ref().map_or(Status::Idle, |r| match r.status {
-                        Status::Running => Status::Interrupted,
-                        other => other,
+                    let status = record.as_ref().map_or(Status::Idle, |r| {
+                        if r.status.was_working() {
+                            Status::Interrupted
+                        } else {
+                            r.status
+                        }
                     });
                     let seq = live.map_or(record.as_ref().map_or(0, |r| r.seq), |(seq, _)| seq);
                     (status, seq, None)

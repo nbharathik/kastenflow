@@ -48,7 +48,7 @@ describe("diagrams in the sidebar", () => {
       </ul>,
     );
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Login flow" })));
-    expect(useWorkspace.getState().place).toEqual({ view: "diagrams", path: FLOW });
+    expect(useWorkspace.getState().place).toEqual({ view: "plugin:diagrams", path: FLOW });
     expect(screen.getByRole("button", { name: "Login flow" }).getAttribute("aria-current")).toBe("page");
   });
 

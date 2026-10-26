@@ -1,6 +1,6 @@
 # The KastenFlow vault format
 
-Format 1. A vault is one folder you pick, anywhere on your disk. Everything in it is a plain file: Markdown, YAML and JSON, readable by any editor and by other apps. KastenFlow keeps nothing about your notes anywhere else, apart from API keys in the OS keychain. The app's own settings, on each computer, remember the vaults you opened and the backup remote you confirmed for each.
+Format 1. A vault is one folder you pick, anywhere on your disk. Everything in it is a plain file: Markdown, YAML and JSON, readable by any editor and by other apps. A vault is plain Markdown plus a `.kasten/` folder and its git history. Backup copies the vault to a remote you choose, such as a private GitHub repository. Saved chats and app settings are not part of the vault: they are kept in the app's own data on each computer, which also remembers the vaults you opened and the backup remote you confirmed for each. API keys stay in the OS keychain.
 
 This page describes KastenFlow's own layout. KastenFlow also opens other folders of Markdown, such as an Obsidian vault, as they are (see [Other folders](#other-folders)).
 
@@ -33,7 +33,7 @@ ai:
 
 - `name` is the vault's name, shown in the app and in backup file names.
 - `format` says which version of this document the files follow. KastenFlow does not open a vault with a newer format than it knows. It gives the reason and changes nothing, so an older app cannot damage a newer vault. A config without `format` is format 1.
-- `git.remote` is the backup remote's address (`https://`, SSH or a folder), or `null` for none. It holds no password: tokens stay in the OS keychain. KastenFlow pushes to it only once it is confirmed on each computer, `git.push_delay_seconds` after the last commit and at least every `git.push_interval_minutes` while there is something to push. Backup files to a folder are set on each computer, not here.
+- `git.remote` is the backup remote's address (`https://`, SSH or a folder), or `null` for none. It holds no password: tokens stay in the OS keychain. KastenFlow pushes to it only once it is confirmed on each computer, `git.push_delay_seconds` after the last change and at least every `git.push_interval_minutes` while there is something to push. Backup files to a folder are set on each computer, not here.
 - `guardrails` are the limits on AI agents, the same in the app, the chat and MCP:
   - `max_removed_fraction`: an edit that removes more than this share of a note's text waits for review as a proposal;
   - `max_notes_per_session_10min`: notes (and slide decks) one session may change in ten minutes before its writes wait for review;
@@ -43,11 +43,31 @@ ai:
   - `max_write_bytes`: the largest single write; a larger one is refused. For a deck it is what the agent sent, not the size of the deck;
   - `max_asset_bytes`: the largest picture or file (a PowerPoint export, say) one agent write may add to `assets/`; a larger one is refused;
   - `max_assets_per_session_10min`: pictures and files one session may add to `assets/` in ten minutes; past this they are refused. The same bytes as a file already there are that file, and are not counted;
-  - `max_asset_bytes_per_session_10min`: bytes of pictures and files one session may add in ten minutes; past this they are refused. A PowerPoint file comes in as one commit with its pictures, and one that meets a limit comes in not at all.
+  - `max_asset_bytes_per_session_10min`: bytes of pictures and files one session may add in ten minutes; past this they are refused. A PowerPoint file comes in as one change with its pictures, and one that meets a limit comes in not at all.
 - `ai.providers` are the chat's AI providers, each with a `name`, a `kind` (`anthropic`, `openai` for any OpenAI-compatible server, or `chatgpt` for the person's ChatGPT plan), a `base_url` and a `model`. The key for each is in the OS keychain under its name, tied to that address. A `chatgpt` provider has no `base_url` and no key: its requests always go to OpenAI, whatever a vault's settings say, and the sign-in (only a refresh token, never the vault) is kept in the OS keychain for that computer.
 - `ai.embeddings` (optional) is the `provider` and `model` that search by meaning uses, once chosen.
 - `journal_template` (optional) names the template in `templates/` new journal days start from, such as `daily-planner`; without it, or when that template is gone, days start from `templates/journal.md`.
-- Missing keys take their defaults; unknown keys are ignored.
+- `plugins` says which [plugins](plugins.md) are on in this vault: `diagrams: true | false` (on unless turned off) and `latex: true | false` (off unless turned on). The Browser plugin is a setting of each computer, not of the vault.
+- `agents` says how much agents may do without asking ([Agent modes](agents.md)):
+
+  ```yaml
+  agents:
+    mode: balanced            # review, balanced (default) or autonomous
+    until: 2026-12-01T18:00:00Z   # optional; autonomous ends then and agents are balanced again
+    projects:
+      thesis: {mode: review}  # a project folder's own mode
+  ```
+
+  Only a person changes it. An `until` in the past never loosens a mode: a mode of `review` stays.
+- `backup` tunes how changes from other computers are brought in:
+
+  ```yaml
+  backup:
+    get_latest: auto          # auto (default), ask or manual
+    fetch_interval: 15        # minutes between looks at the backup; 0 turns looking off
+    keep_files: 7             # backup files kept in a folder, 3 to 60
+  ```
+- Missing keys take their defaults. Unknown keys are ignored when read and are kept, with comments and their order, when KastenFlow saves the file. Settings of the chat panel (how many chats the list keeps, how many may work at once) are not in this file: they belong to each computer.
 
 ## Layout
 
@@ -63,11 +83,16 @@ My notes/
       boards/brainstorm.canvas   whiteboards
       decks/talk.deck            slide decks
       diagrams/flow.drawio       diagrams, each with flow.drawio.svg beside it
-  library/                       pages, decks and diagrams that belong to no project
+      latex/paper/               a LaTeX document: main.tex, other sources, kasten-latex.yaml
+      pages/tracker.md           a smart page (layout: smart) ...
+      pages/tracker.smart/       ... and its code: smart.yaml, index.html and more
+  library/                       pages, decks, diagrams and LaTeX documents that belong to no project
   sources/                       PDFs and their highlight files
   chats/                         saved chats
   templates/                     page templates (placeholders below)
     ai/                          AI actions: Markdown prompts the chat and the editor run
+    setups/                      project setups you saved (see Saved setups)
+    smart/                       smart page templates you saved
   tags/                          one YAML schema per tag
   views/                         one YAML file per saved collection (a saved search)
   assets/                        pasted and dropped images and files
@@ -75,6 +100,7 @@ My notes/
   .git/                          history of every change
   .kasten/
     config.yaml                  as above
+    backup-skip.yaml             files left out of the backup because they are over 100 MB
     proposals/                   agent edits waiting for review, JSON
     cache/                       index, search vectors, backup state (safe to delete)
     write.lock                   held while one program writes
@@ -120,7 +146,9 @@ See [[Photo organiser roadmap]] and ![[Duplicate score sketch]].
 | `props` | Property values, kept in the note itself so it stays whole on its own. |
 | `parent` | The id of the page this one is a sub-page of. Sub-pages move with their parent; a sub-page moved on its own to another folder leaves its parent, and the key goes. |
 | `icon`, `cover` | The page's icon (an emoji, or `icon:name` from KastenFlow's line icons) and cover. |
-| `font`, `width`, `text` | The page's own style, when it differs from the app's: `font: sans`, `serif` or `mono`; `width: full` or `normal`; `text: small` or `normal`. Another value is kept and ignored. |
+| `font`, `width`, `text` | The page's own style, when it differs from the app's: `font: sans`, `serif` or `mono`; `width: normal`, `wide` or `full`; `text: small` or `normal`. Another value is kept and ignored. |
+| `layout` | How the page is drawn: `sections` (each `---` section as a card) or `smart` (the page draws itself from the code in its `.smart` folder, see [Smart pages](#smart-pages)). Another value is kept and ignored. Agents cannot set `smart`. |
+| `children_order` | On a parent page: a list of its sub-pages' ids, first to last, in the order they are shown. Sub-pages left out follow alphabetically, ids that are no longer sub-pages are ignored, and moving a sub-page out of its parent does not touch the parent's file. |
 | `locked` | `true` keeps agents from editing the note. Only a person sets or clears it. |
 | `props.home`, `props.page_template` | On a project's `_project.md`: the sections its home shows, in order, and the template its new pages start from. |
 
@@ -139,12 +167,37 @@ Any other key, and any Markdown KastenFlow does not draw itself, is kept byte fo
 | `- [ ] Call the bank @2026-10-02 14:30` | A to-do, due that day, and at that time if one follows (`[[2026-10-02]] 14:30` works too; `📅 2026-10-02` gives a day only). Only a day on the calendar counts: `2026-02-30` is plain text |
 | `> [!tip] Title` | A callout, as GitHub and Obsidian write them |
 | `<details><summary>Title</summary> … </details>` | A toggle |
+| `<!-- columns -->`, `<!-- columns 30/70 -->`, `<!-- column -->`, `<!-- /columns -->` | Page columns. See [Columns](#columns) below |
 | `<span style="color: red">…</span>` | Coloured text (`background-color` for highlighted text) |
 | `$x^2$`, `$$ … $$` | Maths, read as Pandoc reads it |
 | `[text](kasten:note/<id>#Heading)`, `kasten:note/<id>?section=Title&n=2`, `kasten:pdf/sources/paper.pdf?page=12&highlight=<id>`, `kasten:board/boards/plan.canvas?node=<id>`, `kasten:deck/library/talk.deck` | A link to a place: a page by its id (so a rename or a move does not break it) at a heading, a PDF at a page and highlight, a whiteboard at a card or section, a deck. Following one only opens it; one whose target is gone says so. "Copy link to this location" in a heading's, a highlight's or a section's menu writes one |
 | `[@vaswani2017attention]`, `[@key, p. 4]`, `[see @a; @b]`, `[-@key]` | A citation of a work in the bibliography, written as Pandoc writes it: inside square brackets, an `@` after the bracket, a space, a `;` or a `-`. An address (`a@b.com`), a link's text, a `[[wiki link]]`, code and the frontmatter hold none. See [The bibliography](#the-bibliography) |
 | `![](../assets/photo.png)` | An image or file in `assets/`, linked relatively |
 | `![1.50](../assets/photo.png)` | A picture with no alt text, shown at 1.5 times its size |
+
+### Columns
+
+Columns are written as HTML comments on lines of their own, so any other Markdown program shows the text in order:
+
+```markdown
+<!-- columns 20/30/50 -->
+
+First column.
+
+<!-- column -->
+
+Second column.
+
+<!-- column -->
+
+Third column.
+
+<!-- /columns -->
+```
+
+- `<!-- columns -->` opens the block, `<!-- column -->` starts the next column and `<!-- /columns -->` closes it. An opener may carry a ratio, `columns 30/70`, as whole numbers that give the widths in percent; without one the columns are equal. A ratio that is not whole numbers separated by slashes (for example `wide` or `0.4/0.6`) does not make columns.
+- Markers are recognised only when they stand alone at the top level of the page. Inside a code block, a list, a quote, a larger HTML block, or inside another columns block they are plain comments and show as written. A block with a missing closer and a stray marker are not columns.
+- The spacing, capital letters and trailing spaces you write in a marker are kept. When a column is edited, only that column's text is rewritten.
 
 ## Tags and properties
 
@@ -163,7 +216,44 @@ views:
   - {name: All, type: table, sort: [{key: deadline, dir: asc}]}
 ```
 
-Property types: `text`, `number`, `select`, `multi_select`, `date`, `checkbox`, `url` and `relation` (note ids). View types: `table`, `kanban`, `list`, `calendar` and `gallery`. Comments and unknown keys in the file are kept.
+Property types: `text`, `number`, `select`, `multi_select`, `date`, `checkbox`, `url`, `relation` (note ids) and `formula`. View types: `table`, `kanban`, `list`, `calendar`, `gallery` and `timeline`. Comments and unknown keys in the file are kept.
+
+### Formula properties
+
+A `formula` property has a `formula` key and is worked out when the rows are read. It is never stored in a note, and a note cannot set it.
+
+```yaml
+properties:
+  - {key: deadline, type: date}
+  - {key: tasks, type: relation}
+  - {key: days_left, type: formula, formula: "days_until(deadline)"}
+  - {key: points, type: formula, formula: "sum(tasks.points)"}
+```
+
+A formula is at most 400 characters, up to 8 calls deep and 60 parts. Values are numbers, `"text"`, property names (and the built-in `title`, `created`, `updated`, `modified`), a relation's number as `relation.key` (inside `sum`, `min` or `max` only) and calls of `days_until`, `days_since`, `count`, `count_backlinks`, `sum`, `min`, `max` and `if_empty`. There are no operators. A formula that cannot be read, names a property the tag lacks, or uses another formula or itself is refused when the schema is saved, with the position of the mistake. A view can filter and sort by a formula, with the extra filter operators `gt`, `gte`, `lt` and `lte`, which compare numbers.
+
+### View settings
+
+Each view is a map with a `name` and a `type`. Keys a version does not know are kept. These are checked when the schema or its views are saved, and a wrong one is refused with a plain sentence:
+
+| Key | Views | Meaning |
+| --- | --- | --- |
+| `group_by` | kanban, table, timeline | The property rows are grouped (or laned) by: a select, multi-select, checkbox, date or relation property for a table, a select, multi-select or relation for a timeline. |
+| `sort` | table and others | A list of `{key, dir}` with `dir` `asc` or `desc`; later entries break ties. |
+| `filter`, `filter_mode` | all | A list of `{key, op, value}`; `filter_mode: any` matches a row that meets any filter, otherwise it must meet all. |
+| `sub_items` | table | `true` shows sub-pages as rows inside their parent. `hide_sub_items: true` on other views hides them. |
+| `calcs` | table | A map of column key to a calculation: `count`, `count_empty`, `count_not_empty`, `unique`, `percent_checked`, `sum`, `average`, `median`, `min`, `max`, `earliest`, `latest` or `range`, each valid for its column's type. Present (even `{}`) it shows the calculation row. |
+| `wrap` | table | `true` lets cells use two lines. |
+| `density` | table | `compact` or `comfortable`. |
+| `freeze_title` | table | `false` stops the title column staying in place. |
+| `order` | all | A list of note ids: the rows in that order, used only while the view has no `sort`. Ids no row has are ignored; rows left out follow at the end. |
+| `start`, `end`, `scale` | timeline | `start` is a date property (or formula); `end` is a date property or absent; `scale` is `week`, `month` or `quarter`. |
+
+```yaml
+views:
+  - {name: Plan, type: timeline, start: begin, end: finish, group_by: status, scale: month}
+  - {name: Work, type: table, group_by: status, sub_items: true, calcs: {points: sum}, wrap: true, density: compact, filter_mode: any}
+```
 
 ## Collections
 
@@ -200,13 +290,13 @@ props:
   review_after: 2026-10-15  # the day the next review is due
 ```
 
-KastenFlow writes `status`, `health`, `next_action`, `last_review` and `review_after` in one change that checks them first: the status and health are from their lists, the days are real days, the next action is a task note (the note is given an id if it has none, in the same commit) and a tag on the page may not define `status` or `health` with other options. A status written by hand that is not one of the three reads as "Other" and is left as it is. A project's tasks are its notes tagged `task`, counted by their `status` (Done or not) and their `due` day; its to-dos are the `- [ ]` lines in its notes.
+KastenFlow writes `status`, `health`, `next_action`, `last_review` and `review_after` in one change that checks them first: the status and health are from their lists, the days are real days, the next action is a task note (the note is given an id if it has none, in the same change) and a tag on the page may not define `status` or `health` with other options. A status written by hand that is not one of the three reads as "Other" and is left as it is. A project's tasks are its notes tagged `task`, counted by their `status` (Done or not) and their `due` day; its to-dos are the `- [ ]` lines in its notes.
 
 A **project update** is an ordinary page tagged `project-update` with a `date` property, made from the `project-update` template (Progress, Decisions, Blockers, Next action). The newest one, by its `date`, is the project's last update.
 
 **Triage and reviews** use ordinary properties and pages. A card put off in triage carries `review_after: 2026-10-15` in its `props:` (the same name a project uses for its review day): it is left out of the triage queue until that day and is otherwise untouched. A capture that was dealt with has `status: Filed` and may carry `reading: Unread`, `Reading` or `Finished` (the `capture` tag's own properties). A review saved as a note is an ordinary page tagged `review` with `props: {review: weekly, date: 2026-10-11}`; which days a review was marked done is not kept in the vault.
 
-A **project setup** (Research, Writing or Presentation) adds a few pages, a whiteboard and sometimes a deck to a project in one commit. Its files go under the project's folder (`pages/`, `boards/`, `decks/`); a tag schema it brings (`tags/reading.yaml`) goes in `tags/`. A file that is there already is never replaced, and an existing project page only gains the properties it lacks.
+A **project setup** (Research, Writing or Presentation) adds a few pages, a whiteboard and sometimes a deck to a project as one change. Its files go under the project's folder (`pages/`, `boards/`, `decks/`); a tag schema it brings (`tags/reading.yaml`) goes in `tags/`. A file that is there already is never replaced, and an existing project page only gains the properties it lacks.
 
 ### Project bundles
 
@@ -215,8 +305,8 @@ A project can be exported to a **bundle**, a folder outside the vault that holds
 ```
 trip-bundle/
   kastenflow-bundle.json      the manifest
-  projects/trip/              the project's folder, with its sidecars
-  assets/                     the pictures and files it uses, each with its .meta sidecar
+  projects/trip/              the project's folder, with the small files that belong to its pages
+  assets/                     the pictures and files it uses, each with its small .meta file
   sources/                    the PDFs it refers to, with their highlights
   tags/                       the schemas of the tags its notes use
   references.bib              the works it cites, as written, with the @string macros they use
@@ -265,7 +355,7 @@ A deck is a `.deck` file: JSON written the same way every time (keys in alphabet
 - A deck made without a project goes in `library/`; one made in a project goes in that project's `decks/`. A deck can sit anywhere else in the vault too.
 - Keys a version does not know are kept when it saves the deck again, so a deck edited by a newer KastenFlow survives an older one. A deck newer than the running KastenFlow is refused, never rewritten.
 - A save never replaces a deck that changed since it was read: the save goes to a copy beside it (`talk (conflict 2026-09-29 14-05).deck`), and nothing is lost.
-- Anything only KastenFlow uses in a deck sits under keys other tools ignore; the file is plain JSON, so a script can read or write it. KastenFlow notices a change made outside it and commits it, as it does for notes.
+- Anything only KastenFlow uses in a deck sits under keys other tools ignore; the file is plain JSON, so a script can read or write it. KastenFlow notices a change made outside it and saves it in history, as it does for notes.
 
 ## Diagrams
 
@@ -282,16 +372,88 @@ The file name is the title with its case kept (`OAuth-flow.drawio` reads "OAuth 
 - The source must be a well-formed `mxfile` (or `mxGraphModel`) with no entity declarations, at most 5 MB; the picture must be a well-formed SVG with no scripts, event handlers, external references or embedded pages (the editor's own HTML labels are allowed). KastenFlow refuses what is not, and the check is run again when two computers' histories are merged. An SVG exported by an agent has what is not allowed taken out first.
 - An agent changes the source with typed steps (see the diagram tools in the user guide), which keep every cell the steps did not touch byte for byte; KastenFlow draws the draft picture. An agent never writes the picture itself.
 
+## LaTeX documents
+
+A LaTeX document is a folder, `projects/<project>/latex/<name>/` or `library/latex/<name>/` (or any folder you choose), that holds a **main file** and its other sources. They are plain text files, so any LaTeX editor opens them.
+
+- **Files.** `.tex`, `.sty`, `.cls` and `.bst` files anywhere, and `.bib` files inside a LaTeX folder. Each is at most 200 KB. A folder is a document when it holds a main file: a `.tex` with `\documentclass`, one that another file names with `% !TEX root = file.tex`, or the `main` of the settings file. A source file belongs to the nearest document above it.
+- **Settings.** An optional `kasten-latex.yaml` beside the main file:
+
+  ```yaml
+  main: paper.tex         # the main file (default main.tex, else the first by name)
+  engine: tectonic        # tectonic (default), latexmk-pdf, latexmk-xe or latexmk-lua
+  bibliography: vault     # vault (the managed sources/references.bib is copied into the build) or local (default)
+  locked: true            # keep agents from changing the document
+  ```
+
+  Other keys are kept. A file that cannot be read counts as `locked` for agents, and KastenFlow does not write over it. Comments and the order of keys are kept when a setting changes.
+- **Text is exact.** Saving keeps line endings and a missing final newline byte for byte. A save never replaces a file that changed meanwhile: it merges, or keeps a copy named `name (conflict <time>).tex`.
+- **PDF.** The build's files and its PDF live in `.kasten/cache/latex/`, never in the vault. **Export PDF** writes `<main>.pdf` next to the main file, as an ordinary change; it replaces an earlier export that is a PDF and refuses to replace any other file.
+- Hidden files and folders inside a document are never read or written.
+
+## Smart pages
+
+A smart page is a note with `layout: smart` in its header and a folder named like the file with `.smart` on the end, beside it:
+
+```
+projects/research/pages/
+  conference-tracker.md           the page's notes (frontmatter has layout: smart)
+  conference-tracker.smart/
+    smart.yaml                    what the page says about itself
+    index.html                    the page, drawn in place of the notes
+    app.js, style.css, data/…     the rest of its code and any pictures
+```
+
+The folder is a companion of the page: renaming, moving, nesting, duplicating, trashing and restoring the page does the same to it, in the same change.
+
+- **Limits.** At most 500 files; 2 MB each and 10 MB together; endings `html`, `js`, `css`, `json`, `svg`, `png`, `webp`, `jpg` and `txt` (and `smart.yaml`). No programs, no hidden names (starting with a dot), no links. Agents write text files only, up to 200 KB at a time.
+- **smart.yaml.**
+
+  ```yaml
+  version: 1
+  title: Conference tracker
+  kit: "1"                      # the version of the ready-made parts the page uses
+  queries:                      # named lookups of notes by tag
+    venues:
+      tag: conference
+      filter: [{key: deadline_status, op: is, value: est}]
+      sort: [{key: paper_deadline, dir: asc}]
+      limit: 200                # 1 to 10,000
+  views:                        # parts of the page shown alone by ![[Page#timeline]]
+    timeline: {title: Timeline, entry: timeline.html}
+  size: {height: 480, maxHeight: 900}   # in pixels; a block in a page is never taller than 1,200
+  ```
+
+  Filter operators: `is`, `is_not`, `contains`, `empty`, `not_empty`, `before`, `after`. Query and view names use letters, digits, `-` and `_`. Unknown keys are kept.
+- The words of `index.html` are indexed for search.
+- Who may run a page, and the closed box a page runs in, are described in [Smart pages](smart-pages.md).
+
+## Saved setups and smart templates
+
+- `templates/setups/<name>.yaml` is a project setup you saved with **Save as a setup…**: `name`, `icon`, `summary`, `home`, `props`, `pages` and `tags`. Beside it, `templates/setups/<name>/pages/*.md` are the starting pages (the page itself, with its own id, parent and dates replaced by placeholders and the project's name by `{{project}}`) and `templates/setups/<name>/vault/tags/*.yaml` are the tag schemas, views included. Starting a project from a setup copies these in as one change and never replaces a file. Only plain names are accepted: no `..`, no separators, no hidden names, and at most 60 pages and 1 MB; a hand-made setup that breaks that is listed but refused when used. These files are not templates for the template gallery and do not show in its list.
+- `templates/smart/<name>/` is a smart page you saved as a template: the page's code folder as it was, and its text as `page.txt`. A folder that holds any file a smart page may not have is refused as a whole.
+
+## Files left out of the backup
+
+`.kasten/backup-skip.yaml` lists files over 100 MB that the backup leaves out. It is written by KastenFlow in the same change as the file it names and re-checked on every change:
+
+```yaml
+skipped:
+  - {path: videos/talk.mov, size: 125829120, since: 2026-10-20T09:00:00Z}
+```
+
+An entry is dropped when its file is gone or smaller than the limit. Keys it does not know are kept.
+
 ## Highlights and sources
 
-A PDF such as `sources/attention.pdf` has a sidecar, `sources/attention.highlights.json`. Each highlight has an id, a page, rectangles, the quoted text, a colour and, when it became a card, the card's id. That card has `type: highlight` and a `source` key.
+A PDF such as `sources/attention.pdf` has a companion file, `sources/attention.highlights.json`. Each highlight has an id, a page, rectangles, the quoted text, a colour and, when it became a card, the card's id. That card has `type: highlight` and a `source` key.
 
-**Comments and web highlights** are sidecars that sit beside their page and go with it:
+**Comments and web highlights** are small companion files that sit beside their page and go with it:
 
 - `name.comments.json` holds a page's comments (its `format` is `kasten-comments`): a `comments` array of `{id, anchor, text, author, created, resolved}`, one comment to a line. The `anchor` is `{section, nth, quote, prefix, suffix}`: the section it belongs to, which occurrence of the quoted words, and the words with a little text before and after. `resolved` is `{at, by}` once someone resolved it. There is no delete; a comment is resolved.
 - `name.highlights.json` beside a page kept from the web (a note with a `url`) holds highlights of its text (its `format` is `kasten-text-highlights`): a `highlights` array of `{id, anchor, color, comment, created}` with the same kind of anchor and the PDF reader's colours. A note under `sources/` that is named like a PDF never takes that PDF's own `.highlights.json`.
 - An anchor is re-found conservatively: one exact match of the quote places it, several are told apart by the exact text before and after, and otherwise the comment or highlight is shown as detached and nothing is guessed. Keys a version does not know are kept when the file is written again.
-- The page and its sidecars are one thing: renaming, moving, nesting, converting, duplicating (the sidecar is copied), trashing (with sub-pages) and restoring a page do the same to them in the same commit, so Undo carries them too. `verify` reports a sidecar whose page is gone, or one that cannot be read.
+- The page and its companion files are one thing: renaming, moving, nesting, converting, duplicating (the companion file is copied), trashing (with sub-pages) and restoring a page do the same to them in the same change, so Undo carries them too. `verify` reports a companion file whose page is gone, or one that cannot be read.
 
 ## The bibliography
 
@@ -307,13 +469,13 @@ The works a page or a deck cites are the entries of the vault's `.bib` files, re
 }
 ```
 
-A new key is letters, digits and `_ - : . / + ? < > ~ & $`, starting and ending with a letter, digit or `_`, so it can be written as `[@key]` in a page. A reference whose key, DOI or arXiv number is in the bibliography already is refused unless it is said to be another work. Renaming a key is one change to the managed file, the `[@key]` citations of pages, the `citationKey` of pictures' sidecars and the citations on decks' slides; citations in a deck's master or layouts are left.
+A new key is letters, digits and `_ - : . / + ? < > ~ & $`, starting and ending with a letter, digit or `_`, so it can be written as `[@key]` in a page. A reference whose key, DOI or arXiv number is in the bibliography already is refused unless it is said to be another work. Renaming a key is one change to the managed file, the `[@key]` citations of pages, the `citationKey` of pictures' companion files and the citations on decks' slides; citations in a deck's master or layouts are left.
 
 ## Images and attachments
 
 A pasted or dropped file is kept once in `assets/`, named by a slug of its name (`assets/figure-3.png`; `-2` when the name is taken). Notes, boards and decks refer to it by that path, and nothing rewrites those paths. The same bytes never make two files: pasting a picture that is already anywhere in `assets/` gives the file that holds it.
 
-Each picture also has a small JSON sidecar in a hidden `.meta` folder beside it (`assets/.meta/figure-3.png.json`), one key to a line, written in the same commit as the picture. Keys a version does not know are kept when it writes the file again.
+Each picture also has a small JSON companion file in a hidden `.meta` folder beside it (`assets/.meta/figure-3.png.json`), one key to a line, written in the same change as the picture. Keys a version does not know are kept when it writes the file again.
 
 ```json
 {
@@ -333,16 +495,16 @@ Each picture also has a small JSON sidecar in a hidden `.meta` folder beside it 
 }
 ```
 
-`source` is `pasted`, `file`, `pdf-clip` (with `clip`: the paper, the page from 1 and the rectangle in PDF points from the page's bottom left), `agent` (with `createdBy: "agent:<session>"`) or `pptx-import` (with `deck`, the name of the deck it came from). A picture without a sidecar, such as one added by hand, is still a picture: it is listed from its file, and gets a sidecar with its first change. Where a picture is used is worked out by looking at notes, boards and decks, never stored. Small copies for the gallery are made on demand in `.kasten/cache/thumbs/` and can be deleted at any time.
+`source` is `pasted`, `file`, `pdf-clip` (with `clip`: the paper, the page from 1 and the rectangle in PDF points from the page's bottom left), `agent` (with `createdBy: "agent:<session>"`) or `pptx-import` (with `deck`, the name of the deck it came from). A picture without a companion file, such as one added by hand, is still a picture: it is listed from its file, and gets a companion file with its first change. Where a picture is used is worked out by looking at notes, boards and decks, never stored. Small copies for the gallery are made on demand in `.kasten/cache/thumbs/` and can be deleted at any time.
 
 ## History and the trash
 
-- Every change is a commit in the vault's own git repository, with who made it: you, the app, or an agent session. Recorded versions can be inspected and restored. A remote in `config.yaml` enables backup once you confirm it on each computer; keep an independent backup against disk failure or corruption.
+- Every change is saved in the vault's own history (a git repository inside the vault), with who made it: you, the app, or an agent session. Recorded versions can be inspected and restored. A remote in `config.yaml` enables backup once you confirm it on each computer; keep an independent backup against disk failure or corruption.
 - Deleting a note moves it to `.trash/<time>/`, under its old path, until the trash is emptied. A page's sub-pages go with it into the same folder, and restoring the page brings them back.
 
 ## Editing outside KastenFlow
 
-The files are yours to edit with anything. KastenFlow watches the folder and picks changes up. It indexes them, and it commits them as edits made outside the app. The index in `.kasten/cache/` is rebuilt from the files whenever it is missing or out of date.
+The files are yours to edit with anything. KastenFlow watches the folder and picks changes up. It indexes them, and it saves them in history as edits made outside the app. The index in `.kasten/cache/` is rebuilt from the files whenever it is missing or out of date.
 
 ## Other folders
 

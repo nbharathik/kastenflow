@@ -11,9 +11,12 @@ import "../changes/changes.css";
 import { useState } from "react";
 
 import { Icon } from "../../../ui/Icon";
+import type { Undone, VaultClient } from "../../../lib/vault/types";
 import { UndoOutcome, type Outcome } from "../../review/SessionsTab";
+import { ASK_OVER, changesInSession, undoTheUndo } from "../../review/session-undo";
 import { useReview } from "../../review/store";
 import { ConfirmBar } from "../../review/ui";
+import { useAgentMode } from "../../agents/store";
 import { deckFilesChanged } from "../../slides/events";
 import { useWorkspace } from "../../workspace/store";
 import { useChat } from "../store";
@@ -29,14 +32,25 @@ const decksOf = (thread: Thread): string[] => [
 
 /** How the thread's writes reach the vault. */
 function WriteSwitch({ thread }: { thread: Thread }) {
-  const direct = Boolean(thread.direct);
+  // How much agents may do decides first: Review everything always holds the chat's changes,
+  // Autonomous never does, and between them the thread's own switch applies.
+  const mode = useAgentMode((s) => s.view?.active);
+  const direct = mode === "autonomous" ? true : mode === "review" ? false : Boolean(thread.direct);
+  const saying =
+    mode === "review"
+      ? "Review everything is on, so changes wait for you to review and apply them."
+      : mode === "autonomous"
+        ? "Autonomous agents are on, so changes are saved as the chat makes them."
+        : direct
+          ? "Changes are saved as the chat makes them."
+          : "Changes wait for you to review and apply them.";
   return (
     <div className="kasten-chat-direct">
       <label>
-        <input type="checkbox" checked={direct} disabled={thread.streaming} onChange={(event) => useChat.getState().setDirect(thread.id, event.target.checked)} />
+        <input type="checkbox" checked={direct} disabled={thread.streaming || mode === "review" || mode === "autonomous"} onChange={(event) => useChat.getState().setDirect(thread.id, event.target.checked)} />
         Apply directly
       </label>
-      <span>{direct ? "Changes are saved as the chat makes them." : "Changes wait for you to review and apply them."}</span>
+      <span>{saying}</span>
     </div>
   );
 }
@@ -52,24 +66,25 @@ export function SessionBar({ thread }: { thread: Thread }) {
 
 function Undo({ thread }: { thread: Thread }) {
   const links = useChatLinks();
-  const [asking, setAsking] = useState(false);
+  /** How many changes the question names; null when it is not asked. */
+  const [asking, setAsking] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const session = thread.session;
   // A new answer while asking puts the question away: the chat may change
   // more, and the undo would not take that in.
-  if (asking && thread.streaming) setAsking(false);
+  if (asking !== null && thread.streaming) setAsking(null);
   if (!thread.changed || !session) return null;
 
-  const undo = async () => {
+  const run = async (act: (client: VaultClient) => Promise<Undone>, whenDone: (undone: Undone) => void) => {
     const { client, refresh } = useWorkspace.getState();
     if (!client || useChat.getState().threads[thread.id]?.streaming) return;
-    setAsking(false);
+    setAsking(null);
     setBusy(true);
     try {
-      const undone = await client.undoSession(session);
+      const undone = await act(client);
       setOutcome(undone);
-      if (!undone.conflict) useChat.getState().undone(thread.id);
+      if (!undone.conflict) whenDone(undone);
     } catch (err) {
       setOutcome({ error: message(err) });
     }
@@ -79,23 +94,63 @@ function Undo({ thread }: { thread: Thread }) {
     void useReview.getState().refresh();
   };
 
+  const undo = () =>
+    run(
+      (client) => client.undoSession(session),
+      () => useChat.getState().undone(thread.id),
+    );
+
+  // A few changes are undone at once, with a way back; many are counted first.
+  const start = async () => {
+    const client = useWorkspace.getState().client;
+    if (!client) return;
+    let left = Number.POSITIVE_INFINITY;
+    try {
+      left = await changesInSession(client, session);
+    } catch {
+      // Not knowing how many there are, ask.
+    }
+    if (left > ASK_OVER) setAsking(Number.isFinite(left) ? left : 0);
+    else void undo();
+  };
+
+  const redo = (reverted: readonly string[]) =>
+    run(
+      (client) => undoTheUndo(client, reverted),
+      () => {
+        useChat.getState().undone(thread.id, false);
+        setOutcome(null);
+        useWorkspace.getState().toast("Put this chat's changes back");
+      },
+    );
+
+  const reverted = outcome && !("error" in outcome) && !outcome.conflict && thread.undone ? outcome.reverted : null;
+
   return (
     <section className="kasten-chat-session" aria-label="This chat's changes">
       {outcome && <UndoOutcome outcome={outcome} />}
-      {asking ? (
+      {reverted && reverted.length > 0 && (
+        <div className="kasten-chat-session-bar">
+          <button type="button" disabled={busy} onClick={() => void redo(reverted)}>
+            <Icon name="undo" className="size-3.5" />
+            Undo the undo
+          </button>
+        </div>
+      )}
+      {asking !== null ? (
         <ConfirmBar
-          title="Undo this chat's changes?"
-          detail="Reverts everything this chat's session changed, newest first, as new commits. Edits you made since are kept; if one conflicts, the undo stops and says where."
+          title={asking > 0 ? `Undo ${asking} changes from this chat?` : "Undo this chat's changes?"}
+          detail="Puts back everything this chat changed, newest first. Edits you made since are kept; if one conflicts, the undo stops and says where. You can take it back with Undo the undo."
           confirm="Undo changes"
           onConfirm={() => void undo()}
-          onCancel={() => setAsking(false)}
+          onCancel={() => setAsking(null)}
         />
       ) : (
         <div className="kasten-chat-session-bar">
           <Icon name="agent" className="size-4" />
           <span className="kasten-chat-session-text">{thread.undone ? "This chat's changes were undone." : "This chat changed your notes."}</span>
           {!thread.undone && (
-            <button type="button" disabled={busy || thread.streaming} onClick={() => setAsking(true)} title={thread.streaming ? "Wait for the answer to finish" : undefined}>
+            <button type="button" disabled={busy || thread.streaming} onClick={() => void start()} title={thread.streaming ? "Wait for the answer to finish" : undefined}>
               <Icon name="undo" className="size-3.5" />
               {busy ? "Undoing…" : "Undo this chat's changes"}
             </button>

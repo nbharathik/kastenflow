@@ -6,16 +6,25 @@
 import { inTauri } from "../../../lib/api";
 import { useShell } from "../../../lib/store";
 import type { NoteMeta } from "../../../lib/vault/types";
+import { mapPage } from "../../../shell/page-menu";
+import { askPageOpens } from "../../../shell/PageOpens";
+import { askAboutPage } from "../../chat/actions";
+import { homeItem, templateItems } from "../../projects/home-menu";
+import { saveAsTemplate } from "../../templates/kits";
+import { titleOf } from "../names";
 import { highlightSelection } from "../../annotations/highlight-registry";
 import { openComments } from "../../panel/panel-store";
-import { presentThisPage, sectionsToDeck, toggleSmartLayout } from "../../pages/present/actions";
+import { pageKeyOf, presentThisPage, sectionsToDeck, showSmartSide, toggleSmartLayout, toggleSmartPage } from "../../pages/present/actions";
+import { smartSideOf } from "../../smart/use-smart-side";
 import { linkFor } from "../links";
 import { copyAsMarkdown, showInFolder } from "../page/page-file";
 import { setLocked } from "../page/page-lock";
+import { foldEveryPage, foldProperties } from "../page/properties-fold";
 import { usePrefs } from "../prefs";
 import { useWorkspace } from "../store";
 import { focusedPane, activeTab } from "../tabs";
 import { movable, noteAt } from "../tree";
+import { firstVisible } from "../../../shell/visible-dom";
 import type { Command } from "./commands";
 
 const workspace = () => useWorkspace.getState();
@@ -28,7 +37,7 @@ export function openNote(): NoteMeta | undefined {
 
 /** Puts the caret in the focused page's title, selected, to type a new one. */
 function renameOpenPage(): void {
-  const field = document.querySelector<HTMLTextAreaElement>(".kasten-pane.is-focused .kasten-page-title") ?? document.querySelector<HTMLTextAreaElement>(".kasten-page-title");
+  const field = firstVisible<HTMLTextAreaElement>(".kasten-pane.is-focused .kasten-page-title") ?? firstVisible<HTMLTextAreaElement>(".kasten-page-title");
   if (!field || field.readOnly) return;
   field.focus();
   field.select();
@@ -112,12 +121,40 @@ export const PAGE_COMMANDS: Command[] = [
     },
   },
   {
+    // Keeps its id (keys set for it still work); the words "Smart layout" now belong to smart pages.
     id: "smart-layout",
-    label: "Smart layout for this page",
+    label: "Sections layout for this page",
     words: "sections cards slides frames outline strip toggle on off",
     run: () => {
       const note = openNote();
       if (note) toggleSmartLayout(note);
+    },
+  },
+  {
+    id: "smart-page-layout",
+    label: "Smart layout for this page",
+    words: "smart page interactive live view app tracker dashboard toggle on off",
+    run: () => {
+      const note = openNote();
+      if (note) toggleSmartPage(note);
+    },
+  },
+  {
+    id: "smart-page-flip",
+    label: "Smart page: switch between the smart view and the notes",
+    words: "smart page notes markdown view flip",
+    run: () => {
+      const note = openNote();
+      if (note) showSmartSide(note, smartSideOf(pageKeyOf(note)) === "notes" ? "smart" : "notes");
+    },
+  },
+  {
+    id: "smart-page-history",
+    label: "Smart page: history of its code",
+    words: "smart page versions restore earlier code diff changes",
+    run: () => {
+      const note = openNote();
+      if (note) showSmartSide(note, "history");
     },
   },
   {
@@ -129,6 +166,88 @@ export const PAGE_COMMANDS: Command[] = [
       if (note) sectionsToDeck(note);
     },
   },
+  {
+    id: "peek-page",
+    label: "Open this page in a side peek",
+    words: "preview beside glance",
+    run: () => {
+      const note = openNote();
+      if (note) workspace().openPath(note.path, "peek-side");
+    },
+  },
+  {
+    id: "save-template",
+    label: "Save this page as a template",
+    words: "gallery reuse starter",
+    run: () => {
+      const note = openNote();
+      if (note && movable(note)) void saveAsTemplate(note.path, titleOf(note)).then((name) => name && useShell.getState().openGallery({ select: name }));
+    },
+  },
+  {
+    id: "page-mind-map",
+    label: "Mind map from this page",
+    words: "board outline branches open",
+    run: () => {
+      const note = openNote();
+      if (note) void mapPage(note);
+    },
+  },
+  {
+    id: "ask-page",
+    label: "Ask AI about this page",
+    words: "chat assistant claude question",
+    run: () => {
+      const note = openNote();
+      if (note) askAboutPage(note);
+    },
+  },
+  {
+    id: "page-opens",
+    label: "Open links from this page in…",
+    words: "links sub-pages click new tab side peek stack right same tab where",
+    run: () => {
+      const note = openNote();
+      if (note) askPageOpens(note.path);
+    },
+  },
+  {
+    id: "project-home",
+    label: "Show or hide this project's home",
+    words: "project dashboard overview",
+    run: () => {
+      const note = openNote();
+      if (note?.kind === "project") homeItem(note).onSelect();
+    },
+  },
+  {
+    id: "project-template",
+    label: "Template for this project's new pages…",
+    words: "project starter blank",
+    run: () => {
+      const note = openNote();
+      if (note?.kind === "project") templateItems(note)[0]!.onSelect();
+    },
+  },
+  {
+    id: "fold-properties",
+    label: "Fold properties",
+    words: "collapse hide tags properties page",
+    run: () => {
+      const note = openNote();
+      if (note) foldProperties(note, true);
+    },
+  },
+  {
+    id: "unfold-properties",
+    label: "Unfold properties",
+    words: "expand show tags properties page",
+    run: () => {
+      const note = openNote();
+      if (note) foldProperties(note, false);
+    },
+  },
+  { id: "fold-properties-all", label: "Fold properties on every page", words: "collapse hide tags properties all pages", run: foldEveryPage },
   {
     id: "page-comments",
     label: "Comments on this page",

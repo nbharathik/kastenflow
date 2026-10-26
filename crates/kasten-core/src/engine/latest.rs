@@ -103,6 +103,18 @@ impl Kasten {
 
     /// Gets the latest from the backup remote confirmed on this computer.
     pub fn get_latest(&self, now: Instant) -> Result<Latest> {
+        self.latest_from_backup(now, false)?
+            .ok_or_else(|| Error::Invalid("Getting the latest did not finish".into()))
+    }
+
+    /// Gets the latest only when it needs no merge: changes made here are
+    /// not touched, and a fast-forward is taken only while nothing here is
+    /// waiting. None when a merge or a wait is in the way; nothing changed.
+    pub fn get_latest_without_merge(&self, now: Instant) -> Result<Option<Latest>> {
+        self.latest_from_backup(now, true)
+    }
+
+    fn latest_from_backup(&self, now: Instant, fast_forward_only: bool) -> Result<Option<Latest>> {
         let history = self.history_or_err()?;
         let url = self.confirmed_remote().ok_or_else(|| {
             Error::Invalid("No backup is set up on this computer to get the latest from".into())
@@ -114,8 +126,12 @@ impl Kasten {
             .fetch_latest(&url, token.as_ref())
             .map_err(|err| redacted(err, token.as_ref()))?;
         match fetched {
-            Some(theirs) => self.take_latest(history, &theirs, now),
-            None => Ok(Latest::nothing(history.head())),
+            Some(theirs) => {
+                // What the backup held when looked at: not "waiting" here.
+                self.note_fetched(&url, &theirs);
+                self.take_latest(history, &theirs, now, fast_forward_only)
+            }
+            None => Ok(Some(Latest::nothing(history.head()))),
         }
     }
 
@@ -124,13 +140,26 @@ impl Kasten {
         let history = self.history_or_err()?;
         self.finish_get_latest(now)?;
         let theirs = history.fetch_bundle(bundle)?;
-        self.take_latest(history, &theirs, now)
+        self.take_latest(history, &theirs, now, false)?
+            .ok_or_else(|| Error::Invalid("Getting the latest did not finish".into()))
     }
 
-    fn take_latest(&self, history: &History, theirs: &str, now: Instant) -> Result<Latest> {
+    /// Takes `theirs` in under the write lock. With `fast_forward_only`, None
+    /// (and nothing changed, not even a commit of waiting edits) when anything
+    /// here is waiting or the two lines of history would have to be joined.
+    pub(super) fn take_latest(
+        &self,
+        history: &History,
+        theirs: &str,
+        now: Instant,
+        fast_forward_only: bool,
+    ) -> Result<Option<Latest>> {
         let done = self.lock.hold(|| {
             if let Some(lock) = history.held_by() {
                 return Err(History::busy_error(&lock));
+            }
+            if fast_forward_only && self.waiting_here(history) {
+                return Ok(None);
             }
             self.commit_edits_held(history)?;
             self.commit_external_held(history)?;
@@ -138,10 +167,13 @@ impl Kasten {
                 .head()
                 .ok_or_else(|| Error::Invalid("This vault's history has no commit yet".into()))?;
             if ours == theirs || history.holds(&ours, theirs) {
-                return Ok(Latest::nothing(Some(ours)));
+                return Ok(Some(Latest::nothing(Some(ours))));
             }
             if !history.related(&ours, theirs)? {
                 return Err(unrelated());
+            }
+            if fast_forward_only && !history.holds(theirs, &ours) {
+                return Ok(None);
             }
             let journal = if history.holds(theirs, &ours) {
                 Journal {
@@ -172,10 +204,10 @@ impl Kasten {
                     "Stopped before the branch moved, as asked".into(),
                 ));
             }
-            self.complete_latest(history, &journal, now)
+            self.complete_latest(history, &journal, now).map(Some)
         });
         // The files it brought are counted once the write lock is free.
-        if let Ok(latest) = &done {
+        if let Ok(Some(latest)) = &done {
             self.revised(&latest.changed);
         }
         done
@@ -222,7 +254,11 @@ impl Kasten {
             journal.theirs.clone()
         };
         self.clear_journal();
-        self.state().backup.behind = false;
+        {
+            let mut state = self.state();
+            state.backup.behind = false;
+            state.backup.refused = 0;
+        }
         let changed = history.changed_between(&history.tree_of(&journal.ours)?, &journal.tree)?;
         self.refresh_or_later(&changed);
         self.state().last_commit = Some(now.millis);

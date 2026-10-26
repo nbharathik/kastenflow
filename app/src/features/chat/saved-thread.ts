@@ -9,7 +9,7 @@ import type { LoadedThread, Paused, PlanItem, RunStatus } from "./agent-types";
 import { readSettings } from "./settings";
 import { newId, newThread, type Answer, type AnswerStatus, type Chip, type Message, type Part, type SentAttachment, type Thread } from "./thread";
 import { pauseDetail, planOf } from "./thread-events";
-import type { ChipKind, ContextChip, FailKind } from "./types";
+import type { ChipKind, ContextChip, FailKind, SelectionPayload, SelectionSource } from "./types";
 
 /** The most a blob may be: `chat_save_ui` refuses more than 5 MB. */
 export const SAVE_LIMIT = 5 * 1024 * 1024 - 64 * 1024;
@@ -103,19 +103,38 @@ const object = (value: unknown): Record<string, unknown> => (value && typeof val
 const text = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-const CHIP_KINDS: ReadonlySet<string> = new Set<ChipKind>(["note", "board", "cards", "tag", "search", "deck", "slide", "diagram", "pdf", "attachment"]);
+const CHIP_KINDS: ReadonlySet<string> = new Set<ChipKind>(["note", "board", "cards", "tag", "search", "deck", "slide", "diagram", "latex", "pdf", "attachment", "selection"]);
+const SOURCES: ReadonlySet<string> = new Set(["page", "pdf", "latex", "slide"]);
+
+/** A selection as saved: checked field by field, none when it does not hold together. */
+function readSelection(raw: unknown): SelectionPayload | undefined {
+  const { source, text: words, heading, range, pinned } = object(raw);
+  const { kind, path, id } = object(source);
+  if (typeof kind !== "string" || !SOURCES.has(kind) || typeof path !== "string" || typeof words !== "string") return undefined;
+  const { from, to } = object(range);
+  return {
+    source: { kind: kind as SelectionSource["kind"], path, ...(typeof id === "string" ? { id } : {}) },
+    text: words,
+    ...(typeof heading === "string" ? { heading } : {}),
+    ...(typeof from === "number" && typeof to === "number" ? { range: { from, to } } : {}),
+    pinned: pinned === true,
+  };
+}
 const STATUSES: ReadonlySet<string> = new Set<AnswerStatus>(["streaming", "done", "stopped", "error", "paused"]);
 const FAILS: ReadonlySet<string> = new Set<FailKind>(["cancelled", "connection", "modelUnavailable", "permission", "rateLimited", "tooLong", "refused", "other"]);
 
 function readChips(raw: unknown): Chip[] {
   return list(raw).flatMap((item): Chip[] => {
-    const { kind, label, ref, origin } = object(item);
+    const { kind, label, ref, origin, selection } = object(item);
     if (typeof kind !== "string" || !CHIP_KINDS.has(kind) || typeof label !== "string" || !Array.isArray(ref)) return [];
-    return [{ kind: kind as ChipKind, label, ref: ref.filter((r): r is string => typeof r === "string"), ...(origin === "auto" || origin === "pinned" || origin === "added" ? { origin } : {}) }];
+    const picked = kind === "selection" ? readSelection(selection) : undefined;
+    // A selection without its text is nothing to send.
+    if (kind === "selection" && !picked) return [];
+    return [{ kind: kind as ChipKind, label, ref: ref.filter((r): r is string => typeof r === "string"), ...(picked ? { selection: picked } : {}), ...(origin === "auto" || origin === "pinned" || origin === "added" ? { origin } : {}) }];
   });
 }
 
-const readContext = (raw: unknown): ContextChip[] => readChips(raw).map(({ kind, label, ref }) => ({ kind, label, ref }));
+const readContext = (raw: unknown): ContextChip[] => readChips(raw).map(({ kind, label, ref, selection }) => ({ kind, label, ref, ...(selection ? { selection } : {}) }));
 
 function readAttachments(raw: unknown): SentAttachment[] {
   return list(raw).flatMap((item): SentAttachment[] => {
@@ -183,7 +202,8 @@ export function restore(id: string, loaded: LoadedThread): Thread {
   const messages = list(saved["messages"]).flatMap((raw) => readMessage(raw) ?? []);
   const plan = planOf(loaded.plan) ?? [];
   const waiting = list(loaded.queued).filter((t): t is string => typeof t === "string" && t.trim() !== "");
-  const running = loaded.status === "running";
+  // A chat in line for a place is under way too: its events come when it starts.
+  const running = loaded.status === "running" || loaded.status === "waiting";
   const last = messages[messages.length - 1];
   // A turn under way has an answer to put its events in.
   if (running && !(last?.role === "assistant" && last.status === "streaming")) {
@@ -206,6 +226,8 @@ export function restore(id: string, loaded: LoadedThread): Thread {
     undone: saved["undone"] === true,
     seq: loaded.seq,
   };
+  if (loaded.archived) thread.archived = true;
+  if (loaded.bound) thread.bound = loaded.bound;
   if (text(saved["title"])?.trim()) thread.title = text(saved["title"])!;
   if (typeof saved["follow"] === "boolean") thread.follow = saved["follow"];
   if (typeof saved["direct"] === "boolean") thread.direct = saved["direct"];
@@ -226,7 +248,7 @@ export function reconcile(thread: Thread, status: RunStatus): Thread {
   const last = thread.messages[at];
   // Its events say it is over, whatever the status was when it was read.
   if (last?.role !== "assistant" || last.status !== "streaming") return thread.streaming ? { ...thread, streaming: false } : thread;
-  if (status === "running") return thread.streaming ? thread : { ...thread, streaming: true };
+  if (status === "running" || status === "waiting") return thread.streaming ? thread : { ...thread, streaming: true };
   const close = (answer: Answer, rest: Partial<Thread> = {}): Thread => {
     const messages = thread.messages.slice();
     messages[at] = answer;

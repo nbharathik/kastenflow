@@ -1,0 +1,8 @@
+version: 1
+title: Tracker
+kit: "1"
+queries:
+  deadlines:
+    tag: deadline
+size:
+  height: 700

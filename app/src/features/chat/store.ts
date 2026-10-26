@@ -9,17 +9,20 @@
 import { create } from "zustand";
 
 import { useWorkspace } from "../workspace/store";
-import type { ThreadSummary } from "./agent-types";
+import type { AdoptFailure, Binding, DeletedArchived, ThreadSummary } from "./agent-types";
 import { forgetCapabilities } from "./capabilities";
 import { connectChat, type ChatClient } from "./client";
 import { keepModel, keepSettings, modelFor } from "./prefs";
 import { outcomeOf, touched } from "./store-events";
+import { fieldActions } from "./store-fields";
+import { historyActions } from "./store-history";
 import { redoActions } from "./store-redo";
 import { learnFromTrial, trials } from "./store-learn";
 import { persistence, setActive } from "./store-persist";
+import { selectionActions } from "./store-selection";
 import { sendActions } from "./store-send";
 import { FrameQueue } from "./stream";
-import { applyEvent, chipKey, endTurn, followChips, newThread, type Answer, type Chip, type SentAttachment, type Thread } from "./thread";
+import { applyEvent, endTurn, newThread, type Chip, type SentAttachment, type Thread } from "./thread";
 import type { ChangesInfo, ChatEvent, ChatProvider, GenerationSettings, ProviderDraft } from "./types";
 import { useUnread, workingCount } from "./unread";
 
@@ -43,6 +46,10 @@ export interface ChatState {
   saved: Record<string, ThreadSummary>;
   /** Whether the saved threads have been read. */
   savedLoaded: boolean;
+  /** Saved chats that could not be reopened, by id, and why. */
+  adoptFailures: Record<string, AdoptFailure>;
+  /** The saved chat the person tried to open and could not: the view says so instead of showing a thread. */
+  failedOpen: string | null;
 
   /** The backend, connected on first use. */
   ensure(): ChatClient;
@@ -56,7 +63,31 @@ export interface ChatState {
   confirmProvider(name: string): Promise<void>;
   /** A new thread, shown at once with `open`. Its page chip follows the page
    * being looked at unless `follow` is false (a thread about one page). */
-  start(options?: { context?: Chip[]; open?: boolean; follow?: boolean }): string;
+  start(options?: { id?: string; context?: Chip[]; open?: boolean; follow?: boolean }): string;
+  /** A new chat the backend knows: `from` stays in the list and its tie (to a page, deck…) moves to the new one. The id of the new chat. */
+  newThreadFrom(from: string | null, options?: { context?: Chip[]; open?: boolean; follow?: boolean }): Promise<string>;
+  /** Moves a chat to Archived (it stays saved, and "Move back to the list" undoes it). Whether it went; a chat that is answering stays and says so. */
+  archive(id: string): Promise<boolean>;
+  /** Brings an archived chat back into the list. Whether it was archived. */
+  unarchive(id: string): Promise<boolean>;
+  /** Deletes the archived chats named, for good; the answer says which went and which were skipped and why. */
+  deleteArchived(ids: string[]): Promise<DeletedArchived>;
+  /** Ties the thread to a page, deck, diagram or document; whether it worked. Another thread tied to it loses the tie. */
+  bind(id: string, target: Binding): Promise<boolean>;
+  unbind(id: string): Promise<boolean>;
+  /** Ties the thread once its first message is sent (a chat is saved when it has something in it). */
+  bindWhenSent(id: string, target: Binding): void;
+  bindIfPending(id: string): Promise<void>;
+  /** Tries again to open a chat that could not be read. */
+  retryOpen(id: string): Promise<boolean>;
+  /** Tries again to bring a chat in without showing it (a deck's assistant tab). Whether it is there. */
+  retryAdopt(id: string): Promise<boolean>;
+  /** Leaves the "could not reopen" notice (to start a new chat). */
+  leaveFailed(): void;
+  /** The latest selection becomes the thread's automatic selection chip, replacing the one before it. */
+  setSelection(id: string, chip: Chip): void;
+  /** "Add to chat": keeps the snippet with the thread, up to five. False when the thread is full. */
+  keepSelection(id: string, chip: Chip): boolean;
   /** Shows a thread; a saved one is brought in first. */
   open(id: string): void;
   /** Brings a saved thread into the window. Whether it is there. */
@@ -93,7 +124,8 @@ export interface ChatState {
   /** Names the thread; an empty name goes back to its first question. */
   rename(id: string, title: string): void;
   pinned(id: string, message: string, path: string): void;
-  undone(id: string): void;
+  /** The thread's session was undone, or (false) the undo was taken back. */
+  undone(id: string, undone?: boolean): void;
   /** Whether the thread's writes are made at once ("Apply directly") or wait as staged changes. */
   setDirect(id: string, direct: boolean): void;
   /** What the thread has staged, as the backend last said; none when nothing waits. */
@@ -144,6 +176,16 @@ export const useChat = create<ChatState>()((set, get, api) => {
 
   const kept = persistence(api, fold);
   setActive(kept);
+  const sending = sendActions(get, update, { flush: () => queue?.flush(), toFront, catchUp: kept.catchUp, save: (id) => void kept.flush(id) });
+  // The tie asked for with the first message is made once it went.
+  const sent = {
+    ...sending,
+    async send(...args: Parameters<typeof sending.send>) {
+      const went = await sending.send(...args);
+      if (went) void get().bindIfPending(args[0]);
+      return went;
+    },
+  };
   // The window's chat button shows that a thread works without loading the chat.
   api.subscribe((s, before) => {
     if (s.threads !== before.threads) useUnread.getState().setWorking(workingCount(s));
@@ -159,6 +201,8 @@ export const useChat = create<ChatState>()((set, get, api) => {
     learned: 0,
     saved: {},
     savedLoaded: false,
+    adoptFailures: {},
+    failedOpen: null,
 
     ensure() {
       const { client } = get();
@@ -173,7 +217,7 @@ export const useChat = create<ChatState>()((set, get, api) => {
       forgetCapabilities();
       trials.clear();
       unlisten = client ? client.onEvent((event) => get().receive(event)) : null;
-      set({ client, providers: null, providersError: null, saved: {}, savedLoaded: false });
+      set({ client, providers: null, providersError: null, saved: {}, savedLoaded: false, adoptFailures: {}, failedOpen: null });
       kept.watch(client);
     },
 
@@ -211,25 +255,34 @@ export const useChat = create<ChatState>()((set, get, api) => {
       set({ providers, providersError: null });
     },
 
-    start({ context = [], open = false, follow } = {}) {
+    start({ id, context = [], open = false, follow } = {}) {
       // Chips a thread starts with were chosen, not followed.
-      const thread = newThread({ context: context.map((chip) => ({ ...chip, origin: chip.origin ?? "added" })), follow });
+      const thread = newThread({ ...(id ? { id } : {}), context: context.map((chip) => ({ ...chip, origin: chip.origin ?? "added" })), follow });
       set((s) => ({
         threads: { ...s.threads, [thread.id]: thread },
         order: [thread.id, ...s.order],
-        ...(open ? { active: thread.id } : {}),
+        ...(open ? { active: thread.id, failedOpen: null } : {}),
       }));
       return thread.id;
     },
 
     open(id) {
-      if (get().threads[id]) return set({ active: id });
-      if (get().saved[id]) void kept.adopt(id).then((there) => there && set({ active: id }));
+      if (get().threads[id]) return set({ active: id, failedOpen: null });
+      if (!get().saved[id]) return;
+      // A chat put away here (Archived) is the person's to bring back.
+      kept.allow(id);
+      void kept.adopt(id).then((there) => {
+        if (there) set({ active: id, failedOpen: null });
+        // Not an empty new thread: the view says it could not be read and offers a way on.
+        else if (get().adoptFailures[id]) set({ failedOpen: id });
+      });
     },
 
     adopt: (id) => kept.adopt(id),
 
-    ...sendActions(get, update, { flush: () => queue?.flush(), toFront, catchUp: kept.catchUp, save: (id) => void kept.flush(id) }),
+    ...sent,
+    ...selectionActions(get, update),
+    ...historyActions(api, kept),
 
     async retry(id) {
       const thread = get().threads[id];
@@ -268,20 +321,27 @@ export const useChat = create<ChatState>()((set, get, api) => {
         useWorkspace.getState().toast("Apply or discard this chat's staged changes first");
         return false;
       }
+      // A chat with something in it goes to Archived, where it can be found and brought back;
+      // nothing is deleted. One that is answering is refused, and stays.
+      const written = thread.messages.length > 0 || Boolean(get().saved[id]);
+      if (written && !(await get().archive(id))) return false;
       kept.gone(id);
       useUnread.getState().forget(id);
       set((s) => {
         const threads = { ...s.threads };
         delete threads[id];
         const saved = { ...s.saved };
-        delete saved[id];
+        // An empty chat was never saved; a written one stays listed, now under Archived.
+        if (!written) delete saved[id];
+        else if (saved[id]) saved[id] = { ...saved[id], archived: true, bound: null };
         return { threads, saved, order: s.order.filter((o) => o !== id), active: s.active === id ? null : s.active };
       });
-      // The backend forgets it too, and its saved copy.
+      // The backend lets it go from memory; the saved copy stays.
       await get()
         .ensure()
         .reset(id)
         .catch(() => {});
+      if (written) void kept.loadSaved();
       return true;
     },
 
@@ -303,62 +363,8 @@ export const useChat = create<ChatState>()((set, get, api) => {
       keepSettings(choice.provider, choice.model, settings);
     },
 
-    setAllowImages(id, allow) {
-      update(id, (t) => ((t.allowImages ?? false) === allow ? t : { ...t, allowImages: allow }));
-    },
-
     ...redoActions(get, update),
-
-    addChip(id, chip) {
-      const key = chipKey(chip);
-      // A chip the person adds stays; one that is followed says so.
-      update(id, (t) => (t.context.some((c) => chipKey(c) === key) ? t : { ...t, context: [...t.context, { ...chip, origin: chip.origin ?? "added" }] }));
-    },
-
-    removeChip(id, key) {
-      update(id, (t) => ({ ...t, context: t.context.filter((c) => chipKey(c) !== key) }));
-    },
-
-    followPage(id, chip) {
-      update(id, (t) => {
-        if (t.follow === false) return t;
-        const context = followChips(t.context, chip);
-        return context === t.context ? t : { ...t, context };
-      });
-    },
-
-    setFollow(id, follow) {
-      update(id, (t) => (t.follow === follow || (follow && t.follow === undefined) ? t : { ...t, follow }));
-    },
-
-    pinChip(id, key, pinned) {
-      update(id, (t) => ({ ...t, context: t.context.map((c) => (chipKey(c) === key && (c.origin ?? "added") !== "added" ? { ...c, origin: pinned ? "pinned" : "auto" } : c)) }));
-    },
-
-    rename(id, title) {
-      const name = title.trim().slice(0, 120);
-      update(id, (t) => (name ? { ...t, title: name } : { ...t, title: undefined }));
-    },
-
-    pinned(id, messageId, path) {
-      update(id, (t) => ({ ...t, messages: t.messages.map((m) => (m.id === messageId && m.role === "assistant" ? ({ ...m, pinned: path } satisfies Answer) : m)) }));
-    },
-
-    undone(id) {
-      update(id, (t) => ({ ...t, undone: true }));
-    },
-
-    setDirect(id, direct) {
-      update(id, (t) => ((t.direct ?? false) === direct ? t : { ...t, direct }));
-    },
-
-    setChanges(id, changes) {
-      update(id, (t) => (t.changes?.id === changes?.id && t.changes?.count === changes?.count ? t : { ...t, changes }));
-    },
-
-    applied(id) {
-      update(id, (t) => ({ ...t, changes: undefined, changed: true, undone: false }));
-    },
+    ...fieldActions(update),
 
     receive(raw) {
       // A chat this window does not have: it is loaded, and the event waits for it.

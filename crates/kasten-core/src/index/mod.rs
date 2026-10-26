@@ -46,7 +46,7 @@ impl From<rusqlite::Error> for Error {
 
 /// Bump when the tables, or what is extracted into them, change; an older
 /// index is dropped and rebuilt.
-const SCHEMA_VERSION: &str = "6";
+const SCHEMA_VERSION: &str = "7";
 
 const SCHEMA: &str = "
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -71,7 +71,8 @@ CREATE TABLE notes (
   excerpt TEXT NOT NULL,
   words INTEGER NOT NULL,
   locked INTEGER NOT NULL,
-  url_key TEXT
+  url_key TEXT,
+  children_order TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX notes_title ON notes(title_key);
 CREATE INDEX notes_id ON notes(id);

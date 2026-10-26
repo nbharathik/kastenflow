@@ -78,7 +78,7 @@
   outline: none;
 
   &[aria-invalid="true"] {
-    box-shadow: inset 0 0 0 1.5px var(--notion-red, #e03e3e);
+    box-shadow: inset 0 0 0 1.5px var(--color-danger);
   }
 }
 
@@ -132,6 +132,11 @@
       background: color-mix(in srgb, var(--color-accent) 18%, transparent);
     }
   }
+}
+
+/* A sort being dragged to a new place in the order. */
+.kasten-tagdb-rule.is-dragging {
+  opacity: 0.5;
 }
 
 .kasten-tagdb-add {

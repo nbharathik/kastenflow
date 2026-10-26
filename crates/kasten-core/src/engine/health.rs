@@ -97,6 +97,9 @@ pub struct Health {
     pub synced: Option<String>,
     /// The vault's format version.
     pub format: u32,
+    /// Why `.kasten/config.yaml` as it is on disk is not in force (it does
+    /// not parse): the settings from before stay until it is fixed.
+    pub config_problem: Option<String>,
 }
 
 /// A copy a conflict left: `name (conflict 2026-10-06 09-30).md`, or with a number after the time.
@@ -205,7 +208,9 @@ impl Kasten {
                 busy: self
                     .history
                     .get()
-                    .is_some_and(|history| history.held_by().is_some()),
+                    // A look, never a clean-up: only an op that holds the write
+                    // lock may remove a lock file.
+                    .is_some_and(|history| history.held_by_readonly().is_some()),
             },
             backup,
             backup_file,
@@ -216,6 +221,7 @@ impl Kasten {
             synced: crate::synced_by(self.root(), crate::home_folder().as_deref())
                 .map(str::to_owned),
             format: self.config().format,
+            config_problem: self.config_problem(),
         }
     }
 

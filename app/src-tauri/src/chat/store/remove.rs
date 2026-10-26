@@ -1,9 +1,13 @@
 //! The one place the chat's saved files are deleted, and only because the
-//! person asked: a conversation they deleted or removed (`chat_delete_thread`,
-//! `chat_reset`), an attachment they took off a message or whose last chat
-//! they deleted (`chat_attachment_drop`), or the half-written temporary file
-//! of a save that just failed. Nothing is deleted on a cap, a timer or at
-//! start: disk use is only reported (`chat_usage`). These are the app's own
+//! person asked: a conversation they deleted (`chat_delete_thread`), archived
+//! conversations they named in a bulk delete (`chat_delete_archived`, which
+//! takes only chats already marked archived and goes through the same single
+//! delete), an attachment they took off a message or whose last chat they
+//! deleted (`chat_attachment_drop`), or the half-written temporary file of a
+//! save that just failed. `chat_reset` and `chat_new_thread` delete nothing.
+//! Nothing is deleted on a cap, a timer or at start: a list size only marks the
+//! oldest threads archived, and disk use is only reported (`chat_usage`).
+//! These are the app's own
 //! copies in its data folder, never anything in the vault: the work a chat did
 //! is in the vault's history, and what it staged waits in the vault's cache
 //! until the person applies or discards it.

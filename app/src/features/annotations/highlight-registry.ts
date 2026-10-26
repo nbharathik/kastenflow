@@ -2,6 +2,7 @@
 // front says how to highlight what is selected in it. It imports almost
 // nothing: the palette is on the start-up path and the page editor is not.
 
+import { isShown } from "../../shell/visible-dom";
 import { useWorkspace } from "../workspace/store";
 
 /** A page that can be highlighted, open in the window. */
@@ -24,7 +25,7 @@ export function registerHighlighter(entry: Highlighter): () => void {
 
 /** The pages on screen: the focused one's first, then the focused pane's. */
 function inFront(): Highlighter[] {
-  const live = [...open].filter((h) => h.dom.isConnected);
+  const live = [...open].filter((h) => h.dom.isConnected && isShown(h.dom));
   const rank = (h: Highlighter) => (h.dom.contains(document.activeElement) ? 0 : h.dom.closest(".kasten-pane.is-focused") ? 1 : 2);
   return live.sort((a, b) => rank(a) - rank(b));
 }

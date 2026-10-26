@@ -5,6 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
 
 /** Whether Kasten is signed in with ChatGPT on this computer. */
@@ -46,8 +47,8 @@ export const CHATGPT_NAME = "ChatGPT";
 /** Where ChatGPT shows and sets how much of the plan apps may use. */
 export const CHATGPT_USAGE_URL = "https://chatgpt.com/settings/usage";
 
-/** Whether this window can sign in: the desktop app. */
-export const canSignInWithChatGpt = () => inTauri();
+/** Whether this window can sign in: the desktop app, or the browser preview in demo mode. */
+export const canSignInWithChatGpt = () => inTauri() || inDemo();
 
 export const chatgptAccount = () => invoke<ChatGptAccount>("chatgpt_account");
 /** Opens ChatGPT's sign-in page in the system browser. `fixedPort` listens on

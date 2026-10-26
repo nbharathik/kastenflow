@@ -143,12 +143,53 @@ impl Kasten {
                 nodes,
                 label,
             } => json!({ "section": self.group_on_board(actor, board, nodes, label, now)? }),
+            AgentOp::BoardChanges { board, changes, .. } => {
+                let applied = self.board_apply(actor, board, changes, now)?;
+                // Only what an agent wrote by itself counts against its session.
+                if let Actor::Agent { session, .. } = actor {
+                    self.state()
+                        .tallies
+                        .entry(session.clone())
+                        .or_default()
+                        .took_off_cards(crate::board::removed_by(changes), now.millis);
+                }
+                json!({ "made": applied.made, "nodes": applied.board.nodes.len() })
+            }
             AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => {
                 self.deck_execute(actor, op, now)?
             }
             AgentOp::CreateDiagram { .. }
             | AgentOp::UpdateDiagram { .. }
             | AgentOp::EditDiagram { .. } => self.diagram_execute(actor, op, now)?,
+            AgentOp::SaveSource { .. } => self.latex_execute(actor, op, now)?,
+            AgentOp::SmartCreate { .. } => self.smart_create_execute(actor, op, now)?,
+            AgentOp::SmartWrite { .. } | AgentOp::SmartDelete { .. } => {
+                self.smart_execute(actor, op, now)?
+            }
+            AgentOp::EditPage { .. } => self.page_execute(actor, op, now)?,
+            AgentOp::Batch { ops, .. } => self.execute_batch(actor, ops, now)?,
+            AgentOp::SetParent { .. }
+            | AgentOp::ReorderChildren { .. }
+            | AgentOp::CreateProject { .. }
+            | AgentOp::SetProjectState { .. }
+            | AgentOp::SetTagViews { .. } => self.structure_execute(actor, op, now)?,
+            AgentOp::SetViewOrder { .. } => self.view_order_execute(actor, op, now)?,
+            AgentOp::DuplicateNote { .. }
+            | AgentOp::RestoreNote { .. }
+            | AgentOp::SetNoteMeta { .. }
+            | AgentOp::ApplyTemplate { .. }
+            | AgentOp::JournalDay { .. }
+            | AgentOp::SetTask { .. }
+            | AgentOp::AddComment { .. }
+            | AgentOp::ResolveComment { .. }
+            | AgentOp::CreateCollection { .. }
+            | AgentOp::UpdateCollection { .. }
+            | AgentOp::AddReference { .. }
+            | AgentOp::RenameDiagram { .. }
+            | AgentOp::MoveDiagram { .. }
+            | AgentOp::DuplicateDiagram { .. }
+            | AgentOp::UndoSession { .. } => self.parity_execute(actor, op, now)?,
+            AgentOp::SaveProjectSetup { .. } => self.setup_save_execute(actor, op, now)?,
         })
     }
 

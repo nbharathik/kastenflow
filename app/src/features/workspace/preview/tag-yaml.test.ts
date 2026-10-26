@@ -35,7 +35,10 @@ describe("MemoryVault tag views", () => {
     const vault = new MemoryVault({});
     const schema = await vault.setTagViews("Side projects", [{ name: "Ideas", type: "list" }]);
     expect(schema).toMatchObject({ name: "Side projects", path: "tags/side-projects.yaml" });
-    await expect(vault.setTagViews("x", [{ name: "T", type: "timeline" as never }])).rejects.toThrow(/unknown type/);
+    await expect(vault.setTagViews("x", [{ name: "T", type: "roadmap" as never }])).rejects.toThrow(/unknown type/);
+    // A timeline is held to the tag's own properties, as the core holds it.
+    await expect(vault.setTagViews("x", [{ name: "T", type: "timeline" }])).rejects.toThrow(/needs a start/);
+    await expect(vault.setTagViews("x", [{ name: "T", type: "timeline", start: "when" }])).rejects.toThrow(/not a property/);
     // Every kind the core takes, the gallery too.
     expect((await vault.setTagViews("y", [{ name: "G", type: "gallery" }])).views).toEqual([{ name: "G", type: "gallery" }]);
     await expect(vault.setTagViews("x", [{ name: "A", type: "table" }, { name: "a", type: "list" }])).rejects.toThrow(/two views/);

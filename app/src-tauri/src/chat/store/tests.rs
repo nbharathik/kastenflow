@@ -38,6 +38,8 @@ fn record(id: &str, updated: u64, status: Status) -> Record {
         change_set: None,
         ui: Some(json!({"title": "Chat", "seq": 3})),
         attachments: vec![],
+        archived: false,
+        bound: None,
         rev: updated,
     }
 }

@@ -127,7 +127,10 @@ fn restores_into_an_empty_folder_with_every_commit() {
     let folder = sync_folder(&t, "disk");
     let file = k.write_backup_file(&folder, "desk", NOW).unwrap();
 
-    let target = beside(&t, "restored");
+    // A folder of its own: the system temp folder is shared with tests running at once,
+    // whose restores have their hidden work folders there for a moment.
+    let own = beside(&t, "restored-in");
+    let target = Beside(own.join("restored"));
     fs::create_dir_all(&*target).unwrap();
     let header = history::restore_from_bundle(Path::new(&file.path), &target).unwrap();
     assert_eq!(header.head, file.head);
@@ -219,6 +222,30 @@ fn keeps_the_newest_seven_and_removes_older_ones_only_when_their_history_is_insi
     assert_eq!(file.kept, [stray.to_string_lossy().into_owned()]);
     assert!(stray.exists());
     assert_eq!(file.removed, [paths[1].clone()]);
+}
+
+#[test]
+fn keeps_as_many_files_as_the_vault_says_and_never_fewer_than_three() {
+    let (t, k) = with_history();
+    let mut config = k.config();
+    config.backup = Some(kasten_core::backup::BackupConfig {
+        keep_files: Some(1),
+        ..Default::default()
+    });
+    k.set_config(config).unwrap();
+    let folder = sync_folder(&t, "fewer");
+    let mut last = String::new();
+    for day in 0..5 {
+        k.create(&Actor::Human, &page(&format!("Day {day}")), at(day * 24))
+            .unwrap();
+        last = k
+            .write_backup_file(&folder, "desk", at(day * 24))
+            .unwrap()
+            .path;
+    }
+    let dir = Path::new(&last).parent().unwrap().to_owned();
+    // 1 is raised to the least that is allowed, 3.
+    assert_eq!(files_in(&dir).len(), 3);
 }
 
 #[test]

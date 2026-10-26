@@ -22,6 +22,7 @@ export const DEFAULT_KEYS: Keymap = {
   panel: ["Mod+."],
   "page-history": ["Mod+Shift+H"],
   focus: ["Mod+Shift+\\"],
+  "toggle-properties": ["Mod+Alt+P"],
   theme: ["Mod+Shift+L"],
   save: ["Mod+S"],
   shortcuts: ["Mod+Shift+/"],
@@ -33,6 +34,8 @@ export const DEFAULT_KEYS: Keymap = {
   split: ["Mod+Alt+ArrowRight"],
   stack: ["Mod+Shift+."],
   "chat-dock": ["Mod+Shift+A"],
+  // Ctrl+Shift+L is the theme's; the selection goes with Alt.
+  "chat-add-selection": ["Mod+Alt+L"],
   "zoom-in": ["Mod+=", "Mod+Shift+="],
   "zoom-out": ["Mod+-"],
   "zoom-reset": ["Mod+0"],

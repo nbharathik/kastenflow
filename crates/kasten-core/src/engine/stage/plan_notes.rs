@@ -117,6 +117,24 @@ impl Kasten {
                     Ok(saved_text(cur, &body, now).into())
                 },
             )?,
+            // The steps name blocks of the page as the set leaves it; a block
+            // that changed since it was read refuses the step here.
+            AgentOp::EditPage { path, steps, .. } => self.finish_edit(
+                set,
+                path,
+                |n| {
+                    let many = if steps.len() == 1 { "" } else { "s" };
+                    format!(
+                        "Edit {} ({} change{many})",
+                        quoted(&n.meta.title),
+                        steps.len()
+                    )
+                },
+                |cur| {
+                    let edited = crate::pages::edit_note(cur, steps)?;
+                    Ok(saved_text(cur, &edited.body, now).into())
+                },
+            )?,
             AgentOp::Tags { path, add, remove } => self.finish_edit(
                 set,
                 path,

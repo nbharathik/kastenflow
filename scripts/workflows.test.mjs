@@ -51,3 +51,41 @@ test("a full Rust run names every failure and gives Windows longer to finish", (
   const [, windows, others] = rust.match(/timeout-minutes: \$\{\{ matrix\.os == 'windows-latest' && (\d+) \|\| (\d+) \}\}/) ?? [];
   assert.ok(Number(windows) > Number(others), "Windows gets more minutes than Linux and macOS");
 });
+
+const job = (text, name) => text.split(new RegExp(`^  ${name}:`, "m"))[1]?.split(/^  \w+:/m)[0];
+
+test("docs-only changes start no CI run", () => {
+  const on = workflow("ci").split(/^permissions:/m)[0];
+  for (const event of ["push", "pull_request"]) {
+    const block = on.split(new RegExp(`^  ${event}:`, "m"))[1]?.split(/^  \w+:/m)[0];
+    assert.ok(block, `${event} trigger exists`);
+    assert.match(block, /^    paths-ignore: \["docs\/\*\*", "site\/\*\*", "\*\*\/\*\.md", "dev\/\*\*"\]\r?$/m, `${event} skips docs-only changes`);
+  }
+});
+
+test("a release reuses a full CI run that already passed on its commit", () => {
+  const release = workflow("release");
+  const gate = job(release, "gate");
+  assert.ok(gate, "gate job exists");
+  assert.match(gate, /^    permissions:\r?\n      actions: read\r?$/m);
+  assert.match(gate, /gh api "repos\/\$GH_REPO\/actions\/workflows\/ci\.yml\/runs\?head_sha=\$SHA&event=workflow_dispatch&status=success"/);
+  assert.match(gate, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.match(gate, /SHA: \$\{\{ github\.sha \}\}/);
+  assert.match(gate, /found=/);
+  assert.match(gate, /^    outputs:\r?\n      found: \$\{\{ steps\.[\w-]+\.outputs\.found \}\}\r?$/m);
+  assert.doesNotMatch(gate.split(/run: \|/)[1] ?? "", /\$\{\{/, "the gate script takes the tag and sha through env, not the script text");
+  const checks = job(release, "checks");
+  assert.match(checks, /^    needs: gate\r?$/m);
+  assert.match(checks, /^    if: needs\.gate\.outputs\.found != 'true'\r?$/m);
+  const build = job(release, "build");
+  assert.match(build, /^    needs: \[gate, checks\]\r?$/m);
+  assert.match(build, /^    if: \$\{\{ !cancelled\(\) && needs\.gate\.result == 'success' && \(needs\.checks\.result == 'success' \|\| needs\.checks\.result == 'skipped'\) \}\}\r?$/m);
+});
+
+test("the frontend runs on Linux and Windows; macOS stays in the Rust matrix", () => {
+  const ci = workflow("ci");
+  const frontend = job(ci, "frontend");
+  assert.ok(frontend, "frontend job exists");
+  assert.match(frontend, /os: \[ubuntu-24\.04, windows-latest\]/);
+  assert.match(job(ci, "rust"), /os: \[ubuntu-24\.04, windows-latest, macos-latest\]/);
+});

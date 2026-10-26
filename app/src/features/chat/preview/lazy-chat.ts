@@ -7,9 +7,9 @@ import type { ChatClient } from "../client";
 
 type Call = Omit<ChatClient, "kind" | "onEvent">;
 
-export function lazyPreviewChat(vault: () => VaultClient | null): ChatClient {
+export function lazyPreviewChat(vault: () => VaultClient | null, make?: () => Promise<ChatClient>): ChatClient {
   let loaded: Promise<ChatClient> | null = null;
-  const real = () => (loaded ??= import("./fake-chat").then((m) => m.previewChat(vault)));
+  const real = () => (loaded ??= make ? make() : import("./fake-chat").then((m) => m.previewChat(vault)));
   /** The call, made on the stand-in once it is there. */
   const later =
     <K extends keyof Call>(name: K): Call[K] =>
@@ -32,6 +32,17 @@ export function lazyPreviewChat(vault: () => VaultClient | null): ChatClient {
     send: later("send"),
     stop: later("stop"),
     reset: later("reset"),
+    newThread: later("newThread"),
+    archive: later("archive"),
+    unarchive: later("unarchive"),
+    deleteArchived: later("deleteArchived"),
+    limits: later("limits"),
+    setLimits: later("setLimits"),
+    bind: later("bind"),
+    unbind: later("unbind"),
+    threadFor: later("threadFor"),
+    rebind: later("rebind"),
+    importBindings: later("importBindings"),
     rewind: later("rewind"),
     changes: later("changes"),
     applyChanges: later("applyChanges"),

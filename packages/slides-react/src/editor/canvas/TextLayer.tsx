@@ -11,6 +11,7 @@ import { boxOf, placeholderOf } from "../../theme/index.ts";
 import { isUntouched, settleFresh } from "../quick-add/fresh.ts";
 import { findElement } from "../session/scope.ts";
 import type { EditorSession } from "../session/session.ts";
+import { linkActions } from "../text-ui/link-actions.ts";
 import { LinkPopover } from "../text-ui/LinkPopover.tsx";
 import "../text-ui/text-ui.css";
 import type { EditorUi } from "../ui-state.ts";
@@ -148,6 +149,7 @@ export function TextLayer({ session, ui, id }: { session: EditorSession; ui: Edi
               hasSelection={link.hasSelection}
               onClose={() => setLink(null)}
               onEdit={() => open("edit", link.href)}
+              actions={linkActions(session)}
             />,
             document.body,
           )

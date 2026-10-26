@@ -202,23 +202,24 @@ pub fn chat_stop(state: State<'_, ChatState>, chat: String) {
     state.chats.stop(&chat);
 }
 
-/// Forgets the chat's conversation; its next turn starts a new session. What
-/// the chat staged and the person never applied goes with it.
+/// Stops the chat's running turn and takes the chat out of memory. The
+/// saved chat and what it staged stay: a reset never deletes a saved chat
+/// (use `chat_new_thread` for a fresh one, `chat_delete_thread` to delete
+/// one). Its next message brings the saved chat back.
 #[tauri::command(async)]
-pub fn chat_reset(vault: State<'_, OpenVault>, state: State<'_, ChatState>, chat: String) {
-    let kasten = vault.require().ok();
-    // A saved chat that was not opened this run has its staged changes to throw away too.
-    if let Some(kasten) = &kasten {
-        state.chats.ensure_loaded(&chat, kasten);
-    }
-    if let Some(changes) = state.chats.reset(&chat)
-        && let Some(kasten) = &kasten
-    {
-        let set = changes.lock().unwrap_or_else(|p| p.into_inner()).clone();
-        let _ = kasten.discard_changes(&set);
-    }
-    // Its saved copy goes with it, or the next window would bring it back.
-    state.chats.forget_saved(&chat);
+pub fn chat_reset(state: State<'_, ChatState>, chat: String) {
+    state.chats.reset(&chat);
+}
+
+/// Starts a new thread and keeps the old one (`from`): the new thread's name,
+/// and the page it took over if the old one was tied to one. The old chat,
+/// and a turn still working in it, are left as they are.
+#[tauri::command(async)]
+pub fn chat_new_thread(
+    state: State<'_, ChatState>,
+    from: Option<String>,
+) -> Result<threads::NewThread, String> {
+    state.chats.new_thread(from.as_deref())
 }
 
 /// Takes the chat back to its first `keep` questions, for asking the last

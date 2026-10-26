@@ -11,7 +11,7 @@ use serde::Serialize;
 use super::parse::{Action, parse};
 
 /// The shipped actions, in the order they are offered.
-const BUILT_IN: [(&str, &str); 9] = [
+const BUILT_IN: [(&str, &str); 14] = [
     ("explain", include_str!("builtin/explain.md")),
     (
         "compare-sources",
@@ -33,6 +33,23 @@ const BUILT_IN: [(&str, &str); 9] = [
     ),
     ("tidy-diagram", include_str!("builtin/tidy-diagram.md")),
     ("check-diagram", include_str!("builtin/check-diagram.md")),
+    ("layout-page", include_str!("builtin/layout-page.md")),
+    (
+        "fix-latex-errors",
+        include_str!("builtin/fix-latex-errors.md"),
+    ),
+    (
+        "make-smart-page",
+        include_str!("builtin/make-smart-page.md"),
+    ),
+    (
+        "improve-smart-layout",
+        include_str!("builtin/improve-smart-layout.md"),
+    ),
+    (
+        "fix-smart-errors",
+        include_str!("builtin/fix-smart-errors.md"),
+    ),
 ];
 
 /// A vault file that could not be used, and why.

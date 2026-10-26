@@ -42,6 +42,9 @@ const PLAIN: Record<string, [string, IconName]> = {
   init: ["Started the vault", "sparkle"],
   templates: ["Added templates", "template"],
   import: ["Imported", "import"],
+  task: ["Ticked or unticked a to-do", "check"],
+  order: ["Put sub-pages in order", "list-plus"],
+  project: ["Changed a project", "sliders"],
 };
 
 /** The words for a change; a journal day is named as the journal names it. */
@@ -113,6 +116,16 @@ export function describeChange(summary: string): ChangeWords {
     case "template": {
       const at = text.lastIndexOf(" from ");
       return at < 0 ? words("Changed a template", "template", text) : words("Made from a template", "template", text.slice(0, at), `“${text.slice(at + 6)}”`);
+    }
+    case "collection": {
+      // "create Reading queue", "edit Reading queue", "rename Old → New".
+      const [, what = "edit", rest = text] = /^(create|edit|rename) (.*)$/s.exec(text) ?? [];
+      return words(what === "create" ? "Saved a search" : what === "rename" ? "Renamed a saved search" : "Changed a saved search", "database", rest);
+    }
+    case "reference": {
+      // "add rivera2026saved", "edit rivera2026saved".
+      const [, what = "edit", key = text] = /^(add|edit|replace) (.*)$/s.exec(text) ?? [];
+      return words(what === "add" ? "Added a reference" : "Changed a reference", "book", key);
     }
     case "undo": {
       const undid = describeChange(text);

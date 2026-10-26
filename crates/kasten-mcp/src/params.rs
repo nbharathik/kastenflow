@@ -249,7 +249,7 @@ pub struct ProposeEditArgs {
 #[schemars(crate = "rmcp::schemars")]
 pub struct TagSchemaArgs {
     pub tag: String,
-    /// {color, properties: [{key, type, options}], views: [{name, type, ...}]}. Types: text, number, select, multi_select, date, checkbox, url, relation.
+    /// {color, properties: [{key, type, options}], views: [{name, type, ...}]}. Types: text, number, select, multi_select, date, checkbox, url, relation, formula. A formula property is `{key, type: "formula", formula: "..."}` and is read-only: it is worked out from the other properties each time rows are read. Functions: days_until(date), days_since(date), count(property), count_backlinks(), sum(relation.key), min(relation.key), max(relation.key), if_empty(value, "text").
     pub schema: Value,
 }
 
@@ -339,4 +339,33 @@ pub struct GroupArgs {
     pub nodes: Vec<String>,
     /// The section's title.
     pub title: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct BatchArgs {
+    /// The changes, in order. Each is `{"tool": "append", "args": {...}}`: the
+    /// tool's name and that tool's own arguments. Up to 100, at most 1 MB in
+    /// all. The tools: capture, create_note, append, replace_section,
+    /// update_props, add_tags, remove_tags, rename_note, move_note,
+    /// journal_append, create_board, add_to_board, connect, group_on_board,
+    /// edit_page (at most one per page: its block ids are those of the page
+    /// as it is before the batch), set_parent, reorder_children, set_tag_views,
+    /// set_view_order, update_tag_schema (only for a tag that has no schema yet;
+    /// it makes the batch wait for review).
+    /// Name notes that exist already; a note the batch makes cannot be named
+    /// by a later change in it.
+    pub ops: Vec<BatchItem>,
+    /// Why, in a few words, for the person reviewing the batch.
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct BatchItem {
+    /// A write tool's name, such as `append`.
+    pub tool: String,
+    /// That tool's arguments.
+    #[serde(default)]
+    pub args: Value,
 }

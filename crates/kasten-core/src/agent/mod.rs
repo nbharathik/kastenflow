@@ -14,6 +14,6 @@ pub use change_set::{
     StagedAsset, StagedFile, Step,
 };
 pub use import::{DeckImport, ImportedDeck};
-pub use op::AgentOp;
+pub use op::{AgentOp, SmartNewFile};
 pub use proposal::{PROPOSALS, Proposal, ProposalStatus, Target};
-pub use session::{Session, Tally, load_trust, save_trust};
+pub use session::{NAME_MAX, Session, Tally, clean_name, is_invisible, load_trust, save_trust};

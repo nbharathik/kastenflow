@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon";
 import { useWorkspace } from "../workspace/store";
 import { useDeckFocus } from "./deck-focus";
+import { deckUi, keepDeckUi, setLiveDeck } from "./deck-ui";
 import { onDeckFiles } from "./events";
 import { type KastenHost, kastenHost } from "./kasten-host";
 import { PagePickerHost } from "./PagePicker";
@@ -62,9 +63,13 @@ export function DeckView({ path }: { path: string }) {
         autoFocus={autoFocus}
         focusKey={focusKey}
         routeOrphanKeys={routeOrphanKeys}
+        // The window as it was left (panel, slide, picks, filmstrip), so a tab whose view was put away opens as it was.
+        initialUi={deckUi(path)}
+        onUiChange={(snapshot) => keepDeckUi(path, snapshot)}
         onError={(message) => toast(message)}
         onSession={(session, ui) => {
           editing.current = session && ui ? { session, ui } : null;
+          setLiveDeck(path, ui);
           // Browser checks and scripts reach the editor through this, in development builds and in the preview with sample data.
           if (import.meta.env.DEV || new URLSearchParams(location.search).has("samples")) Object.assign(window, { __ks: session && ui ? { session, ui, host: loaded.host } : undefined });
         }}

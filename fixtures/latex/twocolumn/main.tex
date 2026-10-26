@@ -1,0 +1,33 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.75in,columnsep=0.25in]{geometry}
+\usepackage{graphicx}
+
+\title{A Two-Column Conference Paper}
+\author{Ada Example \and Grace Sample}
+\date{}
+
+\begin{document}
+\twocolumn[
+  \begin{@twocolumnfalse}
+    \maketitle
+    \begin{abstract}
+    A conference-style layout with two text columns, written for the
+    KastenFlow fixtures.
+    \end{abstract}
+  \end{@twocolumnfalse}
+]
+
+\section{Introduction}
+Two columns put more words on a page, which makes a source line map to a
+smaller box in the PDF. Click targets must then be placed by column.
+
+\section{Related Work}
+Earlier layouts used a single wide column \cite{knuth84}.
+
+\section{Results}
+The second column starts when the first is full.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\end{document}

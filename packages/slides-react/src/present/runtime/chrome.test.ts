@@ -51,10 +51,16 @@ const start = (options: Parameters<typeof attachChrome>[2] = {}) => {
 describe("the keys", () => {
   it("bind and unbind cleanly", () => {
     const { bindings, chrome } = start();
-    expect([...bindings.keys()].sort((a, b) => a - b)).toEqual([13, 27, 32, 33, 34, 38, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 63, 70, 76, 78, 80, 83, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 191]);
+    expect([...bindings.keys()].sort((a, b) => a - b)).toEqual([13, 27, 32, 33, 34, 38, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 63, 70, 76, 78, 80, 83, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 116, 191]);
     chrome.destroy();
     expect(bindings.size).toBe(0);
     expect(host.children).toHaveLength(0);
+  });
+
+  it("take F5 without moving, so that it never reloads the page the show is in", () => {
+    const { press, calls } = start();
+    press(116);
+    expect(calls).toEqual([]);
   });
 
   it("make Space a step or a slide, and Shift Space the way back, closing the overview first", () => {

@@ -216,14 +216,15 @@ const HEADER_KEYS: [&str; 3] = ["title", "icon", "cover"];
 /// (another tool's `layout: post` stays untouched).
 const CHOICE_KEYS: [(&str, &[&str]); 6] = [
     ("font", &["sans", "serif", "mono"]),
-    ("width", &["normal", "full"]),
+    ("width", &["normal", "wide", "full"]),
     ("text", &["small", "normal", "large", "xl"]),
     ("locked", &["true"]),
     (
         "opens",
         &["here", "tab", "right", "peek-side", "peek-center", "stack"],
     ),
-    ("layout", &["sections"]),
+    // `smart` makes the page a smart page: its code folder runs in place of the text.
+    ("layout", &["sections", "smart"]),
 ];
 
 /// Sets or removes one header key, editing only its line, and bumps `updated`.
@@ -234,6 +235,27 @@ pub fn set_meta(
     value: Option<&str>,
     now: Instant,
 ) -> Result<NoteFile> {
+    check_meta_value(key, value)?;
+    let current = vault.read(rel)?;
+    let parts = split(&current.text);
+    let eol = eol_of(&current.text);
+    // The lock is a YAML boolean, `locked: true`, as people write it by hand.
+    let mut prefix = if key == "locked" {
+        set_key_raw(parts.prefix, key, value, eol)
+    } else {
+        set_key(parts.prefix, key, value, eol)
+    };
+    prefix = set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
+    still_readable(parts.prefix, &prefix)?;
+    write_atomic(
+        &vault.path_of(rel)?,
+        join(&prefix, parts.body, eol).as_bytes(),
+    )?;
+    vault.read(rel)
+}
+
+/// Whether `key` is a header key that may change and `value` one it may take.
+pub(crate) fn check_meta_value(key: &str, value: Option<&str>) -> Result<()> {
     let layout = CHOICE_KEYS.iter().find(|(k, _)| *k == key);
     if !HEADER_KEYS.contains(&key) && layout.is_none() {
         return Err(Error::Invalid(format!(
@@ -253,22 +275,7 @@ pub fn set_meta(
             "A page's {key} is one line of text, without control characters"
         )));
     }
-    let current = vault.read(rel)?;
-    let parts = split(&current.text);
-    let eol = eol_of(&current.text);
-    // The lock is a YAML boolean, `locked: true`, as people write it by hand.
-    let mut prefix = if key == "locked" {
-        set_key_raw(parts.prefix, key, value, eol)
-    } else {
-        set_key(parts.prefix, key, value, eol)
-    };
-    prefix = set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
-    still_readable(parts.prefix, &prefix)?;
-    write_atomic(
-        &vault.path_of(rel)?,
-        join(&prefix, parts.body, eol).as_bytes(),
-    )?;
-    vault.read(rel)
+    Ok(())
 }
 
 /// Makes a card a page or a page a card: sets `type` (and `updated`), the

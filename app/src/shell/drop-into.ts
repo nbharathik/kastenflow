@@ -8,10 +8,18 @@ import type { NoteMeta } from "../lib/vault/types";
 import { carriesNotes, draggedNotes, droppedNotes } from "../features/workspace/drag";
 import { nestable, nestNote } from "../features/workspace/placing";
 import { droppedOn, moveInto } from "../features/workspace/project-actions";
+import { moveBeside } from "../features/workspace/reorder";
 import { useWorkspace } from "../features/workspace/store";
+import { dropPlan, type Edge } from "./drop-plan";
 
 /** How a project, a page or Pages shows that a dragged page would go in. */
 export const DROP_INTO = "rounded-md bg-accent/10 ring-1 ring-inset ring-accent/50";
+
+/** The line that shows a dragged page would go before or after a row. */
+export const DROP_EDGE: Record<Edge, string> = {
+  before: "shadow-[inset_0_2px_0_0_var(--color-accent)]",
+  after: "shadow-[inset_0_-2px_0_0_var(--color-accent)]",
+};
 
 /** A project row being dragged (to reorder), not a page to place. */
 const reordering = (event: DragEvent) => event.dataTransfer.types.includes("application/x-kasten-project");
@@ -32,38 +40,55 @@ export function onOwnRow(event: DragEvent<HTMLElement>): boolean {
   return !row || event.target === event.currentTarget || (event.target instanceof Node && row.contains(event.target));
 }
 
-/** A page row as a drop target: dragged pages go inside it. */
+/** A page row as a drop target: dragged pages go inside it (the middle of the
+ * row) or beside it (its edges, see drop-plan.ts). */
 export function useNestDrop(into: NoteMeta) {
   const [over, setOver] = useState(false);
-  const takes = (event: DragEvent) => {
-    if (into.kind !== "page" || !carriesNotes(event) || reordering(event)) return false;
-    const paths = draggedNotes();
-    return paths === null || nestable(useWorkspace.getState().notes, paths, into).length > 0;
+  const [edge, setEdge] = useState<Edge | null>(null);
+  const clear = () => {
+    setOver(false);
+    setEdge(null);
+  };
+  const planFor = (event: DragEvent<HTMLElement>, paths: readonly string[] | null) => {
+    if (!carriesNotes(event) || reordering(event)) return null;
+    const box = event.currentTarget.getBoundingClientRect();
+    return dropPlan(useWorkspace.getState().notes, paths, into, box.height > 0 ? (event.clientY - box.top) / box.height : 0.5);
   };
   return {
     over,
+    edge,
     handlers: {
-      onDragOver(event: DragEvent) {
-        if (!takes(event)) return;
+      onDragOver(event: DragEvent<HTMLElement>) {
+        const plan = planFor(event, draggedNotes());
+        if (!plan) return clear();
         // The page, not the project around it, takes the drop.
         event.preventDefault();
         event.stopPropagation();
         event.dataTransfer.dropEffect = "move";
-        setOver(true);
+        setOver(plan.kind === "into");
+        setEdge(plan.edge ?? null);
       },
       onDragLeave(event: DragEvent<HTMLElement>) {
         if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
-        setOver(false);
+        clear();
       },
-      onDrop(event: DragEvent) {
-        setOver(false);
-        if (!takes(event)) return;
+      onDrop(event: DragEvent<HTMLElement>) {
+        clear();
+        const paths = droppedNotes(event);
+        const plan = planFor(event, paths);
+        if (!plan) return;
         event.preventDefault();
         event.stopPropagation();
-        const notes = nestable(useWorkspace.getState().notes, droppedNotes(event), into);
-        void (async () => {
-          for (const note of notes) await nestNote(note.path, into.path);
-        })();
+        const ws = useWorkspace.getState();
+        if (plan.kind === "refuse") ws.toast(plan.why);
+        else if (plan.kind === "beside") void moveBeside(paths[0]!, into.path, plan.after);
+        else if (plan.kind === "out") void nestNote(plan.path, plan.parent);
+        else {
+          const notes = nestable(ws.notes, paths, into);
+          void (async () => {
+            for (const note of notes) await nestNote(note.path, into.path);
+          })();
+        }
       },
     },
   };

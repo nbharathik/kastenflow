@@ -7,6 +7,8 @@ import type { TagSchema, TagView } from "../../../../lib/vault/types";
 import { hiddenColumns, hideColumn, moveColumn, showColumn, sortColumn, sortOf, type Column } from "./columns";
 import { Floating } from "./Floating";
 import { own } from "./format";
+import { calcOf, defaultCalc, kindOf, withCalc } from "./calc";
+import { groupChoices, withGroup } from "./group";
 import { Glyph, TitleMark } from "./icons";
 
 const TYPE_NAMES: Record<string, string> = {
@@ -24,13 +26,13 @@ const TYPE_NAMES: Record<string, string> = {
 export const typeName = (column: Column) => (column.kind === "builtin" ? "Note field" : (own(TYPE_NAMES, column.type) ?? column.type));
 
 /** Arrow keys between a menu's items; the first takes focus when it opens. */
-function useMenuKeys(onClose: () => void) {
+export function useMenuKeys(onClose: () => void) {
   const menu = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    menu.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
+    menu.current?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
   }, []);
   const onKeyDown = (e: KeyboardEvent) => {
-    const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])];
+    const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
     const at = items.indexOf(document.activeElement as HTMLElement);
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
@@ -51,7 +53,7 @@ interface ItemProps {
   onSelect(): void;
 }
 
-function Item({ icon, label, disabled, onSelect }: ItemProps) {
+export function Item({ icon, label, disabled, onSelect }: ItemProps) {
   return (
     <button type="button" role="menuitem" className="kasten-table-menu-item" disabled={disabled} onClick={onSelect}>
       <Glyph name={icon} />
@@ -80,6 +82,8 @@ export function ColumnMenu({ anchor, column, index, count, view, schema, change,
     if (next !== view) change(next);
   };
   const dir = sortOf(view, column.key);
+  const groupable = view.type === "table" && groupChoices(view, schema).some((c) => c.key === column.key);
+  const grouped = view.group_by === column.key;
   return (
     <Floating anchor={anchor} role="menu" label={`${column.label} column`} onClose={() => onClose(false)} minWidth={210}>
       <div ref={menu} className="kasten-table-menu" onKeyDown={onKeyDown}>
@@ -90,6 +94,8 @@ export function ColumnMenu({ anchor, column, index, count, view, schema, change,
         </div>
         <Item icon="up" label={dir === "asc" ? "Sorted ascending" : "Sort ascending"} disabled={dir === "asc" && view.sort?.length === 1} onSelect={() => act(sortColumn(view, column.key, "asc"))} />
         <Item icon="down" label={dir === "desc" ? "Sorted descending" : "Sort descending"} disabled={dir === "desc" && view.sort?.length === 1} onSelect={() => act(sortColumn(view, column.key, "desc"))} />
+        {!calcOf(view, column) && <Item icon="number" label="Calculate" onSelect={() => act(withCalc(view, column.key, defaultCalc(kindOf(column))))} />}
+        {groupable && <Item icon="select" label={grouped ? "Remove grouping" : "Group by this column"} onSelect={() => act(withGroup(view, grouped ? null : column.key))} />}
         {column.kind !== "title" && (
           <>
             <hr className="kasten-table-menu-line" />

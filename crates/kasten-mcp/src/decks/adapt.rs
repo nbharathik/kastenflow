@@ -199,6 +199,7 @@ mod tests {
             "update_tag_schema",
             "create_template",
             "update_template",
+            "apply_template",
             "list_boards",
             "read_board",
             "create_board",

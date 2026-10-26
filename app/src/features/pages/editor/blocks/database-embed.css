@@ -12,9 +12,14 @@
 }
 
 .kasten-page-editor .kasten-db-embed-body {
-  max-height: 560px;
+  /* A definite height, so the table inside windows its rows and keeps its header. */
+  height: min(560px, 60vh);
   overflow: auto;
   padding: 4px 10px 10px;
   font-family: var(--font-sans);
   font-size: var(--text-13);
+
+  & > .kasten-tagdb {
+    height: 100%;
+  }
 }

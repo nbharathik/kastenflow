@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { registerPage } from "../features/workspace/page/open-page";
 import { usePageLayouts } from "../features/workspace/page/page-layout";
 import type { PageSession } from "../features/workspace/page/page-session";
 import { usePrefs } from "../features/workspace/prefs";
-import { PageOpensMenu } from "./PageOpens";
+import { askPageOpens, PageOpensMenu, useAskedPageOpens } from "./PageOpens";
 
 const PATH = "library/a.md";
 const editHeader = vi.fn();
@@ -65,6 +66,20 @@ describe("Open links from this page in…", () => {
     await act(async () => fireEvent.click(item("As Settings say: the same tab")));
     expect(editHeader).toHaveBeenLastCalledWith("opens", null);
     expect(usePageLayouts.getState().of.get(session)).toEqual({});
+  });
+
+  it("opens when the palette asks for this page's menu, and not for another page's", () => {
+    const open = vi.fn();
+    function Bar({ path }: { path: string }) {
+      const ref = useRef<HTMLDivElement>(null);
+      useAskedPageOpens(path, ref, open);
+      return <div ref={ref} />;
+    }
+    render(<Bar path={PATH} />);
+    act(() => askPageOpens("library/other.md"));
+    expect(open).not.toHaveBeenCalled();
+    act(() => askPageOpens(PATH));
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("draws nothing for a page that is not open", () => {

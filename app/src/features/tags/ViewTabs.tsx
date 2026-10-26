@@ -7,11 +7,12 @@ import { useState } from "react";
 
 import type { TagSchema, TagView, TagViewKind } from "../../lib/vault/types";
 import { Menu, type MenuItem } from "../../shell/Menu";
+import { useWorkspace } from "../workspace/store";
 import { KIND_NAMES, VIEW_KINDS, freshName, newView } from "./model";
 import { Icon } from "../../ui/Icon";
 import type { IconName } from "../../ui/icons";
 
-export const KIND_ICONS: Record<TagViewKind, IconName> = { table: "table", kanban: "kanban", list: "list", calendar: "calendar", gallery: "gallery" };
+export const KIND_ICONS: Record<TagViewKind, IconName> = { table: "table", kanban: "kanban", list: "list", calendar: "calendar", gallery: "gallery", timeline: "calendar-days" };
 
 interface ViewTabsProps {
   views: TagView[];
@@ -24,7 +25,13 @@ interface ViewTabsProps {
 
 export function ViewTabs({ views, active, schema, onSelect, onSave }: ViewTabsProps) {
   const [renaming, setRenaming] = useState<number | null>(null);
+  const hasDate = (schema?.properties ?? []).some((p) => p.type === "date");
   const add = (kind: TagViewKind) => {
+    // A timeline places notes by a date property; without one there is nothing to start from.
+    if (kind === "timeline" && !hasDate) {
+      useWorkspace.getState().toast("A timeline needs a date property. Add one with Properties at the top, then add the timeline.");
+      return;
+    }
     const view = newView(kind, schema, views);
     onSave([...views, view], view.name);
   };
@@ -73,7 +80,7 @@ export function ViewTabs({ views, active, schema, onSelect, onSave }: ViewTabsPr
           ),
         )}
       </div>
-      <Menu label="Add a view" align="left" buttonClass="kasten-tagdb-add-view" items={VIEW_KINDS.map((kind) => ({ label: KIND_NAMES[kind], icon: <Icon name={KIND_ICONS[kind]} className="size-4" />, onSelect: () => add(kind) }))}>
+      <Menu label="Add a view" align="left" buttonClass="kasten-tagdb-add-view" items={VIEW_KINDS.map((kind) => ({ label: KIND_NAMES[kind], icon: <Icon name={KIND_ICONS[kind]} className="size-4" />, hint: kind === "timeline" && !hasDate ? "needs a date" : undefined, onSelect: () => add(kind) }))}>
         + View
       </Menu>
     </div>

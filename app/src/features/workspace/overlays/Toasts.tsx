@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { boxOf } from "../../browser/bounds";
 import { useOccludes, useOcclusion } from "../../browser/occlusion";
+import { useShowing } from "../../browser/show";
 import { useWorkspace, type Toast } from "../store";
 import { Icon } from "../../../ui/Icon";
 
@@ -20,14 +21,14 @@ export function Toasts() {
   // which its native view does not cover (the page is drawn above them); where
   // one would still be under it, the page steps aside while they show.
   const browsing = useOcclusion((s) => Object.keys(s.areas).length > 0);
+  // While a slide show fills the window nothing of the app's own shows over it: what arrives waits and is shown once the show ends.
+  const presenting = useShowing((s) => s.count > 0);
   const stack = useRef<HTMLDivElement>(null);
-  useOccludes(toasts.length > 0, () => (stack.current ? boxOf(stack.current.getBoundingClientRect()) : null));
+  useOccludes(toasts.length > 0 && !presenting, () => (stack.current ? boxOf(stack.current.getBoundingClientRect()) : null));
   // Always there, so screen readers hear what arrives in it.
   return (
     <div ref={stack} className={`kasten-toasts${browsing ? " is-left" : ""}`} role="status" aria-live="polite">
-      {toasts.map((toast) => (
-        <ToastCard key={toast.id} toast={toast} />
-      ))}
+      {presenting ? null : toasts.map((toast) => <ToastCard key={toast.id} toast={toast} />)}
     </div>
   );
 }

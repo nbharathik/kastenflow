@@ -249,7 +249,7 @@ pub(super) enum Action {
         d: u8,
         n: u8,
     },
-    /// Words with a highlight behind them (or one that is not a colour), set as an element's text.
+    /// Words with marks (a highlight, or one that is not a colour; bold, colour, links, lists), set as an element's text.
     Highlight {
         slide: usize,
         el: usize,
@@ -387,7 +387,7 @@ pub(super) fn action() -> impl Strategy<Value = Action> {
                 n,
             }
         }),
-        (idx(), idx(), 0u8..5).prop_map(|(slide, el, n)| Action::Highlight { slide, el, n }),
+        (idx(), idx(), 0u8..8).prop_map(|(slide, el, n)| Action::Highlight { slide, el, n }),
         (idx(), 0u8..4).prop_map(|(slide, n)| Action::PasteSized { slide, n }),
         (idx(), 0u8..4).prop_map(|(layout, n)| Action::LayoutImportSized { layout, n }),
         Just(Action::Replace),

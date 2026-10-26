@@ -1,0 +1,4 @@
+[
+  { "op": "replace", "block": { "block": "b2" }, "markdown": "First reason." },
+  { "op": "delete", "block": { "block": "b3" } }
+]

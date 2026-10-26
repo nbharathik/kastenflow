@@ -16,6 +16,7 @@ import { Icon } from "../../../ui/Icon";
 import { useBoards } from "../../boards/store";
 import { useWorkspace } from "../../workspace/store";
 import { saveChat } from "../actions";
+import { migrateDeckBindings } from "../binding/migrate";
 import { useChat } from "../store";
 import { ChangeSetBar } from "../changes/ChangeSetBar";
 import { type Thread } from "../thread";
@@ -24,16 +25,20 @@ import { Composer, type ComposerHandle } from "./Composer";
 import { NoProvider, Welcome } from "./Empty";
 import { LinksContext, linksFor, type Variant } from "./links";
 import { MessageList } from "./MessageList";
-import { ThreadMenu } from "./ThreadList";
-import { ThreadModel, ThreadTitle } from "./ThreadHead";
+import { AdoptFailed } from "./AdoptFailed";
+import { BindChip } from "./BindChip";
+import { ThreadMenu, newChat } from "./ThreadList";
+import { ArchiveButton, ThreadModel, ThreadTitle } from "./ThreadHead";
+import { WaitingNotice } from "./WaitingNotice";
 
 /** Connects the chat, reads the providers, the saved chats and the boards (for names) once. */
 export function useChatSetup(): void {
   useEffect(() => {
     const chat = useChat.getState();
-    chat.ensure();
+    const client = chat.ensure();
     if (chat.providers === null) void chat.loadProviders();
-    if (!chat.savedLoaded) void chat.loadSaved();
+    // The old deck-to-chat map becomes ties first, so the list already knows them.
+    if (!chat.savedLoaded) void migrateDeckBindings(client).then(() => chat.loadSaved());
     if (!useBoards.getState().loaded) void useBoards.getState().load();
   }, []);
 }
@@ -54,6 +59,7 @@ export function Conversation({ id, variant, page, autoFocus = false, onClose, he
   const thread = useChat((s) => s.threads[id]);
   const providers = useChat((s) => s.providers);
   const problem = useChat((s) => s.providersError);
+  const failed = useChat((s) => (s.failedOpen && !s.threads[s.failedOpen] ? s.failedOpen : null));
   const links = useMemo(() => linksFor(variant), [variant]);
   const composer = useRef<ComposerHandle>(null);
   // While this shows the thread, what it finished or stopped for is seen.
@@ -64,11 +70,19 @@ export function Conversation({ id, variant, page, autoFocus = false, onClose, he
     <LinksContext.Provider value={links}>
       <section className="kasten-chat" data-variant={variant} aria-label="Chat">
         {onClose ? <DockHead thread={thread} onClose={onClose} extra={headExtra} /> : <Head thread={thread} />}
-        <MessageList thread={thread} empty={none ? <NoProvider problem={problem} /> : <Welcome thread={thread} onPick={(text) => composer.current?.fill(text)} />} />
-        <div className="kasten-chat-foot">
-          <ChangeSetBar thread={thread} />
-          <Composer key={thread.id} ref={composer} thread={thread} page={page} autoFocus={autoFocus} />
-        </div>
+        {/* A chat that could not be read back is said so, never shown as an empty one. */}
+        {failed ? (
+          <AdoptFailed id={failed} />
+        ) : (
+          <>
+            <MessageList thread={thread} empty={none ? <NoProvider problem={problem} /> : <Welcome thread={thread} onPick={(text) => composer.current?.fill(text)} />} />
+            <div className="kasten-chat-foot">
+              <WaitingNotice thread={thread} />
+              <ChangeSetBar thread={thread} />
+              <Composer key={thread.id} ref={composer} thread={thread} page={page} autoFocus={autoFocus} />
+            </div>
+          </>
+        )}
       </section>
     </LinksContext.Provider>
   );
@@ -87,10 +101,12 @@ function Head({ thread }: { thread: Thread }) {
     <header className="kasten-chat-head">
       <ThreadMenu active={thread.id} />
       <ThreadTitle thread={thread} as="h1" />
+      <BindChip thread={thread} />
       <ThreadModel thread={thread} />
       <button type="button" className="kasten-chat-head-button" disabled={!canSave} onClick={() => void save()} title="Keep this chat as a note in chats/">
         {saving ? "Saving…" : "Save chat"}
       </button>
+      <ArchiveButton thread={thread} />
     </header>
   );
 }
@@ -108,9 +124,10 @@ function DockHead({ thread, onClose, extra }: { thread: Thread; onClose: () => v
           <ThreadTitle thread={thread} />
         </span>
         <ThreadModel thread={thread} />
+        <BindChip thread={thread} />
       </div>
       {extra}
-      <button type="button" className="kasten-chat-icon-button" aria-label="New chat" title="New chat" disabled={thread.messages.length === 0} onClick={() => useChat.getState().start({ open: true })}>
+      <button type="button" className="kasten-chat-icon-button" aria-label="New chat" title="New chat" disabled={thread.messages.length === 0} onClick={newChat}>
         <Icon name="compose" className="size-4" />
       </button>
       <button
@@ -127,6 +144,7 @@ function DockHead({ thread, onClose, extra }: { thread: Thread; onClose: () => v
       >
         <Icon name="download" className="size-4" />
       </button>
+      <ArchiveButton thread={thread} compact />
       <button
         type="button"
         className="kasten-chat-icon-button"

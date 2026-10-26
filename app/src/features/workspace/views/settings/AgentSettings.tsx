@@ -8,6 +8,7 @@ import type { VaultConfig } from "../../../../lib/vault/types";
 import { Button } from "../../../../ui/Button";
 import { useWorkspace } from "../../store";
 import { appServer, BARE, claudeCodeCommand, httpCommand, httpUrl, mcpConfig, tokenPath, urlConfig, type Server } from "./connect";
+import { AgentModeSettings } from "./AgentModeSettings";
 import { entryById } from "./index";
 import { Group, Row } from "./parts";
 
@@ -69,7 +70,8 @@ export function AgentSettings() {
 
   return (
     <>
-      <Group title="AI agents">
+      <AgentModeSettings />
+      <Group title="AI agents" sub>
         <Row id="agents.claude">
           <CopyButton text={claudeCodeCommand(vault, server)} label="Copy command" />
         </Row>

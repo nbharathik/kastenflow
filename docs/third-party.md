@@ -3,7 +3,8 @@
 KastenFlow's own licence is in `LICENSE`. The libraries, icons and typeface that ship inside the app are
 listed, each with its licence text, in the app (Settings, About) and in `app/public/third-party-notices.txt`,
 which is written again for every release build. This page is about software KastenFlow can download after you
-ask for it, and it names the libraries that version 1.2.1 added to the app.
+ask for it, and it names the libraries that version 1.2.1 added to the app. Version 1.2.2 adds the CodeMirror
+editor packages (MIT) for LaTeX and smart pages' code, and can download Tectonic.
 
 ## Libraries added in 1.2.1: checking the ChatGPT sign-in
 
@@ -29,6 +30,29 @@ key, so the advisory does not apply to how it is used.
 
 `slides-bib`, a small BibTeX reader added in the same release, is KastenFlow's own code under Apache-2.0 and has
 no dependencies.
+
+## LaTeX: Tectonic
+
+Credit: **Tectonic, a self-contained TeX engine (MIT licence), by the Tectonic Typesetting Project.**
+
+The LaTeX plugin builds documents with a TeX program. KastenFlow can download Tectonic for you, once, when you
+press **Install Tectonic** on a LaTeX document (or turn the LaTeX plugin on). It is not part of the KastenFlow
+download, and LaTeX also works with a TeX you installed yourself (MiKTeX, MacTeX or TeX Live).
+
+- **What is downloaded.** One release archive of Tectonic from its GitHub releases page,
+  `https://github.com/tectonic-typesetting/tectonic/releases`, for your system. KastenFlow checks its size and
+  checksum before it unpacks anything and installs nothing that does not match; the download is offered only in
+  builds that carry those checks.
+- **Where it goes.** KastenFlow's data folder on your computer, never your vault. **Remove download** in
+  Settings → Plugins deletes it.
+- **The TeX packages.** When Tectonic builds a document, it fetches the TeX packages that document needs from
+  the Tectonic project's package server, and keeps them in KastenFlow's data folder. That is why the first
+  build needs a connection.
+- **How it runs.** With the limits of an untrusted build: only the document's own files are in its folder, it
+  has a time limit, and it is stopped when you stop the build.
+
+The text editor of LaTeX documents and of smart pages' code is CodeMirror (MIT licence), which ships inside the
+app and is listed in the app's notices.
 
 ## Diagram editor: draw.io (diagrams.net)
 

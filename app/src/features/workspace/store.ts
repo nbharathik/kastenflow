@@ -11,8 +11,10 @@ import type { NoteMeta, VaultClient } from "../../lib/vault/types";
 import { isDraft } from "./drafts";
 import { wayToOpen } from "./go-how";
 import { directoryOf } from "./links";
+import { openKind } from "./open-kind";
 import { loadRecent, MAX_RECENT, saveRecent } from "./recent";
-import { merged, patched, upserted } from "./note-list";
+import { merged, patched, sameMeta, settled, upserted } from "./note-list";
+import { dropStats, holdStats } from "./note-stats";
 import { usePeek } from "../peek/store";
 import { usePrefs } from "./prefs";
 import { derive, layoutSlice, loadLayout } from "./store-layout";
@@ -51,9 +53,26 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
    * one of them is known to be out of date. */
   let edits = 0;
 
+  /** The waiting counts of typed pages, taken into the list. */
+  function takeStats(metas: NoteMeta[]) {
+    let notes = get().notes;
+    for (const meta of metas) notes = settled(notes, meta);
+    if (notes === get().notes) return;
+    edits++;
+    set({ notes });
+  }
+
+  /** A save's counts alone do not change the list (so nothing drawn from it
+   * draws again for each one): the page's details show them from
+   * note-stats.ts and the list takes them in when the typing pauses. */
   function upsert(meta: NoteMeta) {
     const notes = upserted(get().notes, meta);
-    if (notes === get().notes) return;
+    if (notes === get().notes) {
+      const had = noteAt(notes, meta.path);
+      if (had && !sameMeta(had, meta)) holdStats(meta, takeStats);
+      return;
+    }
+    dropStats(meta.path);
     edits++;
     set({ notes });
   }
@@ -132,6 +151,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         if (!fresh) return;
         if (edits !== before && tries < 3) continue;
         const notes = merged(get().notes, fresh);
+        dropStats();
         if (notes !== get().notes) set({ notes });
         return;
       }
@@ -147,6 +167,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       const found = await attempt((c) => c.notesAt(wanted));
       if (!found) return;
       const notes = patched(get().notes, wanted, found);
+      // A change made elsewhere brings its counts like a save does.
+      for (const meta of found) {
+        const had = noteAt(notes, meta.path);
+        if (had && !sameMeta(had, meta)) holdStats(meta, takeStats);
+      }
       if (notes === get().notes) return;
       edits++;
       set({ notes });
@@ -182,8 +207,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     openPath(path, how) {
       // A journal day opens in the journal, beside the other days.
-      const view = path.endsWith(".canvas") ? "boards" : path.endsWith(".deck") ? "slides" : path.endsWith(".drawio") ? "diagrams" : /\.pdf$/i.test(path) ? "highlights" : JOURNAL_DAY.test(path) ? "journal" : "page";
-      get().go({ view, path }, how);
+      const kind = openKind(path);
+      get().go({ view: kind === "page" && JOURNAL_DAY.test(path) ? "journal" : kind, path }, how);
     },
 
     async openTitle(title, how) {

@@ -13,16 +13,15 @@ mod log;
 pub(crate) mod merging;
 mod push;
 mod remote;
+mod restage;
+mod start;
 mod trail;
 mod worktree;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
-use git2::{
-    IndexAddOption, Repository, RepositoryInitOptions, RepositoryOpenFlags, Signature,
-    StatusOptions,
-};
+use git2::{Repository, RepositoryOpenFlags, Signature, StatusOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
@@ -32,8 +31,9 @@ pub use bundle::{BundleHeader, read_bundle_header, restore_from_bundle, verify_b
 pub use changes::FileChange;
 pub use fetch::clone_backup;
 pub(crate) use folder::local_only;
-use folder::{exclude_local, has_git_folder, ignore_local, stays_inside};
+use folder::{exclude_local, has_git_folder, stays_inside};
 use locks::Writing;
+pub(crate) use log::COPY_OF;
 pub use log::CommitInfo;
 pub(crate) use push::BEHIND;
 pub use push::{BackupState, BackupStatus};
@@ -110,35 +110,7 @@ impl History {
         }))
     }
 
-    /// Starts history for a vault: a repository on `main`, the cache ignored,
-    /// and a first commit of everything there.
-    pub fn init(root: &Path, name: &str) -> Result<History> {
-        // A repository made since the vault opened is checked before git
-        // writes to it.
-        if has_git_folder(root)?
-            && let Ok(found) = open_here(root)
-        {
-            stays_inside(&found, root)?;
-        }
-        let repo = Repository::init_opts(root, RepositoryInitOptions::new().initial_head("main"))?;
-        stays_inside(&repo, root)?;
-        keep_line_endings(&repo)?;
-        ignore_local(root)?;
-        let history = History {
-            repo: Mutex::new(repo),
-            root: root.to_owned(),
-        };
-        {
-            let repo = history.repo();
-            let mut index = repo.index()?;
-            index.add_all(["*"], IndexAddOption::DEFAULT, None)?;
-            index.write()?;
-        }
-        history.commit_index(&format!("init: {name}"), &Actor::Human, "init", &[])?;
-        Ok(history)
-    }
-
-    fn repo(&self) -> MutexGuard<'_, Repository> {
+    pub(crate) fn repo(&self) -> MutexGuard<'_, Repository> {
         self.repo
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -167,6 +139,12 @@ impl History {
     ) -> Result<Option<String>> {
         self.clear_stale_locks();
         let _writing = Writing::start(&self.root);
+        // Files too big for GitHub stay out; the list of them goes in.
+        let screened = crate::backup::skip::screen(&self.root, paths);
+        let mut paths = screened.keep;
+        if screened.wrote && !paths.iter().any(|p| p == crate::backup::SKIP_PATH) {
+            paths.push(crate::backup::SKIP_PATH.to_owned());
+        }
         {
             let repo = self.repo();
             let mut index = repo.index()?;
@@ -177,6 +155,21 @@ impl History {
                 } else if index.get_path(rel, 0).is_some() {
                     index.remove_path(rel)?;
                 }
+            }
+            // A file that grew past the limit between the check and the add (a
+            // download still being written) is taken out again and listed, or
+            // it would block every push.
+            let mut grew = Vec::new();
+            for path in paths.iter().filter(|p| !local_only(p)) {
+                if crate::backup::skip::too_big(&self.root, path)
+                    && index.get_path(Path::new(path), 0).is_some()
+                {
+                    index.remove_path(Path::new(path))?;
+                    grew.push(path.clone());
+                }
+            }
+            if !grew.is_empty() && crate::backup::skip::screen(&self.root, &grew).wrote {
+                index.add_path(Path::new(crate::backup::SKIP_PATH))?;
             }
             index.write()?;
         }
@@ -253,35 +246,6 @@ impl History {
         out.sort();
         out.dedup();
         Ok(out)
-    }
-
-    /// Stops tracking local files an earlier version committed, keeping
-    /// them on disk: one commit, or None when none are tracked.
-    pub fn untrack_local(&self) -> Result<Option<String>> {
-        self.clear_stale_locks();
-        let _writing = Writing::start(&self.root);
-        {
-            let repo = self.repo();
-            let mut index = repo.index()?;
-            let tracked: Vec<String> = index
-                .iter()
-                .filter_map(|e| String::from_utf8(e.path).ok())
-                .filter(|p| local_only(p))
-                .collect();
-            if tracked.is_empty() {
-                return Ok(None);
-            }
-            for path in &tracked {
-                index.remove_path(Path::new(path))?;
-            }
-            index.write()?;
-        }
-        self.commit_index(
-            "untrack: KastenFlow's cache, which belongs to this computer",
-            &Actor::Human,
-            "untrack",
-            &[],
-        )
     }
 
     /// The checked-out branch.

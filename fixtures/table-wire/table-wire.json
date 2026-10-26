@@ -1,0 +1,97 @@
+{
+  "about": "The changes the database table's UI sends to the core as ONE batch, written out. The Vitest test (app/src/features/tags/views/table/table-wire.test.ts) checks that the UI builds exactly these; the Rust test (crates/kasten-core/tests/core/table_wire.rs) feeds exactly these to Kasten::batch_as_person and checks one commit, one undo and the result. '@path:Title' and '@id:Title' stand for the path and id of the note with that title. 'before' changes run first as their own batch.",
+  "setup": [
+    { "kind": "create_note", "type": "page", "title": "Alpha", "tags": ["travel"], "props": { "status": "Idea", "budget": 100 } },
+    { "kind": "create_note", "type": "page", "title": "Beta", "tags": ["travel"], "props": { "status": "Booked", "budget": 250 } },
+    { "kind": "create_note", "type": "page", "title": "Gamma", "tags": ["travel", "idea"], "props": {} }
+  ],
+  "cases": [
+    {
+      "name": "set a property on two rows",
+      "changes": [
+        { "kind": "update_props", "path": "@path:Alpha", "props": { "status": "Planning" } },
+        { "kind": "update_props", "path": "@path:Gamma", "props": { "status": "Planning" } }
+      ],
+      "expect": { "notes": { "Alpha": { "props": { "status": "Planning" } }, "Gamma": { "props": { "status": "Planning" } }, "Beta": { "props": { "status": "Booked" } } } }
+    },
+    {
+      "name": "clear a property",
+      "changes": [{ "kind": "update_props", "path": "@path:Alpha", "props": { "status": null } }],
+      "expect": { "notes": { "Alpha": { "props": { "budget": 100 }, "absent_props": ["status"] } } }
+    },
+    {
+      "name": "set a number and a date",
+      "changes": [{ "kind": "update_props", "path": "@path:Beta", "props": { "budget": 300, "start": "2026-10-02" } }],
+      "expect": { "notes": { "Beta": { "props": { "budget": 300, "start": "2026-10-02" } } } }
+    },
+    {
+      "name": "add a tag",
+      "changes": [{ "kind": "tags", "path": "@path:Gamma", "add": ["review"], "remove": [] }],
+      "expect": { "notes": { "Gamma": { "tags": ["travel", "idea", "review"] } } }
+    },
+    {
+      "name": "remove a tag",
+      "changes": [{ "kind": "tags", "path": "@path:Gamma", "add": [], "remove": ["idea"] }],
+      "expect": { "notes": { "Gamma": { "tags": ["travel"] } } }
+    },
+    {
+      "name": "move rows to a project",
+      "changes": [
+        { "kind": "move", "path": "@path:Alpha", "project": "photo-organiser" },
+        { "kind": "move", "path": "@path:Beta", "project": "photo-organiser" }
+      ],
+      "expect": { "notes": { "Alpha": { "project": "photo-organiser" }, "Beta": { "project": "photo-organiser" }, "Gamma": { "project": null } } }
+    },
+    {
+      "name": "move a row back to the library",
+      "before": [{ "kind": "move", "path": "@path:Alpha", "project": "photo-organiser" }],
+      "changes": [{ "kind": "move", "path": "@path:Alpha", "project": null }],
+      "expect": { "notes": { "Alpha": { "project": null } } }
+    },
+    {
+      "name": "add rows to a board",
+      "changes": [{ "kind": "add_to_board", "board": "projects/photo-organiser/boards/brainstorm.canvas", "notes": ["@path:Alpha", "@path:Beta"], "layout": "grid" }],
+      "expect": { "files": { "projects/photo-organiser/boards/brainstorm.canvas": ["@path:Alpha", "@path:Beta"] } }
+    },
+    {
+      "name": "paste over an existing row",
+      "changes": [
+        { "kind": "update_props", "path": "@path:Alpha", "props": { "status": "Booked", "budget": 120 } },
+        { "kind": "rename", "path": "@path:Alpha", "title": "Alpha prime" }
+      ],
+      "expect": { "notes": { "Alpha prime": { "props": { "status": "Booked", "budget": 120 } } }, "absent_titles": ["Alpha"] }
+    },
+    {
+      "name": "paste new rows",
+      "changes": [
+        { "kind": "create_note", "type": "page", "title": "Delta", "tags": ["travel"], "props": { "status": "Idea", "budget": 5 } },
+        { "kind": "create_note", "type": "page", "title": "Untitled", "tags": ["travel"], "props": { "status": "Done" } }
+      ],
+      "expect": { "notes": { "Delta": { "tags": ["travel"], "props": { "status": "Idea", "budget": 5 } }, "Untitled": { "props": { "status": "Done" } } } }
+    },
+    {
+      "name": "paste new rows into a project",
+      "changes": [{ "kind": "create_note", "type": "page", "title": "Delta", "tags": ["travel"], "props": { "budget": 5 }, "project": "photo-organiser" }],
+      "expect": { "notes": { "Delta": { "project": "photo-organiser", "props": { "budget": 5 } } } }
+    },
+    {
+      "name": "paste new rows under a page",
+      "changes": [{ "kind": "create_note", "type": "page", "title": "Delta", "tags": ["travel"], "props": { "budget": 5 }, "parent": "@path:Alpha" }],
+      "expect": { "notes": { "Delta": { "parent_of": "Alpha" } } }
+    },
+    {
+      "name": "put rows in order by hand",
+      "changes": [{ "kind": "set_view_order", "tag": "travel", "view": "Trips", "ids": ["@id:Gamma", "@id:Alpha", "@id:Beta"] }],
+      "expect": { "files": { "tags/travel.yaml": ["order: [@id:Gamma, @id:Alpha, @id:Beta]"] } }
+    },
+    {
+      "name": "a page made and then named by the next changes",
+      "changes": [
+        { "kind": "create_note", "type": "page", "title": "Parent", "tags": ["travel"], "props": {} },
+        { "kind": "create_note", "type": "page", "title": "Child", "tags": ["travel"], "props": {}, "parent": { "$ref": 0 } },
+        { "kind": "update_props", "path": { "$ref": 1 }, "props": { "budget": 9 } }
+      ],
+      "expect": { "notes": { "Child": { "parent_of": "Parent", "props": { "budget": 9 } } } }
+    }
+  ]
+}

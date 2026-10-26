@@ -1,0 +1,35 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:18
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty))
+(./main.aux)
+
+! LaTeX Error: File `figure1.png' not found.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...
+
+l.9 \includegraphics{figure1.png}
+
+?
+! I can't find file `chapter2'.
+l.15 \input{chapter2}
+
+(Press Enter to retry, or Control-D to exit)
+Please type another input file name:
+! Emergency stop.
+l.15 \input{chapter2}
+
+*** (job aborted, file error in nonstop mode)
+No pages of output.
+Transcript written on main.log.

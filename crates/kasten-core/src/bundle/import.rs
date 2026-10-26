@@ -215,6 +215,8 @@ pub(crate) fn prepare(kasten: &Kasten, root: &Path, now: Instant) -> Result<Prep
         let path = file.path.as_str();
         if let Some(rest) = path.strip_prefix(&own) {
             let how = match ext(path).as_str() {
+                // A smart page's code and data come in exactly as they are.
+                _ if crate::companions::in_folder(path) => How::Plain,
                 "md" => How::Note,
                 "canvas" => How::Board,
                 "deck" => How::Deck,

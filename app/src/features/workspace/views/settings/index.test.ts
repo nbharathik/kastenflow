@@ -7,7 +7,7 @@ import { cardIds, ENTRIES, entryById, GROUPS, groupById, HEADINGS, resolveGroup,
 import { hasWords, pieces, wordsOf } from "./search";
 
 /** The groups of the old page, in its words. */
-const OLD_GROUPS = ["Appearance", "Pages", "Sidebar", "Calendar", "Diagrams", "Browser", "Browser extension", "Templates", "AI providers", "Search by meaning", "AI agents", "Vault", "History and backup", "Desktop", "Keyboard shortcuts", "About"];
+const OLD_GROUPS = ["Appearance", "Pages", "Sidebar", "Calendar", "Diagrams", "Browser", "Browser extension", "Templates", "AI providers", "Search by meaning", "AI agents", "Vault", "History", "Desktop", "Keyboard shortcuts", "About"];
 
 /** Every control of the old page: its group and its label. */
 const OLD_CONTROLS: [group: string, label: string][] = [
@@ -17,7 +17,7 @@ const OLD_CONTROLS: [group: string, label: string][] = [
   ["Appearance", "Motion"],
   ["Pages", "Font"],
   ["Pages", "Text size"],
-  ["Pages", "Full width"],
+  ["Pages", "Page width"],
   ["Pages", "Check spelling"],
   ["Pages", "Open pages in a new tab"],
   ["Pages", "Open pages from views in"],
@@ -72,13 +72,18 @@ const OLD_CONTROLS: [group: string, label: string][] = [
   ["Vault", "Notes live in"],
   ["Vault", "Import notes"],
   ["Vault", "Switch vault"],
-  ["History and backup", "Vault folder"],
-  ["History and backup", "History"],
-  ["History and backup", "Back up to GitHub"],
-  ["History and backup", "Backup remote"],
-  ["History and backup", "Get latest"],
-  ["History and backup", "Backup files"],
-  ["History and backup", "Check the vault"],
+  ["History", "Vault folder"],
+  ["History", "History"],
+  // Backup has its own group now, split from History.
+  ["Backup", "Back up to GitHub"],
+  ["Backup", "Backup remote"],
+  ["Backup", "Get latest"],
+  ["Backup", "Backup files"],
+  ["Backup", "When to back up"],
+  ["Backup", "Changes from other computers"],
+  ["Backup", "Safety"],
+  ["Backup", "What is not in the backup"],
+  ["History", "Check the vault"],
   ["Desktop", "Keep running when the window closes"],
   ["Desktop", "Quick capture"],
   ["Desktop", "Notifications"],
@@ -103,6 +108,14 @@ describe("the index of groups", () => {
     expect(HEADINGS).toEqual(["General", "Connect", "Data", "System"]);
   });
 
+  it("has a Plugins group, under Data, found by name and by a word of its entry", () => {
+    expect(groupById("plugins")).toMatchObject({ title: "Plugins", heading: "Data" });
+    expect(resolveGroup("plugins")).toBe("plugins");
+    expect(settingsTarget("settings/plugins")).toEqual({ group: "plugins" });
+    expect(entryById("plugins.list")?.group).toBe("plugins");
+    expect([...searchSettings("add-ons", false).ids]).toEqual(["plugins.list"]);
+  });
+
   it("gives every group an icon, a one-line blurb and a name that finds it", () => {
     for (const g of GROUPS) {
       expect(g.icon, g.id).toBeTruthy();
@@ -112,7 +125,7 @@ describe("the index of groups", () => {
       expect(resolveGroup(g.id), g.id).toBe(g.id);
     }
     expect(resolveGroup("  history AND backup ")).toBe("history");
-    expect(resolveGroup("backup")).toBe("history");
+    expect(resolveGroup("backup")).toBe("backup");
     expect(resolveGroup("Subscribed calendars")).toBe("calendar");
     expect(resolveGroup("nothing like it")).toBeNull();
   });
@@ -151,7 +164,7 @@ describe("the index of settings", () => {
 
   it("names rows and cards in ids the page can use", () => {
     expect(rowDomId("appearance.zoom")).toBe("setting-appearance-zoom");
-    expect(sectionId("History and backup")).toBe("settings-history-and-backup");
+    expect(sectionId("History")).toBe("settings-history");
     expect(sectionId("AI providers")).toBe("settings-ai-providers");
   });
 });
@@ -162,7 +175,7 @@ describe("searching Settings", () => {
   it("finds a setting by its label", () => {
     expect(ids("interface size")).toContain("appearance.zoom");
     expect(ids("INTERFACE")).toContain("appearance.zoom");
-    expect(ids("full width")).toEqual(["pages.fullWidth"]);
+    expect(ids("page width")).toEqual(["pages.pageWidth"]);
   });
 
   it("finds a setting by a word of its explanation", () => {

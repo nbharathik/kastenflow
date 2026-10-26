@@ -10,7 +10,7 @@ import { create } from "zustand";
 
 import { readKeys } from "../../pages/page/page-meta";
 import { OPENS } from "../opens";
-import type { PageFont, TextSize } from "../prefs";
+import type { PageFont, PageWidth, TextSize } from "../prefs";
 import type { PageSession } from "./page-session";
 
 export type LayoutKey = "font" | "width" | "text" | "opens" | "layout";
@@ -23,10 +23,10 @@ export type StyleKey = (typeof STYLE_KEYS)[number];
 /** The values each key takes, as the core checks them. */
 export const LAYOUT_VALUES = {
   font: ["sans", "serif", "mono"],
-  width: ["normal", "full"],
+  width: ["normal", "wide", "full"],
   text: ["small", "normal", "large", "xl"],
   opens: OPENS,
-  layout: ["sections"],
+  layout: ["sections", "smart"],
 } as const satisfies Record<LayoutKey, readonly string[]>;
 
 export type PageLayout = { [K in LayoutKey]?: (typeof LAYOUT_VALUES)[K][number] };
@@ -47,13 +47,13 @@ export function readLayout(prefix: string): PageLayout {
 export interface LayoutDefaults {
   font: PageFont;
   textSize: TextSize;
-  fullWidth: boolean;
+  pageWidth: PageWidth;
 }
 
 export interface ShownLayout {
   font: PageFont;
   text: TextSize;
-  full: boolean;
+  width: PageWidth;
 }
 
 /** What a page shows: its own layout, else the defaults. */
@@ -61,7 +61,7 @@ export function shownLayout(own: PageLayout, defaults: LayoutDefaults): ShownLay
   return {
     font: own.font === undefined ? defaults.font : own.font === "sans" ? "default" : own.font,
     text: own.text ?? defaults.textSize,
-    full: own.width === undefined ? defaults.fullWidth : own.width === "full",
+    width: own.width ?? defaults.pageWidth,
   };
 }
 
@@ -69,7 +69,7 @@ export function shownLayout(own: PageLayout, defaults: LayoutDefaults): ShownLay
 export function layoutValue(key: StyleKey, shown: ShownLayout, defaults: LayoutDefaults): string | null {
   if (key === "font") return shown.font === defaults.font ? null : shown.font === "default" ? "sans" : shown.font;
   if (key === "text") return shown.text === defaults.textSize ? null : shown.text;
-  return shown.full === defaults.fullWidth ? null : shown.full ? "full" : "normal";
+  return shown.width === defaults.pageWidth ? null : shown.width;
 }
 
 /** Each open page's own layout, by its session (which follows renames),

@@ -1,10 +1,12 @@
 import { type JSX, useEffect, useRef, useState } from "react";
 
+import { type LinkChoice, LinkMenu, copyLink, isWebPage } from "../../present/link-menu.tsx";
 import { linkFromInput, safeLink } from "../../text/links.ts";
 import type { TextEditorHandle } from "../../text/index.ts";
 import { swallowKeys } from "../menus/focus.ts";
 import { keepFocusExceptFields } from "../toolbar/ColorButton.tsx";
-import { Popover, type Anchor } from "../ui/Popover.tsx";
+import { Popover, type Anchor, pointAnchor } from "../ui/Popover.tsx";
+import type { LinkActions } from "./link-actions.ts";
 import "./text-ui.css";
 
 export interface LinkPopoverProps {
@@ -20,6 +22,8 @@ export interface LinkPopoverProps {
   onClose(): void;
   /** The card asks for the address to be changed. */
   onEdit(): void;
+  /** What the host can do with a web address: the card offers Preview and a right-click menu with these. */
+  actions?: LinkActions;
 }
 
 /** A link that a click can follow: a web address, mail or phone, never a link to a slide or something the page must not open. */
@@ -30,7 +34,8 @@ const followable = (href: string): boolean => /^(https?:|mailto:|tel:)/i.test(hr
  * words, when none are selected), and a caret inside a link shows the address with Open, Change and Remove. Enter applies,
  * Escape closes, and the words keep the caret.
  */
-export function LinkPopover({ handle, mode, href, anchor, hasSelection, onClose, onEdit }: LinkPopoverProps): JSX.Element {
+export function LinkPopover({ handle, mode, href, anchor, hasSelection, onClose, onEdit, actions }: LinkPopoverProps): JSX.Element {
+  const [menu, setMenu] = useState<Anchor | null>(null);
   const [address, setAddress] = useState(href ?? "");
   const [words, setWords] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -60,9 +65,36 @@ export function LinkPopover({ handle, mode, href, anchor, hasSelection, onClose,
     handle.focus();
   };
 
+  // A web page can be previewed, opened in a tab or in the person's browser, or copied: the same six choices as on a link in a show.
+  const web = mode === "card" && href !== null && isWebPage(href);
+  const picked = (choice: LinkChoice): void => {
+    if (href === null) return;
+    if (choice === "here") actions?.preview?.(href, "center");
+    else if (choice === "side") actions?.preview?.(href, "side");
+    else if (choice === "full") actions?.preview?.(href, "full");
+    else if (choice === "tab") actions?.tab?.(href);
+    else if (choice === "browser") actions?.browser(href);
+    else copyLink(href);
+    if (choice !== "copy") onClose();
+  };
+
   return (
     <Popover anchor={anchor} onClose={onClose} label={mode === "edit" ? "Link" : "Link address"}>
-      <div className="ks-tui ks-tui-link" data-ks-keep-focus="" onMouseDown={keepFocusExceptFields} onKeyDown={swallowKeys}>
+      <div
+        className="ks-tui ks-tui-link"
+        data-ks-keep-focus=""
+        onMouseDown={keepFocusExceptFields}
+        onKeyDown={swallowKeys}
+        onContextMenu={
+          web
+            ? (event) => {
+                event.preventDefault();
+                setMenu(pointAnchor(event.clientX, event.clientY));
+              }
+            : undefined
+        }
+      >
+        {menu ? <LinkMenu anchor={menu} onClose={() => setMenu(null)} onChoose={picked} previews={actions?.preview !== undefined} tab={actions?.tab !== undefined} /> : null}
         {mode === "card" && href !== null ? (
           <>
             <div className="ks-tui-link-address">
@@ -80,6 +112,18 @@ export function LinkPopover({ handle, mode, href, anchor, hasSelection, onClose,
                 <a className="ks-btn ks-text-btn" href={href} target="_blank" rel="noopener noreferrer" onClick={onClose}>
                   Open
                 </a>
+              ) : null}
+              {web && actions?.preview ? (
+                <button
+                  type="button"
+                  className="ks-btn ks-text-btn"
+                  onClick={() => {
+                    actions.preview?.(href);
+                    onClose();
+                  }}
+                >
+                  Preview
+                </button>
               ) : null}
               <button type="button" className="ks-btn ks-text-btn" onClick={onEdit}>
                 Change

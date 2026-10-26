@@ -1,0 +1,4 @@
+[
+  { "op": "replace", "block": { "block": "b1" }, "markdown": "Uno" },
+  { "op": "delete", "block": { "block": "b1" } }
+]

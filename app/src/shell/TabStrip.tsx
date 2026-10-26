@@ -6,7 +6,7 @@ import { boardTitle, useBoards } from "../features/boards/store";
 import { boxOf } from "../features/browser/bounds";
 import { holdWhile, useOccludes } from "../features/browser/occlusion";
 import { useWebTitles, webTitle } from "../features/browser/titles";
-import { titleOfPath } from "../features/diagrams/names";
+import { viewById } from "../plugins/contributions";
 import { deckTitle, useDecks } from "../features/slides/store";
 import { Popup } from "../features/pages/page/Popup";
 import { draftSpec, isDraft } from "../features/workspace/drafts";
@@ -32,7 +32,9 @@ export function tabFace(place: Place, notes: NoteMeta[], boards: readonly BoardI
   // A browser tab is named by its page, as the page said, else its site.
   if (place.view === "web") return { icon: lineIcon("globe"), title: webTitle(place.url), ...(place.url ? { where: place.url } : {}) };
   if (place.view === "slides" && place.path) return { icon: lineIcon("present"), title: deckTitle(decks, place.path) };
-  if (place.view === "diagrams" && place.path) return { icon: lineIcon("diagram"), title: titleOfPath(place.path) };
+  // A plugin's view may name a tab by the file it shows.
+  const face = place.view.startsWith("plugin:") ? viewById(place.view)?.face?.(place) : null;
+  if (face) return { icon: lineIcon(face.icon), title: face.title };
   if (place.view === "boards" && place.path) return { icon: lineIcon("board"), title: boardTitle(boards, place.path) };
   if (place.view === "highlights" && place.path) {
     return { icon: lineIcon("book"), title: sourceTitle(sources, place.path) };

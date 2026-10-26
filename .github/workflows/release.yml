@@ -31,13 +31,44 @@ env:
   PNPM_VERSION: "12.6.0"
 
 jobs:
+  # A full CI run started by hand on this very commit that passed already
+  # covers the release's checks, so the release skips the matrix and builds
+  # at once. Only gh runs here, with a read-only token, so the gate holds no
+  # secret. An API error fails the gate, and no build starts.
+  gate:
+    name: Look for a passed full run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      found: ${{ steps.check.outputs.found }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Find a passed full run on this commit
+        id: check
+        run: |
+          count=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=workflow_dispatch&status=success" --jq '.workflow_runs | length')
+          if [ "$count" -gt 0 ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Runs only when the gate found no passed full run on this commit.
   checks:
     name: Full checks
+    needs: gate
+    if: needs.gate.outputs.found != 'true'
     uses: ./.github/workflows/ci.yml
 
   build:
     name: Build (${{ matrix.name }})
-    needs: checks
+    needs: [gate, checks]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     strategy:

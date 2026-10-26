@@ -41,15 +41,21 @@ import type { PageSession } from "./page-session";
 import { useAgentMarks } from "./use-agent-marks";
 import { useNoteSession, type LoadedNote } from "./use-note-session";
 import { useTemplateFill } from "./use-template-fill";
-import { usePageEditor } from "./use-page-editor";
+import { useBlank, useBody, usePageEditor } from "./use-page-editor";
 import { usePageHeader } from "./use-page-header";
 import { usePageLinks } from "./use-page-links";
 import { keepLayout, readLayout, setLayout, shownLayout, usePageLayouts } from "./page-layout";
 import { inProject, placeLabel } from "./place-label";
 import { SourcePanel } from "./SourcePanel";
 import { pageFontSize } from "./text-size";
+import { inTauri } from "../../../lib/api";
+import { useSmartRunning } from "../../smart/run-switch";
+import { SmartOffLine, SmartTabs } from "../../smart/SmartTabs";
+import { useSmartSide } from "../../smart/use-smart-side";
 
 const ProjectHome = lazy(() => import("../../projects/ProjectHome").then((m) => ({ default: m.ProjectHome })));
+/** A smart page's view loads when the first one is opened. */
+const SmartPage = lazy(() => import("../../smart/SmartPage").then((m) => ({ default: m.SmartPage })));
 
 const FONTS: Record<PageFont, string> = {
   default: "var(--notion-font)",
@@ -116,10 +122,14 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   const journal = note.meta.kind === "journal";
   const editor = useRef<PageEditorHandle | null>(null);
   const bodyRoot = useRef<HTMLDivElement>(null);
-  const prefs = usePrefs();
+  const font = usePrefs((s) => s.font);
+  const textSize = usePrefs((s) => s.textSize);
+  const pageWidth = usePrefs((s) => s.pageWidth);
+  const spellcheck = usePrefs((s) => s.spellcheck);
+  const defaults = useMemo(() => ({ font, textSize, pageWidth }), [font, textSize, pageWidth]);
   const [opened] = useState(() => readLayout(loaded.prefix));
   const own = usePageLayouts((s) => s.of.get(session)) ?? opened;
-  const layout = shownLayout(own, prefs);
+  const layout = shownLayout(own, defaults);
   useEffect(() => {
     keepLayout(session, opened);
     return () => keepLayout(session, null);
@@ -132,6 +142,12 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   // The sections layout (`layout: sections`) and the page being presented.
   const smart = own.layout === "sections";
   const pageKey = live.id || session.path;
+  // A smart page (`layout: smart`): its smart view, its notes (this page) or the history of its code.
+  const smartOn = own.layout === "smart" && !compact && !headless && !journal;
+  const desktop = inTauri();
+  const run = useSmartRunning(undefined, smartOn && desktop);
+  const [side, setSide] = useSmartSide(pageKey);
+  const smartOff = smartOn && desktop && run.known && !run.on;
   const frame = useRef<HTMLDivElement>(null);
   const presenting = usePresenting(frame) !== null;
   /** "/smart page" in the editor: the page keeps the layout in its frontmatter. */
@@ -160,14 +176,18 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   const hasProps = live.tags.length > 0 || Object.keys(live.props).length > 0;
   const { marks, agent } = useAgentMarks(client, session, loaded.prefix + loaded.body === note.text);
 
-  const { body, onBody, editorReady, onReady } = usePageEditor({ loaded, session, journal, compact, headless, editor, bodyRoot });
+  const { body: typed, onBody, editorReady, onReady } = usePageEditor({ loaded, session, journal, compact, headless, editor, bodyRoot });
   const { header, freshPage, onHeader, onTitleDone } = usePageHeader(loaded, session, journal, editor);
   // A page kept from the web can be highlighted: marks over its words, kept beside it.
   const captured = !compact && !headless && isCaptured(live, loaded.prefix);
+  // Only what reads the text draws again as it is typed: the section strip,
+  // comments, the side panels and the highlights, while they show.
+  const inView = !compact && !peek;
+  const body = useBody(typed, captured || (smart && !headless && inView) || (panelOpen && inView) || (sourceOpen && inView));
   const highlights = useTextHighlights({ client, path: session.path, editor, ready: editorReady, body, enabled: captured });
   useHighlighter(highlights, editor, frame, captured);
   const pickTemplate = useTemplateFill(client, session, onReload, live, notes);
-  const blank = !journal && !compact && !body.trim();
+  const blank = useBlank(typed, !journal && !compact);
 
   const style = {
     "--page-font": FONTS[layout.font],
@@ -175,10 +195,27 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   } as CSSProperties;
   const shownHeader = journal ? { ...header, title: titleOf(live) } : header;
 
+  // The app has not said yet whether smart pages run: a moment, not a flash of the wrong side.
+  if (smartOn && desktop && !run.known) return <p className="kasten-note-message">Opening…</p>;
+  if (smartOn && !smartOff && side !== "notes") {
+    return (
+      <div ref={frame} className={`kasten-page is-smart-view${layout.width === "full" ? " is-full-width" : ""}`} style={style}>
+        <Suspense fallback={<p className="kasten-note-message">Opening…</p>}>
+          <SmartPage pagePath={session.path} pageId={live.id ?? ""} title={titleOf(live)} side={side} onSide={setSide} />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
-    <div ref={frame} tabIndex={presenting ? -1 : undefined} className={`kasten-page${layout.full ? " is-full-width" : ""}${compact ? " is-compact" : ""}${headless ? " is-headless" : ""}${smart ? " is-sections" : ""}${presenting ? " is-presenting" : ""}`} style={style}>
+    <div ref={frame} tabIndex={presenting ? -1 : undefined} className={`kasten-page${layout.width === "full" ? " is-full-width" : layout.width === "wide" ? " is-wide" : ""}${compact ? " is-compact" : ""}${headless ? " is-headless" : ""}${smart ? " is-sections" : ""}${presenting ? " is-presenting" : ""}`} style={style}>
       {smart && !compact && !headless && !peek && <SectionStrip editor={editor} body={body} ready={editorReady} />}
       <div className="kasten-page-main">
+        {smartOn && (
+          <div className="kasten-smart-notes-bar">
+            {smartOff ? <SmartOffLine /> : <SmartTabs side="notes" onSide={setSide} />}
+          </div>
+        )}
         {conflict && <ConflictBanner copy={conflict} onDismiss={onDismissConflict} />}
         {!headless && live.kind === "project" && isArchived(live) && <ArchivedBanner note={live} />}
         {!headless && (
@@ -206,7 +243,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
           </div>
         )}
         {/* A click in the margins or below the text writes there, a drag selects blocks (the editor's gutter). */}
-        <div ref={bodyRoot} className="kasten-page-column kasten-page-body" data-editor-gutter="" spellCheck={prefs.spellcheck}>
+        <div ref={bodyRoot} className="kasten-page-column kasten-page-body" data-editor-gutter="" spellCheck={spellcheck}>
           <PageEditor body={loaded.body} onChange={onBody} onReady={onReady} links={links} files={files} marks={marks} agent={agent} title={titleOf(live)} onTemplate={journal || compact ? undefined : pickTemplate} pageKey={pageKey} smart={smart} onSmartPage={keepSmart} subPageFind={compact || headless ? undefined : subPages} />
           <div className="kasten-page-tail" aria-hidden="true" />
           {!compact && <PageFooter note={live} notes={notes} client={client} />}

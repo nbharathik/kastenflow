@@ -66,6 +66,15 @@ describe("the health page's sections", () => {
     expect(waiting.summary).toContain("3 edits");
   });
 
+  it("warns when the vault's settings file cannot be read, and keeps saving failures first", () => {
+    const health = report({ configProblem: ".kasten/config.yaml: bad. The settings from before stay in force until the file is fixed" });
+    const saving = section(sectionsOf(input({ health })), "saving");
+    expect(saving.level).toBe("warn");
+    expect(saving.summary).toContain("settings file could not be read");
+    expect(section(sectionsOf(input({ health, commitError: "disk full" })), "saving").level).toBe("fail");
+    expect(section(sectionsOf(input({ health: report({ configProblem: null }) })), "saving").level).toBe("ok");
+  });
+
   it("describes the backup: off is a choice, stale warns, failing fails", () => {
     const off = section(sectionsOf(input({ health: report({ backup: { state: "off", lastPush: null, failures: 0, lastError: null } }) })), "backup");
     expect(off.level).toBe("info");

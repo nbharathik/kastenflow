@@ -12,6 +12,7 @@ import { saveChat } from "../actions";
 import { useChat } from "../store";
 import { matchesThread, threadStatus, threadTitle, type ThreadStatus } from "../thread";
 import { STATUS_WORDS, useUnread } from "../unread";
+import { ArchivedList } from "./ArchivedList";
 
 interface Row {
   id: string;
@@ -22,12 +23,14 @@ interface Row {
   /** Kept from an earlier run and not opened in this window yet. */
   kept: boolean;
   status: ThreadStatus;
+  /** Moved out of the list by its size: shown under Archived. */
+  archived: boolean;
 }
 
 const SEP = "\u0001";
 
 /** A summary's status as a thread's. */
-const KEPT_STATUS: Record<string, ThreadStatus> = { running: "working", paused: "paused", interrupted: "interrupted", error: "failed", idle: "idle" };
+const KEPT_STATUS: Record<string, ThreadStatus> = { running: "working", waiting: "waiting", paused: "paused", interrupted: "interrupted", error: "failed", idle: "idle" };
 
 /** Threads worth listing: those with messages, and the open one; then those kept from an earlier run. As
  * strings, so a streaming answer does not redraw the list. */
@@ -37,30 +40,31 @@ function useRows(active: string | null): Row[] {
       ...s.order.flatMap((id) => {
         const t = s.threads[id];
         if (!t || (t.messages.length === 0 && id !== active)) return [];
-        return [[id, t.streaming ? "1" : "", t.messages.length ? "" : "1", "", threadStatus(t), threadTitle(t)].join(SEP)];
+        return [[id, t.streaming ? "1" : "", t.messages.length ? "" : "1", "", threadStatus(t), threadTitle(t), t.archived ? "1" : ""].join(SEP)];
       }),
       ...Object.values(s.saved)
         .filter((k) => !s.threads[k.id])
         .sort((a, b) => b.updated - a.updated)
-        .map((k) => [k.id, k.status === "running" ? "1" : "", "", "1", KEPT_STATUS[k.status] ?? "idle", k.title || "Chat"].join(SEP)),
+        .map((k) => [k.id, k.status === "running" || k.status === "waiting" ? "1" : "", "", "1", KEPT_STATUS[k.status] ?? "idle", k.title || "Chat", k.archived ? "1" : ""].join(SEP)),
     ]),
   );
   return useMemo(
     () =>
       keys.map((key) => {
-        const [id = "", streaming, empty, kept, status = "idle", title = ""] = key.split(SEP);
-        return { id, title, streaming: Boolean(streaming), empty: Boolean(empty), kept: Boolean(kept), status: status as ThreadStatus };
+        const [id = "", streaming, empty, kept, status = "idle", title = "", archived] = key.split(SEP);
+        return { id, title, streaming: Boolean(streaming), empty: Boolean(empty), kept: Boolean(kept), status: status as ThreadStatus, archived: Boolean(archived) };
       }),
     [keys],
   );
 }
 
+/** A new chat. An empty chat is new enough. A chat tied to a page hands the tie to the new one and stays in the list. */
 export function newChat(): void {
   const chat = useChat.getState();
   const current = chat.active ? chat.threads[chat.active] : undefined;
-  // An empty chat is new enough.
   if (current && current.messages.length === 0) return;
-  chat.start({ open: true });
+  if (current?.bound) void chat.newThreadFrom(current.id, { open: true });
+  else chat.start({ open: true });
 }
 
 /** What a row says of its thread, if anything: what it is doing, or what finished since you looked. */
@@ -70,15 +74,20 @@ function useStatusWord(id: string, status: ThreadStatus): string {
   return STATUS_WORDS[status];
 }
 
+/** Whether the chat's name or anything said in it holds `query`: a chat not in the window is found by its name. */
+function matchesId(id: string, query: string): boolean {
+  const thread = useChat.getState().threads[id];
+  return thread ? matchesThread(thread, query) : useChat.getState().saved[id]?.title.toLowerCase().includes(query.trim().toLowerCase()) === true;
+}
+
 export function ThreadList({ active }: { active: string }) {
-  const rows = useRows(active);
+  const all = useRows(active);
+  // The open chat stays in the main list even when it is archived, so it is never lost from view.
+  const rows = useMemo(() => all.filter((row) => !row.archived || row.id === active), [all, active]);
+  const archived = useMemo(() => all.filter((row) => row.archived && row.id !== active), [all, active]);
   const [query, setQuery] = useState("");
   // Read when the query changes or the list does, not as an answer streams.
-  const hit = (id: string) => {
-    const thread = useChat.getState().threads[id];
-    return thread ? matchesThread(thread, query) : useChat.getState().saved[id]?.title.toLowerCase().includes(query.trim().toLowerCase()) === true;
-  };
-  const shown = query.trim() ? rows.filter((row) => hit(row.id)) : rows;
+  const shown = query.trim() ? rows.filter((row) => matchesId(row.id, query)) : rows;
   return (
     <aside className="kasten-chat-threads" aria-label="Chats">
       <button type="button" className="kasten-chat-new" onClick={newChat}>
@@ -93,6 +102,7 @@ export function ThreadList({ active }: { active: string }) {
           <Item key={row.id} row={row} active={active} />
         ))}
       </ul>
+      <ArchivedList rows={archived} active={active} matches={matchesId} />
       <p className="kasten-chat-threads-hint">Chats are kept on this computer, not in your vault. Save one to keep it in chats/.</p>
     </aside>
   );
@@ -123,8 +133,8 @@ function Item({ row, active }: { row: Row; active: string }) {
           items={[
             // Saving as a note needs the thread in this window.
             ...(row.kept ? [] : [{ label: "Save chat", onSelect: () => void saveChat(row.id) }]),
-            // The backend forgets it too; what it changed stays in History.
-            { label: "Remove from the list", onSelect: () => void (row.kept ? useChat.getState().removeSaved(row.id) : useChat.getState().discard(row.id)) },
+            // It goes under Archived, saved, and can be brought back; deleting is done there, by name.
+            { label: "Archive chat", onSelect: () => void (row.kept ? useChat.getState().archive(row.id) : useChat.getState().discard(row.id)) },
           ]}
         >
           <Icon name="more" className="size-4" />
@@ -136,14 +146,14 @@ function Item({ row, active }: { row: Row; active: string }) {
 
 /** The same threads as a menu, for a narrow pane. */
 export function ThreadMenu({ active }: { active: string }) {
-  const rows = useRows(active);
+  const rows = useRows(active).filter((row) => !row.archived || row.id === active);
   // The menu tells items apart by their words: the same question twice gets a number.
   const seen = new Map<string, number>();
   const items = rows.map((row) => {
     const n = (seen.get(row.title) ?? 0) + 1;
     seen.set(row.title, n);
     const label = n > 1 ? `${row.title} (${n})` : row.title;
-    const note = row.status === "working" ? " · working" : row.status === "paused" || row.status === "interrupted" || row.status === "failed" ? ` · ${STATUS_WORDS[row.status].toLowerCase()}` : "";
+    const note = row.status === "working" ? " · working" : row.status === "waiting" || row.status === "paused" || row.status === "interrupted" || row.status === "failed" ? ` · ${STATUS_WORDS[row.status].toLowerCase()}` : "";
     return { label: row.id === active ? `${label} ✓` : `${label}${note}`, onSelect: () => useChat.getState().open(row.id) };
   });
   return (

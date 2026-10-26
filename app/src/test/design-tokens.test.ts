@@ -58,14 +58,45 @@ describe("design tokens", () => {
   it("size text on the type scale", () => {
     expect(found(SCRIPTS, /\btext-\[\d[^\]]*\]/g)).toEqual([]);
     // Sizes in CSS come from the scale or are relative to the text around
-    // them. The page's icon and a PDF thumbnail's lines are drawings.
-    const drawings = new Set(["features/pages/page/page.css 72px", "features/sources/highlights.css 6.5px"]);
+    // them. The page's icon and a PDF thumbnail's lines are drawings, and so
+    // are the labels inside the smart kit's charts: their sizes are in the
+    // chart's own drawing units (a viewBox), not pixels on the screen. The kit is
+    // served to a sandboxed page as plain files, so it cannot use the app's
+    // CSS variables for these.
+    const drawings = new Set([
+      "features/pages/page/page.css 72px",
+      "features/sources/highlights.css 6.5px",
+      "smart-kit/kit.css 10px",
+      "smart-kit/kit.css 7px",
+      "smart-kit/kit.css 3.5px",
+    ]);
     const sizes = found(STYLES, /font-size:\s*[\d.]+px|\bfont:\s*(?:\d{3}\s+)?[\d.]+px/g, (hit, file) => drawings.has(`${file} ${hit.match(/[\d.]+px/)![0]}`));
     expect(sizes).toEqual([]);
   });
 
+  it("write no raw colours in the tables, views, menus and page styles", () => {
+    const listed = new Set([
+      "features/workspace/page/note-page.css",
+      "features/pages/editor/styles/agent.css",
+      "features/pages/editor/styles/menus.css",
+      "features/pages/editor/styles/notion.css",
+      "features/tags/tag-views.css",
+      "features/tags/tag-schema.css",
+      "features/tags/views/table/table.css",
+      "features/tags/views/kanban/cards.css",
+      "features/tags/views/kanban/board.css",
+      "features/pages/editor/blocks/database-embed.css",
+    ]);
+    const paths = STYLES.filter((path) => listed.has(relative(SRC, path).replaceAll("\\", "/")));
+    expect(paths).toHaveLength(listed.size);
+    expect(found(paths, /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g)).toEqual([]);
+  });
+
   it("keep labels in sentence case and surfaces free of blur", () => {
-    expect(found(STYLES, /text-transform:\s*uppercase|backdrop-filter/g)).toEqual([]);
+    // The smart kit's badge (a status chip inside a page's own frame, which cannot use the app's
+    // styles) is the one place a style sheet may set capitals, and only text-transform there.
+    const kitBadge = (hit: string, file: string) => file === "smart-kit/kit.css" && /^text-transform/.test(hit);
+    expect(found(STYLES, /text-transform:\s*uppercase|backdrop-filter/g, kitBadge)).toEqual([]);
     expect(found(SCRIPTS, /(?<![\w-])(?:uppercase|backdrop-blur(?:-\w+)?)(?![\w-])(?=[^"`]*["`])/g)).toEqual([]);
   });
 });

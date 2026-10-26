@@ -81,11 +81,11 @@ describe("Chat view", () => {
     expect(currentTab(useWorkspace.getState().layout).place).toEqual({ view: "page", path: saved.path });
     useWorkspace.getState().go({ view: "chat" });
 
-    // Undo what the chat changed, after asking.
-    fireEvent.click(screen.getByRole("button", { name: "Undo this chat's changes" }));
-    const ask_ = screen.getByRole("alertdialog", { name: "Undo this chat's changes?" });
-    await act(async () => fireEvent.click(within(ask_).getByRole("button", { name: "Undo changes" })));
+    // Undo what the chat changed: a few changes are undone at once, with a way back.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Undo this chat's changes" })));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect((await screen.findByRole("status")).textContent).toContain("Reverted 2 changes.");
+    expect(screen.getByRole("button", { name: "Undo the undo" })).toBeTruthy();
     expect((await vault.list()).map((n) => n.path)).not.toContain("inbox/hotel-ideas.md");
     expect(screen.queryByRole("button", { name: "Open Hotel ideas" })).toBeNull();
     expect(screen.getByText("This chat's changes were undone.")).toBeTruthy();
@@ -115,7 +115,7 @@ describe("Chat view", () => {
     expect(within(log()).getByText("Tell me everything")).toBeTruthy();
   });
 
-  it("removes a thread from the list, and the backend forgets it", async () => {
+  it("archives a thread from the list: the backend keeps it saved and only unloads it", async () => {
     const chat = scriptedChat();
     await open(chat);
     await ask("A passing thought");
@@ -123,7 +123,8 @@ describe("Chat view", () => {
     act(() => chat.emit({ chat: id, turn: "turn-1", kind: "done" }));
     const threads = screen.getByRole("complementary", { name: "Chats" });
     fireEvent.click(within(threads).getByRole("button", { name: "More for A passing thought" }));
-    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Remove from the list" })));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Archive chat" })));
+    expect(chat.archives).toEqual([id]);
     expect(chat.resets).toEqual([id]);
     // A new, empty chat takes its place.
     expect(await screen.findByRole("heading", { name: "Ask about your notes" })).toBeTruthy();

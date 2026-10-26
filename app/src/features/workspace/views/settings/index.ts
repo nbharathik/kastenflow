@@ -21,9 +21,11 @@ export type GroupId =
   | "extension"
   | "vault"
   | "history"
+  | "backup"
   | "search"
   | "diagrams"
   | "templates"
+  | "plugins"
   | "desktop"
   | "shortcuts"
   | "about";
@@ -98,12 +100,21 @@ export const GROUPS: readonly GroupInfo[] = [
   { id: "vault", title: "Vault", heading: "Data", icon: "folder", blurb: "Where your notes live", about: "Every page is a Markdown file in your vault folder. Nothing here changes your notes." },
   {
     id: "history",
-    title: "History and backup",
+    title: "History",
     heading: "Data",
     icon: "history",
-    blurb: "Versions, backup and the vault check",
+    blurb: "Versions and the vault check",
+    about: "Every saved change is kept in history on this computer, so you can go back. Backup, on its own page, keeps a copy somewhere else.",
+    aliases: ["history", "history and backup"],
+  },
+  {
+    id: "backup",
+    title: "Backup",
+    heading: "Data",
+    icon: "upload",
+    blurb: "A copy of your notes somewhere safe",
     about: "KastenFlow is desktop-first: backup keeps your notes safe and moves them to a new computer. It isn't live sync.",
-    aliases: ["backup", "history"],
+    aliases: ["backup", "github", "sync", "restore"],
   },
   {
     id: "search",
@@ -123,6 +134,7 @@ export const GROUPS: readonly GroupInfo[] = [
     about: "Diagrams are plain files in your vault with a picture beside them, so pages, slides and whiteboards show them without any editor. The editor is a separate download, only for drawing and changing them.",
   },
   { id: "templates", title: "Templates", heading: "Data", icon: "template", blurb: "Templates and starter kits" },
+  { id: "plugins", title: "Plugins", heading: "Data", icon: "plug", blurb: "Switch on extra tools", about: "Extra tools you can switch on, such as other kinds of files to open. Each is off until you turn it on." },
   { id: "desktop", title: "Desktop", heading: "System", icon: "monitor", blurb: "The tray, quick capture and notifications", about: "How KastenFlow behaves on this computer beside its window." },
   { id: "shortcuts", title: "Keyboard shortcuts", heading: "System", icon: "keyboard", blurb: "Keys for every command", about: "Click a key to change it. Keys need Ctrl, ⌘ or Alt, so typing never runs a command.", aliases: ["keys", "shortcuts"] },
   { id: "about", title: "About", heading: "System", icon: "info", blurb: "Version, updates and licences" },

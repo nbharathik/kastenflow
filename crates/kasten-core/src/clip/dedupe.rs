@@ -146,6 +146,7 @@ mod tests {
             words: 0,
             props,
             locked: false,
+            children_order: Vec::new(),
         }
     }
 

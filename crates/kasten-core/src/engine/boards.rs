@@ -39,9 +39,12 @@ pub struct BoardApplied {
 
 pub(super) fn project_of(path: &str) -> Option<String> {
     let mut parts = path.split('/');
-    (parts.next() == Some("projects"))
-        .then(|| parts.next().map(str::to_owned))
-        .flatten()
+    // Windows and macOS reach `Projects/` the same way: the project's mode holds.
+    (parts
+        .next()
+        .is_some_and(|p| p.eq_ignore_ascii_case("projects")))
+    .then(|| parts.next().map(str::to_owned))
+    .flatten()
 }
 
 impl Kasten {

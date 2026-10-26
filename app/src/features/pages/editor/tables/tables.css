@@ -1,0 +1,16 @@
+/* The name field of "Turn into database": the language picker's box, one line of help under it. */
+.kasten-name-prompt {
+  width: 280px;
+  padding-bottom: 6px;
+}
+
+.kasten-name-note {
+  padding: 2px 12px 4px;
+  color: var(--notion-gray);
+  font-size: var(--text-12);
+  line-height: 1.4;
+
+  &[role="alert"] {
+    color: var(--notion-text);
+  }
+}

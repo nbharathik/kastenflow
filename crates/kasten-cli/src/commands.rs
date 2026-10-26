@@ -112,8 +112,22 @@ pub fn verify(args: &Args) -> Outcome {
         kasten.confirm_remote(remote.as_deref());
     }
     let report = kasten.verify().map_err(|e| e.to_string())?;
+    // With --remote, the backup is also read back: it holds what this
+    // computer last sent it, and what is fetched from it is whole.
+    let check = (args.has("--remote") && remote.is_some() && kasten.has_history())
+        .then(|| kasten.verify_remote(Instant::now().millis));
+    let check_ok = check
+        .as_ref()
+        .is_none_or(|c| c.as_ref().is_ok_and(|c| c.ok));
     if args.has("--json") {
-        say!("{}", json_text(serde_json::json!(report)));
+        let mut value = serde_json::json!(report);
+        if let Some(check) = &check {
+            value["remoteCheck"] = match check {
+                Ok(check) => serde_json::json!(check),
+                Err(err) => serde_json::json!({ "ok": false, "error": err.to_string() }),
+            };
+        }
+        say!("{}", json_text(value));
     } else {
         // Slide decks are mentioned only when the vault has some.
         let decks = match report.decks {
@@ -138,11 +152,31 @@ pub fn verify(args: &Args) -> Outcome {
         if report.problems.is_empty() {
             say!("No problems found.");
         }
+        match &check {
+            Some(Ok(check)) if check.ok => say!(
+                "The backup holds what this computer sent it, and {} fetched objects read back whole.",
+                check.objects
+            ),
+            Some(Ok(check)) => {
+                for problem in &check.problems {
+                    say!("  backup           -  {problem}");
+                }
+            }
+            // The unreachable backup is already a problem above.
+            Some(Err(err)) if report.problems.iter().all(|p| p.kind != "remote") => {
+                say!("  backup           -  {err}");
+            }
+            _ => {}
+        }
         if remote.is_some() && !args.has("--remote") {
             say!("The backup remote was not reached; add --remote to check it.");
         }
     }
-    Ok(if report.problems.is_empty() { 0 } else { 1 })
+    Ok(if report.problems.is_empty() && check_ok {
+        0
+    } else {
+        1
+    })
 }
 
 /// A note named by path or by title.

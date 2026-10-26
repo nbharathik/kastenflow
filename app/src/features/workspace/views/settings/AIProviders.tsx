@@ -13,6 +13,7 @@ import { Button, IconButton } from "../../../../ui/Button";
 import { Icon } from "../../../../ui/Icon";
 import { AgentLimits } from "./AgentLimits";
 import { ChatGptModelForm, ChatGptSignIn } from "./AIChatGpt";
+import { ChatPanelSettings } from "./ChatPanelSettings";
 import { ConnectionReport } from "./ConnectionReport";
 import { Block, Group, Row } from "./parts";
 import { ProviderForm } from "./ProviderForm";
@@ -82,6 +83,7 @@ export function AIProviders() {
         </Block>
         <ChatGptSignIn providers={providers} />
       </Group>
+      <ChatPanelSettings />
       <AgentLimits />
       <ConnectionReport />
     </>

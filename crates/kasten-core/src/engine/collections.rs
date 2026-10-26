@@ -132,6 +132,18 @@ impl Kasten {
         now: Instant,
     ) -> Result<Collection> {
         people_only(actor)?;
+        self.create_collection_as(actor, name, edits, now)
+    }
+
+    /// `create_collection` for any actor: an agent's goes through the modes
+    /// (`parity_refusals`) before it gets here.
+    pub(super) fn create_collection_as(
+        &self,
+        actor: &Actor,
+        name: &str,
+        edits: &Map<String, Value>,
+        now: Instant,
+    ) -> Result<Collection> {
         let text = collections::new_text(name, edits)?;
         let name = name.trim();
         self.apply(actor, "create_collection", false, now.millis, |vault| {
@@ -160,6 +172,18 @@ impl Kasten {
         now: Instant,
     ) -> Result<Collection> {
         people_only(actor)?;
+        self.update_collection_as(actor, path, edits, base_hash, now)
+    }
+
+    /// `update_collection` for any actor, as `create_collection_as`.
+    pub(super) fn update_collection_as(
+        &self,
+        actor: &Actor,
+        path: &str,
+        edits: &Map<String, Value>,
+        base_hash: &str,
+        now: Instant,
+    ) -> Result<Collection> {
         self.apply(actor, "update_collection", false, now.millis, |vault| {
             let (file, text, found) = load(vault, path)?;
             writable(&found)?;

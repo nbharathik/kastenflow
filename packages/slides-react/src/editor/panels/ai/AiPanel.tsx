@@ -7,17 +7,20 @@ import type { EditorSession } from "../../session/session.ts";
 import type { EditorUi } from "../../ui-state.ts";
 import { useEditor } from "../../useEditor.ts";
 import { Icon } from "../../ui/Icon.tsx";
+import { useAiStatus } from "./useAiStatus.ts";
 
 /** The assistant tab: the host's own panel, told where the person is in the deck; or a quiet note that there is none here. */
 export function AiPanel({ session }: { session: EditorSession; ui: EditorUi }): JSX.Element {
   const state = useEditor(session);
   const Panel = session.host.aiPanel;
   const { deck, slideId, selection } = state;
+  const status = useAiStatus(session.host);
   const props = useMemo((): AiPanelProps | null => {
     const at = deck.slides.findIndex((s) => s.id === slideId);
     const slide = deck.slides[at];
     if (!slide) return null;
     return {
+      status,
       deckPath: session.host.deckPath,
       deckTitle: deck.title,
       theme: deck.theme.name,
@@ -29,7 +32,7 @@ export function AiPanel({ session }: { session: EditorSession; ui: EditorUi }): 
       pending: pendingIn(deck),
       acceptAll: () => void session.marks.acceptAll(),
     };
-  }, [session, deck, slideId, selection]);
+  }, [session, deck, slideId, selection, status]);
   if (Panel && props) return <Panel {...props} />;
   return (
     <div className="ks-sp-empty">

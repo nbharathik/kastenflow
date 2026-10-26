@@ -1,0 +1,8 @@
+version: 1
+title: Reading dashboard
+kit: "1"
+queries:
+  reading:
+    tag: reading
+size:
+  height: 900

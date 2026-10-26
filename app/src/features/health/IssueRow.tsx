@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "../../ui/Button";
 import { useWorkspace } from "../workspace/store";
 import { openSettingsAt } from "../workspace/views/settings/jump";
-import type { Goto, Issue } from "./health-sections";
+import type { Goto, Issue, Level } from "./health-sections";
 import { planRepair, type RepairContext } from "./repairs";
 
 /** Opens what an issue points at: a file, the Review view, or a place in Settings. */
@@ -22,12 +22,14 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 
 interface Props {
   issue: Issue;
+  /** How the section stands; colours the dot. */
+  level?: Level;
   context: RepairContext;
   /** Called after a repair was done, so the report can be read again. */
   onRepaired(): void;
 }
 
-export function IssueRow({ issue, context, onRepaired }: Props) {
+export function IssueRow({ issue, level = "info", context, onRepaired }: Props) {
   const [previewing, setPreviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -49,50 +51,53 @@ export function IssueRow({ issue, context, onRepaired }: Props) {
   };
 
   return (
-    <li className="kasten-health-issue" data-issue={issue.id}>
-      <div className="kasten-health-issue-line">
-        <div className="kasten-health-issue-text">
-          <span>{issue.text}</span>
-          {issue.detail && <span className="kasten-health-issue-detail">{issue.detail}</span>}
-        </div>
-        {issue.go && (
-          <Button size="sm" tone="quiet" icon="open" aria-label={`${wordsOf(issue.go)}: ${issue.text}`} onClick={() => open(issue.go!)}>
-            {wordsOf(issue.go)}
-          </Button>
-        )}
-        {plan && (
-          <Button size="sm" aria-expanded={previewing} aria-label={`Preview the fix: ${issue.text}`} onClick={() => setPreviewing(!previewing)}>
-            {previewing ? "Hide" : "Preview fix"}
-          </Button>
+    <li className="kasten-health-issue" data-issue={issue.id} data-level={level}>
+      <span aria-hidden="true" className="kasten-health-issue-dot" />
+      <div className="kasten-health-issue-text">
+        <span className="kasten-health-issue-title">{issue.text}</span>
+        {issue.detail && <span className="kasten-health-issue-detail">{issue.detail}</span>}
+        {plan && previewing && (
+          <div className="kasten-health-preview" role="group" aria-label="What the fix would do">
+            <ul>
+              {plan.will.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <p>{plan.leaves}</p>
+            <p className="kasten-health-issue-detail">{plan.undo}</p>
+            {plan.blocked && (
+              <p role="status" className="kasten-health-blocked">
+                {plan.blocked}
+              </p>
+            )}
+            {problem && (
+              <p role="alert" className="kasten-health-blocked">
+                {problem}
+              </p>
+            )}
+            <div className="kasten-health-preview-actions">
+              <Button size="sm" tone="primary" disabled={busy || plan.blocked !== null} onClick={() => void apply()}>
+                {busy ? "Working…" : "Do it"}
+              </Button>
+              <Button size="sm" tone="quiet" onClick={() => setPreviewing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
         )}
       </div>
-      {plan && previewing && (
-        <div className="kasten-health-preview" role="group" aria-label="What the fix would do">
-          <ul>
-            {plan.will.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          <p>{plan.leaves}</p>
-          <p className="kasten-health-issue-detail">{plan.undo}</p>
-          {plan.blocked && (
-            <p role="status" className="kasten-health-blocked">
-              {plan.blocked}
-            </p>
-          )}
-          {problem && (
-            <p role="alert" className="kasten-health-blocked">
-              {problem}
-            </p>
-          )}
-          <div className="kasten-health-preview-actions">
-            <Button size="sm" tone="primary" disabled={busy || plan.blocked !== null} onClick={() => void apply()}>
-              {busy ? "Working…" : "Do it"}
+      {(issue.go || plan) && (
+        <div className="kasten-health-issue-actions">
+          {issue.go && (
+            <Button size="sm" tone="quiet" icon="open" aria-label={`${wordsOf(issue.go)}: ${issue.text}`} onClick={() => open(issue.go!)}>
+              {wordsOf(issue.go)}
             </Button>
-            <Button size="sm" tone="quiet" onClick={() => setPreviewing(false)}>
-              Cancel
+          )}
+          {plan && (
+            <Button size="sm" aria-expanded={previewing} aria-label={`Preview the fix: ${issue.text}`} onClick={() => setPreviewing(!previewing)}>
+              {previewing ? "Hide" : "Preview fix"}
             </Button>
-          </div>
+          )}
         </div>
       )}
     </li>

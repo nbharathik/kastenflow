@@ -234,6 +234,39 @@ fn a_chat_that_writes_directly_writes_at_once_and_stages_nothing() {
     assert!(chats.changes("c1").unwrap().lock().unwrap().is_empty());
 }
 
+fn set_mode(v: &Vault, mode: kasten_core::config_keys::AgentMode) {
+    let mut config = v.kasten.config();
+    config.agents = Some(kasten_core::config_keys::AgentsConfig {
+        mode: Some(mode),
+        ..Default::default()
+    });
+    v.kasten.set_config(config).unwrap();
+}
+
+#[test]
+fn review_everything_stages_even_a_chat_that_writes_directly() {
+    let v = vault();
+    v.kasten.start_history().unwrap();
+    set_mode(&v, kasten_core::config_keys::AgentMode::Review);
+    let chats = Chats::default();
+    let seen = Seen::new();
+    turn(&chats, &v, &busy(), &seen, request("c1", "Plan my trip"));
+    assert!(!file(&v, WELCOME).contains("From the chat."));
+    assert!(!chats.changes("c1").unwrap().lock().unwrap().is_empty());
+}
+
+#[test]
+fn autonomous_writes_at_once_even_for_a_chat_that_previews() {
+    let v = vault();
+    v.kasten.start_history().unwrap();
+    set_mode(&v, kasten_core::config_keys::AgentMode::Autonomous);
+    let chats = Chats::default();
+    let seen = Seen::new();
+    turn(&chats, &v, &busy(), &seen, previewing("c1", "Plan my trip"));
+    assert!(file(&v, WELCOME).contains("From the chat."));
+    assert!(chats.changes("c1").unwrap().lock().unwrap().is_empty());
+}
+
 #[test]
 fn what_cannot_be_previewed_waits_for_review_and_is_not_counted_as_a_change() {
     let v = vault();

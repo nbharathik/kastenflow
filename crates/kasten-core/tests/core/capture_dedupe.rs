@@ -170,7 +170,7 @@ fn matches_survive_a_rebuild_and_an_index_from_before_keys_is_rebuilt_on_open() 
             r.get(0)
         })
         .unwrap();
-    assert_eq!(version, "6");
+    assert_eq!(version, "7");
 }
 
 #[test]

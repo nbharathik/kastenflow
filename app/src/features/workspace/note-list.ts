@@ -6,10 +6,32 @@ import type { NoteMeta } from "../../lib/vault/types";
 
 const SIMPLE = ["modified", "title", "kind", "icon", "cover", "parent", "project", "id", "created", "updated", "excerpt", "words", "locked"] as const;
 
+/** Whether two pages store the same order for their sub-pages. */
+const sameOrder = (a: NoteMeta, b: NoteMeta) => {
+  const x = a.childrenOrder ?? [];
+  const y = b.childrenOrder ?? [];
+  return x.length === y.length && x.every((id, i) => id === y[i]);
+};
+
 /** Whether two metas say the same thing (path assumed equal). */
 export function sameMeta(a: NoteMeta, b: NoteMeta): boolean {
   if (a === b) return true;
   for (const key of SIMPLE) if (a[key] !== b[key]) return false;
+  if (!sameOrder(a, b)) return false;
+  if (a.tags.length !== b.tags.length || a.tags.some((t, i) => t !== b.tags[i])) return false;
+  return JSON.stringify(a.props) === JSON.stringify(b.props);
+}
+
+/** What a save changes on every keystroke's worth of typing: the times, the
+ * counts and the excerpt. A list drawn from these is stale for a moment at
+ * worst, so they are kept apart (note-stats.ts) until the typing pauses. */
+const LIVE = ["modified", "updated", "excerpt", "words"] as const;
+
+/** Whether two metas say the same thing apart from `LIVE` (path assumed equal). */
+export function sameShape(a: NoteMeta, b: NoteMeta): boolean {
+  if (a === b) return true;
+  for (const key of SIMPLE) if (!(LIVE as readonly string[]).includes(key) && a[key] !== b[key]) return false;
+  if (!sameOrder(a, b)) return false;
   if (a.tags.length !== b.tags.length || a.tags.some((t, i) => t !== b.tags[i])) return false;
   return JSON.stringify(a.props) === JSON.stringify(b.props);
 }
@@ -28,12 +50,22 @@ function insertAt(notes: readonly NoteMeta[], path: string): number {
   return lo;
 }
 
-/** `notes` with `meta` added or replaced; the same array when nothing changed. */
+/** `notes` with `meta` added or replaced; the same array when nothing but
+ * the times, counts and excerpt changed (see `settled` for those). */
 export function upserted(notes: NoteMeta[], meta: NoteMeta): NoteMeta[] {
+  return put(notes, meta, sameShape);
+}
+
+/** Like `upserted`, but the times, counts and excerpt count too. */
+export function settled(notes: NoteMeta[], meta: NoteMeta): NoteMeta[] {
+  return put(notes, meta, sameMeta);
+}
+
+function put(notes: NoteMeta[], meta: NoteMeta, same: (a: NoteMeta, b: NoteMeta) => boolean): NoteMeta[] {
   const at = insertAt(notes, meta.path);
   const found = notes[at]?.path === meta.path ? at : notes.findIndex((n) => n.path === meta.path);
   if (found >= 0) {
-    if (sameMeta(notes[found]!, meta)) return notes;
+    if (same(notes[found]!, meta)) return notes;
     const next = notes.slice();
     next[found] = meta;
     return next;

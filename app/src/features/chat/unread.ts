@@ -83,4 +83,4 @@ export function useViewing(id: string | null | undefined): void {
   }, [id]);
 }
 
-export const STATUS_WORDS = { working: "Working", paused: "Paused", interrupted: "Interrupted", done: "Done", failed: "Failed", idle: "" } as const;
+export const STATUS_WORDS = { working: "Working", waiting: "Waiting", paused: "Paused", interrupted: "Interrupted", done: "Done", failed: "Failed", idle: "" } as const;

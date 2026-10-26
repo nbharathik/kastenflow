@@ -1,8 +1,10 @@
 //! The presenter's window: the speaker's second window during a talk, with the slide as the audience sees it, what comes next,
 //! the notes and the time. The window that presents asks for it (`open_presenter`); it is made on another monitor when there is
-//! one, else beside the presenting window, and shows the app's own page under `?presenter=<deck>`, which draws the presenter's
-//! view instead of the app. The two windows tell each other where they are through `presenter_post`, which passes each message
-//! on to the other window and reads none of it.
+//! one, else beside the presenting window, and shows a page of its own (`presenter.html?presenter=<deck>`), which draws the
+//! presenter's view and loads none of the app. The two windows tell each other where they are through `presenter_post`, which
+//! passes each message on to the other window alone and reads none of it.
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
 use tauri::{
@@ -22,8 +24,8 @@ const WIDTH: f64 = 1180.0;
 const HEIGHT: f64 = 780.0;
 
 /// The kinds of message the two windows exchange: the presenter asking for the deck, the deck, a position, the talk being a rehearsal,
-/// and a window closing.
-const KINDS: [&str; 5] = ["hello", "deck", "state", "rehearse", "bye"];
+/// the show's heartbeat, the presenter asking for the show to end, and a window closing.
+const KINDS: [&str; 7] = ["hello", "deck", "state", "rehearse", "beat", "end", "bye"];
 
 /// The most one message may weigh: a deck with its pictures' addresses, and nothing like a picture itself.
 const MAX_BYTES: usize = 32 << 20;
@@ -109,6 +111,16 @@ fn rect_of(window: &WebviewWindow) -> Option<Rect> {
 
 /// Puts the presenter's window on another monitor, if there is one, else beside the window that presents.
 fn place(app: &AppHandle, window: &WebviewWindow) {
+    // A show that chose its displays (the main window moved to the external one) says which is left for this window.
+    if let (Some(area), Ok(size)) = (
+        crate::presenter_screen::presenter_area(),
+        window.outer_size(),
+    ) {
+        let (x, y) = centred(area, (size.width, size.height));
+        let _ = window.set_position(PhysicalPosition::new(x, y));
+        let _ = window.maximize();
+        return;
+    }
     let monitors: Vec<Rect> = app
         .available_monitors()
         .unwrap_or_default()
@@ -145,24 +157,53 @@ fn place(app: &AppHandle, window: &WebviewWindow) {
     }
 }
 
+/// The page the presenter's window shows: a page of its own, so the window loads the presenter's code and not the whole app.
+pub fn address_of(deck_path: &str) -> String {
+    format!("presenter.html?presenter={}", in_address(deck_path))
+}
+
+/// The window a message from the window labelled `from` goes to: the presenter's window speaks to the one that presents, and the
+/// one that presents (or any other) to the presenter's window. Each is sent to its one target and never to every window.
+pub fn peer_of(from: &str) -> &'static str {
+    if from == PRESENTER { MAIN } else { PRESENTER }
+}
+
+/// The number the next presenter window gets, and the number of the one that is open (none: 0). A `bye` for a window that was
+/// destroyed can reach the show after a newer window was opened; its number lets the show tell.
+static NEXT: AtomicU64 = AtomicU64::new(1);
+static CURRENT: AtomicU64 = AtomicU64::new(0);
+
+/// What the window that presents hears when the presenter's window numbered `window` goes.
+fn gone_word(window: u64) -> Value {
+    json!({ "type": "bye", "w": window })
+}
+
 /// Opens the presenter's window for the deck at `deck_path` (the window shows a deck the presenting window sends it, so the path is
-/// only its name), or brings it forward if it is open.
-#[tauri::command]
-pub fn open_presenter(app: AppHandle, deck_path: String) -> Result<(), String> {
+/// only its name), or brings it forward if it is open; answers the window's number. It runs off the main thread (`async`): building
+/// a window there while the main thread waits for the answer can deadlock on Windows.
+#[tauri::command(async)]
+pub fn open_presenter(app: AppHandle, deck_path: String) -> Result<u64, String> {
     if let Some(open) = app.get_webview_window(PRESENTER) {
         let _ = open.show();
         let _ = open.set_focus();
-        return Ok(());
+        return Ok(CURRENT.load(Ordering::SeqCst));
     }
-    let address = format!("index.html?presenter={}", in_address(&deck_path));
-    let window = WebviewWindowBuilder::new(&app, PRESENTER, WebviewUrl::App(address.into()))
-        .title("Presenter view")
-        .inner_size(WIDTH, HEIGHT)
-        .min_inner_size(640.0, 420.0)
-        .build()
-        .map_err(|err| err.to_string())?;
+    let number = NEXT.fetch_add(1, Ordering::SeqCst);
+    let window = WebviewWindowBuilder::new(
+        &app,
+        PRESENTER,
+        WebviewUrl::App(address_of(&deck_path).into()),
+    )
+    .title("Presenter view")
+    .inner_size(WIDTH, HEIGHT)
+    .min_inner_size(640.0, 420.0)
+    .build()
+    .map_err(|err| err.to_string())?;
+    CURRENT.store(number, Ordering::SeqCst);
     place(&app, &window);
-    Ok(())
+    // Its keys drive the show, so it has to be the window that has them.
+    let _ = window.set_focus();
+    Ok(number)
 }
 
 /// Passes a message from one of the two windows to the other.
@@ -171,17 +212,12 @@ pub fn presenter_post(app: AppHandle, window: Window, message: Value) -> Result<
     if !is_message(&message) {
         return Err("That is not a message between the presenting windows".into());
     }
-    let to = if window.label() == PRESENTER {
-        MAIN
-    } else {
-        PRESENTER
-    };
-    app.emit_to(to, EVENT, message)
+    app.emit_to(peer_of(window.label()), EVENT, message)
         .map_err(|err| err.to_string())
 }
 
-/// The presenter's window closes itself, as its Close button asks.
-#[tauri::command]
+/// The presenter's window closes itself, as its Close button asks (off the main thread, as `open_presenter` is).
+#[tauri::command(async)]
 pub fn presenter_close(window: Window) -> Result<(), String> {
     window.close().map_err(|err| err.to_string())
 }
@@ -189,9 +225,10 @@ pub fn presenter_close(window: Window) -> Result<(), String> {
 /// When the presenter's window goes, the window that presents is told, so it stops sending.
 pub fn on_window_event(window: &Window, event: &WindowEvent) {
     if window.label() == PRESENTER && matches!(event, WindowEvent::Destroyed) {
+        let number = CURRENT.swap(0, Ordering::SeqCst);
         let _ = window
             .app_handle()
-            .emit_to(MAIN, EVENT, json!({ "type": "bye" }));
+            .emit_to(peer_of(PRESENTER), EVENT, gone_word(number));
     }
 }
 
@@ -263,10 +300,42 @@ mod tests {
     }
 
     #[test]
+    fn each_window_passes_its_words_to_the_other_and_only_to_it() {
+        assert_eq!(peer_of(PRESENTER), MAIN);
+        assert_eq!(peer_of(MAIN), PRESENTER);
+        // A window that is neither (the guard keeps it from calling at all) is never taken for the presenter's.
+        assert_eq!(peer_of("capture"), PRESENTER);
+        assert_ne!(peer_of(PRESENTER), PRESENTER);
+        // The word that the presenter's window is gone goes to the window that presents.
+        // ...with the window's number, so a late word never closes the link of a newer window.
+        assert_eq!(gone_word(3), json!({ "type": "bye", "w": 3 }));
+        assert!(is_message(&gone_word(3)));
+    }
+
+    #[test]
+    fn the_presenters_window_is_its_own_page_so_that_only_its_code_loads() {
+        assert_eq!(
+            address_of("projects/talk/decks/My deck.deck"),
+            "presenter.html?presenter=projects/talk/decks/My%20deck.deck"
+        );
+    }
+
+    #[test]
+    fn the_windows_keep_in_touch_and_the_presenter_can_end_the_show() {
+        for kind in ["beat", "end"] {
+            assert!(KINDS.contains(&kind), "{kind}");
+        }
+    }
+
+    #[test]
     fn only_the_messages_of_the_two_windows_pass() {
         for kind in KINDS {
             assert!(is_message(&json!({ "type": kind })), "{kind}");
         }
+        // The sender's name and the place of a move in the order of moves ride along.
+        assert!(is_message(
+            &json!({ "type": "state", "state": { "indexh": 2 }, "from": "w1", "n": 4 })
+        ));
         assert!(is_message(
             &json!({ "type": "state", "state": { "indexh": 2 } })
         ));

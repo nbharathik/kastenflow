@@ -3,6 +3,8 @@
 # does not need just.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+# On Windows, plain `bash` can be the WSL one, which has no cargo or node: use Git Bash.
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-euo", "pipefail", "-c"]
 
 default:
     @just --list
@@ -54,6 +56,18 @@ wasm:
 # The page `slides render` draws decks with; the program embeds it, so build it before the program
 render-page:
     node scripts/build-render-page.mjs
+
+# Release, in three steps (dev/releasing.md): `just release-ci`, wait for green, `just release-check`, `just release-tag`
+release-ci:
+    node scripts/release.mjs ci
+
+# What is ready and what is not for tagging this commit
+release-check:
+    node scripts/release.mjs check
+
+# Tag this commit and push the tag, which starts the Release workflow
+release-tag:
+    node scripts/release.mjs tag --yes
 
 # Performance budgets
 bench:

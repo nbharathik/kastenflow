@@ -7,7 +7,8 @@
 
 import type { NoteFile, NoteMeta, Placed, Trashed } from "../../../lib/vault/types";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
-import { setFrontmatterKey } from "../../pages/page/page-meta";
+import { setFrontmatterKey, yamlList } from "../../pages/page/page-meta";
+import { arranged } from "../tree-order";
 import { relinkBoards } from "./board-extras";
 import { eolOf, folderOf, isCard, MemoryNotes, metaFor } from "./memory-notes";
 import { newId, slugify, stamps } from "./vault-text";
@@ -148,6 +149,26 @@ export class MemoryNesting extends MemoryNotes {
     const id = this.parentId(parent);
     const moved = await this.move(path, holder.meta.project);
     return { ...this.setParent(moved.meta.path, id), moves: moved.moves, relinked: moved.relinked };
+  }
+
+  /** Stores the sub-pages' order in the page's `children_order`, as
+   * kasten-core does: only that key changes, unknown ids drop out, and the
+   * sub-pages left out follow alphabetically. */
+  async reorderChildren(parent: string, ids: string[]): Promise<NoteFile> {
+    const holder = this.get(parent);
+    if (holder.meta.kind !== "page" || parent.startsWith("templates/")) throw new Error("Only a page holds pages");
+    const kids = (await this.list()).filter((n) => holder.meta.id && n.parent === holder.meta.id && n.path !== parent);
+    const sorted = kids.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+    // No ids at all goes back to alphabetical: the key is taken out.
+    const stored =
+      ids.length === 0
+        ? []
+        : arranged(ids, sorted)
+            .map((n) => n.id)
+            .filter((id): id is string => id !== null);
+    const { prefix, body } = splitFrontmatter(holder.text);
+    const next = setFrontmatterKey(prefix, "children_order", stored.length > 0 ? yamlList(stored) : null, eolOf(holder.text), true);
+    return next === prefix ? holder : this.put(parent, next + body);
   }
 
   /** Copies a page or card beside itself as "<title> (copy)" with a new id

@@ -1,6 +1,7 @@
 import { memo } from "react";
 
 import { useDiagrams } from "../features/diagrams/store";
+import { DIAGRAMS_VIEW } from "../plugins/diagrams/manifest";
 import { dragNotes } from "../features/workspace/drag";
 import { howFromPage } from "../features/workspace/open-how";
 import { usePrefs } from "../features/workspace/prefs";
@@ -15,7 +16,7 @@ import { keeps, useTreeFilter } from "./tree-filter";
 
 /** A diagram in the sidebar: under its project, or in Favourites. */
 export const DiagramRow = memo(function DiagramRow({ path, title, depth = 0 }: { path: string; title: string; depth?: number }) {
-  const active = useWorkspace((s) => s.place.view === "diagrams" && s.place.path === path);
+  const active = useWorkspace((s) => s.place.view === DIAGRAMS_VIEW && s.place.path === path);
   const favourite = usePrefs((s) => s.favourites.includes(path));
   const filter = useTreeFilter();
   const { openPath, trash } = useWorkspace.getState();

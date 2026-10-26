@@ -1,0 +1,31 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:27
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(./main.aux)
+Runaway argument?
+{Introduction  This is the first paragraph with an unclosed brace (and a paren
+! Paragraph ended before \section was complete.
+<to be read again>
+                   \par
+l.9
+
+?
+Runaway argument?
+{unfinished bold (text
+! File ended while scanning use of \textbf.
+<inserted text>
+                \par
+<*> main.tex
+
+?
+! Emergency stop.
+<*> main.tex
+
+*** (job aborted, no legal \end found)

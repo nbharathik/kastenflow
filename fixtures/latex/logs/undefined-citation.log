@@ -1,0 +1,46 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:21
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo))
+(/usr/share/texlive/texmf-dist/tex/latex/natbib/natbib.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty)
+(./main.aux)
+(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)
+(./main.out) (./main.out)
+\openout3 = `main.out'.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 8.
+
+
+Package natbib Warning: Citation `knuth' on page 1 undefined on input line 15.
+
+
+LaTeX Warning: Reference `sec:method' on page 1 undefined on input line 18.
+
+
+Package natbib Warning: Citation `ctan' on page 1 undefined on input line 21.
+
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.bbl) (./main.aux)
+
+Package natbib Warning: There were undefined citations.
+
+
+LaTeX Warning: There were undefined references.
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+ )
+Here is how much of TeX's memory you used:
+ 1234 strings out of 476091
+Output written on main.pdf (1 page, 34567 bytes).
+Transcript written on main.log.

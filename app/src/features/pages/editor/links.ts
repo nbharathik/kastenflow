@@ -6,6 +6,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { $ctx } from "@milkdown/kit/utils";
 
 import type { TagViewKind } from "../../../lib/vault/types";
+import type { DatabasePlan, TableSpot } from "./tables/database";
 
 export interface PageLink {
   title: string;
@@ -97,6 +98,8 @@ export interface LinkProvider {
   mountDiagram?(host: HTMLElement, path: string): () => void;
   /** Opens the diagram at `path` in a tab (or as `how` says). */
   openDiagram?(path: string, how?: LinkHow): void;
+  /** Draws the smart page `spec` names into `host`, live (`![[Conference tracker]]`, or one named view of it with `#deadlines`), and returns how to take it away. */
+  mountSmart?(host: HTMLElement, spec: SmartBlockSpec): () => void;
   /** Shows the Open menu at a right-click on a link to the vault file at
    * `path`; true when it did (it has taken the click, so the browser's own
    * menu stays away). */
@@ -121,6 +124,16 @@ export interface LinkProvider {
   /** The name of `tag`'s first view of kind `view`, one added when it has
    * none; null when that was refused. */
   viewOf?(tag: string, view: TagViewKind): Promise<string | null>;
+  /** Copies `text` to the clipboard and tells the person `done` ("Copied the table as CSV"). */
+  copyText?(text: string, done: string): void;
+  /** Turns a table into a tag database: the tag with its properties, a note per
+   * row, and the table in the saved page written again as the embed of the
+   * database, all one commit that one Undo takes back. `spot` says which table of
+   * the page it is. The host writes the page itself (after saving what was typed)
+   * and shows the saved page again, so the editor changes nothing on success.
+   * Resolves to the database file and its view, or to one sentence saying why not
+   * (nothing is changed then). Without it the block menu offers nothing. */
+  turnTableIntoDatabase?(plan: DatabasePlan, spot: TableSpot): Promise<{ path: string; view: string } | { error: string }>;
 }
 
 export interface DatabaseLink {
@@ -230,6 +243,7 @@ export function findDiagram(diagrams: readonly DiagramLink[], target: string): D
  * (`Node.js` and `v2.0` stay titles). */
 const FILE_EXTENSIONS = new Set([
   ...["deck", "canvas", "drawio", "yaml", "yml", "json", "csv", "tsv", "bib", "txt", "xml", "html", "ics"],
+  ...["tex", "sty", "cls", "bst"],
   ...["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "heic", "ico"],
   ...["mp3", "wav", "m4a", "ogg", "flac", "mp4", "mov", "webm", "mkv", "avi"],
   ...["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "epub", "zip", "tar", "gz", "7z"],
@@ -246,9 +260,20 @@ export interface EmbedSource {
   load(): Promise<EmbeddedPage>;
 }
 
+/** A smart page shown as a block: its path and id, and the view asked for. */
+export interface SmartBlockSpec {
+  path: string;
+  id: string;
+  title: string;
+  /** The named view (`![[Page#deadlines]]`), or "" for the page's own. */
+  view: string;
+}
+
 export interface EmbeddedPage {
   title: string;
   icon?: string;
+  /** Set when the page is a smart page: it is drawn as its live view, not as its Markdown. */
+  smart?: { path: string; id: string };
   /** The page's body: Markdown without its frontmatter. */
   markdown: string;
   /** Where the window loads a picture the page links to, as written in it. */

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Menu, openRowMenu } from "./Menu";
+import { Menu, openRowMenu, type MenuEntry } from "./Menu";
 
 const box = (left: number, top: number, width: number, height: number) =>
   ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
@@ -107,6 +107,83 @@ describe("a menu from the keyboard", () => {
     // A row without a menu keeps the browser's.
     render(<div data-testid="plain" onContextMenu={openRowMenu}>Plain</div>);
     expect(fireEvent.contextMenu(screen.getByText("Plain"))).toBe(true);
+  });
+});
+
+describe("headings, submenus and a tall menu", () => {
+  const withSub = (picked: string[]): MenuEntry[] => [
+    { heading: "Page" },
+    { label: "Rename", onSelect: () => picked.push("Rename") },
+    "divider",
+    { heading: "Plugins" },
+    { label: "Export", submenu: [{ label: "As PDF", onSelect: () => picked.push("As PDF") }, { label: "As image", onSelect: () => picked.push("As image") }] },
+    { label: "Delete", onSelect: () => picked.push("Delete") },
+  ];
+
+  it("shows a heading over a group and passes it by with the arrows", async () => {
+    render(<Menu label="Actions" items={withSub([])}>…</Menu>);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actions" }), { detail: 0 }));
+    expect(screen.getByText("Page")).toBeTruthy();
+    expect(screen.getByText("Plugins")).toBeTruthy();
+    expect(screen.getAllByRole("menuitem").map((e) => e.textContent)).toEqual(["Rename", "Export", "Delete"]);
+    // Rename first, then the submenu's row: the headings are no stops.
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Rename" }));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Export" }));
+  });
+
+  it("opens a submenu with → and closes it with ←, the focus following", async () => {
+    render(<Menu label="Actions" items={withSub([])}>…</Menu>);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actions" }), { detail: 0 }));
+    const row = screen.getByRole("menuitem", { name: "Export" });
+    expect(row.getAttribute("aria-haspopup")).toBe("menu");
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    row.focus();
+    await act(async () => fireEvent.keyDown(row, { key: "ArrowRight" }));
+    const sub = screen.getByRole("menu", { name: "Export" });
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "As PDF" }));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "As image" }));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "As PDF" }));
+    await act(async () => fireEvent.keyDown(sub.querySelector("[role=menuitem]")!, { key: "ArrowLeft" }));
+    expect(screen.queryByRole("menu", { name: "Export" })).toBeNull();
+    expect(document.activeElement).toBe(row);
+    // The menu itself is still open.
+    expect(screen.getByRole("menu", { name: "Actions" })).toBeTruthy();
+  });
+
+  it("opens a submenu on a click, and Escape closes only the submenu", async () => {
+    render(<Menu label="Actions" items={withSub([])}>…</Menu>);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actions" }), { detail: 0 }));
+    const row = screen.getByRole("menuitem", { name: "Export" });
+    await act(async () => fireEvent.click(row));
+    expect(screen.getByRole("menu", { name: "Export" })).toBeTruthy();
+    await act(async () => {
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    });
+    expect(screen.queryByRole("menu", { name: "Export" })).toBeNull();
+    expect(screen.getByRole("menu", { name: "Actions" })).toBeTruthy();
+    expect(document.activeElement).toBe(row);
+  });
+
+  it("runs a submenu's item and closes the whole menu", async () => {
+    const picked: string[] = [];
+    render(<Menu label="Actions" items={withSub(picked)}>…</Menu>);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actions" }), { detail: 0 }));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Export" })));
+    await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "As image" })));
+    expect(picked).toEqual(["As image"]);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("scrolls inside the window when it is taller than it", async () => {
+    render(<Menu label="Actions" items={withSub([])}>…</Menu>);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Actions" }), { detail: 0 }));
+    const menu = screen.getByRole("menu", { name: "Actions" });
+    expect(menu.className).toContain("max-h-[calc(100vh-2rem)]");
+    expect(menu.className).toContain("overflow-auto");
   });
 });
 

@@ -14,7 +14,7 @@ use crate::props::yaml_value;
 use crate::vault::Vault;
 
 /// Property types.
-pub const KINDS: [&str; 8] = [
+pub const KINDS: [&str; 9] = [
     "text",
     "number",
     "select",
@@ -23,7 +23,17 @@ pub const KINDS: [&str; 8] = [
     "checkbox",
     "url",
     "relation",
+    "formula",
 ];
+
+pub mod formula;
+pub mod sub_items;
+pub mod table_options;
+pub mod timeline;
+pub mod view_order;
+
+/// View types a tag database shows.
+pub const VIEW_KINDS: [&str; 6] = ["table", "kanban", "list", "calendar", "gallery", "timeline"];
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PropDef {
@@ -31,6 +41,9 @@ pub struct PropDef {
     #[serde(rename = "type")]
     pub kind: String,
     pub options: Vec<String>,
+    /// The formula of a `formula` property; computed when rows are read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -73,7 +86,13 @@ pub fn parse_schema(path: &str, yaml: &str) -> Result<TagSchema> {
                         .and_then(Value::as_array)
                         .map(|o| o.iter().filter_map(|v| text(Some(v))).collect())
                         .unwrap_or_default();
-                    Some(PropDef { key, kind, options })
+                    let formula = text(p.get("formula"));
+                    Some(PropDef {
+                        key,
+                        kind,
+                        options,
+                        formula,
+                    })
                 })
                 .collect()
         })
@@ -159,6 +178,8 @@ fn check(def: &PropDef, value: &Value) -> std::result::Result<Value, String> {
         }
         ("date", Value::String(s)) if is_date(s.trim()) => Ok(Value::String(s.trim().to_owned())),
         ("date", _) => Err("must be a date, YYYY-MM-DD".to_owned()),
+        // A formula is worked out when rows are read, never stored.
+        ("formula", _) => Err("is a formula, worked out from other properties".to_owned()),
         ("url", Value::String(s)) if s.contains("://") || s.starts_with("mailto:") => {
             Ok(value.clone())
         }
@@ -218,12 +239,55 @@ pub fn check_props(
     Ok(out)
 }
 
+/// The timeline views of a schema given as JSON, checked against its own
+/// properties. Entries that are not well formed are left to the checks below.
+fn check_timelines(schema: &Map<String, Value>) -> std::result::Result<(), String> {
+    let list = |key: &str| {
+        schema
+            .get(key)
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let props = list("properties");
+    let kinds: Vec<(&str, &str)> = props
+        .iter()
+        .filter_map(|p| {
+            let key = p.get("key").and_then(Value::as_str)?.trim();
+            let kind = p.get("type").and_then(Value::as_str).unwrap_or("text");
+            Some((key, kind))
+        })
+        .collect();
+    let kind_of = |key: &str| kinds.iter().find(|(k, _)| *k == key).map(|(_, kind)| *kind);
+    for view in list("views") {
+        sub_items::check_view(&view)?;
+        view_order::check_view(&view)?;
+        table_options::check_view(&view, &kind_of)?;
+        if view.get("type").and_then(Value::as_str) == Some("timeline") {
+            timeline::check_view(&view, &kind_of)?;
+        }
+    }
+    Ok(())
+}
+
+/// The file the schema of a new tag is written to: `tags/<slug>.yaml`. The same
+/// path whoever asks (`write_tag_schema`, a batch's rule, the window, which
+/// needs it for the embed it puts in a page in the same batch).
+pub fn tag_file(tag: &str) -> Result<String> {
+    let name = tag.trim().trim_start_matches('#').trim();
+    if !name.chars().any(char::is_alphanumeric) {
+        return Err(Error::Invalid(format!("Not a tag name: “{name}”")));
+    }
+    Ok(format!("tags/{}.yaml", crate::slug::slugify(name)))
+}
+
 /// A schema given as JSON, checked and written as YAML in the house style:
 /// one line per property and per view.
 pub fn schema_yaml(tag: &str, schema: &Value) -> Result<String> {
     let bad = |why: &str| Error::Invalid(format!("Tag schema for “{tag}”: {why}"));
     let map = schema.as_object().ok_or_else(|| bad("must be a mapping"))?;
     let mut out = format!("name: {}\n", yaml_scalar(tag));
+    check_timelines(map).map_err(|why| bad(&why))?;
     for (key, value) in map {
         match key.as_str() {
             "name" => {}
@@ -232,6 +296,7 @@ pub fn schema_yaml(tag: &str, schema: &Value) -> Result<String> {
                     .as_array()
                     .ok_or_else(|| bad(&format!("{key} must be a list")))?;
                 out.push_str(&format!("{key}:\n"));
+                let mut view_names: Vec<String> = Vec::new();
                 for item in list {
                     let entry = item
                         .as_object()
@@ -244,8 +309,27 @@ pub fn schema_yaml(tag: &str, schema: &Value) -> Result<String> {
                         if !KINDS.contains(&kind) {
                             return Err(bad(&format!("unknown property type “{kind}”")));
                         }
+                    } else {
+                        // A view without a name is kept in the file but never shown.
+                        let Some(name) = text(entry.get("name")) else {
+                            return Err(bad("each view needs a name"));
+                        };
+                        if view_names.contains(&name.to_lowercase()) {
+                            return Err(bad(&format!("two views are called “{name}”")));
+                        }
+                        view_names.push(name.to_lowercase());
+                        let kind = entry.get("type").and_then(Value::as_str).unwrap_or("");
+                        if !VIEW_KINDS.contains(&kind) {
+                            return Err(bad(&format!(
+                                "unknown view type “{kind}”; the view types are {}",
+                                VIEW_KINDS.join(", ")
+                            )));
+                        }
                     }
                     out.push_str(&format!("  - {}\n", yaml_value(item)));
+                }
+                if key == "properties" {
+                    formula::check_list(list).map_err(|why| bad(&why))?;
                 }
             }
             _ => out.push_str(&format!("{}: {}\n", yaml_scalar(key), yaml_value(value))),

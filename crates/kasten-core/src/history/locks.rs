@@ -53,40 +53,64 @@ impl History {
     /// commit` waiting on its editor or `git add -p`. Kasten writes to git
     /// only under the vault's write lock, so its mark is never a live
     /// process's.
+    ///
+    /// Only for code that holds the vault's write lock: the mark of a
+    /// writer at work looks the same as one a killed process left, and the
+    /// write lock is what tells them apart. A read (the health report) must
+    /// never call this; it asks `held_by_readonly`.
     pub(super) fn clear_stale_locks(&self) {
         let mark = self.root.join(WRITING_MARK);
         let Some(marked) = modified(&mark) else {
             return;
         };
-        let from = marked.checked_sub(COARSE).unwrap_or(marked);
-        let until = marked + WRITE_SPAN;
         for lock in self.lock_files() {
-            if modified(&lock).is_some_and(|taken| taken >= from && taken <= until) {
+            if taken_in_the_write(&lock, marked) {
                 let _ = std::fs::remove_file(&lock);
             }
         }
         let _ = std::fs::remove_file(&mark);
     }
 
-    /// The lock file a git command run by hand holds now, as the vault
-    /// names it, after a moment's wait for a short one to finish.
-    pub fn held_by(&self) -> Option<String> {
-        self.clear_stale_locks();
-        let held = || {
-            self.lock_files()
-                .into_iter()
-                .find(|lock| lock.exists())
-                .and_then(|lock| {
-                    lock.strip_prefix(&self.root)
-                        .ok()
-                        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
-                })
-        };
+    /// The first lock file in `.git` that a git command run by hand could
+    /// hold: one that is there and was not taken by a Kasten write (by its
+    /// mark). Changes nothing.
+    fn foreign_lock(&self) -> Option<String> {
+        let marked = modified(&self.root.join(WRITING_MARK));
+        self.lock_files()
+            .into_iter()
+            .filter(|lock| lock.exists())
+            .find(|lock| marked.is_none_or(|marked| !taken_in_the_write(lock, marked)))
+            .and_then(|lock| {
+                lock.strip_prefix(&self.root)
+                    .ok()
+                    .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+            })
+    }
+
+    /// `held_by_readonly`'s wait: a lock that goes within a moment was a
+    /// short command's.
+    fn foreign_lock_after_a_moment(&self) -> Option<String> {
         for _ in 0..4 {
-            held()?;
+            self.foreign_lock()?;
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-        held()
+        self.foreign_lock()
+    }
+
+    /// The lock file a git command run by hand holds now, as the vault
+    /// names it, after a moment's wait for a short one to finish. Removes
+    /// nothing, so it is safe beside a writer at work: a lock Kasten took
+    /// for its own write (its mark is there) is not reported, and one a
+    /// killed process left is left for the next op to clear.
+    pub fn held_by_readonly(&self) -> Option<String> {
+        self.foreign_lock_after_a_moment()
+    }
+
+    /// `held_by_readonly` after clearing the locks a killed Kasten process
+    /// left. For an op that holds the vault's write lock, before it writes.
+    pub fn held_by(&self) -> Option<String> {
+        self.clear_stale_locks();
+        self.foreign_lock_after_a_moment()
     }
 
     /// The error for an op held back by a git command at work.
@@ -96,10 +120,18 @@ impl History {
         ))
     }
 
-    /// Whether a git command run by hand holds the history now.
+    /// Whether a git command run by hand holds the history now. Changes
+    /// nothing.
     pub fn busy(&self) -> bool {
-        self.held_by().is_some()
+        self.held_by_readonly().is_some()
     }
+}
+
+/// Whether `lock` was taken by the write whose mark was made at `marked`.
+fn taken_in_the_write(lock: &Path, marked: std::time::SystemTime) -> bool {
+    let from = marked.checked_sub(COARSE).unwrap_or(marked);
+    let until = marked + WRITE_SPAN;
+    modified(lock).is_some_and(|taken| taken >= from && taken <= until)
 }
 
 fn modified(path: &Path) -> Option<std::time::SystemTime> {

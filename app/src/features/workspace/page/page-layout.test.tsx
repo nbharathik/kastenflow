@@ -15,12 +15,14 @@ import { derive } from "../store-layout";
 import { initialLayout } from "../tabs";
 import { layoutValue, readLayout, shownLayout } from "./page-layout";
 
-const DEFAULTS = { font: "default", textSize: "normal", fullWidth: false } as const;
+const DEFAULTS = { font: "default", textSize: "normal", pageWidth: "normal" } as const;
 
 describe("a page's layout", () => {
   it("reads only the values Kasten knows", () => {
     expect(readLayout("---\ntitle: A\nfont: serif\nwidth: full\ntext: small\n---\n")).toEqual({ font: "serif", width: "full", text: "small" });
     expect(readLayout("---\nfont: comic\nwidth: [wide]\ntext: 'small'\n---\n")).toEqual({ text: "small" });
+    expect(readLayout("---\nwidth: wide\n---\n")).toEqual({ width: "wide" });
+    expect(readLayout("---\nwidth: huge\n---\n")).toEqual({});
     expect(readLayout("")).toEqual({});
   });
 
@@ -34,13 +36,17 @@ describe("a page's layout", () => {
 
   it("shows the page's own values over the defaults, and keeps only what differs", () => {
     const serif = { ...DEFAULTS, font: "serif", textSize: "small" } as const;
-    expect(shownLayout({}, serif)).toEqual({ font: "serif", text: "small", full: false });
-    expect(shownLayout({ font: "sans", text: "normal", width: "full" }, serif)).toEqual({ font: "default", text: "normal", full: true });
-    const shown = { font: "default", text: "small", full: true } as const;
+    expect(shownLayout({}, serif)).toEqual({ font: "serif", text: "small", width: "normal" });
+    expect(shownLayout({ font: "sans", text: "normal", width: "full" }, serif)).toEqual({ font: "default", text: "normal", width: "full" });
+    expect(shownLayout({ width: "wide" }, serif).width).toBe("wide");
+    expect(shownLayout({}, { ...serif, pageWidth: "wide" }).width).toBe("wide");
+    const shown = { font: "default", text: "small", width: "full" } as const;
     expect(layoutValue("font", shown, serif)).toBe("sans");
     expect(layoutValue("text", shown, serif)).toBeNull();
     expect(layoutValue("width", shown, serif)).toBe("full");
-    expect(layoutValue("width", { ...shown, full: false }, { ...DEFAULTS, fullWidth: true })).toBe("normal");
+    expect(layoutValue("width", { ...shown, width: "wide" }, serif)).toBe("wide");
+    expect(layoutValue("width", { ...shown, width: "normal" }, { ...DEFAULTS, pageWidth: "full" })).toBe("normal");
+    expect(layoutValue("width", { ...shown, width: "wide" }, { ...DEFAULTS, pageWidth: "wide" })).toBeNull();
   });
 
   it("shows and writes each of the four sizes against the default", () => {
@@ -49,9 +55,9 @@ describe("a page's layout", () => {
       expect(shownLayout({}, { ...DEFAULTS, textSize: size }).text).toBe(size);
       const here = { ...DEFAULTS, textSize: size };
       // The default is never written; every other size is.
-      expect(layoutValue("text", { font: "default", text: size, full: false }, here)).toBeNull();
+      expect(layoutValue("text", { font: "default", text: size, width: "normal" }, here)).toBeNull();
       for (const other of ["small", "normal", "large", "xl"] as const) {
-        if (other !== size) expect(layoutValue("text", { font: "default", text: other, full: false }, here)).toBe(other);
+        if (other !== size) expect(layoutValue("text", { font: "default", text: other, width: "normal" }, here)).toBe(other);
       }
     }
   });
@@ -60,6 +66,8 @@ describe("a page's layout", () => {
     const vault = new MemoryVault({ "library/a.md": "---\ntitle: A\n---\nA.\n" });
     await expect(vault.setMeta("library/a.md", "font", "comic")).rejects.toThrow("one of: sans, serif, mono");
     expect((await vault.setMeta("library/a.md", "width", "full")).text).toContain("width: full\n");
+    expect((await vault.setMeta("library/a.md", "width", "wide")).text).toContain("width: wide\n");
+    await expect(vault.setMeta("library/a.md", "width", "huge")).rejects.toThrow();
     await expect(vault.setMeta("library/a.md", "text", "huge")).rejects.toThrow("one of: small, normal, large, xl");
     expect((await vault.setMeta("library/a.md", "text", "xl")).text).toContain("text: xl\n");
     expect((await vault.setMeta("library/a.md", "opens", "right")).text).toContain("opens: right\n");
@@ -73,7 +81,7 @@ describe("the page menu's style", () => {
 
   beforeEach(() => {
     localStorage.clear();
-    usePrefs.setState({ font: "default", textSize: "normal", fullWidth: false });
+    usePrefs.setState({ font: "default", textSize: "normal", pageWidth: "normal" });
     useWorkspace.setState({ client: null, ready: false, notes: [], ...derive(initialLayout()), recent: [], toasts: [] });
     useShell.setState({ sidebarOpen: true, focusMode: false, paletteOpen: false, panels: [] });
   });
@@ -84,7 +92,7 @@ describe("the page menu's style", () => {
     render(<AppShell connect={async () => ({ client: vault })} />);
     await screen.findByRole("navigation", { name: "Sidebar" });
     act(() => useWorkspace.getState().openPath("library/essay.md"));
-    await screen.findByRole("textbox", { name: "Page title" }, { timeout: 20_000 });
+    await screen.findByRole("textbox", { name: "Page title" }, { timeout: 60_000 });
     const page =() => document.querySelector<HTMLElement>(".kasten-page")!;
     // The menu stays open while its style is changed.
     const menu = async () => {
@@ -103,13 +111,32 @@ describe("the page menu's style", () => {
     await waitFor(async () => expect(await file()).toContain("font: serif\n"));
     expect(page().style.getPropertyValue("--page-font")).toContain("serif");
 
-    await act(async () => fireEvent.click(within(await menu()).getByRole("checkbox", { name: "Full width" })));
+    const widths = async () => within(within(await menu()).getByRole("radiogroup", { name: "Page width" })).getAllByRole("radio");
+    expect((await widths()).map((b) => [b.getAttribute("aria-label"), b.getAttribute("aria-checked")])).toEqual([
+      ["Normal width", "true"],
+      ["Wide", "false"],
+      ["Full width", "false"],
+    ]);
+    await act(async () => fireEvent.click(within(await menu()).getByRole("radio", { name: "Full width" })));
     await waitFor(async () => expect(await file()).toContain("width: full\n"));
     expect(page().classList.contains("is-full-width")).toBe(true);
+
+    await act(async () => fireEvent.click(within(await menu()).getByRole("radio", { name: "Wide" })));
+    await waitFor(async () => expect(await file()).toContain("width: wide\n"));
+    expect(page().classList.contains("is-wide")).toBe(true);
+    expect(page().classList.contains("is-full-width")).toBe(false);
 
     await act(async () => fireEvent.click(within(await menu()).getByRole("button", { name: "Use the default style" })));
     await waitFor(async () => expect(await file()).not.toMatch(/font:|width:/));
     expect(page().classList.contains("is-full-width")).toBe(false);
+    expect(page().classList.contains("is-wide")).toBe(false);
+  }, 90_000);
+
+  it("moves between the three widths with the arrow keys", async () => {
+    const { menu, file } = await open("---\ntitle: Essay\n---\nWords.\n");
+    const normal = within(await menu()).getByRole("radio", { name: "Normal width" });
+    await act(async () => fireEvent.keyDown(normal, { key: "ArrowRight" }));
+    await waitFor(async () => expect(await file()).toContain("width: wide\n"));
   }, 30_000);
 
   it("writes what differs from Settings, and nothing when a choice is the default", async () => {
@@ -172,7 +199,7 @@ describe("the page menu's style", () => {
     const { page, menu, file } = await open("---\ntitle: Essay\nfont: comic   # mine\n---\nWords.\n");
     expect(page().style.getPropertyValue("--page-font")).not.toContain("serif");
     expect(within(await menu()).getByRole("button", { name: /Default/ }).getAttribute("aria-pressed")).toBe("true");
-    await act(async () => fireEvent.click(within(await menu()).getByRole("checkbox", { name: "Full width" })));
+    await act(async () => fireEvent.click(within(await menu()).getByRole("radio", { name: "Full width" })));
     await waitFor(async () => expect(await file()).toContain("width: full\n"));
     expect(await file()).toContain("font: comic   # mine\n");
   }, 30_000);

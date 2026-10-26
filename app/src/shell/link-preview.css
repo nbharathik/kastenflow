@@ -1,0 +1,33 @@
+/* The page preview of a link in a page: a layer over the whole window that lets clicks through except on the preview and its dimmed
+   backdrop. The preview belongs to the Slides package, which draws with its own tokens: here they are the app's. */
+.kasten-link-preview {
+  --ks-raised: var(--color-raised);
+  --ks-ink: var(--color-ink);
+  --ks-muted: var(--color-muted);
+  --ks-line: var(--color-line);
+  --ks-accent: var(--color-accent);
+  --ks-scrim: var(--color-scrim);
+  --ks-font: var(--font-sans);
+  --ks-faint: var(--color-faint);
+  --ks-danger: var(--color-danger);
+  --ks-hover: var(--color-hover);
+  --ks-pressed: var(--color-selected);
+  --ks-selected: var(--color-selected);
+  --ks-radius: var(--radius-sm);
+  --ks-radius-md: var(--radius-md);
+  --ks-shadow-page: var(--shadow-lift);
+  --ks-shadow-pop: var(--shadow-pop);
+  --ks-fast: var(--motion-fast);
+  --ks-slow: var(--motion-slow);
+  --ks-ease: var(--ease-standard);
+
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.kasten-link-preview .ks-wp,
+.kasten-link-preview .ks-wp-scrim {
+  pointer-events: auto;
+}

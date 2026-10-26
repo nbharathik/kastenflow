@@ -20,7 +20,8 @@ import { findByTitle, noteAt, tagCounts } from "../tree";
 import { useSources } from "../../sources/store";
 import { openAt, searchedWords } from "../page/jump";
 import { openSettingsAt } from "../views/settings/jump";
-import { COMMANDS } from "./commands";
+import { usePluginsVersion } from "../../../plugins/registry";
+import { allCommands } from "./commands";
 import { keepSearch, pdfRows, recentSearches, settingsRows, type Row } from "./palette-rows";
 import { byModified, matchTitles, score, searchKeys } from "./match";
 import { editorKeys } from "../../shortcuts/catalog";
@@ -97,6 +98,8 @@ export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
     },
     [meaning],
   );
+  // Commands of a plugin turned on or off while the palette is open.
+  const plugins = usePluginsVersion();
   const rows = useMemo(() => {
     if (byMeaning) return meaningRows(byMeaning);
     const q = query.trim();
@@ -109,7 +112,7 @@ export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
     if (!meaning.available() || q.length < 3 || q.startsWith("#")) return found;
     const row: Row = { key: "meaning", icon: lineIcon("sparkle"), label: `Find notes about “${q}” by meaning`, stay: true, run: () => ask(q) };
     return [...found.slice(0, -1), row, ...found.slice(-1)];
-  }, [notes, boards, recent, hits, query, byMeaning, meaning, ask, sources, searches]);
+  }, [notes, boards, recent, hits, query, byMeaning, meaning, ask, sources, searches, plugins]);
   const current = Math.min(selected, Math.max(0, rows.length - 1));
 
   useEffect(() => {
@@ -228,7 +231,7 @@ function buildRows(notes: NoteMeta[], boards: readonly BoardInfo[], recent: stri
     run: (how) => openPath(note.path, how),
   });
 
-  const scored = COMMANDS.filter((c) => !c.when || c.when()).map((c) => ({ c, s: Math.max(score(c.label, q), c.words ? score(c.words, q) / 2 : 0) }))
+  const scored = allCommands().filter((c) => !c.when || c.when()).map((c) => ({ c, s: Math.max(score(c.label, q), c.words ? score(c.words, q) / 2 : 0) }))
     .filter((x) => x.s > 0)
     .sort((a, b) => b.s - a.s);
   const toRow = ({ c }: (typeof scored)[number]): Row => ({ key: `cmd:${c.id}`, icon: lineIcon("chevron"), label: c.label, hint: keyLabel(keymap, c.id) || undefined, run: () => c.run() });

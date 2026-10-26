@@ -64,7 +64,7 @@ const texts = async (path: string) => (await vault.board(path)).nodes.filter((n)
 const toasts = () => useWorkspace.getState().toasts.map((t) => t.text);
 
 describe("a page map when it opens", () => {
-  it("takes on what the page gained, as one step to undo", async () => {
+  it("takes on what the page gained, without making an undo step", async () => {
     const path = await mapFromPage(vault, note);
     await editPage((body) => body.replace("  - close to the trams\n", "  - close to the trams\n- Alfama\n").replace("- Baixa\n", "- Baixa district\n"));
     const { board } = await openMap(path);
@@ -73,13 +73,10 @@ describe("a page map when it opens", () => {
     expect(await texts(path)).not.toContain("Baixa");
     await waitFor(() => expect(toasts()).toContain("Mind map updated from “Seaside trip”: 1 new, 1 changed"));
 
-    // One undo takes the whole sync back: the new branch, the reworded one and what the map remembers.
+    // The sync is not a step of its own: undo leaves it (the page is the source of truth).
     fireEvent.keyDown(board, { key: "z", ctrlKey: true });
-    await waitFor(async () => expect(await texts(path)).not.toContain("Alfama"));
-    expect(await texts(path)).toContain("Baixa");
-    const branches = Object.values((await vault.board(path)).source!.branches!);
-    expect(branches.some((b) => b.key === "alfama")).toBe(false);
-    expect(branches.find((b) => b.key === "baixa")?.text).toBe("Baixa");
+    expect(await texts(path)).toContain("Alfama");
+    expect(await texts(path)).toContain("Baixa district");
   });
 
   it("leaves a map alone when its page has not changed", async () => {

@@ -14,6 +14,7 @@ use crate::agent::{AgentOp, Session};
 use crate::deck::{self, REPLACES_DECK, slide_changes};
 use crate::error::Result;
 use crate::history::Actor;
+use crate::policy::OpClass;
 use crate::time::Instant;
 
 /// How many slides an edit by `tool` takes out of a deck by making it
@@ -40,7 +41,9 @@ impl Kasten {
         }
     }
 
-    /// Why a deck op must wait for review whoever is trusted, if it must.
+    /// Why a deck op must wait for review whoever is trusted, if it must: a
+    /// deck sent to the trash always waits, and slides taken out past the
+    /// limit are a soft limit that trust does not lift (autonomous mode does).
     /// Nothing is deleted, but taken-out slides are gone from the deck until
     /// the change is undone, and that is what a person is asked about.
     pub(super) fn deck_review_reason(
@@ -48,10 +51,10 @@ impl Kasten {
         session: &Session,
         op: &AgentOp,
         now: Instant,
-    ) -> Result<Option<String>> {
+    ) -> Result<OpClass> {
         Ok(match op {
             AgentOp::Trash { path, .. } if path.ends_with(".deck") => {
-                Some("Trashing a deck always waits for review".to_owned())
+                OpClass::Always("Trashing a deck always waits for review".to_owned())
             }
             AgentOp::EditDeck {
                 path,
@@ -78,8 +81,8 @@ impl Kasten {
                     .tallies
                     .get(&session.id)
                     .map_or(0, |tally| tally.slides_taken_out(now.millis, WINDOW_MS));
-                (gone > 0 && earlier + gone > limit).then(|| {
-                    if earlier == 0 {
+                if gone > 0 && earlier + gone > limit {
+                    OpClass::Soft(if earlier == 0 {
                         format!(
                             "{does} {} in one change (the limit is {limit})",
                             slides(gone)
@@ -90,10 +93,12 @@ impl Kasten {
                             slides(earlier),
                             earlier + gone
                         )
-                    }
-                })
+                    })
+                } else {
+                    OpClass::Ordinary
+                }
             }
-            _ => None,
+            _ => OpClass::Ordinary,
         })
     }
 }

@@ -158,6 +158,7 @@ export function PageEditor({ body, onChange, onReady, links, files, marks, agent
         createDiagram: (title) => linksRef.current?.createDiagram?.(title) ?? Promise.resolve(null),
         mountDiagram: (host, path) => linksRef.current?.mountDiagram?.(host, path) ?? (() => {}),
         openDiagram: (path, how) => linksRef.current?.openDiagram?.(path, how),
+        mountSmart: (host, spec) => linksRef.current?.mountSmart?.(host, spec) ?? (() => {}),
         webTitle: (url) => linksRef.current?.webTitle?.(url) ?? Promise.resolve(null),
         people: () => linksRef.current?.people?.() ?? [],
         weekStart: () => linksRef.current?.weekStart?.() ?? 1,

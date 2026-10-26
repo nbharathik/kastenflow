@@ -139,6 +139,35 @@ fn keeps_a_comment_that_follows_a_one_line_value() {
 }
 
 #[test]
+fn a_list_item_keeps_the_comment_after_it_even_one_that_ends_in_a_brace() {
+    let yaml = "name: task\nviews:\n  - {name: All, type: table} # }\n  - {name: Due, type: calendar}  # when\n";
+    let first = replace_list_item(yaml, "views", 0, &json!({"name": "All", "type": "kanban"}))
+        .expect("an item with a comment is replaced in place");
+    assert_eq!(
+        first,
+        "name: task\nviews:\n  - {name: All, type: kanban} # }\n  - {name: Due, type: calendar}  # when\n"
+    );
+    let second =
+        replace_list_item(yaml, "views", 1, &json!({"name": "Due", "type": "list"})).unwrap();
+    assert!(
+        second.ends_with("  - {name: Due, type: list}  # when\n"),
+        "{second}"
+    );
+    assert!(second.starts_with("name: task\nviews:\n  - {name: All, type: table} # }\n"));
+    // A # inside the mapping's own text is not a comment: the whole list is written instead.
+    let quoted = "views:\n  - {name: \"A #1\", type: table}\n";
+    assert!(
+        replace_list_item(
+            quoted,
+            "views",
+            0,
+            &json!({"name": "A #1", "type": "table"})
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn takes_a_key_out_with_all_its_lines_and_nothing_else() {
     let out = set_value(VIEW, "filter", None);
     assert_eq!(
@@ -227,6 +256,27 @@ fn set_value_leaves_a_nested_key_alone_and_keeps_line_endings_and_marks() {
     assert_eq!(
         set_value("\u{feff}query: a\nname: b\n", "query", None),
         "\u{feff}name: b\n"
+    );
+}
+
+#[test]
+fn a_comment_at_the_left_edge_before_the_items_does_not_leave_the_old_items_behind() {
+    let yaml = "views:\n# the views\n  - {name: Old, type: table}\n  - {name: Two, type: table}\ncolor: red\n";
+    let out = set_list(yaml, "views", &[json!({"name": "Board", "type": "kanban"})]);
+    assert_eq!(out, "views:\n  - {name: Board, type: kanban}\ncolor: red\n");
+    // A comment after the items, about the next key, is not part of the list.
+    let yaml = "views:\n  - {name: Old, type: table}\n# about the color\ncolor: red\n";
+    let out = set_list(yaml, "views", &[json!({"name": "Board", "type": "kanban"})]);
+    assert_eq!(
+        out,
+        "views:\n  - {name: Board, type: kanban}\n# about the color\ncolor: red\n"
+    );
+    // A comment before the next key after blank lines stays too.
+    let yaml = "views:\n  - {name: Old, type: table}\n\n# about the color\ncolor: red\n";
+    let out = set_list(yaml, "views", &[json!({"name": "Board", "type": "kanban"})]);
+    assert_eq!(
+        out,
+        "views:\n  - {name: Board, type: kanban}\n\n# about the color\ncolor: red\n"
     );
 }
 

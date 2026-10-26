@@ -1,0 +1,3 @@
+[
+  { "op": "insert", "before": { "block": "b1" }, "markdown": "Preface." }
+]

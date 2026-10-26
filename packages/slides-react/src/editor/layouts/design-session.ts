@@ -15,7 +15,7 @@ import { EditorUi } from "../ui-state.ts";
 export function designHost(host: SlidesHost): SlidesHost {
   const own = Object.create(host) as SlidesHost;
   own.save = async () => ({ status: "saved" });
-  for (const key of ["deckPath", "aiPanel", "templates", "favourite", "openPresenter", "willPresent", "fillScreen", "synced", "openPath", "pickDiagram", "editDiagram"] as const) {
+  for (const key of ["deckPath", "aiPanel", "aiStatus", "templates", "favourite", "openPresenter", "willPresent", "fillScreen", "screens", "synced", "openPath", "pickDiagram", "editDiagram"] as const) {
     Object.defineProperty(own, key, { value: undefined, configurable: true });
   }
   return own;

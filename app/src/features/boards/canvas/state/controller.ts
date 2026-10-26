@@ -77,8 +77,8 @@ export class BoardController {
 
   private failed(err: unknown): void {
     if (err instanceof Dropped) return;
+    // Only the step that failed is gone (an undo already took its entry off the stack); earlier steps stay.
     this.deps.toast(`The board was not changed: ${message(err)}`);
-    this.history.clear();
   }
 
   /** Reads the board again after it changed on disk, when nothing is on
