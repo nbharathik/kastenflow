@@ -108,8 +108,18 @@ fn comparable(path: &str) -> String {
 }
 
 /// The part of the absolute path `name` below `base`, when it is below it
-/// (compared as text, so a path into another folder never matches).
+/// (compared as text, so a path into another folder never matches). A TeX
+/// prints the real place of a folder, so where `base` is spelled through a
+/// link (macOS reaches its temporary folder through `/var`), the folder's
+/// real path is tried too: it is the same folder.
 pub fn below(base: &Path, name: &str) -> Option<String> {
+    below_text(base, name).or_else(|| {
+        let real = fs::canonicalize(base).ok()?;
+        (real != base).then(|| below_text(&real, name)).flatten()
+    })
+}
+
+fn below_text(base: &Path, name: &str) -> Option<String> {
     let base = comparable(&base.to_string_lossy());
     let name = name.replace('\\', "/");
     let name_cmp = comparable(&name);

@@ -78,7 +78,11 @@ mod tests {
 
     #[test]
     fn the_holder_may_ask_again_and_everyone_else_waits() {
-        let dir = std::env::temp_dir().join(format!(
+        // macOS reaches its temporary folder through a link, which the lock refuses: use the real place.
+        let temp = std::env::temp_dir();
+        #[cfg(unix)]
+        let temp = temp.canonicalize().unwrap();
+        let dir = temp.join(format!(
             "kasten-lock-{}",
             crate::ulid_at(crate::Instant::now().millis)
         ));

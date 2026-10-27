@@ -42,6 +42,8 @@ fn a_page_cannot_write_to_a_note_inside_a_smart_pages_code_folder() {
     let shouting = format!("{}/NOTES.md", other_path.replace(".md", ".SMART"));
     for target in inside.iter().map(String::as_str).chain([shouting.as_str()]) {
         let before = fs::read_to_string(s.vault.dir.join(target)).ok();
+        // Where the file system tells the two spellings apart, the shouting one names nothing: not found is as safe as refused.
+        let named = before.is_some();
         for call in [
             wire(
                 "append",
@@ -56,7 +58,9 @@ fn a_page_cannot_write_to_a_note_inside_a_smart_pages_code_folder() {
         ] {
             let kind = call.kind();
             let error = run(&s, &rt, &call).unwrap_err();
-            assert_eq!(error.code, BridgeErrorCode::Refused, "{kind} {target}");
+            let safe = error.code == BridgeErrorCode::Refused
+                || (!named && error.code == BridgeErrorCode::NotFound);
+            assert!(safe, "{kind} {target}: {:?}", error.code);
         }
         assert_eq!(
             fs::read_to_string(s.vault.dir.join(target)).ok(),
