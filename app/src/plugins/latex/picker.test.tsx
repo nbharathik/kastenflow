@@ -53,8 +53,10 @@ describe("narrow", () => {
 describe("the picker", () => {
   it("shows a loading line, then the rows; typing narrows them and Enter picks the first", async () => {
     const onPick = vi.fn();
+    // The answer is made before the picker asks for it, so it cannot arrive before anyone is waiting.
     let arrive: (items: PickerItem[]) => void = () => {};
-    open(options({ onPick, load: () => new Promise((resolve) => (arrive = resolve)) }));
+    const pending = new Promise<PickerItem[]>((resolve) => (arrive = resolve));
+    open(options({ onPick, load: () => pending }));
     expect((await screen.findByRole("status")).textContent).toBe("Looking…");
     arrive(ITEMS);
     const input = await box();
