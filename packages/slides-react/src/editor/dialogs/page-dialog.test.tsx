@@ -98,7 +98,10 @@ describe("Insert → Page…", () => {
     const { kit } = await open();
     await screen.findByText("Plan");
     fireEvent.click(way(/Link to the page/));
-    fireEvent.change(screen.getByRole("combobox", { name: /Go to a heading/ }), { target: { value: "Next" } });
+    const heading = screen.getByRole("combobox", { name: /Go to a heading/ }) as HTMLSelectElement;
+    // The headings arrive after the page is read: choose one only once it is listed.
+    await waitFor(() => expect([...heading.options].some((o) => o.value === "Next")).toBe(true));
+    fireEvent.change(heading, { target: { value: "Next" } });
     fireEvent.click(screen.getByRole("radio", { name: /on a card/ }));
     insert();
     await waitFor(() => expect(onSlide(kit)).toHaveLength(1));

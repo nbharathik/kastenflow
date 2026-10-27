@@ -39,16 +39,23 @@ fn start(name: &str) -> (Server, std::path::PathBuf) {
 
 /// One request; returns the status and the body.
 fn ask(server: &Server, method: &str, target: &str, body: &[u8]) -> (u16, String) {
-    let mut stream = TcpStream::connect(("127.0.0.1", server.port)).unwrap();
-    let head = format!(
-        "{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nX-Slides: 1\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        server.port,
-        body.len()
-    );
-    stream.write_all(head.as_bytes()).unwrap();
-    stream.write_all(body).unwrap();
-    let mut raw = Vec::new();
-    stream.read_to_end(&mut raw).unwrap();
+    // A server only just listening may drop a connection on a busy machine: ask again a few times.
+    let try_once = || -> std::io::Result<Vec<u8>> {
+        let mut stream = TcpStream::connect(("127.0.0.1", server.port))?;
+        let head = format!(
+            "{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nX-Slides: 1\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            server.port,
+            body.len()
+        );
+        stream.write_all(head.as_bytes())?;
+        stream.write_all(body)?;
+        let mut raw = Vec::new();
+        stream.read_to_end(&mut raw)?;
+        Ok(raw)
+    };
+    let raw = (0..5)
+        .find_map(|_| try_once().ok().filter(|raw| !raw.is_empty()))
+        .expect("the server answers");
     let text = String::from_utf8_lossy(&raw).into_owned();
     let status = text.split(' ').nth(1).unwrap().parse().unwrap();
     let body = text
