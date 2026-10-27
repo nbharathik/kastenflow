@@ -2,7 +2,7 @@
 // the way to accept what the assistant made.
 
 import type { AiPanelProps } from "@kasten-slides/react";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useChat } from "../chat/store";
@@ -75,7 +75,8 @@ describe("the assistant tab", () => {
   it("is a chat about this slide: the chip goes with the message", async () => {
     render(<AiTab {...props({ elementIds: ["e7"] })} />);
     await screen.findByRole("heading", { name: "Ask for a change to the deck" });
-    expect(chipLabels()).toEqual(["Slide 2: The loop · 1 selected"]);
+    // The chip is drawn after the thread loads: wait for it, as a slow machine draws it later.
+    await waitFor(() => expect(chipLabels()).toEqual(["Slide 2: The loop · 1 selected"]));
     await ask("Tighten this");
     expect(chat.requests).toHaveLength(1);
     expect(chat.requests[0]!.context).toEqual([{ kind: "slide", label: "Slide 2: The loop · 1 selected", ref: [DECK, "s2", "e7"] }]);
@@ -90,7 +91,7 @@ describe("the assistant tab", () => {
   it("follows the slide and the selection: the chip is replaced, never piled up", async () => {
     const view = render(<AiTab {...props()} />);
     await screen.findByRole("textbox", { name: "Message" });
-    expect(chipLabels()).toEqual(["Slide 2: The loop"]);
+    await expect.poll(chipLabels).toEqual(["Slide 2: The loop"]);
     view.rerender(<AiTab {...props({ slideId: "s3", slideNumber: 3, slideTitle: "Why it matters" })} />);
     await expect.poll(chipLabels).toEqual(["Slide 3: Why it matters"]);
     view.rerender(<AiTab {...props({ slideId: "s3", slideNumber: 3, slideTitle: "Why it matters", elementIds: ["a", "b"] })} />);
@@ -117,7 +118,7 @@ describe("the assistant tab", () => {
     render(<AiTab {...props({ slideId: "s5", slideNumber: 5, slideTitle: "Summary" })} />);
     await within(log()).findByText("First question");
     expect(useChat.getState().order).toEqual([id]);
-    expect(chipLabels()).toEqual(["Slide 5: Summary"]);
+    await expect.poll(chipLabels).toEqual(["Slide 5: Summary"]);
   });
 
   it("starts another thread on request, and another deck has its own", async () => {
