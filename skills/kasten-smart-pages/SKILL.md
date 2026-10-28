@@ -7,6 +7,10 @@ description: Build live dashboards, trackers, maps, timelines, calendars, boards
 
 A smart page is a folder of code that the app runs as a live page: `smart.yaml`, `index.html`, `app.js` and any other files it needs. It shows the user's notes as numbers, charts, boards, maps and timelines, and it changes when a note changes. The full reference and three finished pages are the resource `kasten://smart/kit`; the same three pages are in this skill's `examples/` folder.
 
+## Are smart pages on?
+
+Smart pages are a plugin the user turns on, for the vault or for one project, and they start off. While they are off the smart tools are not listed, and the one smart tool you have is `request_smart_pages`: give a short reason, and a project if you need them only there. It turns nothing on; the request waits for the user in every mode, and only they can accept it. Ask once, say what you asked for, and go on with a normal page until you are told they are on. A refusal that says smart pages are off for a project means the same.
+
 ## Smart page or normal page?
 
 - **Smart page:** a dashboard, a tracker, a status board, a deadline countdown, a map, a timeline, a calendar, a gallery. Anything that is a view of many notes and should stay current.

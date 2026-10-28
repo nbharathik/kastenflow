@@ -4,13 +4,17 @@ use crate::plugins::pins::{current, for_target, target};
 use crate::plugins::{Scope, catalog, check, find, payload_root};
 
 #[test]
-fn the_catalog_names_the_three_plugins_with_their_defaults() {
+fn the_catalog_names_the_plugins_with_their_defaults() {
     let all = catalog();
     let ids: Vec<&str> = all.iter().map(|p| p.id.as_str()).collect();
-    assert_eq!(ids, ["diagrams", "latex", "browser"]);
+    assert_eq!(ids, ["diagrams", "latex", "smart", "browser"]);
     let by = |id: &str| find(id).unwrap();
     assert!(by("diagrams").default_on && by("diagrams").scope == Scope::Vault);
     assert!(!by("latex").default_on && by("latex").scope == Scope::Vault);
+    // Smart pages are off until a person turns them on, per vault, with nothing to download.
+    assert!(!by("smart").default_on && by("smart").scope == Scope::Vault);
+    assert!(by("smart").payload.is_none());
+    assert_eq!(by("smart").name, "Smart pages");
     assert!(!by("browser").default_on && by("browser").scope == Scope::Computer);
     assert!(by("browser").payload.is_none());
     let diagrams = by("diagrams").payload.unwrap();

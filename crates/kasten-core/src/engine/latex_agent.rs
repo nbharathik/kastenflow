@@ -66,7 +66,11 @@ impl Kasten {
                 text.len().div_ceil(1024)
             )));
         }
+        // Another spelling of a folder names the same file on some disks, but History would
+        // know it under the new spelling: refused before the change can wait for review (and
+        // after the lock, so a locked folder spelled otherwise is still told as locked).
         if !base.is_empty() {
+            self.check_spelling(path)?;
             // Its folder and lock were checked with the path (`writable`).
             return super::latex_source::check_stored_size(
                 &self.vault.file_of(path, &SOURCE_EXTENSIONS)?,
@@ -83,6 +87,7 @@ impl Kasten {
         if let Some(name) = self.latex_locked_above(path) {
             return Err(super::latex_source::locked_for_agents(&name));
         }
+        self.check_spelling(path)?;
         match self.latex_doc_of(path)? {
             Some(_) => Ok(()),
             None if path.ends_with(".tex")

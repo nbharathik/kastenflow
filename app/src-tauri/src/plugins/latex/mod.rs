@@ -11,6 +11,7 @@ pub mod build;
 mod cache;
 pub mod collect;
 pub mod commands;
+pub mod ended;
 pub mod engines;
 pub mod files;
 pub mod log;
@@ -30,4 +31,4 @@ pub mod unpack;
 pub mod vault_commands;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

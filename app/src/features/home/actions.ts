@@ -6,6 +6,7 @@ import type { IconName } from "../../ui/Icon";
 import { startNewBoard } from "../boards/store";
 import { newItems } from "../../plugins/contributions";
 import { keyLabel, useKeys } from "../shortcuts/store";
+import { smartAvailable } from "../smart/availability";
 import { smartChoices } from "../smart/author/starter-list";
 import { startNewDeck } from "../slides/store";
 import { captureCard } from "../workspace/overlays/commands";
@@ -35,7 +36,10 @@ export function newActions(): HomeAction[] {
     { id: "template", label: "From a template", icon: "template", words: "gallery start", run: () => useShell.getState().openGallery({}) },
     { id: "deck", label: "New deck", icon: "present", words: "slides presentation", run: () => startNewDeck() },
     { id: "board", label: "New whiteboard", icon: "board", words: "canvas map sketch", run: () => startNewBoard() },
-    { id: "smart", label: "New smart page", icon: "code", words: "smart app dashboard tracker gallery map timeline live view", run: () => void import("../smart/author/starter-picker").then((m) => m.chooseStarter()), choices: smartChoices() },
+    // Only while smart pages are on (Settings → Plugins); a page made here is in the library, so the vault's plugin decides.
+    ...(smartAvailable()
+      ? [{ id: "smart", label: "New smart page", icon: "code" as const, words: "smart app dashboard tracker gallery map timeline live view", run: () => void import("../smart/author/starter-picker").then((m) => m.chooseStarter()), choices: smartChoices() }]
+      : []),
     // What plugins start come after the app's own.
     ...newItems(),
   ];

@@ -9,6 +9,9 @@ import { BRIDGE_ERROR_CODES, bridgeError, type BridgeError, type ErrorLog, type 
 import type { CommitInfo } from "../../lib/vault/types";
 import type { VaultCall } from "./schema";
 
+/** What a project says about smart pages: follow the vault, or its own on or off. */
+export type ProjectSmart = "vault" | "on" | "off";
+
 /** What the window needs to show a smart page. */
 export interface PageInfo {
   id: string;
@@ -61,9 +64,14 @@ export interface SmartBackend {
   trust(page: string): Promise<Trust>;
   /** A person's "Allow to run" for the page. */
   allowRun(page: string): Promise<void>;
-  /** Whether smart pages run at all (they do until a person turns them off). */
-  runEnabled(): Promise<boolean>;
+  /** Whether smart pages run for the page at `page` (its project's choice, else the vault's plugin); with no page, the vault's plugin. Off until a person turns the plugin on. */
+  runEnabled(page?: string): Promise<boolean>;
+  /** Turns the Smart pages plugin on or off for the vault; off ends the frames it is off for. */
   setRunEnabled(on: boolean): Promise<void>;
+  /** What each project says of its own (`on` or `off`), by folder name; a project that follows the vault is not listed. */
+  projectSettings(): Promise<Record<string, "on" | "off">>;
+  /** A project's own choice: `vault` follows the vault. */
+  setProjectSetting(project: string, setting: ProjectSmart): Promise<void>;
   /** The commits that changed the page's code folder, newest first. */
   history(page: string, limit?: number): Promise<CommitInfo[]>;
   /** Puts the code back as it was at the commit `rev`: a new commit, never a rewrite. */
@@ -91,8 +99,10 @@ export const tauriSmartBackend: SmartBackend = {
   setWebImages: (page, allow) => invoke<void>("smart_set_web_images", { page, allow }),
   trust: (page) => invoke<Trust>("smart_trust", { page }),
   allowRun: (page) => invoke<void>("smart_allow_run", { page }),
-  runEnabled: () => invoke<boolean>("smart_run_enabled"),
+  runEnabled: (page) => invoke<boolean>("smart_run_enabled", { page: page ?? null }),
   setRunEnabled: (on) => invoke<void>("smart_set_run_enabled", { on }),
+  projectSettings: () => invoke<Record<string, "on" | "off">>("smart_project_settings"),
+  setProjectSetting: (project, setting) => invoke<void>("smart_set_project_setting", { project, setting }),
   history: (page, limit) => invoke<CommitInfo[]>("smart_history", { page, limit }),
   restoreVersion: (page, rev) => invoke<Restored>("smart_restore_version", { page, rev }),
 };

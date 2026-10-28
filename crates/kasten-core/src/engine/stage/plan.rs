@@ -38,8 +38,14 @@ fn not_previewed(op: &AgentOp) -> String {
         AgentOp::SetProjectState { .. } => "A change to a project's state",
         AgentOp::SetTagViews { .. } => "A change to a tag's views",
         AgentOp::SetViewOrder { .. } => "A change to the order of a table's rows",
-        AgentOp::SaveSource { .. } => "A change to a LaTeX file",
+        AgentOp::SaveSource { .. } | AgentOp::AppendLatexFile { .. } => "A change to a LaTeX file",
+        AgentOp::CreateLatexDoc { .. } => "A new LaTeX document",
+        AgentOp::TrashLatexFile { .. } => "Moving a LaTeX file to the trash",
+        AgentOp::CiteReference { .. } => "A citation in a LaTeX file",
+        AgentOp::ExportLatexPdf { .. } => "Keeping a LaTeX document's PDF",
+        AgentOp::SendPageToLatex { .. } => "Sending a page to LaTeX",
         AgentOp::SaveProjectSetup { .. } => "Saving a project as a setup",
+        AgentOp::RequestSmartPages { .. } => "A request to turn on smart pages",
         _ => "This change",
     };
     format!("{what} is not previewed with the other changes, so it waits for your review")
@@ -211,6 +217,12 @@ impl Kasten {
     fn plan_op(&self, set: &mut ChangeSet, op: &AgentOp, now: Instant) -> Result<Planned> {
         if let AgentOp::Batch { ops, .. } = op {
             return self.plan_batch(set, ops, now);
+        }
+        // A picture is not held with the other changes: a proposal would carry its bytes into history.
+        if matches!(op, AgentOp::AddLatexAsset { .. }) {
+            return Err(Error::Invalid(
+                "A picture for a LaTeX document cannot be held with the other changes. Apply the held changes first, then add it".to_owned(),
+            ));
         }
         if let Some(planned) = self.plan_note_op(set, op, now)? {
             return Ok(planned);

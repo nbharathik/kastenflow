@@ -197,7 +197,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Changes a whiteboard with steps: add_sticky, move, resize, remove, restyle (colours) and edge_style (an arrow's label, colour, ends, line and dashes). Ids come from read_board. All steps are made or none. Taking many nodes off at once waits for the user."
+        description = "Changes a whiteboard with steps: add_sticky, add_link (a web address card), add_section (a titled frame), add_shape, set_text (a sticky's, shape's, section's or link's words), reshape, move, resize, remove, unlink (arrows), restyle (colours), edge_style (an arrow's label, colour, ends, line and dashes), card_size (a note's card: title or expanded) and collapse (fold a section). Ids come from read_board. All steps are made or none. Taking many nodes or arrows off at once waits for the user."
     )]
     async fn board_edit(
         &self,

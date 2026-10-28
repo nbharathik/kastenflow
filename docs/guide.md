@@ -706,6 +706,10 @@ kasten-mcp --vault ~/Notes --check               # says how it is doing; exits 1
 
 `--setup codex` prints a block for Codex's settings file, `~/.codex/config.toml` (`.codex\config.toml` in your user folder on Windows): a stdio server that runs `kasten-mcp` with its full path and your vault in `KASTEN_VAULT`. It only prints; paste it in yourself.
 
+### Working with an outside AI
+
+An AI in Claude Desktop, Claude Code or Codex works in your vault only through KastenFlow's tools, under the agent mode you chose, and one visit is one session that **Undo** takes back. It can write a whole LaTeX paper (files, figures, citations from your References), make a diagram into a figure, put a picture on a slide, and, when you have switched smart pages on, make those too. It runs no program: a chart is a PNG it makes itself and sends. A few things need the KastenFlow app open: building a paper and keeping its PDF, drawing a diagram as a picture, and reading what you have selected. With the app closed the AI is told so in a sentence and nothing is changed. The selection is shared only after a client asks, for two minutes at a time, with "Shared with a connected client" shown in the chat panel, and never leaves your computer except to that client. [MCP tools](mcp-tools.md#working-with-an-outside-ai) has the details and a worked visit.
+
 ### Routines and what agents did today
 
 A routine is an agent run you set up to repeat, such as a daily check of the conference notes. Claude Code and Codex connect to `kasten-mcp` over stdio, so a routine works with KastenFlow closed. Each run is one session named as the agent names itself (for example `routine: conference tracking`), and two runs show as two sessions with the same name and different start times. A routine updates its notes with one `batch`, so a run is one change you can take back with one undo, and it can stamp a `last_checked` property on the notes it looked at.

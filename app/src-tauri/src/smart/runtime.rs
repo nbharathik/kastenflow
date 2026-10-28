@@ -154,10 +154,27 @@ impl Runtime {
 
     /// Ends every frame (smart pages were turned off): nothing is served and
     /// every call is refused until a frame begins again.
+    #[cfg(test)]
     pub fn close_all(&self) {
         let mut frames = self.frames.lock().unwrap_or_else(|e| e.into_inner());
         frames.page_of.clear();
         frames.order.clear();
+    }
+
+    /// Ends the frames of the pages `keep` says no to (smart pages were turned
+    /// off for them), and no other.
+    pub fn retain_frames(&self, keep: impl Fn(&str) -> bool) {
+        let mut frames = self.frames.lock().unwrap_or_else(|e| e.into_inner());
+        let gone: Vec<String> = frames
+            .page_of
+            .iter()
+            .filter(|(_, page_id)| !keep(page_id))
+            .map(|(nonce, _)| nonce.clone())
+            .collect();
+        for nonce in gone {
+            frames.page_of.remove(&nonce);
+            frames.order.retain(|n| *n != nonce);
+        }
     }
 
     /// The id of the page whose frame has this secret, if there is one now.

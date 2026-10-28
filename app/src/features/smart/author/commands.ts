@@ -2,6 +2,7 @@
 // loaded when one is used, so nothing here costs anything at start-up.
 
 import type { NoteMeta } from "../../../lib/vault/types";
+import { smartAvailable } from "../availability";
 import { showSmartSide, toggleSmartPage } from "../../pages/present/actions";
 import { pageFor } from "../../workspace/page/open-page";
 import { usePageLayouts } from "../../workspace/page/page-layout";
@@ -21,18 +22,26 @@ const chat = () => import("../chat");
 
 const WORDS = "smart page app live dashboard tracker";
 
+/** Smart pages are on for the page open in the focused pane (its project's choice, else the vault's plugin). */
+const onHere = () => smartAvailable(openNote()?.project);
+
+/** A smart page that smart pages are on for: the commands that edit, keep, present or improve one. */
+const smartHere = () => smartNote() !== undefined && onHere();
+
 export const SMART_AUTHOR_COMMANDS: Command[] = [
   {
     id: "smart-new",
     label: "New smart page",
     words: `${WORDS} create starter gallery map timeline`,
+    // A new page is made in the library, so the vault's plugin decides.
+    when: () => smartAvailable(),
     run: () => void picker().then((m) => m.chooseStarter()),
   },
   {
     id: "smart-turn-into",
     label: "Turn this page into a smart page",
     words: `${WORDS} convert starter`,
-    when: () => openNote() !== undefined && smartNote() === undefined,
+    when: () => openNote() !== undefined && smartNote() === undefined && onHere(),
     run: () => {
       const note = openNote();
       if (note) void picker().then((m) => m.chooseStarter({ turnInto: note.path }));
@@ -52,7 +61,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-edit-code",
     label: "Edit this smart page's code",
     words: `${WORDS} html css javascript editor files`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => {
       const note = smartNote();
       if (note) showSmartSide(note, "code");
@@ -62,7 +71,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-save-template",
     label: "Keep this smart page as a template",
     words: `${WORDS} save starter your templates`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => {
       const note = smartNote();
       if (note) void flows().then((m) => m.saveSmartTemplate(note.path, note.title));
@@ -72,7 +81,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-export-html",
     label: "Save this smart page as an HTML file",
     words: `${WORDS} export share copy offline`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => {
       const note = smartNote();
       if (note) void flows().then((m) => m.exportSmartHtml(note.path, note.title));
@@ -82,7 +91,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-improve",
     label: "Improve this smart page's layout with AI",
     words: `${WORDS} arrange tidy chat ai layout`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => {
       const note = smartNote();
       if (note) void chat().then((m) => m.improveLayout(note.path, note.title));
@@ -92,7 +101,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-fix-errors",
     label: "Fix this smart page's errors with AI",
     words: `${WORDS} error broken repair chat ai`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => {
       const note = smartNote();
       if (note) void chat().then((m) => m.fixErrors(note.path, note.title));
@@ -102,7 +111,7 @@ export const SMART_AUTHOR_COMMANDS: Command[] = [
     id: "smart-present",
     label: "Present this smart page full screen",
     words: `${WORDS} fullscreen show screen`,
-    when: () => smartNote() !== undefined,
+    when: smartHere,
     run: () => void flows().then((m) => m.togglePresentSmart()),
   },
 ];

@@ -35,4 +35,20 @@ pub struct LatexEditArgs {
 pub struct LatexBuildArgs {
     /// The document: its folder (as `latex_list` shows it), its title, or any file in it.
     pub doc: String,
+    /// True to have the app build the document now and wait for the result. Left out or false, this only reads what the last build said. Building needs the app open.
+    #[serde(default)]
+    pub wait: Option<bool>,
+    /// With wait: how many seconds to wait for the build (90 if left out, at most 300).
+    #[serde(default)]
+    pub timeout_seconds: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct LatexExportPdfArgs {
+    /// The document: its folder (as `latex_list` shows it), its title, or any file in it.
+    pub doc: String,
+    /// Why, for the person reviewing it.
+    #[serde(default)]
+    pub reason: Option<String>,
 }

@@ -73,7 +73,7 @@ pub(crate) fn is_link(meta: &Metadata) -> bool {
 
 /// `rel` below `root` when every step on the way is a plain folder and the
 /// end is a plain file.
-fn plain_file(root: &Path, rel: &[&str]) -> Option<std::path::PathBuf> {
+pub(super) fn plain_file(root: &Path, rel: &[&str]) -> Option<std::path::PathBuf> {
     let mut path = root.to_path_buf();
     for (i, part) in rel.iter().enumerate() {
         path.push(part);

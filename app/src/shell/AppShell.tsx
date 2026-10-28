@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from "react";
 
 import { loadNotePage } from "../features/workspace/page/LazyNotePage";
 import { usePlugins } from "../plugins/registry";
+import { forgetProjectSmart } from "../features/smart/availability";
+import { forgetRunSwitch } from "../features/smart/run-switch";
 import { Palette } from "../features/workspace/overlays/Palette";
 import { SideStack } from "../features/stack/SideStack";
 import { VaultChooser } from "../features/vaults/VaultChooser";
@@ -23,6 +25,8 @@ import { useWebLinks } from "./web-links";
 import { useMouseNavigation } from "./mouse-nav";
 import { useSystemMenu } from "./native-menu";
 import { useWritesOnClose } from "../features/workspace/page/close-writes";
+import { useDrawForAgents } from "../features/diagrams/draw-png";
+import { useSelectionShare } from "../features/chat/selection/sharing";
 import { useShowWhenDrawn } from "./window-ready";
 import { useFirstPage } from "../features/vaults/first-page";
 import { Tooltips } from "../ui/Tooltips";
@@ -111,6 +115,9 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   useMouseNavigation();
   useSystemMenu();
   useWritesOnClose();
+  // What an agent asks of the window through the app: a diagram drawn as a PNG, and the selection it reads.
+  useDrawForAgents();
+  useSelectionShare();
   useShowWhenDrawn();
   useUpdatesAtStart();
   useDesktopEvents();
@@ -132,6 +139,9 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
         if (!cancelled) {
           preloadEditor();
           preloadViews();
+          // Smart pages are on or off for each vault, so what was heard before this connection is forgotten.
+          forgetRunSwitch();
+          forgetProjectSmart();
           void usePlugins.getState().sync();
         }
       },

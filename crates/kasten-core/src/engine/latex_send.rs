@@ -6,10 +6,12 @@
 use super::Kasten;
 use crate::error::{Error, Result};
 use crate::history::Actor;
-use crate::latex::{Converted, LatexDoc, Material, Mode, Sent, Template, mode_of_document};
+use crate::latex::{
+    Converted, LatexDoc, Material, Mode, Sent, SourceFile, Template, mode_of_document,
+};
 use crate::time::Instant;
 
-fn nothing_to_send() -> Error {
+pub(super) fn nothing_to_send() -> Error {
     Error::Invalid("There is no text to send to LaTeX".to_owned())
 }
 
@@ -108,6 +110,20 @@ impl Kasten {
                     .to_owned(),
             ));
         }
+        self.make_latex_doc(actor, title, template, project, body, now)
+    }
+
+    /// `create_latex_doc_from` for any actor, once the guardrails have said
+    /// yes (an agent's goes through `agent_run`, engine/latex_files.rs).
+    pub(super) fn make_latex_doc(
+        &self,
+        actor: &Actor,
+        title: &str,
+        template: Template,
+        project: Option<&str>,
+        body: Option<&str>,
+        now: Instant,
+    ) -> Result<LatexDoc> {
         let path = self.new_latex_path(title, project)?;
         self.write_source(actor, &path, "", &template.render(title, body), now)?;
         self.latex_doc_of(&path)?
@@ -139,6 +155,23 @@ impl Kasten {
         })
     }
 
+    /// The root file at `path` as it is, and as it would be with `material`
+    /// added; nothing is written.
+    pub(super) fn plan_send_append(
+        &self,
+        material: Material<'_>,
+        path: &str,
+    ) -> Result<(SourceFile, String, Converted)> {
+        let file = self.source(path)?;
+        let mode = mode_of_document(&file.text);
+        let converted = material.convert(mode);
+        if converted.tex.is_empty() {
+            return Err(nothing_to_send());
+        }
+        let text = with_text_added(&file.text, &converted, mode);
+        Ok((file, text, converted))
+    }
+
     /// Adds `material`, as LaTeX, at the end of the root file `path` of a document.
     pub fn send_to_latex_doc(
         &self,
@@ -147,13 +180,7 @@ impl Kasten {
         path: &str,
         now: Instant,
     ) -> Result<Sent> {
-        let file = self.source(path)?;
-        let mode = mode_of_document(&file.text);
-        let converted = material.convert(mode);
-        if converted.tex.is_empty() {
-            return Err(nothing_to_send());
-        }
-        let text = with_text_added(&file.text, &converted, mode);
+        let (file, text, converted) = self.plan_send_append(material, path)?;
         self.save_source(actor, path, &file.hash, &text, now)?;
         let doc = self
             .latex_doc_of(path)?

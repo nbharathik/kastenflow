@@ -197,6 +197,13 @@ impl Kasten {
             }
             AgentOp::EditDeck { .. } | AgentOp::CreateDeck { .. } => self.deck_refusals(op)?,
             AgentOp::SaveSource { .. } => self.latex_refusals(op)?,
+            AgentOp::CreateLatexDoc { .. }
+            | AgentOp::AppendLatexFile { .. }
+            | AgentOp::TrashLatexFile { .. } => self.latex_files_refusals(op)?,
+            AgentOp::AddLatexAsset { .. }
+            | AgentOp::CiteReference { .. }
+            | AgentOp::SendPageToLatex { .. } => self.latex_more_refusals(op)?,
+            AgentOp::ExportLatexPdf { .. } => self.latex_export_refusals(op)?,
             AgentOp::SmartWrite { .. } | AgentOp::SmartDelete { .. } => self.smart_refusals(op)?,
             AgentOp::SmartCreate { title, parent, .. } => {
                 if let Some(parent) = parent {
@@ -205,6 +212,7 @@ impl Kasten {
                 self.no_locked_links_to_namesake(title)?;
                 self.smart_create_refusals(op)?;
             }
+            AgentOp::RequestSmartPages { .. } => self.smart_request_refusals(op)?,
             AgentOp::EditPage { .. } => self.page_refusals(op, pages)?,
             AgentOp::SetParent { .. }
             | AgentOp::ReorderChildren { .. }

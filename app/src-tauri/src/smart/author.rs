@@ -154,6 +154,10 @@ pub fn smart_new_page(
     title: Option<String>,
 ) -> Result<MadeSmart, String> {
     let kasten = state.require()?;
+    // Off for the project (else the vault): no new smart page is made.
+    if !kasten.smart_enabled_for_project(project.as_deref()) {
+        return Err(trust::off_words(&kasten));
+    }
     let made = make(
         &kasten,
         &starter,
@@ -177,6 +181,9 @@ pub fn smart_turn_into(
     starter: String,
 ) -> Result<MadeSmart, String> {
     let kasten = state.require()?;
+    if !kasten.smart_enabled_for_page(&page) {
+        return Err(trust::off_words(&kasten));
+    }
     let from = material(&kasten, &starter)?;
     kasten
         .smart_turn_into(&Actor::Human, &page, &pairs(&from.files), Instant::now())

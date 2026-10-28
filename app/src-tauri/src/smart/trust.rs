@@ -111,6 +111,16 @@ pub fn trust(kasten: &Kasten, note: &NoteFile, data_dir: Option<&Path>, now: Ins
     }
 }
 
+/// Why smart pages are off for `note`, in plain words.
+pub(super) fn off_words(kasten: &Kasten) -> String {
+    if kasten.config().plugin_enabled(kasten_core::SMART_PLUGIN) {
+        "Smart pages are turned off for this project. Change it in the project's settings."
+            .to_owned()
+    } else {
+        "Smart pages are off. Turn them on in Settings → Plugins.".to_owned()
+    }
+}
+
 /// Whether a frame may begin for `note`; the words say why not.
 pub fn may_open(
     kasten: &Kasten,
@@ -118,8 +128,9 @@ pub fn may_open(
     data_dir: Option<&Path>,
     now: Instant,
 ) -> Result<(), String> {
-    if !settings::run_enabled(data_dir) {
-        return Err("Smart pages are off. Turn them on in Settings, under Pages.".to_owned());
+    // The page's project says, else the vault's plugin: off until a person turns it on.
+    if !kasten.smart_enabled_for_page(&note.meta.path) {
+        return Err(off_words(kasten));
     }
     let trust = trust(kasten, note, data_dir, now);
     if trust.needs_allow {

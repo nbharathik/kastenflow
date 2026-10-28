@@ -11,9 +11,13 @@ mod diagram;
 mod diagram_ai;
 mod digest;
 mod extras;
+mod figure;
 mod finders;
 mod history_more;
 mod latex;
+mod latex_app;
+mod latex_files;
+mod latex_more;
 mod lookup;
 mod notes_more;
 mod pages;
@@ -48,15 +52,22 @@ pub(crate) use diagram_ai::{
 };
 pub(crate) use digest::activity_digest;
 pub(crate) use extras::*;
+pub(crate) use figure::{diagram_to_latex_figure, export_png, get_selection};
 pub(crate) use history_more::*;
 pub(crate) use latex::{latex_build, latex_edit, latex_list, latex_read};
+pub(crate) use latex_app::latex_export_pdf;
+pub(crate) use latex_files::{
+    latex_append, latex_create_document, latex_delete_file, latex_write_file,
+};
+pub(crate) use latex_more::{latex_add_asset, latex_cite, latex_send_page};
 pub use lookup::Writes;
 pub(crate) use lookup::{STAGED_NOTE, locked};
 pub(crate) use notes_more::*;
 pub(crate) use pages::{edit_page, read_page_blocks};
 pub(crate) use read::*;
 pub(crate) use smart::{
-    smart_create, smart_delete_file, smart_edit, smart_read, smart_render, smart_write_file,
+    request_smart_pages, smart_create, smart_delete_file, smart_edit, smart_read, smart_render,
+    smart_write_file,
 };
 pub(crate) use smart_check::smart_check;
 pub(crate) use status::{health, plugins, server_status};
@@ -152,9 +163,9 @@ pub fn call_with(
     let s = session;
     // A plugin's tools answer only while the plugin is on.
     if let Some(id) = crate::plugins::owner_of(name)
-        && !k.config().plugin_enabled(id)
+        && !crate::plugins::is_on(k, id)
     {
-        return Err(crate::plugins::turn_on_sentence(id));
+        return Err(crate::plugins::off_sentence(k, id));
     }
     if let Writes::Staged(set) = writes
         && let Some(result) = staged::read(k, set, name, &args)
@@ -384,7 +395,19 @@ pub fn call_with(
         "latex_list" => latex_list(k),
         "latex_read" => latex_read(k, parse(args)?),
         "latex_edit" => latex_edit(k, s, writes, parse(args)?),
-        "latex_build" => latex_build(k, parse(args)?),
+        "latex_build" => latex_build(k, Some(s), parse(args)?),
+        "latex_export_pdf" => latex_export_pdf(k, s, writes, parse(args)?),
+        "latex_create_document" => latex_create_document(k, s, writes, parse(args)?),
+        "latex_write_file" => latex_write_file(k, s, writes, parse(args)?),
+        "latex_append" => latex_append(k, s, writes, parse(args)?),
+        "latex_delete_file" => latex_delete_file(k, s, writes, parse(args)?),
+        "latex_add_asset" => latex_add_asset(k, s, writes, parse(args)?),
+        "latex_cite" => latex_cite(k, s, writes, parse(args)?),
+        "latex_send_page" => latex_send_page(k, s, writes, parse(args)?),
+        // A diagram as a figure: both plugins are on, or the call was turned away above.
+        "diagram_to_latex_figure" => diagram_to_latex_figure(k, s, writes, parse(args)?),
+        // The user's selection: no plugin, the app's.
+        "get_selection" => get_selection(k),
         // The smart page tools: reads of the page's folder, and writes that go through `agent_in`.
         "smart_create" => smart_create(k, s, writes, parse(args)?),
         "smart_read" => smart_read(k, parse(args)?),
@@ -393,6 +416,7 @@ pub fn call_with(
         "smart_delete_file" => smart_delete_file(k, s, writes, parse(args)?),
         "smart_check" => smart_check(k, parse(args)?),
         "smart_render" => smart_render(k, parse(args)?),
+        "request_smart_pages" => request_smart_pages(k, s, writes, parse(args)?),
         "server_status" => status::server_status(k, Some(s)),
         // The deck tools: slides-core's, on the vault (see decks/).
         other if crate::decks::is_tool(other) => {

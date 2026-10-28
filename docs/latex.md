@@ -157,10 +157,26 @@ All keys are optional, and keys KastenFlow does not know are left alone.
 
 ## Agents and LaTeX
 
-When the plugin is on, agents see four LaTeX tools: they can list documents, read
-a source file, change one piece of text (with the file's version, so a change you
-made meanwhile is never overwritten) and read the last build's errors. Agents
-cannot start TeX or add files: you do that in the app. A change that takes out
-much of a file waits for your review, and a document with `locked: true` is
-read-only to agents. In the chat panel, **Fix LaTeX errors** asks the assistant to
-fix what the last build reported. See [Agent modes](agents.md).
+When the plugin is on, agents can write a whole paper in your vault. They can list
+documents, read a source file, start a document from a template (article, report or
+Beamer), write or replace a file, add text at the end of a file or after a piece of it,
+change one piece of text (always against the file's version, so a change you made
+meanwhile is never overwritten), and move a file to the trash, where you can put it back.
+They can put a PNG, JPG or PDF picture in a document's `figures` folder, cite a reference
+from your References (the entry is kept once in the document's `references.bib`; the
+reference itself is never changed), and send a page, or one section of it, to a document as
+**Send to LaTeX** does. With the draw.io plugin on too, they can turn a diagram into a
+figure.
+
+Two things stay yours. KastenFlow never runs Python or any program for an agent: an
+assistant that wants a chart makes the PNG on its own side and sends it. And agents never
+send a PDF: with the app open, an agent can ask the app to build a document now (it gets
+the errors and warnings, the page count and the PDF's size) and to keep the PDF the app
+built in the document's folder. If the app is closed, the agent is told so in a sentence.
+
+Every change follows your agent mode: a new document, a citation, a sent page and a kept
+PDF wait for your review in **Review everything**; taking out a document's root file, or
+much of a file, waits unless agents work on their own. A document with `locked: true` is
+read-only to agents. One undo takes a whole session back. In the chat panel, **Fix LaTeX
+errors** asks the assistant to fix what the last build reported. See [Agent modes](agents.md)
+and [MCP tools](mcp-tools.md#latex).

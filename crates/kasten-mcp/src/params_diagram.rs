@@ -63,7 +63,7 @@ pub struct EditDiagramArgs {
 pub struct ExportDiagramArgs {
     /// The diagram's title or vault path (`.drawio`).
     pub diagram: String,
-    /// `svg` (kept in assets/ and ready to put in a note or a slide) or `png`.
+    /// `svg` (kept in assets/ and ready to put in a note or a slide) or `png` (drawn by the app, which must be open).
     pub format: String,
     /// A page's name, id or number (the first page when left out).
     pub page: Option<String>,

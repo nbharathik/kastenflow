@@ -99,6 +99,11 @@ impl Kasten {
         if class != OpClass::Ordinary {
             return Ok(class);
         }
+        // A document's root file taken out waits whoever is trusted.
+        let class = self.latex_files_class(op)?;
+        if class != OpClass::Ordinary {
+            return Ok(class);
+        }
         // Page edits by blocks: one that takes a lot out of the page, when not trusted.
         let class = self.page_review_reason(session, op, now)?;
         if class != OpClass::Ordinary {
@@ -157,10 +162,12 @@ impl Kasten {
                 .map_or(0, |tally| tally.cards_taken_off(now.millis, WINDOW_MS));
             if going > 0 && earlier + going > max {
                 return Ok(Some(if earlier == 0 {
-                    format!("Takes {going} cards off a board at once (the limit is {max})")
+                    format!(
+                        "Takes {going} cards or arrows off a board at once (the limit is {max})"
+                    )
                 } else {
                     format!(
-                        "This session already took {earlier} cards off boards in the last 10 minutes; this would make {} (the limit is {max})",
+                        "This session already took {earlier} cards or arrows off boards in the last 10 minutes; this would make {} (the limit is {max})",
                         earlier + going
                     )
                 }));

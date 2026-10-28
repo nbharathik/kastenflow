@@ -1,32 +1,25 @@
-// Settings → Pages → Smart pages: the switch that stops every smart page at once.
-
-import { useEffect } from "react";
+// Settings → Pages → Smart pages: where smart pages stand, and the way to the
+// switch. Smart pages are a plugin (Settings → Plugins) that is off until it is
+// turned on, for each vault; a project can say its own in its menu.
 
 import { inTauri } from "../../../../lib/api";
-import { loadRunSwitch, setRunSwitch, useRunSwitch } from "../../../smart/run-switch";
-import { useWorkspace } from "../../store";
-import { Group, Switch } from "./parts";
+import { usePlugins } from "../../../../plugins/registry";
+import { Button } from "../../../../ui/Button";
+import { Group, Row } from "./parts";
+import { useSettingsView } from "./view";
 
-/** "Run smart pages": on until a person turns it off. Off, smart pages show their notes and every frame ends. */
+/** "Smart pages": on or off for this vault, and a button to the Plugins list where the switch is. */
 export function SmartSettings() {
-  const desktop = inTauri();
-  const { on, known } = useRunSwitch();
-  useEffect(() => {
-    if (desktop && !known) void loadRunSwitch();
-  }, [desktop, known]);
-  if (!desktop) return null;
+  const view = useSettingsView();
+  const on = usePlugins((s) => s.on.smart === true);
+  if (!inTauri()) return null;
   return (
     <Group title="Smart pages" sub>
-      <Switch
-        id="pages.smartRun"
-        usual
-        checked={on}
-        onChange={(next) =>
-          void setRunSwitch(next).then((done) => {
-            if (!done) useWorkspace.getState().toast("Smart pages could not be turned " + (next ? "on" : "off") + ". Try again.");
-          })
-        }
-      />
+      <Row id="pages.smartRun" detail={on ? "On in this vault." : "Off in this vault."}>
+        <Button size="sm" onClick={() => view.open("plugins.list")}>
+          Open Plugins
+        </Button>
+      </Row>
     </Group>
   );
 }

@@ -127,6 +127,11 @@ const RULES: &[Rule] = &[
                 "the temporary file of an atomic write, and ones interrupted writes left an hour or more ago",
             ),
             (
+                "crates/kasten-core/src/bridge/files.rs",
+                1,
+                "a request, an answer, the shared selection or a link in the mailbox (.kasten/cache/bridge/, never committed): the request once it is taken up or has gone unanswered, the answer once it is read or too old, the selection when the app closes or no client has asked for two minutes; refuses any path that is not strictly inside the mailbox and removes a link itself, never what it points to",
+            ),
+            (
                 "crates/kasten-core/src/engine/backup_file.rs",
                 3,
                 "a half-written backup file, or an old one whose history the new, checked file holds",

@@ -185,18 +185,38 @@ fn an_agent_does_not_pass_for_a_person_by_its_name() {
 }
 
 #[test]
-fn the_switch_is_on_until_a_person_turns_it_off() {
+fn smart_pages_are_off_until_a_person_turns_the_plugin_on_and_a_project_can_say_its_own() {
     let s = smart();
     let dir = data("switch");
-    assert!(settings::run_enabled(Some(&dir)));
-    assert!(settings::run_enabled(None), "no data folder: the default");
-    settings::set_run_enabled(&dir, false).unwrap();
-    assert!(!settings::run_enabled(Some(&dir)));
-    let refused = may_open(s.k(), &note(s.k(), &s.path), Some(&dir), Instant::now()).unwrap_err();
-    assert!(refused.contains("off"), "{refused}");
-    settings::set_run_enabled(&dir, true).unwrap();
-    assert!(settings::run_enabled(Some(&dir)));
-    assert!(may_open(s.k(), &note(s.k(), &s.path), Some(&dir), Instant::now()).is_ok());
+    let page = || note(s.k(), &s.path);
+    // The fixture turned the plugin on, as a person does in Settings → Plugins.
+    assert!(may_open(s.k(), &page(), Some(&dir), Instant::now()).is_ok());
+    s.k()
+        .set_plugin_enabled(&Actor::Human, "smart", false, Instant::now())
+        .unwrap();
+    let refused = may_open(s.k(), &page(), Some(&dir), Instant::now()).unwrap_err();
+    assert!(
+        refused.contains("off") && refused.contains("Plugins"),
+        "{refused}"
+    );
+    s.k()
+        .set_plugin_enabled(&Actor::Human, "smart", true, Instant::now())
+        .unwrap();
+    assert!(may_open(s.k(), &page(), Some(&dir), Instant::now()).is_ok());
+
+    // A page of a project that says off is refused even though the vault is on.
+    let (inside, _) = super::add_page_in(s.k(), "Inside", Some("photo-organiser"), &super::files());
+    s.k()
+        .set_project_smart_pages(
+            &Actor::Human,
+            "projects/photo-organiser/_project.md",
+            kasten_core::ProjectSmart::Off,
+            Instant::now(),
+        )
+        .unwrap();
+    let refused = may_open(s.k(), &note(s.k(), &inside), Some(&dir), Instant::now()).unwrap_err();
+    assert!(refused.contains("project"), "{refused}");
+    assert!(may_open(s.k(), &page(), Some(&dir), Instant::now()).is_ok());
 }
 
 #[test]
@@ -204,7 +224,6 @@ fn the_choices_share_a_file_and_do_not_undo_each_other() {
     let dir = data("together");
     settings::set_web_images(&dir, "01AAA", true, "same").unwrap();
     settings::set_allowed(&dir, "01AAA").unwrap();
-    settings::set_run_enabled(&dir, false).unwrap();
     settings::set_web_images(&dir, "01BBB", true, "same").unwrap();
     let same = || "same".to_owned();
     assert!(
@@ -212,16 +231,17 @@ fn the_choices_share_a_file_and_do_not_undo_each_other() {
             && settings::web_images(Some(&dir), "01BBB", &same)
     );
     assert!(settings::allowed(Some(&dir), "01AAA") && !settings::allowed(Some(&dir), "01BBB"));
-    assert!(!settings::run_enabled(Some(&dir)));
-    // A file from before these choices existed still reads.
-    fs::write(dir.join("smart-pages.json"), r#"{"webImages":["01OLD"]}"#).unwrap();
+    // A file from before these choices existed (one with a "run" key too) still reads.
+    fs::write(
+        dir.join("smart-pages.json"),
+        r#"{"webImages":["01OLD"],"run":false}"#,
+    )
+    .unwrap();
     assert!(settings::web_images(Some(&dir), "01OLD", &same));
-    assert!(settings::run_enabled(Some(&dir)));
     assert!(!settings::allowed(Some(&dir), "01OLD"));
-    // One that does not read says no to a permission and yes to the default.
+    // One that does not read says no to a permission.
     fs::write(dir.join("smart-pages.json"), "{ not json").unwrap();
     assert!(!settings::allowed(Some(&dir), "01OLD"));
-    assert!(settings::run_enabled(Some(&dir)));
 }
 
 #[test]

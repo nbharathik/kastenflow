@@ -15,6 +15,7 @@ import { titleOf } from "../names";
 import { highlightSelection } from "../../annotations/highlight-registry";
 import { openComments } from "../../panel/panel-store";
 import { pageKeyOf, presentThisPage, sectionsToDeck, showSmartSide, toggleSmartLayout, toggleSmartPage } from "../../pages/present/actions";
+import { setProjectSmart, smartAvailable } from "../../smart/availability";
 import { smartSideOf } from "../../smart/use-smart-side";
 import { linkFor } from "../links";
 import { copyAsMarkdown, showInFolder } from "../page/page-file";
@@ -28,6 +29,13 @@ import { firstVisible } from "../../../shell/visible-dom";
 import type { Command } from "./commands";
 
 const workspace = () => useWorkspace.getState();
+
+/** A project's own choice for smart pages, as the palette offers it for the project page that is open. */
+const PROJECT_SMART = [
+  ["vault", "Smart pages in this project: use the vault's choice"],
+  ["on", "Smart pages in this project: on"],
+  ["off", "Smart pages in this project: off"],
+] as const;
 
 /** The page open in the focused pane, if one is. */
 export function openNote(): NoteMeta | undefined {
@@ -134,6 +142,7 @@ export const PAGE_COMMANDS: Command[] = [
     id: "smart-page-layout",
     label: "Smart layout for this page",
     words: "smart page interactive live view app tracker dashboard toggle on off",
+    when: () => smartAvailable(openNote()?.project),
     run: () => {
       const note = openNote();
       if (note) toggleSmartPage(note);
@@ -143,6 +152,7 @@ export const PAGE_COMMANDS: Command[] = [
     id: "smart-page-flip",
     label: "Smart page: switch between the smart view and the notes",
     words: "smart page notes markdown view flip",
+    when: () => smartAvailable(openNote()?.project),
     run: () => {
       const note = openNote();
       if (note) showSmartSide(note, smartSideOf(pageKeyOf(note)) === "notes" ? "smart" : "notes");
@@ -152,6 +162,7 @@ export const PAGE_COMMANDS: Command[] = [
     id: "smart-page-history",
     label: "Smart page: history of its code",
     words: "smart page versions restore earlier code diff changes",
+    when: () => smartAvailable(openNote()?.project),
     run: () => {
       const note = openNote();
       if (note) showSmartSide(note, "history");
@@ -229,6 +240,16 @@ export const PAGE_COMMANDS: Command[] = [
       if (note?.kind === "project") templateItems(note)[0]!.onSelect();
     },
   },
+  ...PROJECT_SMART.map(([setting, label]): Command => ({
+    id: `project-smart-${setting}`,
+    label,
+    words: "project smart pages plugin apps on off vault choice",
+    when: () => openNote()?.kind === "project" && inTauri(),
+    run: () => {
+      const note = openNote();
+      if (note?.project) void setProjectSmart(note.project, setting);
+    },
+  })),
   {
     id: "fold-properties",
     label: "Fold properties",

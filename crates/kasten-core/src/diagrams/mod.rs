@@ -9,6 +9,7 @@
 //! the editor wrote it: it checks that it is a well-formed diagram, never
 //! rewrites it, and never replaces a file it did not read.
 
+mod background;
 mod cells;
 pub mod describe;
 pub mod draw;
@@ -33,6 +34,7 @@ mod xml;
 #[cfg(test)]
 mod xml_tests;
 
+pub use background::{Background, background_of};
 pub use cells::{cell_ids, removed_cells};
 pub use files::{
     DiagramFile, DiagramSaved, Preview, check_new_diagram, create_diagram, draft_for, plan_diagram,

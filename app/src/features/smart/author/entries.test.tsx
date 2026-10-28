@@ -4,9 +4,11 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { usePlugins } from "../../../plugins/registry";
 import { matchingActions, newActions, slashActions } from "../../home/actions";
+import { forgetProjectSmart, useProjectSmart } from "../availability";
 import { NewMenu } from "../../home/NewMenu";
 import { KEY_SECTIONS } from "../../shortcuts/catalog";
 import { allCommands } from "../../workspace/overlays/commands";
@@ -19,9 +21,15 @@ import { STARTERS } from "./starter-list";
 const flows = vi.hoisted(() => ({ newSmartPage: vi.fn(async () => null), saveSmartTemplate: vi.fn(async () => true), exportSmartHtml: vi.fn(async () => null) }));
 vi.mock("./flows", () => flows);
 
+// Smart pages are a plugin that is off until a person turns it on: these entries are the ones shown with it on.
+beforeEach(() => {
+  forgetProjectSmart();
+  usePlugins.setState({ on: { smart: true } });
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  usePlugins.setState({ on: {} });
 });
 
 const note = (extra: Partial<NoteMeta> = {}) => ({ path: "library/a.md", id: "a", title: "A", kind: "page", locked: false, tags: [], props: {}, ...extra }) as NoteMeta;
@@ -133,5 +141,50 @@ describe("the page menu", () => {
 
   it("keeps the menu in a submenu where the rows are named plainly (no ops, commits or ids)", () => {
     for (const row of labels(entries(true))) expect(row).not.toMatch(/\b(op|commit|sidecar|session|id)\b/i);
+  });
+});
+
+describe("while smart pages are off (the plugin's default)", () => {
+  beforeEach(() => usePlugins.setState({ on: { smart: false } }));
+  const entries = (smartPage: boolean, project?: string) => pageMenuEntries({ note: note(project ? { project } : {}), smart: false, smartPage, hasMap: false, sourceOpen: false, chooseOpens: () => {} });
+  const SMART_ROWS = ["Smart layout", "Turn into smart page…", "Edit code", "Save as smart template", "Export as HTML file"];
+
+  it("leaves New smart page out of the + New menu, the capture field's /smart and the tab + menu", () => {
+    expect(newActions().find((a) => a.id === "smart")).toBeUndefined();
+    expect(matchingActions(slashActions(), "smart")).toEqual([]);
+    expect(labels(newTabItems())).not.toContain("New smart page");
+  });
+
+  it("leaves out the palette commands that start or change a smart page, and keeps the way back", () => {
+    const palette = new Map(allCommands().map((c) => [c.id, c]));
+    expect(palette.get("smart-new")!.when?.()).toBe(false);
+    for (const id of ["smart-turn-into", "smart-edit-code", "smart-save-template", "smart-export-html", "smart-improve", "smart-fix-errors", "smart-present", "smart-page-layout", "smart-page-flip", "smart-page-history"]) {
+      expect(palette.get(id)!.when?.(), id).toBe(false);
+    }
+  });
+
+  it("leaves Turn into smart page and the smart rows out of an ordinary page's menu", () => {
+    const rows = labels(entries(false));
+    for (const row of SMART_ROWS) expect(rows, row).not.toContain(row);
+  });
+
+  it("lets a page that is already smart go back to a normal page, and offers nothing else of it", () => {
+    const rows = labels(entries(true));
+    expect(rows).toContain("Back to a normal page");
+    expect(rows).toContain("Smart layout");
+    for (const row of ["Turn into smart page…", "Edit code", "Save as smart template", "Export as HTML file"]) expect(rows, row).not.toContain(row);
+  });
+
+  it("follows the project: on in one project shows the entries there, off in another hides them where the vault is on", () => {
+    useProjectSmart.setState({ projects: { trip: "on" }, known: true });
+    expect(labels(entries(false, "trip"))).toContain("Turn into smart page…");
+    expect(labels(entries(false, "other"))).not.toContain("Turn into smart page…");
+    expect(newActions().find((a) => a.id === "smart"), "a new page in the library follows the vault").toBeUndefined();
+
+    usePlugins.setState({ on: { smart: true } });
+    useProjectSmart.setState({ projects: { trip: "off" }, known: true });
+    expect(labels(entries(false, "trip"))).not.toContain("Turn into smart page…");
+    expect(labels(entries(false, "other"))).toContain("Turn into smart page…");
+    expect(newActions().find((a) => a.id === "smart")).toBeDefined();
   });
 });

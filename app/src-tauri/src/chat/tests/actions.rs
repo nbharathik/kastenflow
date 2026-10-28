@@ -343,6 +343,55 @@ fn slugs(catalog: &Catalog) -> Vec<&str> {
     catalog.actions.iter().map(|a| a.slug.as_str()).collect()
 }
 
+/// Smart pages turned on for the vault, as a person does in Settings → Plugins.
+fn smart_on(v: &super::Vault) {
+    v.kasten
+        .set_plugin_enabled(
+            &kasten_core::history::Actor::Human,
+            "smart",
+            true,
+            kasten_core::Instant::now(),
+        )
+        .unwrap();
+}
+
+#[test]
+fn the_smart_page_actions_are_offered_only_where_smart_pages_are_on() {
+    let v = vault();
+    let smart = [
+        "make-smart-page",
+        "improve-smart-layout",
+        "fix-smart-errors",
+    ];
+    // Off in a fresh vault: the other eleven stay, these three are not listed.
+    let catalog = catalog::load(&v.kasten).unwrap();
+    assert_eq!(catalog.actions.len(), 11);
+    for slug in smart {
+        assert!(catalog.find(slug).is_none(), "{slug}");
+    }
+    // Built in, they are still shipped: only the list leaves them out.
+    assert!(
+        catalog::built_in()
+            .iter()
+            .any(|a| a.slug == "make-smart-page")
+    );
+    // A project that says on brings them back.
+    v.kasten
+        .set_project_smart_pages(
+            &kasten_core::history::Actor::Human,
+            "projects/photo-organiser/_project.md",
+            kasten_core::ProjectSmart::On,
+            kasten_core::Instant::now(),
+        )
+        .unwrap();
+    assert_eq!(catalog::load(&v.kasten).unwrap().actions.len(), 14);
+    assert!(v.kasten.smart_enabled_for_project(Some("photo-organiser")));
+    assert!(
+        !v.kasten
+            .smart_enabled_for_project(Some("note-taking-study"))
+    );
+}
+
 #[test]
 fn a_vault_file_replaces_the_built_in_of_its_name_in_place_and_others_follow_by_title() {
     let own_outline = with("needs: [page]").replace("title: T", "title: My outline");
@@ -351,6 +400,7 @@ fn a_vault_file_replaces_the_built_in_of_its_name_in_place_and_others_follow_by_
         ("standup.md", &GOOD.replace("Tidy", "Standup")),
         ("agenda.md", &GOOD.replace("Tidy", "Agenda")),
     ]);
+    smart_on(&v);
     let catalog = catalog::load(&v.kasten).unwrap();
     assert!(catalog.problems.is_empty(), "{:?}", catalog.problems);
     assert_eq!(
@@ -383,6 +433,7 @@ fn a_vault_file_replaces_the_built_in_of_its_name_in_place_and_others_follow_by_
 
     // Capitals and spaces in a file name still name the same action.
     let v = vault_with(&[("Compare Sources.md", &GOOD.replace("Tidy", "Mine"))]);
+    smart_on(&v);
     let catalog = catalog::load(&v.kasten).unwrap();
     assert_eq!(catalog.find("compare-sources").unwrap().title, "Mine");
     assert_eq!(catalog.actions.len(), 14);

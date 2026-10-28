@@ -80,6 +80,13 @@ fn lists_every_tool_with_an_object_schema() {
         "latex_read",
         "latex_edit",
         "latex_build",
+        "latex_create_document",
+        "latex_write_file",
+        "latex_append",
+        "latex_delete_file",
+        "latex_export_pdf",
+        "diagram_to_latex_figure",
+        "get_selection",
         "smart_create",
         "smart_read",
         "smart_edit",
@@ -87,13 +94,15 @@ fn lists_every_tool_with_an_object_schema() {
         "smart_delete_file",
         "smart_check",
         "smart_render",
+        "request_smart_pages",
     ] {
         assert!(names.contains(&name), "missing {name} in {names:?}");
     }
-    // The 88 tools for notes, tags, boards, diagrams, LaTeX and smart pages (the seven smart page tools are named in
+    // The 99 tools for notes, tags, boards, diagrams, LaTeX and smart pages (the seven smart page tools, and
+    // request_smart_pages that stands in for them while they are off, are named in
     // tests/smart_tools.rs; server_status, batch, the page-block tools, the eight
     // structure tools (save_project_setup, list_setups and set_view_order among them), the twenty parity tools, the three diagram file tools, the seven typed diagram tools and
-    // the four LaTeX tools among them; tests/parity_tools.rs and tests/latex_tools.rs name each one), slides-core's
+    // the twelve LaTeX tools among them; tests/parity_tools.rs and tests/latex_tools.rs name each one), slides-core's
     // tools for decks, and the one that makes a deck from a note.
     // A program that cannot draw slides does not list the two that draw them.
     let decks = slides_core::agent::tools();
@@ -103,7 +112,7 @@ fn lists_every_tool_with_an_object_schema() {
     } else {
         drawing.len()
     };
-    assert_eq!(specs.len(), 88 + decks.len() + 1 - hidden, "{names:?}");
+    assert_eq!(specs.len(), 99 + decks.len() + 1 - hidden, "{names:?}");
     assert!(
         names.contains(&"deck_from_note"),
         "missing deck_from_note in {names:?}"

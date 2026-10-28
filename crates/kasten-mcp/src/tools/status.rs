@@ -10,7 +10,7 @@ use crate::decks::render;
 use crate::setup::canonical;
 
 /// The plugins every vault knows, then any other the config names.
-const PLUGINS: [&str; 2] = ["diagrams", "latex"];
+const PLUGINS: [&str; 3] = ["diagrams", "latex", "smart"];
 
 /// Each plugin by id, on or off, as the config says now.
 pub(crate) fn plugins(config: &Config) -> Value {

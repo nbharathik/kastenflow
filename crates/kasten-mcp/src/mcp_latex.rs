@@ -30,7 +30,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Changes a LaTeX source file by replacing one piece of text with another. The text must be in the file once, and base_hash must be the hash latex_read gave: when the file changed since, nothing is written, so read it again and redo the change. A locked document is refused, and a change that takes out much of the file waits for the user's review (pending_review). To make a new file, a person adds it in the app."
+        description = "Changes a LaTeX source file by replacing one piece of text with another. The text must be in the file once, and base_hash must be the hash latex_read gave: when the file changed since, nothing is written, so read it again and redo the change. A locked document is refused, and a change that takes out much of the file waits for the user's review (pending_review)."
     )]
     async fn latex_edit(
         &self,
@@ -43,10 +43,16 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "What the last build of a document said: its errors and warnings, each with the file and line. The app builds a document while it is open, and this does not run TeX itself: after an edit, read it again once the app has built, and it says when a file changed after the last build.",
+        description = "What the last build of a document said: its errors and warnings, each with the file and line. By default this only reads the last build (it says when a file changed after it). With wait set to true the app builds the document now and this gives the result: errors and warnings with file and line, the page count, the PDF's size and how long it took. Building needs the KastenFlow app open: you are told if it is closed or the build did not finish in time (timeout_seconds, 90 if left out, at most 300). To fix errors, change files with latex_edit and build again.",
         annotations(read_only_hint = true)
     )]
-    async fn latex_build(&self, Parameters(a): Parameters<LatexBuildArgs>) -> CallToolResult {
-        self.run(move |k| tools::latex_build(k, a)).await
+    async fn latex_build(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(a): Parameters<LatexBuildArgs>,
+    ) -> CallToolResult {
+        let session = self.peek_session(&context);
+        self.run(move |k| tools::latex_build(k, session.as_ref(), a))
+            .await
     }
 }

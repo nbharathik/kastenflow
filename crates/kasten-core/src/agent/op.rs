@@ -250,6 +250,96 @@ pub enum AgentOp {
         #[serde(default)]
         reason: Option<String>,
     },
+    /// A new LaTeX document made from a template (`article`, `report` or
+    /// `beamer`; empty means `article`): a folder of its own in `project`
+    /// (or the library) holding the root file. The folder's name is numbered
+    /// when it is taken.
+    CreateLatexDoc {
+        title: String,
+        #[serde(default)]
+        template: String,
+        #[serde(default)]
+        project: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// Text added to a LaTeX source file: at its end, or right after `after`,
+    /// a piece of text that is in the file exactly once. `base_hash` is the
+    /// hash of the file the agent read; every other byte stays as it was.
+    AppendLatexFile {
+        path: String,
+        base_hash: String,
+        text: String,
+        #[serde(default)]
+        after: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A LaTeX source file taken out of its document. It goes to the trash and
+    /// can be put back; nothing is deleted for good.
+    TrashLatexFile {
+        path: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A picture for a LaTeX document (`doc` is its folder), kept in the
+    /// document's `figures/` folder: a PNG, JPEG or PDF (an SVG too, but it
+    /// needs a converter). Its bytes are `base64` or the file of the vault at
+    /// `vault_path`; the same bytes already there are the same file. It adds a
+    /// file and changes none, so it is never held for review: the limits on an
+    /// agent's pictures hold it instead.
+    AddLatexAsset {
+        doc: String,
+        name: String,
+        #[serde(default)]
+        base64: Option<String>,
+        #[serde(default)]
+        vault_path: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// `\cite{key}` put in a LaTeX file of a document (`doc` is its folder,
+    /// `file` the file's vault path), at the end of the paragraph that holds
+    /// `at` or at the end of the file, with the Reference's entry in the
+    /// document's `references.bib` once. The Reference itself is never changed.
+    CiteReference {
+        doc: String,
+        file: String,
+        key: String,
+        #[serde(default)]
+        at: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// The built PDF of a LaTeX document (`doc` is its folder) kept beside its
+    /// root file. It names nothing else: the bytes are the app's last build,
+    /// read from the vault's cache when the op runs (never sent by the agent),
+    /// so a proposal for it carries none. The person's own Export PDF is a
+    /// different, person-only call.
+    ExportLatexPdf {
+        doc: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A page (or one section of it, under `section`) sent to LaTeX as the
+    /// app's "Send to LaTeX" does: added to the root file of the document in
+    /// `doc` (its folder), or made into a new document (`title`, `template`,
+    /// `project`) when `doc` is left out.
+    SendPageToLatex {
+        page: String,
+        #[serde(default)]
+        section: Option<String>,
+        #[serde(default)]
+        doc: Option<String>,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        template: String,
+        #[serde(default)]
+        project: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
     /// A text file of a smart page's code folder written whole (`index.html`,
     /// `app.js`, a stylesheet, data, the manifest). `page` is the smart page's
     /// path and `path` the file inside its folder. `base` is the hash the agent
@@ -286,6 +376,16 @@ pub enum AgentOp {
         path: String,
         #[serde(default)]
         reason: Option<String>,
+    },
+    /// A request to a person to turn smart pages on, for the whole vault or
+    /// for one project (`project`, its folder or name). It changes nothing by
+    /// itself and runs in no mode: it is always kept for the person, and only
+    /// their accepting it turns anything on. Rejecting it changes nothing.
+    RequestSmartPages {
+        /// Why the agent wants smart pages, in a sentence, for the person.
+        reason: String,
+        #[serde(default)]
+        project: Option<String>,
     },
     /// Steps on a page's blocks (`edit_page`): insert, replace, move, delete,
     /// wrap in columns, a toggle or a callout, tick a task, change a table or
@@ -467,6 +567,8 @@ impl AgentOp {
                 | AgentOp::CreateDeck { .. }
                 | AgentOp::CreateDiagram { .. }
                 | AgentOp::SmartCreate { .. }
+                | AgentOp::CreateLatexDoc { .. }
+                | AgentOp::SendPageToLatex { doc: None, .. }
                 | AgentOp::CreateProject { .. }
                 | AgentOp::DuplicateNote { .. }
                 | AgentOp::RestoreNote { .. }

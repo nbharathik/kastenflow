@@ -7,7 +7,8 @@ import { findOrMakeMap } from "../features/boards/page-map";
 import { askAboutPage } from "../features/chat/actions";
 import { foldAllSections } from "../features/pages/editor/sections/registry";
 import { presentThisPage, sectionsToDeck, showSmartSide, toggleSmartLayout, toggleSmartPage } from "../features/pages/present/actions";
-import { homeItem, saveSetupItem, templateItems } from "../features/projects/home-menu";
+import { homeItem, saveSetupItem, smartProjectItems, templateItems } from "../features/projects/home-menu";
+import { smartAvailable } from "../features/smart/availability";
 import { keyHint } from "../features/shortcuts/store";
 import { saveAsTemplate } from "../features/templates/kits";
 import { linkFor } from "../features/workspace/links";
@@ -82,6 +83,9 @@ export const PALETTE_IDS: Record<string, string> = {
   "Change the template for new pages…": "project-template",
   "New pages start blank": "project-template",
   "Save as a setup…": "save-project-setup",
+  "Use the vault's choice": "project-smart-vault",
+  "On in this project": "project-smart-on",
+  "Off in this project": "project-smart-off",
   "Hide project home": "project-home",
   "Show project home": "project-home",
   "Ask AI about this page": "ask-page",
@@ -91,15 +95,14 @@ export const PALETTE_IDS: Record<string, string> = {
 const smartFlows = () => import("../features/smart/author/flows");
 
 /** The rows that make or change a smart page, loaded when used: start one from a starter, or edit, keep and go back. */
-function smartRows(note: NoteMeta, smartPage: boolean): MenuItem[] {
+function smartRows(note: NoteMeta, smartPage: boolean, available: boolean): MenuItem[] {
+  // Smart pages off for this page's project (else the vault): nothing starts one, and the code is not edited; a smart page can still go back to a normal page.
   if (!smartPage) {
-    return [{ label: "Turn into smart page…", icon: icon("code"), onSelect: () => void import("../features/smart/author/starter-picker").then((m) => m.chooseStarter({ turnInto: note.path })) }];
+    return available ? [{ label: "Turn into smart page…", icon: icon("code"), onSelect: () => void import("../features/smart/author/starter-picker").then((m) => m.chooseStarter({ turnInto: note.path })) }] : [];
   }
-  return [
-    { label: "Edit code", icon: icon("code"), onSelect: () => showSmartSide(note, "code") },
-    { label: "Back to a normal page", icon: icon("undo"), onSelect: () => toggleSmartPage(note) },
-    { label: "Save as smart template", icon: icon("template"), onSelect: () => void smartFlows().then((m) => m.saveSmartTemplate(note.path, note.title)) },
-  ];
+  const back = { label: "Back to a normal page", icon: icon("undo"), onSelect: () => toggleSmartPage(note) };
+  if (!available) return [back];
+  return [{ label: "Edit code", icon: icon("code"), onSelect: () => showSmartSide(note, "code") }, back, { label: "Save as smart template", icon: icon("template"), onSelect: () => void smartFlows().then((m) => m.saveSmartTemplate(note.path, note.title)) }];
 }
 
 /** Folds or unfolds every section of `note`, saying how to make some when it has none. */
@@ -127,14 +130,16 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
   const ws = () => useWorkspace.getState();
   const shell = useShell.getState();
   const own = movable(note);
+  // Smart pages are on for this page's project (else the vault's plugin).
+  const smartOn = smartAvailable(note.project);
   const { propsFold, propsFolded: chosen } = usePrefs.getState();
   const propsFolded = isFolded(propsFold, chosen[foldKey(note)], propertyCount(note));
 
   const view: MenuEntry[] = [
     { label: sourceOpen ? "Hide Markdown file" : "Show Markdown file", icon: icon("code"), onSelect: shell.toggleSource },
     { label: "Sections layout", checked: smart, onSelect: () => toggleSmartLayout(note) },
-    { label: "Smart layout", checked: smartPage, onSelect: () => toggleSmartPage(note) },
-    ...smartRows(note, smartPage),
+    ...(smartOn || smartPage ? [{ label: "Smart layout", checked: smartPage, onSelect: () => toggleSmartPage(note) }] : []),
+    ...smartRows(note, smartPage, smartOn),
     { label: "Focus mode", icon: icon("expand"), hint: keyHint("focus"), onSelect: shell.toggleFocus },
     ...(foldable
       ? [
@@ -159,7 +164,7 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
     ...pageMenuItems(),
     { label: "Copy as Markdown", icon: icon("copy"), onSelect: () => void copyAsMarkdown(note) },
     { label: "Print or save as PDF", icon: icon("print"), onSelect: () => window.print() },
-    ...(smartPage ? [{ label: "Export as HTML file", icon: icon("download"), onSelect: () => void smartFlows().then((m) => m.exportSmartHtml(note.path, note.title)) }] : []),
+    ...(smartPage && smartOn ? [{ label: "Export as HTML file", icon: icon("download"), onSelect: () => void smartFlows().then((m) => m.exportSmartHtml(note.path, note.title)) }] : []),
     ...(inTauri() ? [{ label: "Show in folder", icon: icon("folder"), onSelect: () => void showInFolder(note.path) }] : []),
   ];
 
@@ -187,7 +192,7 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
     "divider",
     { label: "View", icon: icon("code"), submenu: view },
     { label: "Present & export", icon: icon("present"), submenu: present },
-    ...(note.kind === "project" ? [{ label: "Project", icon: icon("folder"), submenu: [homeItem(note), ...templateItems(note), saveSetupItem(note.project)] as MenuEntry[] }] : []),
+    ...(note.kind === "project" ? [{ label: "Project", icon: icon("folder"), submenu: [homeItem(note), ...templateItems(note), ...smartProjectItems(note), saveSetupItem(note.project)] as MenuEntry[] }] : []),
     "divider",
     { label: "Ask AI about this page", icon: icon("sparkle"), hint: keyHint("chat-dock"), onSelect: () => askAboutPage(note) },
     "divider",

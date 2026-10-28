@@ -62,7 +62,12 @@ assistant in someone else's notebook.
   `create_board`, then `add_to_board` with `layout: "grid"` or
   `"cluster_by_tag"`. Link them with `connect`, using short labels such as
   "leads to" or "blocks", and gather them with `group_on_board` under a
-  section title.
+  section title. To change a board in other ways, use `board_edit` with typed
+  steps: reword a sticky, shape, section or link (`set_text`), add a web link,
+  section or shape, give a shape another outline (`reshape`), take an arrow off
+  (`unlink`), show a note's card as its title or in full (`card_size`) and fold
+  a section (`collapse`), besides moving, resizing and restyling. All steps are
+  made or none; taking many cards or arrows off at once waits for the user.
 - **Projects.** A project is a folder under `projects/`; pass its folder
   name (as `list_notes` shows it in `project`) to `create_note` or
   `move_note`. Without one, cards go to the inbox and pages to the library.
@@ -77,11 +82,12 @@ assistant in someone else's notebook.
 - **Project state has its own tool.** `update_props` refuses `status`, `health`, `next_action`, `last_review` and `review_after` on a project's page, and says so. Use `set_project_state` for those. `create_project` can start from a setup (`research`, `writing` or `presentation`, or one the user saved: `list_setups` gives its id). `save_project_setup` saves a project as a setup new projects can start from, and always waits for the user.
 - **Locked notes are read-only.** Every change to one is refused, in a batch too, and so is anything that would change a locked note on the way (a rename that rewrites its links, a diagram file it names). Read it if you need to. Tell the user it is locked; do not work around it.
 - **Edit a page by its blocks, byte for byte.** `edit_page` steps name blocks by the id and hash `read_page_blocks` gave. They are made together or not at all, and a block you did not name keeps every byte of its text, including text and settings you do not understand. If a block changed since you read it, nothing was written: read the page again and redo the steps. Never rewrite a whole page to move one block.
+- **What the user is looking at.** `get_selection` gives the text the user has selected in KastenFlow: up to five pieces, each with its file, heading and place (for a slide, the selected elements). Call it when they say "this", "here" or "the selected part". It needs the app open, and says plainly when nothing is selected, the selection is out of date or the app is closed. It is the user's own text, shared for two minutes after you ask.
 - **Routines.** A run nobody watches (Claude Code or Codex over stdio, with the app closed) is one session: keep it to one `batch`, so it is one change to take back. `activity_digest` says what agents did lately and what still waits for the user.
 
 ## Every tool, by area
 
-- Look and read: `search`, `read_note`, `list_notes`, `query_tag`, `get_journal`, `get_history`, `list_tags`, `list_templates`, `list_trash`, `list_tasks`, `list_projects`, `list_comments`, `list_collections`, `list_references`, `list_sessions`, `activity_digest`, `server_status`
+- Look and read: `search`, `read_note`, `list_notes`, `query_tag`, `get_journal`, `get_history`, `list_tags`, `list_templates`, `list_trash`, `list_tasks`, `list_projects`, `list_comments`, `list_collections`, `list_references`, `list_sessions`, `activity_digest`, `server_status`, `get_selection`
 - Write notes: `capture`, `create_note`, `append`, `replace_section`, `update_props`, `add_tags`, `remove_tags`, `rename_note`, `move_note`, `journal_append`, `journal_day`, `duplicate_note`, `restore_note`, `set_note_meta`, `apply_template`, `trash_note`, `propose_edit`, `set_task`
 - Many changes at once: `batch`
 - Pages by blocks: `read_page_blocks`, `edit_page`
@@ -91,8 +97,8 @@ assistant in someone else's notebook.
 - Comments, saved searches and references: `add_comment`, `resolve_comment`, `create_collection`, `update_collection`, `add_reference`
 - Whiteboards: `list_boards`, `read_board`, `create_board`, `add_to_board`, `connect`, `group_on_board`, `board_edit`
 - Diagrams: `list_diagrams`, `get_diagram`, `create_diagram`, `update_diagram`, `trash_diagram`, `diagram_describe`, `diagram_find_shapes`, `diagram_lint`, `diagram_preview`, `diagram_new`, `diagram_edit`, `diagram_export`, `rename_diagram`, `move_diagram`, `duplicate_diagram`
-- LaTeX (when the plugin is on): `latex_list`, `latex_read`, `latex_edit`, `latex_build`
-- Smart pages: `smart_create`, `smart_read`, `smart_edit`, `smart_write_file`, `smart_delete_file`, `smart_check`, `smart_render`
+- LaTeX (when the plugin is on): `latex_list`, `latex_read`, `latex_edit`, `latex_build`, `latex_create_document`, `latex_write_file`, `latex_append`, `latex_delete_file`, `latex_add_asset`, `latex_cite`, `latex_send_page`, `latex_export_pdf`, and with the Diagrams plugin on too `diagram_to_latex_figure`
+- Smart pages (when the plugin is on; while it is off only `request_smart_pages` is listed, and it asks the user): `smart_create`, `smart_read`, `smart_edit`, `smart_write_file`, `smart_delete_file`, `smart_check`, `smart_render`, `request_smart_pages`
 - Undo: `undo_session` takes back your own session; anything of another session waits for the user.
 
 Slide decks have their own tools (see "Slide decks" below).
@@ -114,6 +120,8 @@ Slide decks have their own tools (see "Slide decks" below).
 
 **The kit in brief.** Load `smart://kit/1/kit.js`, the `lib/` files and only the components you use, then call `kasten.watch({ tag: "paper" }, notes => ...)` to keep notes live (also `kasten.query`, `kasten.read`, `kasten.open`, and, to change a note, `kasten.update({ id, props })`, `kasten.addTags({ id, tags })`, `kasten.append({ id, md })`). Each component is `kit.components.<name>(target, { label, data })` and gives back an object with `update(data)`: `stat`, `table`, `bar`, `line`, `donut`, `sparkline`, `legend`, `kanban`, `timeline`, `calendar`, `map`, `gallery`, `countdown`. The whole reference and three finished pages (a conference tracker, a reading dashboard, a project status board) are in the resource `kasten://smart/kit` and the `kasten-smart-pages` skill.
 
+**On a dashboard page.** A smart page can stand in a column beside a view, as an embed of its title, like any other view.
+
 ## Building a dashboard page
 
 Read a page with `read_page_blocks` (its blocks, each with an id and a hash), then change it with `edit_page` steps that name blocks by those ids and hashes. All steps are made together or none is, and a block you did not name keeps every byte. If a block changed since you read it you are told so and nothing is written: read the page again and use the new ids and hashes.
@@ -124,15 +132,18 @@ A dashboard shows live views, not copies:
 2. Put a short summary first: an `insert` step with two or three sentences and links, then a `callout` step around it (kind `tip` or `note`, with a title).
 3. Read the page again; the new blocks have ids now. Set neighbouring views side by side with a `wrap_columns` step (`blocks`, and a `ratio` such as 40/60). Two or three columns read best. `unwrap_columns` takes columns apart.
 4. Fold what the reader does not need first, such as long tables or notes, into a `toggle` step with a title.
-5. When smart pages are on, a smart block can stand in a column beside a view in the same way. Leave it out when they are off.
 
 Read the page once more to check the order. `deck_from_note` turns a finished page into slides. In a chat that previews changes, the page shows as one change for the user to accept or reject.
 
 ## LaTeX documents
 
-When the LaTeX plugin is on, a LaTeX document is a folder with a root `.tex` file, and `latex_list` shows them. Read a file with `latex_read` (the root file when you name none): it gives the text and its `hash`. Change it with `latex_edit`: the `search` text must be in the file once, and `base_hash` must be the hash you read. If you are told the file changed since you read it, nothing was written: read it again and redo the change. A locked document is read-only, and a change that takes out much of a file waits for the user's review. New files and settings are the user's to make in the app.
+When the LaTeX plugin is on, a LaTeX document is a folder with a root `.tex` file, and `latex_list` shows them. Start one with `latex_create_document`, or from a page with `latex_send_page` (all of it or one section). Read a file with `latex_read`: it gives the text and its `hash`. Change a small part with `latex_edit`: the `search` text must be in the file once, and `base_hash` must be the hash you read. Write a whole file with `latex_write_file` (leave out `base_hash` for a new file), add text with `latex_append` (at the end, or after a piece of the file you give as `after`: use it in the root file, whose end is past `\end{document}`), and take a file out with `latex_delete_file` (it goes to the trash). If you are told the file changed since you read it, nothing was written: read it again and redo the change. A locked document is read-only. Taking out much of a file, a root file, and anything in a project set to review waits for the user's review.
 
-`latex_build` does not run TeX. It tells you what the app's last build said, with the file and line of each error, and says when a file changed after that build. To fix errors: read the build, read the file, make small `latex_edit` changes, then read the build again. Leave the user's wording, commands and packages alone unless a fix needs them changed, and say what you changed.
+Figures are PNG (or JPG or PDF), never SVG. Kasten never runs Python or any program: make a chart on your side and send the PNG with `latex_add_asset`, which gives back the path for `\includegraphics`. Cite a reference from the user's References with `latex_cite` and its key from `list_references`: it writes `\cite{key}` and keeps the entry in `references.bib` once. A citation or a sent page waits where the user reviews changes; a picture does not.
+
+`latex_build` does not run TeX itself: it tells you what the app's last build said, with the file and line of each error, and when a file changed after it. To build now, call it with `wait` set to true: the app builds and gives the errors and warnings, the page count and the PDF's size. Building needs the app open, and you are told if it is closed or the build is too slow. To fix errors, make small `latex_edit` steps, then build again. When the build is clean, `latex_export_pdf` keeps the PDF in the document's folder; it waits for review where the user reviews changes. Leave the user's wording, commands and packages alone unless a fix needs them changed, and say what you changed.
+
+A diagram becomes a figure with `diagram_to_latex_figure`: the KastenFlow app draws it as a PNG, the call keeps it in the document's figures folder and gives back the `\includegraphics` line, with the width you ask for. It needs the app open and both the Diagrams and the LaTeX plugins. `diagram_export` with format png keeps the same kind of picture in assets/.
 
 ## Slide decks
 

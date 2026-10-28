@@ -13,7 +13,6 @@ A dashboard shows live views, not copies:
 2. Put a short summary first: an `insert` step with two or three sentences and links, then a `callout` step around it (kind `tip` or `note`, with a title).
 3. Read the page again; the new blocks have ids now. Set neighbouring views side by side with a `wrap_columns` step (`blocks`, and a `ratio` such as 40/60). Two or three columns read best. `unwrap_columns` takes columns apart.
 4. Fold what the reader does not need first, such as long tables or notes, into a `toggle` step with a title.
-5. When smart pages are on, a smart block can stand in a column beside a view in the same way. Leave it out when they are off.
 
 Read the page once more to check the order. `deck_from_note` turns a finished page into slides. In a chat that previews changes, the page shows as one change for the user to accept or reject.";
 

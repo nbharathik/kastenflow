@@ -38,6 +38,8 @@ describe("opWords for the structure and parity ops", () => {
       [op("move_diagram", { path: "a.drawio", project: "trip" }), "Move the diagram to project “trip”"],
       [op("duplicate_diagram", { path: "a.drawio" }), "Make a copy of the diagram"],
       [op("undo_session", { session: "s" }), "Take back all the changes of a session"],
+      [op("request_smart_pages", { reason: "A tracker" }), "Turn on smart pages"],
+      [op("request_smart_pages", { reason: "A tracker", project: "trip" }), "Turn on smart pages for the project “trip”"],
     ];
     for (const [each, words] of cases) expect(opWords(each)).toBe(words);
     for (const [each] of cases) expect(opWords(each)).not.toMatch(/_/);

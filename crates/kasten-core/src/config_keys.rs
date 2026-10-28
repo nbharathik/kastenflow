@@ -11,7 +11,8 @@ use crate::config::Config;
 /// Keys a newer version wrote that this one does not read, kept as they were.
 pub type Extra = BTreeMap<String, serde_json::Value>;
 
-/// Which plugins are on. Diagrams default to on, LaTeX to off.
+/// Which plugins are on. Diagrams default to on, LaTeX and smart pages to off
+/// (smart pages are kept in `extra`, like any plugin this struct has no field for).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct PluginsConfig {

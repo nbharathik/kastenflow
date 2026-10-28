@@ -6,12 +6,16 @@ the same rules as the app: locked pages are read-only, large removals wait for y
 review, nothing is permanently deleted, and what an agent does can be undone (see [Agent
 modes](agents.md)).
 
-The list below was taken from the tools the server registers: **88 tools** for notes, tags,
+The list below was taken from the tools the server registers: **99 tools** for notes, tags,
 boards, diagrams, LaTeX and smart pages, plus the slide deck tools at the end. In the
 **Changes?** column, *no* means the tool only looks. When a plugin ([Plugins](plugins.md)) is
 off, its tools are not offered: the diagram tools need draw.io, the LaTeX tools need the LaTeX
-plugin. An agent can ask for the current list at any time.
+plugin, and the smart page tools need Smart pages, which is off until you turn it on. An agent
+can ask for the current list at any time.
 
+- [Working with an outside AI](#working-with-an-outside-ai)
+- [When the app has to be open](#when-the-app-has-to-be-open)
+- [What an AI can read of your selection](#what-an-ai-can-read-of-your-selection)
 - [Look and read](#look-and-read)
 - [Write notes](#write-notes)
 - [Edit a page by its blocks](#edit-a-page-by-its-blocks)
@@ -23,6 +27,78 @@ plugin. An agent can ask for the current list at any time.
 - [LaTeX](#latex)
 - [Smart pages](#smart-pages)
 - [Slide decks](#slide-decks)
+
+## Working with an outside AI
+
+An outside AI (Claude Desktop, Claude Code, Codex or another client) works in your vault
+through these tools and never by editing your files on its own. What to expect:
+
+- **One visit is one session.** Everything it changes in a visit is one session in
+  History, and one **Undo** takes the whole session back, keeping edits you made since.
+- **You decide how much it may do alone.** Review everything holds each change for you,
+  Balanced (the usual) lets ordinary changes through and holds bigger or riskier ones, and
+  Autonomous lets it work without asking. Locked pages and LaTeX documents are read-only
+  to it, and nothing is ever deleted for good. See [Agent modes](agents.md).
+- **It turns nothing on.** Plugins are yours to switch. The tools of a plugin that is off
+  are not offered. For smart pages it can only ask, and nothing turns on until you accept.
+- **It runs no program.** KastenFlow never runs Python, TeX or any program because an AI
+  asked. An AI that wants a chart makes the PNG on its own side and sends it, with
+  `latex_add_asset` for a paper or `add_asset` for a slide. The PDF of a paper is always the
+  app's own build.
+- **It can ask the app for what only the app can do**, while the app is open (next section).
+
+A visit looks like this. With the LaTeX and draw.io plugins already on, an assistant asked
+for a short paper started a document from the article template, took two References from
+your bibliography (a new one waited for you to accept it), wrote the paper's sections and
+bibliography line into the root file, drew a diagram and kept it as a figure, added a chart
+it had plotted itself, cited both References, added a conclusion, had the app build the
+paper, kept the PDF in the document's folder, looked at what you had selected, and put the
+same chart on a slide. That is about twenty calls and one session, and one **Undo** gave the
+starting vault back exactly as it was. KastenFlow's tests run this whole visit against a copy
+of the sample vault.
+
+## When the app has to be open
+
+A few tools ask the KastenFlow app to do something only it can: build a LaTeX document
+(`latex_build` with `wait`, and `latex_export_pdf`), draw a diagram as a picture
+(`diagram_to_latex_figure`, and `diagram_export` with `png`), and say what you have selected
+(`get_selection`). The rules:
+
+- **The app must be open on the same vault.** When it is closed the tool says so in one
+  sentence, changes nothing, and every tool that only needs the vault keeps working.
+- **It waits, then says so.** A build waits up to 90 seconds unless the AI asks for longer
+  (300 at most), a picture up to a minute, the selection a few seconds. A slow app gets a
+  plain sentence and the request is withdrawn.
+- **The two talk through a private folder in the vault's cache** that only you can read. It
+  holds short requests and answers, never your notes, and history, backup and git never take
+  it in. The app answers only a short, fixed list of requests. A request cannot name a
+  program, an address on the internet or a file outside the vault.
+- **The app does what its own button would do**, with the same limits (the TeX program's
+  sandbox and time limit). What the app then keeps in your vault, a figure or the PDF, goes
+  through the same checks and the same agent mode as any change an AI makes, inside the AI's
+  session, so it can be undone with the rest.
+- **In Review mode, or in a chat that previews its changes,** a kept PDF waits with the other
+  changes. A diagram is not drawn for a chat that has changes it has not applied yet, because
+  the app would draw the version in the vault.
+
+## What an AI can read of your selection
+
+`get_selection` is the only tool that reads something that is not in your notes: what you
+have selected in the app right now.
+
+- **Only when asked.** The app shares your selection after a client asks, and for two
+  minutes after the last ask. While it does, the chat panel shows "Shared with a connected
+  client". Closing the app stops it at once.
+- **Only what you see in the chat's selection chips.** Up to five pieces of text, of at most
+  20 KB each, from the page, PDF, slide deck or LaTeX file you are looking at; for a slide,
+  the selected elements. If you have set **Selected text** to *never*, nothing is shared.
+- **Kept on this computer only,** in a private file in the vault's cache that is deleted when
+  sharing stops, when the app closes and when it starts. It is never in your notes, History,
+  a backup or git, and KastenFlow sends it nowhere: only the client that asked reads it.
+- **When there is nothing to give,** the answer says why in plain words: nothing is
+  selected, the selection is out of date (a minute old), or the app is closed.
+- A program of your own that can write to your vault's folder could ask for the selection the
+  same way; it is as private as the vault's folder on your computer.
 
 ## Look and read
 
@@ -46,6 +122,7 @@ plugin. An agent can ask for the current list at any time.
 | `list_sessions` | no | Sessions of agents that changed the vault, newest first, and whether each was taken back. |
 | `activity_digest` | no | What agents did lately, session by session, read from History; your own edits are never in it. |
 | `server_status` | no | How the server is doing: version, vault, whether history is on, your session, whether slides can be drawn. |
+| `get_selection` | no | What you have selected in KastenFlow: up to five pieces of text from a page, a PDF, a slide or a LaTeX file, each with its file, title, heading and place (for a slide, the selected elements). The app must be open; it says plainly when nothing is selected, the selection is out of date or the app is closed. See [What an AI can read of your selection](#what-an-ai-can-read-of-your-selection). |
 
 ## Write notes
 
@@ -119,7 +196,7 @@ plugin. An agent can ask for the current list at any time.
 | `add_to_board` | yes | Puts notes on a whiteboard as cards, in a grid, clustered by tag, or at given positions. |
 | `connect` | yes | Draws an arrow between two nodes, with an optional label. |
 | `group_on_board` | yes | Gathers nodes into a titled section. |
-| `board_edit` | yes | Changes a whiteboard with steps: add a sticky, move, resize, remove, restyle, edge style. |
+| `board_edit` | yes | Changes a whiteboard with steps: add a sticky, a web link, a section or a shape; reword a sticky, shape, section or link; give a shape another outline; move, resize, remove; take arrows off; restyle; edge style; show a note's card as title or in full; fold a section. Taking many cards or arrows off at once waits for your review. |
 
 ## Diagrams
 
@@ -141,7 +218,7 @@ These need the draw.io plugin.
 | `diagram_preview` | no | A picture of a diagram as SVG text. |
 | `diagram_new` | yes | Makes a diagram from a description, a Mermaid flowchart or a template, laid out. |
 | `diagram_edit` | yes | Changes a diagram with typed steps (add, move, resize, restyle, group, layout and more). |
-| `diagram_export` | yes | Keeps an SVG picture of a diagram in the vault's assets folder. |
+| `diagram_export` | yes | Keeps an SVG picture of a diagram in the vault's assets folder, or with `png` a PNG that the KastenFlow app draws (the app must be open; it says so if not). |
 
 ## LaTeX
 
@@ -152,12 +229,27 @@ These need the LaTeX plugin.
 | `latex_list` | no | Every LaTeX document: folder, root file, engine, and whether it is locked. |
 | `latex_read` | no | Reads a source file of a document, with its hash, and lists the other source files. |
 | `latex_edit` | yes | Replaces one piece of text in a source file; refused for a locked document or a changed file. |
-| `latex_build` | no | What the last build said: errors and warnings with file and line. It does not run TeX. |
+| `latex_build` | no | What the last build said: errors and warnings with file and line. With `wait` the KastenFlow app builds the document now and the answer adds the page count, the PDF's size and the time it took (the app must be open; it says so if not). The server itself never runs TeX. |
+| `latex_create_document` | yes | Starts a document from a template (article, report or beamer) in a project or the library. Waits for review where you want to review changes. |
+| `latex_write_file` | yes | Makes a source file or replaces one whole (`.tex`, `.sty`, `.cls`, `.bst`, `.bib`); a replace needs the hash the agent read. |
+| `latex_append` | yes | Adds text at the end of a file, or after a piece of it that is there once; line breaks and every other byte stay as they were. |
+| `latex_delete_file` | yes | Moves a source file to the trash, where you can put it back. Taking out a document's root file waits for your review. |
+| `latex_add_asset` | yes | Keeps a PNG, JPG or PDF picture (sent as base64 or taken from the vault) in the document's `figures` folder and gives the path for `\includegraphics`. The same picture twice is one file; an SVG is kept but flagged; nothing that runs is kept. KastenFlow runs no program to make a chart: the AI makes the PNG itself. A picture is added in every mode (it adds a file and changes none), but not in a chat that previews its changes. |
+| `latex_cite` | yes | Writes `\cite{key}` at the end of a paragraph (or of the file's text) and keeps the reference's entry in the document's `references.bib` once. The reference itself is never changed. Waits for review where you want to review changes. |
+| `latex_send_page` | yes | Sends a page, or one section of it, to LaTeX as Send to LaTeX does: added to a document's root file, or made into a new document. Waits for review where you want to review changes. |
+| `latex_export_pdf` | yes | Asks the app to build the document if it needs it and keeps the PDF in the document's folder, beside the root file, as one change. The PDF is the app's own build, never something the agent sends. Needs the app open. Waits for review where you want to review changes; refused for a locked document. |
+| `diagram_to_latex_figure` | yes | Draws a diagram as a PNG (the KastenFlow app draws it, so the app must be open) and keeps it in the document's `figures` folder in one step, giving back the path and a ready `\includegraphics` line with the width asked for. Needs the draw.io and the LaTeX plugins; refused for a locked document. |
 
 ## Smart pages
 
+Smart pages are a plugin that is off until you turn it on in Settings → Plugins; a project can
+turn them on or off for its own pages. While they are off, the tools below are not offered and
+agents get one tool instead, `request_smart_pages`, which only asks you: the request waits in
+your list of changes to review, in every mode, and nothing turns on until you accept it.
+
 | Tool | Changes? | What it does |
 | --- | --- | --- |
+| `request_smart_pages` | yes | Asks you to turn smart pages on (for the vault or one project), with a reason. Listed only while they are off. |
 | `smart_create` | yes | Makes a smart page and its files together as one change. |
 | `smart_read` | no | A smart page's files with hashes, its settings, the errors it reported and what its queries return now. |
 | `smart_edit` | yes | Changes one file with steps (replace a piece of text, or rewrite the file). |

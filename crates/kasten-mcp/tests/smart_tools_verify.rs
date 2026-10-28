@@ -17,6 +17,13 @@ use serde_json::{Value, json};
 fn open() -> (TempDir, Kasten, Session) {
     let v = vault();
     let k = Kasten::open(&v.0).unwrap();
+    k.set_plugin_enabled(
+        &kasten_core::history::Actor::Human,
+        "smart",
+        true,
+        Instant::now(),
+    )
+    .unwrap();
     (v, k, Session::start("claude-code", Instant::now()))
 }
 

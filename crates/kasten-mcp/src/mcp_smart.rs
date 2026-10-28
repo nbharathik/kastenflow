@@ -1,8 +1,10 @@
 //! The smart page tools over MCP: their descriptions and schemas for
 //! `tools/list`, each run by its implementation in `tools`. A smart page is a
 //! page with `layout: smart` and a folder of code beside it, which the app runs
-//! in place of the page's text. These tools are always listed; they only work
-//! on files, and the page itself runs in the app.
+//! in place of the page's text. They are the Smart pages plugin's: listed only
+//! while smart pages are on (the vault's plugin, or a project that says on),
+//! and then `request_smart_pages` is the one tool listed in their place. They
+//! only work on files, and the page itself runs in the app.
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
@@ -12,6 +14,23 @@ use rmcp::{tool, tool_router};
 use crate::params_smart::*;
 use crate::server::KastenServer;
 use crate::tools;
+
+/// The one smart page tool an agent is offered while smart pages are off.
+#[tool_router(router = smart_request_tools, vis = "pub")]
+impl KastenServer {
+    #[tool(
+        description = "Smart pages are off, so none of their tools are listed. Use this to ask the person to turn them on: give a short reason (what you would make and why a normal page will not do), and a project if you need them only there. It makes nothing and turns nothing on; the request waits for the person in their list of changes to review, in every mode, and only they can accept it. If they decline, go on with normal pages, tables, boards and diagrams. Ask once; do not ask again until you are told they are on."
+    )]
+    async fn request_smart_pages(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(a): Parameters<RequestSmartPagesArgs>,
+    ) -> CallToolResult {
+        let session = self.session(&context);
+        self.run(move |k| tools::request_smart_pages(k, &session, tools::Writes::Direct, a))
+            .await
+    }
+}
 
 #[tool_router(router = smart_tools, vis = "pub")]
 impl KastenServer {

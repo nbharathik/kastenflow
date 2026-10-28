@@ -1,6 +1,7 @@
-//! What a person decides about smart pages, per page and for all of them: the
-//! page may show pictures from the web, a page an agent made may run, and the
-//! whole feature is on. Each is set by a window command nothing but the
+//! What a person decides about a smart page: the page may show pictures from
+//! the web, and a page an agent made may run. (Whether smart pages are on at
+//! all is the Smart pages plugin's, in the vault, with a switch for each
+//! project.) Each is set by a window command nothing but the
 //! window's own code can call; an agent cannot, and a page's folder cannot say
 //! it for itself. They are kept in the app's data folder, not in the vault, so
 //! a vault that comes from someone else never brings a permission with it.
@@ -30,8 +31,6 @@ struct Stored {
     web_images_code: BTreeMap<String, String>,
     /// Ids of the pages a person allowed to run after an agent made them.
     allowed: BTreeSet<String>,
-    /// Smart pages run at all (on unless a person turned it off).
-    run: Option<bool>,
 }
 
 fn file(dir: &Path) -> PathBuf {
@@ -116,18 +115,4 @@ pub fn allowed(dir: Option<&Path>, id: &str) -> bool {
 /// A person's "Allow to run" for the page with this id.
 pub fn set_allowed(dir: &Path, id: &str) -> Result<(), String> {
     update(dir, |stored| stored.allowed.insert(id.to_owned()))
-}
-
-/// Whether smart pages run at all: yes, until a person turns them off.
-pub fn run_enabled(dir: Option<&Path>) -> bool {
-    read(dir, true, |stored| stored.run.unwrap_or(true))
-}
-
-/// Turns smart pages on or off for this computer.
-pub fn set_run_enabled(dir: &Path, on: bool) -> Result<(), String> {
-    update(dir, |stored| {
-        let was = stored.run.unwrap_or(true);
-        stored.run = Some(on);
-        was != on
-    })
 }

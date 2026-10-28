@@ -162,10 +162,18 @@ impl Kasten {
             | AgentOp::UpdateDiagram { .. }
             | AgentOp::EditDiagram { .. } => self.diagram_execute(actor, op, now)?,
             AgentOp::SaveSource { .. } => self.latex_execute(actor, op, now)?,
+            AgentOp::CreateLatexDoc { .. }
+            | AgentOp::AppendLatexFile { .. }
+            | AgentOp::TrashLatexFile { .. } => self.latex_files_execute(actor, op, now)?,
+            AgentOp::AddLatexAsset { .. }
+            | AgentOp::CiteReference { .. }
+            | AgentOp::SendPageToLatex { .. } => self.latex_more_execute(actor, op, now)?,
+            AgentOp::ExportLatexPdf { .. } => self.latex_export_execute(actor, op, now)?,
             AgentOp::SmartCreate { .. } => self.smart_create_execute(actor, op, now)?,
             AgentOp::SmartWrite { .. } | AgentOp::SmartDelete { .. } => {
                 self.smart_execute(actor, op, now)?
             }
+            AgentOp::RequestSmartPages { .. } => self.smart_request_execute(actor, op, now)?,
             AgentOp::EditPage { .. } => self.page_execute(actor, op, now)?,
             AgentOp::Batch { ops, .. } => self.execute_batch(actor, ops, now)?,
             AgentOp::SetParent { .. }

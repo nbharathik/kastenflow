@@ -4,6 +4,7 @@
 mod app_settings;
 mod backup;
 mod brainstorm;
+mod bridge;
 mod browser;
 mod calendars;
 mod capture;
@@ -196,6 +197,8 @@ pub fn run() {
                 git_host::hand_token(kasten, chat.keys().as_ref());
                 backup::finish_on_open(&handle, kasten);
                 show_files(&handle, kasten.root());
+                // Agents on MCP can ask the app to build a LaTeX document or keep its PDF.
+                bridge::start_for_app(&handle, kasten);
                 let watcher = runtime::start(&handle, std::sync::Arc::clone(kasten));
                 // Keep the watcher for the life of the app.
                 handle.manage(std::sync::Mutex::new(watcher));
@@ -213,6 +216,8 @@ pub fn run() {
         RunEvent::Exit => {
             // A LaTeX engine still building does not outlive the app.
             plugins::latex::proc::kill_all();
+            // Agents are told the app is closed.
+            bridge::stop(handle);
             if let Some(kasten) = handle.state::<commands::notes::OpenVault>().kasten() {
                 let _ = crash::caught(|| kasten.commit_edits().map_err(|e| e.to_string()));
                 backup::final_backup(&kasten);

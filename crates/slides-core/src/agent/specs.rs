@@ -177,7 +177,7 @@ fn compact_text() -> Value {
 fn compact_element() -> Value {
     json!({
         "type": "object",
-        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
+        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb. An image may have `crop` {left, top, right, bottom: fractions cut from each edge} and `mask` (rect, roundRect, ellipse); any element may be `locked` or have a `morphId`.",
         "required": ["type"],
         "properties": {
             "type": { "type": "string", "enum": ELEMENT_KINDS },
@@ -192,8 +192,7 @@ fn compact_element() -> Value {
             "text": { "type": "object", "description": format!("For text and shape: {TEXT_SHAPE}.") },
             "markdown": { "type": "string", "description": "For text and shape: the words as Markdown instead of `text`: **bold**, *italic*, `code`, [link](url), - bullets, 1. numbers, one paragraph per line." },
             "shape": { "type": "string", "description": "For a shape: rect, roundRect, ellipse, triangle, diamond, chevron, rightArrow ..." },
-            "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },
-            "from": { "type": "object", "description": "For a connector: {el: id, side: left, right, top or bottom}. `to` is the same." },
+            "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },            "from": { "type": "object", "description": "For a connector: {el: id, side: left, right, top or bottom}. `to` is the same." },
             "to": { "type": "object" },
             "route": { "type": "string", "enum": ["straight", "elbow", "curved"] },
             "children": { "type": "array", "description": "For a group: its elements.", "items": { "type": "object" } }
@@ -346,6 +345,16 @@ mod tests {
             "update_elements",
         ] {
             assert!(names.iter().any(|n| n == wanted), "{wanted}");
+        }
+    }
+
+    #[test]
+    fn the_words_for_an_element_name_what_the_editor_lets_a_person_set_on_a_picture() {
+        let all = tools();
+        let add = all.iter().find(|t| t.name == "add_elements").unwrap();
+        let schema = add.input_schema.to_string();
+        for field in ["crop", "mask", "locked", "morphId"] {
+            assert!(schema.contains(field), "{field} is not in the words");
         }
     }
 

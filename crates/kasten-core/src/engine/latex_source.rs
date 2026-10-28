@@ -242,30 +242,7 @@ impl Kasten {
                     "{folder} is not a LaTeX document folder, so nothing was exported there"
                 ))
             })?;
-        let pdf = latex::pdf_path(&doc);
-        let file = self.vault.file_of(&pdf, &[".pdf"])?;
-        self.apply(actor, "export_pdf", false, now.millis, |_| {
-            // Only an earlier export is replaced: another kind of file with this name stays.
-            match fs::File::open(&file) {
-                Ok(mut existing) => {
-                    let mut head = [0u8; 5];
-                    let read = std::io::Read::read(&mut existing, &mut head)?;
-                    if head[..read] != *b"%PDF-" {
-                        return Err(Error::Invalid(format!(
-                            "{pdf} is already a file that is not a PDF, so the export was not saved over it"
-                        )));
-                    }
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-                Err(err) => return Err(err.into()),
-            }
-            write_atomic(&file, bytes)?;
-            Ok(Change {
-                message: format!("export: {} PDF", doc.title),
-                paths: vec![pdf.clone()],
-                value: pdf.clone(),
-            })
-        })
+        self.write_pdf(actor, &doc, bytes, "export_pdf", now)
     }
 }
 

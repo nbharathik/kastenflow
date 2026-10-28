@@ -249,7 +249,7 @@ fn a_draft_picture_is_given_as_svg_text_and_kept_in_assets_on_request() {
             json!({"diagram": "Shop", "format": "png"})
         )
         .unwrap_err()
-        .contains("PNG")
+        .starts_with("The app is closed")
     );
     assert!(
         call(

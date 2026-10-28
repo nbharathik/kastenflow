@@ -20,9 +20,12 @@ use serde_json::{Value, json};
 const INDEX: &str = "<!doctype html>\n<html><head><script src=\"smart://kit/1/kit.js\"></script></head>\n<body><h1>Deadlines</h1><script src=\"app.js\"></script></body></html>\n";
 const APP: &str = "kasten.query('papers').then(rows => console.log(rows));\n";
 
+/// A vault with smart pages turned on, as a person does in Settings → Plugins.
 fn open() -> (TempDir, Kasten, Session) {
     let v = vault();
     let k = Kasten::open(&v.0).unwrap();
+    k.set_plugin_enabled(&Actor::Human, "smart", true, Instant::now())
+        .unwrap();
     (v, k, Session::start("claude-code", Instant::now()))
 }
 

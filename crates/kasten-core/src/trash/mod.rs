@@ -5,6 +5,9 @@
 //! deletes anything.
 
 mod restore;
+mod source;
+
+pub(crate) use source::trash_source_file;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;

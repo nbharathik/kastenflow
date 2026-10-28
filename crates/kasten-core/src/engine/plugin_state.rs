@@ -11,7 +11,7 @@ use crate::time::Instant;
 
 /// The plugins whose choice lives in the vault. Others, such as the
 /// browser, are the computer's own and are kept in the app's settings.
-pub const VAULT_PLUGINS: [&str; 2] = ["diagrams", "latex"];
+pub const VAULT_PLUGINS: [&str; 3] = ["diagrams", "latex", "smart"];
 
 impl Config {
     /// Records that plugin `id` is on or off, keeping every other key.

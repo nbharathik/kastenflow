@@ -6,6 +6,7 @@ say now. The data stays in your notes; the page only looks at them. Change a not
 the page follows. Change something on the page (tick a to-do, move a card) and the
 note changes.
 
+- [Turn them on](#turn-them-on)
 - [Make one](#make-one)
 - [Look at it, edit its code, see its history](#look-at-it-edit-its-code-see-its-history)
 - [Allow to run](#allow-to-run)
@@ -15,6 +16,22 @@ note changes.
 - [Templates](#templates)
 - [Smart pages and AI agents](#smart-pages-and-ai-agents)
 - [Routines with Claude Code and Codex](#routines-with-claude-code-and-codex)
+
+## Turn them on
+
+Smart pages are a plugin, and they are **off until you turn them on**, for each vault:
+**Settings → Plugins → Smart pages**. While they are off nothing offers to make one,
+the pages you already have show their notes, and an AI agent is not given the tools to
+make one; it can only ask you, and you decide (see [Smart pages and AI
+agents](#smart-pages-and-ai-agents)). Turning them off again deletes nothing.
+
+A project can say its own: in a project page's ••• menu (or with *Smart pages in this
+project* in the command palette), **Smart pages** is **Use the vault's choice**, **On in
+this project** or **Off in this project**. A page in a project follows its project; a page
+outside any project follows the vault. If you move a page to another project it follows
+that one. Where smart pages are off, the buttons and menu entries that make or edit one
+are not shown, and a page that is already smart shows its notes and a line with **Turn
+on**.
 
 ## Make one
 
@@ -72,9 +89,9 @@ A page an agent made in Balanced or Autonomous mode runs at once, because you we
 asking to look at what agents write. It still runs in the same closed box, below. See
 [Agent modes](agents.md).
 
-**Settings → Pages → Smart pages → Run smart pages** is a master switch. Off, every
+The **Smart pages** plugin in **Settings → Plugins** is the master switch. Off, every
 smart page stops at once, shows its notes and a line, "Smart pages are off", with **Turn
-on**.
+on**. (**Settings → Pages → Smart pages** says where it stands and takes you there.)
 
 ## How it is kept safe
 
@@ -130,7 +147,13 @@ structure for new projects.
 
 ## Smart pages and AI agents
 
-Agents (Claude Code, Codex, the chat) can make and fix smart pages when you ask:
+Agents (Claude Code, Codex, the chat) can make and fix smart pages when you ask, once
+you have turned smart pages on. While they are off (the usual state), an agent is
+offered one tool instead, `request_smart_pages`: it gives a reason, and the request
+waits in your list of changes to review, in every mode, **Autonomous included**.
+Nothing turns on until you accept it, and if you decline, nothing changes. An agent in
+a project that has smart pages off is told the same, and its request names that
+project.
 
 - `smart_create` makes a page and its files as one change; `smart_check` looks for
   mistakes (HTML not closed, web addresses, files that are not there, queries that
@@ -149,7 +172,8 @@ Agents (Claude Code, Codex, the chat) can make and fix smart pages when you ask:
 - The skill `skills/kasten-smart-pages` teaches Claude Code how to do this well, with
   three worked examples.
 - In the chat there are three actions: **Make a smart page from this**, **Improve this
-  smart page's layout** and **Fix its errors**. They propose changes for you to review.
+  smart page's layout** and **Fix its errors**. They propose changes for you to review,
+  and are offered only where smart pages are on.
 
 ## Routines with Claude Code and Codex
 

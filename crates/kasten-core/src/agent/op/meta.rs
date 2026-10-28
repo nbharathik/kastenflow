@@ -32,9 +32,17 @@ impl AgentOp {
             AgentOp::UpdateDiagram { .. } => "update_diagram",
             AgentOp::EditDiagram { .. } => "edit_diagram",
             AgentOp::SaveSource { .. } => "save_source",
+            AgentOp::CreateLatexDoc { .. } => "create_latex_doc",
+            AgentOp::AppendLatexFile { .. } => "append_latex_file",
+            AgentOp::TrashLatexFile { .. } => "trash_latex_file",
+            AgentOp::AddLatexAsset { .. } => "add_latex_asset",
+            AgentOp::CiteReference { .. } => "cite_reference",
+            AgentOp::ExportLatexPdf { .. } => "export_latex_pdf",
+            AgentOp::SendPageToLatex { .. } => "send_page_to_latex",
             AgentOp::SmartCreate { .. } => "smart_create",
             AgentOp::SmartWrite { .. } => "smart_write",
             AgentOp::SmartDelete { .. } => "smart_delete",
+            AgentOp::RequestSmartPages { .. } => "request_smart_pages",
             AgentOp::EditPage { .. } => "edit_page",
             AgentOp::Batch { .. } => "batch",
             AgentOp::SetParent { .. } => "set_parent",
@@ -93,6 +101,11 @@ impl AgentOp {
             AgentOp::SmartWrite { page, .. } | AgentOp::SmartDelete { page, .. } => Some(page),
             // A new file has no file yet.
             AgentOp::SaveSource { path, base, .. } if !base.is_empty() => Some(path),
+            AgentOp::AppendLatexFile { path, .. } | AgentOp::TrashLatexFile { path, .. } => {
+                Some(path)
+            }
+            // The file a citation goes into.
+            AgentOp::CiteReference { file, .. } => Some(file),
             AgentOp::AddToBoard { board, .. }
             | AgentOp::Connect { board, .. }
             | AgentOp::Group { board, .. }
@@ -141,6 +154,31 @@ impl AgentOp {
             AgentOp::CreateDiagram { title, xml, .. } => title.len() + xml.len(),
             AgentOp::UpdateDiagram { xml, .. } => xml.len(),
             AgentOp::SaveSource { text, .. } => text.len(),
+            AgentOp::CreateLatexDoc {
+                title, template, ..
+            } => title.len() + template.len(),
+            AgentOp::AppendLatexFile { text, after, .. } => {
+                text.len() + after.as_ref().map_or(0, String::len)
+            }
+            AgentOp::TrashLatexFile { .. } => 0,
+            // A picture is limited by its own size limits (the guardrails on an agent's pictures).
+            AgentOp::AddLatexAsset { name, .. } => name.len(),
+            AgentOp::ExportLatexPdf { doc, .. } => doc.len(),
+            AgentOp::CiteReference { key, at, .. } => {
+                key.len() + at.as_ref().map_or(0, String::len)
+            }
+            AgentOp::SendPageToLatex {
+                page,
+                section,
+                doc,
+                title,
+                template,
+                project,
+                ..
+            } => {
+                let len = |text: &Option<String>| text.as_ref().map_or(0, String::len);
+                page.len() + len(section) + len(doc) + len(title) + template.len() + len(project)
+            }
             AgentOp::SmartCreate { title, files, .. } => {
                 title.len()
                     + files
@@ -150,6 +188,9 @@ impl AgentOp {
             }
             AgentOp::SmartWrite { content, .. } => content.len(),
             AgentOp::SmartDelete { .. } => 0,
+            AgentOp::RequestSmartPages { reason, project } => {
+                reason.len() + project.as_ref().map_or(0, String::len)
+            }
             AgentOp::EditPage { steps, .. } => steps.iter().map(PageStep::bytes).sum(),
             // What the agent sent: the steps as they travel.
             AgentOp::EditDiagram { steps, .. } => {

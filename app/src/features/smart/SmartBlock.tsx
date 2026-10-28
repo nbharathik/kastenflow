@@ -7,11 +7,12 @@ import { Button } from "../../ui/Button";
 import { tauriSmartBackend, type SmartBackend } from "./backend";
 import { AllowRun } from "./AllowRun";
 import { claim, FULL_LINE, release, type Runner } from "./live-frames";
-import { setRunSwitch, useSmartRunning } from "./run-switch";
+import { useSmartRunning } from "./run-switch";
 import { SmartFrame } from "./SmartFrame";
+import { SmartOffLine } from "./SmartTabs";
 import { entryOfView, usePageInfo } from "./use-page-info";
 import { useTrust } from "./use-trust";
-import { NO_VIEW_LINE, OFF_LINE } from "./words";
+import { NO_VIEW_LINE } from "./words";
 
 export interface SmartBlockProps {
   /** The smart page's path and id. */
@@ -37,7 +38,7 @@ type Place = "waiting-to-be-seen" | "live" | "waiting";
 export function SmartBlock({ pagePath, pageId, title, view = "", scope, backend }: SmartBlockProps) {
   const asked = backend ?? tauriSmartBackend;
   const desktop = backend !== undefined || inTauri();
-  const run = useSmartRunning(asked, desktop);
+  const run = useSmartRunning(asked, desktop, pagePath);
   const trust = useTrust(pagePath, asked, desktop);
   const { info, failed } = usePageInfo(pagePath, asked, desktop);
   const box = useRef<HTMLDivElement>(null);
@@ -93,17 +94,7 @@ export function SmartBlock({ pagePath, pageId, title, view = "", scope, backend 
 
   const body = () => {
     if (!desktop) return <p className="kasten-smart-note">Smart pages open in the KastenFlow app.</p>;
-    if (run.known && !run.on) {
-      return (
-        <p className="kasten-smart-note">
-          {OFF_LINE}
-          <span aria-hidden="true"> — </span>
-          <Button tone="quiet" size="sm" onClick={() => void setRunSwitch(true, asked)}>
-            Turn on
-          </Button>
-        </p>
-      );
-    }
+    if (run.known && !run.on) return <SmartOffLine backend={asked} page={pagePath} />;
     if (failed) return <p className="kasten-smart-note">“{title}” could not be opened as a smart page.</p>;
     if (!run.known || trust.trust === null || info === null) {
       return (

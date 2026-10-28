@@ -102,6 +102,14 @@ pub fn catalog() -> Vec<PluginInfo> {
             Some("LaTeX engine"),
         ),
         entry(
+            "smart",
+            "Smart pages",
+            "Pages with a small app of their own, such as a tracker or a dashboard, that work with your notes.",
+            false,
+            Scope::Vault,
+            None,
+        ),
+        entry(
             "browser",
             "Browser",
             "Open web pages in a tab of their own.",

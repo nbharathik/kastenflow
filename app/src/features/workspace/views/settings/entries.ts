@@ -67,9 +67,9 @@ export const ENTRIES: SettingEntry[] = [
     [
       [
         "smartRun",
-        "Run smart pages",
-        "A smart page has a small app of its own, such as a tracker or a dashboard, that works with your notes under the same rules as an agent. Off, every smart page stops at once and shows its notes instead. A page an agent made waits for your Allow to run either way.",
-        "smart interactive app tracker dashboard sandbox frames turn off stop disable kill switch",
+        "Smart pages",
+        "A smart page has a small app of its own, such as a tracker or a dashboard, that works with your notes under the same rules as an agent. They are a plugin that is off until you turn it on in Plugins, for each vault; a project can turn them on or off for its own pages from its menu. Off, every smart page shows its notes instead, and agents can only ask you to turn them on. A page an agent made waits for your Allow to run either way.",
+        "smart interactive app tracker dashboard sandbox frames plugin turn on off stop disable kill switch",
         { only: "desktop" },
       ],
     ],
@@ -240,7 +240,7 @@ export const ENTRIES: SettingEntry[] = [
     ["kits", "Starter kits", "A daily planner, a second brain, a Zettelkasten, Getting Things Done, student or research: pages, templates and tag databases in one step that Undo takes back.", "gtd planner zettelkasten para"],
     ["missing", "New starter templates", "Starter templates a newer KastenFlow added since this vault was made.", "add", { quiet: true }],
   ]),
-  ...make("plugins", [["list", "Plugins", "Extra tools you can switch on, such as diagrams, LaTeX and the browser. Some download a program the first time.", "extensions add-ons extras tools diagrams drawio latex browser download"]]),
+  ...make("plugins", [["list", "Plugins", "Extra tools you can switch on, such as diagrams, LaTeX, smart pages and the browser. Some download a program the first time.", "extensions add-ons extras tools diagrams drawio latex smart pages browser download"]]),
   ...make("desktop", [
     ["keepRunning", "Keep running when the window closes", "KastenFlow stays in the tray, so quick capture and backups carry on. Quit from the tray icon.", "tray background close", { only: "desktop" }],
     ["capture", "Quick capture", "A small box over any app: type, Tab to choose where it goes, Enter to save.", "shortcut global key hotkey capture", { only: "desktop" }],

@@ -34,6 +34,8 @@ fn invalid(message: impl Into<String>) -> Error {
 /// is not one.
 pub(super) fn smart_page(k: &Kasten, reference: &str) -> Result<NoteFile> {
     let note = k.read(&k.resolve(reference)?)?;
+    // Off for the page's project (else the vault): the agent is told to ask the person.
+    k.smart_gate_page(&note.meta.path)?;
     let layout = read_map(split(&note.text).prefix).ok().and_then(|keys| {
         keys.get("layout")
             .and_then(Value::as_str)
@@ -335,6 +337,21 @@ pub(crate) fn smart_delete_file(
     let mut out = agent_in(k, s, writes, |_| Ok(op))?;
     out["file"] = json!(rel);
     Ok(out)
+}
+
+/// Asks the person to turn smart pages on. Nothing is turned on by it: the
+/// request waits in the proposals list in every mode.
+pub(crate) fn request_smart_pages(
+    k: &Kasten,
+    s: &Session,
+    writes: Writes,
+    a: RequestSmartPagesArgs,
+) -> Result<Value> {
+    let op = AgentOp::RequestSmartPages {
+        reason: a.reason,
+        project: a.project,
+    };
+    agent_in(k, s, writes, |_| Ok(op))
 }
 
 /// What `smart_render` says where it cannot draw.

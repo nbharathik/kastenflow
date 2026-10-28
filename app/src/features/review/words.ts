@@ -150,6 +150,8 @@ export function opWords(op: AgentOp): string {
       return "Make a copy of the diagram";
     case "undo_session":
       return "Take back all the changes of a session";
+    case "request_smart_pages":
+      return op.project ? `Turn on smart pages for the project ${quote(op.project)}` : "Turn on smart pages";
     default:
       return sentence(op.kind);
   }

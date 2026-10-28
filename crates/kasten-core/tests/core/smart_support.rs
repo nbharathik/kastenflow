@@ -106,7 +106,16 @@ pub fn folder_files() -> Vec<(&'static str, Vec<u8>)> {
     ]
 }
 
+/// A vault with history and smart pages turned on, as a person does in Settings.
 pub fn open() -> (common::TempVault, Kasten) {
+    let (t, k) = open_off();
+    k.set_plugin_enabled(&Actor::Human, "smart", true, NOW)
+        .unwrap();
+    (t, k)
+}
+
+/// A vault with history, as a fresh vault is: smart pages are off until chosen.
+pub fn open_off() -> (common::TempVault, Kasten) {
     let t = common::dev_vault();
     let k = Kasten::open(t.vault.root()).unwrap();
     k.start_history().unwrap();

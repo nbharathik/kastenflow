@@ -15,6 +15,7 @@ pub const GUIDE: &str = r#"## Changing things safely
 - **Project state has its own tool.** `update_props` refuses `status`, `health`, `next_action`, `last_review` and `review_after` on a project's page, and says so. Use `set_project_state` for those. `create_project` can start from a setup (`research`, `writing` or `presentation`, or one the user saved: `list_setups` gives its id). `save_project_setup` saves a project as a setup new projects can start from, and always waits for the user.
 - **Locked notes are read-only.** Every change to one is refused, in a batch too, and so is anything that would change a locked note on the way (a rename that rewrites its links, a diagram file it names). Read it if you need to. Tell the user it is locked; do not work around it.
 - **Edit a page by its blocks, byte for byte.** `edit_page` steps name blocks by the id and hash `read_page_blocks` gave. They are made together or not at all, and a block you did not name keeps every byte of its text, including text and settings you do not understand. If a block changed since you read it, nothing was written: read the page again and redo the steps. Never rewrite a whole page to move one block.
+- **What the user is looking at.** `get_selection` gives the text the user has selected in KastenFlow: up to five pieces, each with its file, heading and place (for a slide, the selected elements). Call it when they say "this", "here" or "the selected part". It needs the app open, and says plainly when nothing is selected, the selection is out of date or the app is closed. It is the user's own text, shared for two minutes after you ask.
 - **Routines.** A run nobody watches (Claude Code or Codex over stdio, with the app closed) is one session: keep it to one `batch`, so it is one change to take back. `activity_digest` says what agents did lately and what still waits for the user."#;
 
 #[cfg(test)]
@@ -169,7 +170,7 @@ mod tests {
         let missing: Vec<_> = real.difference(&listed).collect();
         assert!(nonexistent.is_empty(), "not tools: {nonexistent:?}");
         assert!(missing.is_empty(), "not in the skill: {missing:?}");
-        assert_eq!(real.len(), 88);
+        assert_eq!(real.len(), 99);
     }
 
     #[test]

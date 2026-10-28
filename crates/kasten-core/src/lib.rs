@@ -15,6 +15,7 @@ pub mod backup;
 pub mod batch;
 pub mod bib;
 pub mod board;
+pub mod bridge;
 pub mod bundle;
 pub(crate) mod capture;
 pub mod cite;
@@ -79,6 +80,7 @@ pub mod vectors;
 pub mod watch;
 
 pub use config::Config;
+pub use engine::DiagramPicture;
 pub use engine::NewProject;
 pub use engine::PersonBatch;
 pub use engine::{
@@ -104,6 +106,7 @@ pub use engine::{
 };
 pub use engine::{MAX_TAGGED, TagAdded};
 pub use engine::{MadeSmart, NewSmartPage, SavedSmartTemplate, SmartTemplate, SmartTemplateInfo};
+pub use engine::{ProjectSmart, SMART_PLUGIN, SMART_PROJECT_KEY};
 pub use engine::{Revision, RevisionArea, area_of, shipped_template};
 pub use error::{Error, Result};
 pub use id::ulid_at;

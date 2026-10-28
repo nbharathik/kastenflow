@@ -180,17 +180,18 @@ fn with_kit_at(name: &str, bytes: Vec<u8>, base: &str, frame: &str) -> Vec<u8> {
 }
 
 /// The id of the page whose frame has the secret `nonce`, asked for at each
-/// request. With smart pages turned off nothing is served, whatever frames
-/// were left open: the switch is read from the app's data folder every time.
+/// request. With smart pages off for the page (its project's choice, else the
+/// vault's plugin) nothing is served, whatever frames were left open: the
+/// choice is read from the vault every time.
 pub fn live_frame(
-    dir: Option<&std::path::Path>,
+    kasten: Option<&Kasten>,
     runtime: Option<&Runtime>,
     nonce: &str,
 ) -> Option<String> {
-    if !super::settings::run_enabled(dir) {
-        return None;
-    }
-    runtime?.frame_page(nonce)
+    let id = runtime?.frame_page(nonce)?;
+    let kasten = kasten?;
+    let path = page::path_of(kasten, &id)?;
+    kasten.smart_enabled_for_page(&path).then_some(id)
 }
 
 /// The scheme's handler for the app: answers on a thread of its own, from the
@@ -216,8 +217,13 @@ pub fn handler<R: tauri::Runtime>(
                     .unwrap_or_default()
             })
         };
-        let frame_page =
-            |nonce: &str| live_frame(dir.as_deref(), app.try_state::<Runtime>().as_deref(), nonce);
+        let frame_page = |nonce: &str| {
+            live_frame(
+                kasten.as_deref(),
+                app.try_state::<Runtime>().as_deref(),
+                nonce,
+            )
+        };
         // A frame has only so many requests open at once.
         let runtime = app.try_state::<Runtime>();
         let secret = request

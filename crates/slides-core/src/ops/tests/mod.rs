@@ -7,6 +7,7 @@ mod collapse;
 mod composite_deck;
 mod composites;
 mod connectors;
+mod editor_reach;
 mod empty_slots;
 mod export;
 mod fixtures;

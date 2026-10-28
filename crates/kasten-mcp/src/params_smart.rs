@@ -5,6 +5,16 @@ use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+/// Arguments of `request_smart_pages`, the one smart page tool listed while smart pages are off.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+pub struct RequestSmartPagesArgs {
+    /// Why you want smart pages, in a sentence or two: the person reads it.
+    pub reason: String,
+    /// The project to ask for (its folder or its title) when you need them only there; the whole vault when left out.
+    pub project: Option<String>,
+}
+
 /// One text file of a new smart page.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[schemars(crate = "rmcp::schemars")]

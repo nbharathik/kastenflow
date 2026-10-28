@@ -22,6 +22,8 @@ const COMMANDS: &[&str] = &[
     "smart_allow_run",
     "smart_run_enabled",
     "smart_set_run_enabled",
+    "smart_project_settings",
+    "smart_set_project_setting",
     "smart_history",
     "smart_restore_version",
 ];

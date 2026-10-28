@@ -124,6 +124,8 @@ describe("a page with layout smart", () => {
     expect(screen.getByRole("status").textContent).toBe("Smart pages are off — Turn on");
     expect(screen.queryByRole("button", { name: "Smart" })).toBeNull();
     expect(spies.openFrame).not.toHaveBeenCalled();
+    // The app answers "on" once the plugin is on; every page asks again after the switch.
+    spies.runEnabled.mockResolvedValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
     await waitFor(() => expect(spies.setRunEnabled).toHaveBeenCalledWith(true));
     await waitFor(() => expect(page().classList.contains("is-smart-view")).toBe(true));

@@ -1,6 +1,7 @@
 mod build;
 mod cache;
 mod collect;
+mod ended;
 mod engines;
 mod files;
 mod log;
@@ -13,7 +14,8 @@ mod service;
 mod service_stress;
 mod snapshot;
 mod snapshot_moves;
-mod support;
+/// The scratch folders and the fake engine, shared with the MCP bridge's tests.
+pub(crate) mod support;
 mod synctex;
 mod synctex_edge;
 mod unpack;

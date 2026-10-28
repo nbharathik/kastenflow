@@ -305,12 +305,14 @@ pub(crate) fn diagram_export(
     a: ExportDiagramArgs,
 ) -> Result<Value> {
     let format = a.format.trim().to_lowercase();
+    // A PNG is drawn by the app's window, which this program asks.
+    if format == "png" {
+        return super::export_png(k, s, writes, a);
+    }
     if format != "svg" {
-        return Err(invalid(if format == "png" {
-            "A PNG needs a program that draws SVG; this one does not. Export svg, which a note or a slide can use as it is".to_owned()
-        } else {
-            format!("The formats are svg and png, not “{format}”")
-        }));
+        return Err(invalid(format!(
+            "The formats are svg and png, not “{format}”"
+        )));
     }
     let (path, file) = read_in(k, &writes, &a.diagram)?;
     let (svg, from, warnings) = match &a.page {

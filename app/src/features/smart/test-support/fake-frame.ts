@@ -82,11 +82,22 @@ export class FakeBackend implements SmartBackend {
     this.trustOf = { ...this.trustOf, needsAllow: false, allowed: true };
   }
   running = true;
-  async runEnabled(): Promise<boolean> {
+  async runEnabled(_page?: string): Promise<boolean> {
     return this.running;
   }
   async setRunEnabled(on: boolean): Promise<void> {
     this.running = on;
+  }
+  /** What each project says of its own; a test changes it. */
+  projects: Record<string, "on" | "off"> = {};
+  async projectSettings(): Promise<Record<string, "on" | "off">> {
+    return this.projects;
+  }
+  projectSet: [string, string][] = [];
+  async setProjectSetting(project: string, setting: "vault" | "on" | "off"): Promise<void> {
+    this.projectSet.push([project, setting]);
+    if (setting === "vault") delete this.projects[project];
+    else this.projects[project] = setting;
   }
   /** The versions of the page's code, newest first. */
   versions: CommitInfo[] = [];

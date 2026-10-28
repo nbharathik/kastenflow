@@ -18,6 +18,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::build::{Job, built_places, execute, stem_of};
 use super::collect::{pdf_path, pdf_stamp};
+use super::ended::EndedLog;
 use super::engines::{
     Engine, Found, Next, NoEngine, Origin, Resolved, choose, find_program, payload_program,
 };
@@ -41,6 +42,8 @@ pub(super) const NOT_BUILT: &str = "There is nothing built for this document yet
 pub struct AppHost {
     app: AppHandle,
     epoch: Instant,
+    /// How builds ended, for whoever waits for one (the MCP bridge).
+    ended: Arc<EndedLog>,
 }
 
 impl Host for AppHost {
@@ -51,6 +54,7 @@ impl Host for AppHost {
     }
 
     fn emit(&self, event: &Event) {
+        self.ended.record(event);
         let _ = self.app.emit(EVENT, event);
     }
 
@@ -62,19 +66,32 @@ impl Host for AppHost {
 /// The build service, kept in the app's state.
 pub struct Latex {
     service: Arc<Service<AppHost>>,
+    ended: Arc<EndedLog>,
 }
 
-fn latex(app: &AppHandle) -> Arc<Service<AppHost>> {
+fn state(app: &AppHandle) -> tauri::State<'_, Latex> {
     if app.try_state::<Latex>().is_none() {
         // Two first calls at once: only one is kept, the other finds it.
+        let ended = Arc::new(EndedLog::default());
         let _ = app.manage(Latex {
             service: Service::new(AppHost {
                 app: app.clone(),
                 epoch: Instant::now(),
+                ended: Arc::clone(&ended),
             }),
+            ended,
         });
     }
-    Arc::clone(&app.state::<Latex>().service)
+    app.state::<Latex>()
+}
+
+pub(crate) fn latex(app: &AppHandle) -> Arc<Service<AppHost>> {
+    Arc::clone(&state(app).service)
+}
+
+/// How builds ended: wait for the end of one with `EndedLog::wait`.
+pub(crate) fn ended(app: &AppHandle) -> Arc<EndedLog> {
+    Arc::clone(&state(app).ended)
 }
 
 fn require(app: &AppHandle) -> Result<(), BuildError> {
@@ -156,7 +173,18 @@ pub fn latex_build(
     request: BuildRequest,
 ) -> Result<u64, BuildError> {
     require(&app)?;
-    let (doc, config, root) = document(&vault, &request.folder)?;
+    let (folder, job) = prepare(&app, &vault, request)?;
+    Ok(latex(&app).submit(&folder, job))
+}
+
+/// The build a request asks for, checked and ready to submit: the document's
+/// folder and the job. Everything the engine will touch is decided here.
+pub(crate) fn prepare(
+    app: &AppHandle,
+    vault: &OpenVault,
+    request: BuildRequest,
+) -> Result<(String, Job), BuildError> {
+    let (doc, config, root) = document(vault, &request.folder)?;
     let main = clean_rel(&doc.main).ok_or_else(|| {
         BuildError::new(
             "bad-request",
@@ -165,7 +193,7 @@ pub fn latex_build(
     })?;
     check_buffers(&doc.folder, &request.buffers)
         .map_err(|why| BuildError::new("bad-request", why.to_string()))?;
-    let resolved: Resolved = choose(config.engine.as_deref(), &detect(&app)).map_err(no_engine)?;
+    let resolved: Resolved = choose(config.engine.as_deref(), &detect(app)).map_err(no_engine)?;
     let package_cache = app
         .path()
         .app_local_data_dir()
@@ -190,7 +218,7 @@ pub fn latex_build(
         vault_bib: doc.bibliography == "vault",
         timeout: Duration::from_secs(secs),
     };
-    Ok(latex(&app).submit(&doc.folder, job))
+    Ok((doc.folder, job))
 }
 
 /// Stops the build of the document in `folder`, and the one waiting.

@@ -4,6 +4,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { usePlugins } from "../../../plugins/registry";
 import { TopBar } from "../../../shell/TopBar";
 import { COMMANDS } from "../../workspace/overlays/commands";
 import { MemoryVault } from "../../workspace/preview/memory-vault";
@@ -16,11 +17,16 @@ const run = (id: string) => COMMANDS.find((c) => c.id === id)!.run();
 
 beforeEach(async () => {
   localStorage.clear();
+  // The smart layout row is offered once smart pages are on (they start off).
+  usePlugins.setState({ on: { smart: true } });
   await useWorkspace.getState().connect({ client: new MemoryVault({ [PATH]: "---\ntitle: Talk\n---\nOne.\n\n---\n\nTwo.\n" }) });
   useWorkspace.getState().openPath(PATH);
   useWorkspace.setState({ toasts: [] });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePlugins.setState({ on: {} });
+});
 
 describe("the page menu", () => {
   const menu = () => {

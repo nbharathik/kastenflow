@@ -39,6 +39,15 @@ impl Kasten {
         if let Some(source) = self.latex_op_preview(op)? {
             return Ok(source);
         }
+        if let Some(files) = self.latex_files_preview(op)? {
+            return Ok(files);
+        }
+        if let Some(more) = self.latex_more_preview(op)? {
+            return Ok(more);
+        }
+        if let Some(export) = self.latex_export_preview(op)? {
+            return Ok(export);
+        }
         if let Some(file) = self.smart_op_preview(op)? {
             return Ok(file);
         }
@@ -179,11 +188,19 @@ impl Kasten {
             | AgentOp::CreateDiagram { .. }
             | AgentOp::UpdateDiagram { .. }
             | AgentOp::SaveSource { .. }
+            | AgentOp::CreateLatexDoc { .. }
+            | AgentOp::AppendLatexFile { .. }
+            | AgentOp::TrashLatexFile { .. }
+            | AgentOp::AddLatexAsset { .. }
+            | AgentOp::CiteReference { .. }
+            | AgentOp::ExportLatexPdf { .. }
+            | AgentOp::SendPageToLatex { .. }
             | AgentOp::SmartCreate { .. }
             | AgentOp::SmartWrite { .. }
             | AgentOp::SmartDelete { .. }
             | AgentOp::EditPage { .. }
             | AgentOp::EditDiagram { .. } => (None, None, String::new()),
+            AgentOp::RequestSmartPages { .. } => (None, None, self.smart_request_words(op)),
             AgentOp::SetParent { .. }
             | AgentOp::ReorderChildren { .. }
             | AgentOp::CreateProject { .. }
@@ -301,11 +318,18 @@ impl Kasten {
             | AgentOp::Edit { reason, .. }
             | AgentOp::EditDiagram { reason, .. }
             | AgentOp::SaveSource { reason, .. }
+            | AgentOp::CreateLatexDoc { reason, .. }
+            | AgentOp::AppendLatexFile { reason, .. }
+            | AgentOp::TrashLatexFile { reason, .. }
+            | AgentOp::CiteReference { reason, .. }
+            | AgentOp::ExportLatexPdf { reason, .. }
+            | AgentOp::SendPageToLatex { reason, .. }
             | AgentOp::SmartCreate { reason, .. }
             | AgentOp::SmartWrite { reason, .. }
             | AgentOp::SmartDelete { reason, .. }
             | AgentOp::EditPage { reason, .. }
             | AgentOp::UpdateDiagram { reason, .. } => reason.clone(),
+            AgentOp::RequestSmartPages { reason, .. } => Some(reason.trim().to_owned()),
             _ => None,
         };
         let proposal = Proposal {

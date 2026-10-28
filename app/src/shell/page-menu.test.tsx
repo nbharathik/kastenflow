@@ -28,7 +28,8 @@ const labels = (list: MenuEntry[]): string[] =>
 afterEach(cleanup);
 
 describe("the page menu's structure", () => {
-  it("a note: icon rows, Page, View, Present & export, Ask AI, Trash; no Project", () => {
+  // Smart pages are off until a person turns the plugin on, so the default menu has no smart rows.
+  it("a note: icon rows, Page, View, Present & export, Ask AI, Trash; no Project, no smart rows", () => {
     expect(outline(entries(note({ path: "library/a.md" })))).toEqual([
       "Copy link",
       "Open in new tab",
@@ -46,8 +47,6 @@ describe("the page menu's structure", () => {
       "> View",
       "  Show Markdown file",
       "  Sections layout",
-      "  Smart layout",
-      "  Turn into smart page…",
       "  Focus mode",
       "  Fold all sections",
       "  Unfold all sections",

@@ -124,10 +124,18 @@ Besides notes, boards and decks, agents can now arrange and look after more:
 - **Housekeeping:** duplicate and restore notes, add and resolve comments, tick
   to-dos, list tasks, manage saved searches and references, set a page's icon,
   cover, font and width, fill a page from a template.
-- **LaTeX and smart pages:** read and edit LaTeX sources and read build errors;
-  make and fix [smart pages](smart-pages.md). When you hold agents to Review
-  everything, a smart page an agent made waits for your **Allow to run** before it
-  runs.
+- **LaTeX:** write a whole paper: start a document, write and add to its files, add
+  pictures and figures from diagrams, cite your References, send a page to it, ask the
+  app to build it and keep the PDF ([LaTeX documents](latex.md#agents-and-latex)).
+- **Smart pages**, once you have turned them on: make and fix
+  [smart pages](smart-pages.md). Until then an agent can only ask you to turn them on,
+  and the request waits for you in every mode. When you hold agents to Review everything,
+  a smart page an agent made waits for your **Allow to run** before it runs.
+- **What you have selected,** when it asks and the app is open
+  ([MCP tools](mcp-tools.md#what-an-ai-can-read-of-your-selection)).
+- **Whiteboards:** besides cards and arrows, reword stickies, add links, sections and
+  shapes, take arrows off and fold sections. Taking many cards or arrows off at once
+  waits for your review.
 - **Routines:** see what agents did, session by session (Home → *Agents today* and
   History → *Today by agents*), and undo a whole session.
 

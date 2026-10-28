@@ -58,6 +58,10 @@ pub(super) fn projects_of(op: &AgentOp) -> Vec<Option<String>> {
         | AgentOp::CreateDiagram {
             project: Some(project),
             ..
+        }
+        | AgentOp::CreateLatexDoc {
+            project: Some(project),
+            ..
         } => vec![Some(crate::slug::slugify(project))],
         AgentOp::CreateNote {
             parent: Some(parent),
@@ -69,6 +73,14 @@ pub(super) fn projects_of(op: &AgentOp) -> Vec<Option<String>> {
         } => vec![project_of(parent)],
         // A new source file has no existing path (`path()`), but its place says the project.
         AgentOp::SaveSource { path, .. } => vec![project_of(path)],
+        // A picture or a page goes into a document's folder, or a page makes a document in `project`.
+        AgentOp::AddLatexAsset { doc, .. }
+        | AgentOp::ExportLatexPdf { doc, .. }
+        | AgentOp::SendPageToLatex { doc: Some(doc), .. } => vec![project_of(doc)],
+        AgentOp::SendPageToLatex {
+            project: Some(project),
+            ..
+        } => vec![Some(crate::slug::slugify(project))],
         // The setup is read from this project, whatever folder it is written to.
         AgentOp::SaveProjectSetup { project, .. } => {
             vec![super::setup_agent::project_for_mode(project)]
@@ -120,8 +132,16 @@ impl Kasten {
         if let AgentOp::Batch { ops, .. } = op {
             return self.decide_batch(session, ops, now);
         }
+        // A request for smart pages is always kept for the person, in every mode.
+        if matches!(op, AgentOp::RequestSmartPages { .. }) {
+            return self.decide_smart_request(op);
+        }
         if let Err(err) = self.refusals(op) {
             return Ok(Decision::Refuse(err));
+        }
+        // A picture for a document adds a file and changes none: no mode holds it.
+        if matches!(op, AgentOp::AddLatexAsset { .. }) {
+            return self.decide_figure(session, op, now);
         }
         let class = self.op_class(session, op, now)?;
         let mut projects = self.touched_projects(op)?;

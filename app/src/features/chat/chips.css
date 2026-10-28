@@ -55,6 +55,26 @@
   }
 }
 
+/* While a connected client may read the selection: one quiet line under the chips. */
+.kasten-chat-shared {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 12px 4px;
+  color: var(--notion-text-3);
+  font-size: var(--text-12);
+
+  &::before {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: var(--radius-md);
+    background: var(--notion-accent);
+    content: "";
+  }
+}
+
 /* What a chip for several things holds: a list over the box, so the box does not grow. */
 .kasten-chat-chip-list {
   position: absolute;

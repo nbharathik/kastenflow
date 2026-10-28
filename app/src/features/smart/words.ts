@@ -25,6 +25,9 @@ export const UNKNOWN_MAKER_NOTE = "History is off, so KastenFlow cannot tell who
 /** Shown where a page would be, while smart pages are turned off. */
 export const OFF_LINE = "Smart pages are off";
 
+/** The same, when it is the page's project that turned them off. */
+export const OFF_PROJECT_LINE = "Smart pages are off in this project";
+
 /** Why a page with no view shows nothing, and what to do. */
 export const NO_VIEW_LINE = "This smart page has no view yet. Ask an agent to build one, or read its notes.";
 

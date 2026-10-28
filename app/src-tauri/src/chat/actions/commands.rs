@@ -67,6 +67,12 @@ pub async fn ai_action_run(
                 .find(&slug)
                 .cloned()
                 .ok_or_else(|| format!("There is no AI action called “{slug}”"))?;
+            // The smart page actions need smart pages on for the page's project.
+            if catalog::SMART_ACTIONS.contains(&slug.as_str())
+                && !kasten.smart_enabled_for_project(input.project.as_deref())
+            {
+                return Err("Smart pages are off here. Turn them on in Settings → Plugins, or in the project's settings.".to_owned());
+            }
             let session = Session::start(CLIENT, Instant::now());
             let message = context::prompt(&kasten, &session, &action, &input, &extra)?;
             Ok((action, message))

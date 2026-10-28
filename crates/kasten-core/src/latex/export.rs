@@ -3,11 +3,52 @@
 //! from the LaTeX side, and only in a LaTeX folder; builds themselves live in
 //! the cache and are never committed.
 
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::Path;
+use std::time::SystemTime;
+
 use super::docs::LatexDoc;
+use super::last_build::plain_file;
 use crate::error::{Error, Result};
 
 /// The largest PDF an export keeps.
 pub const MAX_PDF_BYTES: usize = 64 * 1024 * 1024;
+
+/// The PDF the app's last build of `doc` left in the cache under `root`, with
+/// when it was made. Read only from a plain file in a plain cache folder, and
+/// only if it is a PDF of a size an export keeps. This is the one place the
+/// bytes of an agent's export come from: never from the asker.
+pub(crate) fn cached_pdf(root: &Path, doc: &LatexDoc) -> Result<(Vec<u8>, Option<SystemTime>)> {
+    let stem = Path::new(&doc.main)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let rel = super::build_dir(&doc.folder);
+    let name = format!("{stem}.pdf");
+    let mut parts: Vec<&str> = rel.split('/').collect();
+    parts.extend(["out", name.as_str()]);
+    let none = || {
+        Error::Invalid(format!(
+            "There is no built PDF of “{}” yet: build it in the app first",
+            doc.title
+        ))
+    };
+    let path = plain_file(root, &parts).ok_or_else(none)?;
+    let meta = fs::metadata(&path).map_err(|_| none())?;
+    if meta.len() > MAX_PDF_BYTES as u64 {
+        return Err(Error::Invalid(format!(
+            "The built PDF of “{}” is too big to keep: a PDF may be at most {} MB",
+            doc.title,
+            MAX_PDF_BYTES / 1024 / 1024
+        )));
+    }
+    let mut bytes = Vec::new();
+    File::open(&path)
+        .and_then(|file| file.take(MAX_PDF_BYTES as u64 + 1).read_to_end(&mut bytes))?;
+    check_pdf(&bytes)?;
+    Ok((bytes, meta.modified().ok()))
+}
 
 /// Where the export of `doc` goes: the root file's name with `.pdf`.
 pub fn pdf_path(doc: &LatexDoc) -> String {

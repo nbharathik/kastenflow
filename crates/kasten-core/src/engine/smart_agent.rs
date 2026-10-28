@@ -32,6 +32,8 @@ impl Kasten {
             }
             _ => return Ok(()),
         };
+        // Off for the page's project (else the vault): the agent is told to ask the person.
+        self.smart_gate_page(page)?;
         let note = self.vault.read(page)?;
         // The lock of a page covers its whole folder; a page that sits inside
         // another page's folder would escape the outer page's lock.

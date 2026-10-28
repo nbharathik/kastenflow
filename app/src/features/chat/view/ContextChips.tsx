@@ -16,6 +16,7 @@ import { titleOf } from "../../workspace/names";
 import { useWorkspace } from "../../workspace/store";
 import { noteAt } from "../../workspace/tree";
 import { useAttachments } from "../attach-store";
+import { useSharing } from "../selection/sharing";
 import { useChat } from "../store";
 import { chipKey, originOf, type Chip, type Thread } from "../thread";
 import { AddContext } from "./AddContext";
@@ -45,6 +46,8 @@ export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta 
   // The row scrolls, so a file just attached is brought into view at its end, beside + Context.
   const row = useRef<HTMLDivElement>(null);
   const waiting = useAttachments((s) => s.byThread[thread.id]?.length ?? 0);
+  // A connected client may be reading the selection (see selection/share.ts).
+  const shared = useSharing((s) => s.shared);
   useEffect(() => {
     if (waiting > 0 && row.current) row.current.scrollLeft = row.current.scrollWidth;
   }, [waiting]);
@@ -110,6 +113,11 @@ export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta 
         {/* Outside the scrolling chips, so it is always there to press. */}
         <AddContext thread={thread} page={page} />
       </div>
+      {shared && (
+        <p className="kasten-chat-shared" role="status">
+          Shared with a connected client
+        </p>
+      )}
       {listed && (
         <ul className="kasten-chat-chip-list" aria-label={`What ${listed.label} holds`}>
           {parts(listed, notes).map((line) => (

@@ -4,8 +4,9 @@
 //! source op that goes through the same guardrails as every agent write: a
 //! locked document is refused, a change that takes out much of a file waits
 //! for review, and the file is written against the text the agent read, so a
-//! change a person made meanwhile is kept. The app builds; `latex_build` only
-//! reads what the last build said.
+//! change a person made meanwhile is kept. The app builds; `latex_build` reads
+//! what the last build said, or with `wait` asks the app to build now
+//! (`latex_app.rs`).
 
 use kasten_core::agent::{AgentOp, Session};
 use kasten_core::latex::{LastBuild, LatexDoc};
@@ -29,7 +30,7 @@ pub(crate) fn latex_list(k: &Kasten) -> Result<Value> {
     let mut out = json!({ "documents": as_json(&docs)? });
     if docs.is_empty() {
         out["note"] = json!(
-            "There are no LaTeX documents in this vault yet. A person starts one in the app."
+            "There are no LaTeX documents in this vault yet. latex_create_document starts one."
         );
     }
     Ok(out)
@@ -37,7 +38,7 @@ pub(crate) fn latex_list(k: &Kasten) -> Result<Value> {
 
 /// The file `file` of `doc` as a vault path. `file` is relative to the
 /// document's folder; the folder in front of it is accepted too.
-fn path_in(doc: &LatexDoc, file: &str) -> Result<(String, String)> {
+pub(super) fn path_in(doc: &LatexDoc, file: &str) -> Result<(String, String)> {
     let named = file.trim().trim_start_matches("./");
     let rel = named
         .strip_prefix(&format!("{}/", doc.folder))
@@ -59,7 +60,7 @@ fn path_in(doc: &LatexDoc, file: &str) -> Result<(String, String)> {
 
 /// The source file at `path`; a file that is not there is said in the
 /// document's words.
-fn source_of(
+pub(super) fn source_of(
     k: &Kasten,
     doc: &LatexDoc,
     path: &str,
@@ -157,7 +158,7 @@ pub(crate) fn latex_edit(
 }
 
 /// The sentence that tells where the build is made.
-const BUILD_IN_THE_APP: &str = "Build from the app; this tool reads diagnostics of the last build. KastenFlow builds a LaTeX document while it is open in its window.";
+const BUILD_IN_THE_APP: &str = "Build from the app; this tool reads diagnostics of the last build. KastenFlow builds a LaTeX document while it is open in its window. With the app open you can ask for a build now: call again with wait set to true.";
 
 fn build_json(doc: &LatexDoc, last: &LastBuild) -> Result<Value> {
     let mut out = json!({
@@ -195,8 +196,17 @@ fn build_json(doc: &LatexDoc, last: &LastBuild) -> Result<Value> {
     Ok(out)
 }
 
-pub(crate) fn latex_build(k: &Kasten, a: LatexBuildArgs) -> Result<Value> {
+/// `session` is the caller's, when it has one: the app is told whose request it is.
+pub(crate) fn latex_build(
+    k: &Kasten,
+    session: Option<&Session>,
+    a: LatexBuildArgs,
+) -> Result<Value> {
     let doc = k.latex_find_doc(&a.doc)?;
+    if a.wait == Some(true) {
+        let wait = super::latex_app::wait_for(a.timeout_seconds);
+        return super::latex_app::build_and_wait(k, session, &doc, wait);
+    }
     let last = k.latex_last_build(&doc)?;
     build_json(&doc, &last)
 }

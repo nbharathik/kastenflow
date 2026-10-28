@@ -14,8 +14,8 @@ export async function exportSvg(client: VaultClient, path: string): Promise<stri
   return client.saveDownload(`${stemOfPath(path)}.svg`, new TextEncoder().encode(svg), "image/svg+xml");
 }
 
-/** The picture drawn as a PNG at `scale` times its size, on white; with `maxSide`, no side is longer than that many pixels (a big diagram is drawn smaller rather than as a huge file). Throws why when this window cannot. */
-export async function pngOfSvg(svg: string, scale = 2, maxSide = Infinity): Promise<Uint8Array> {
+/** The picture drawn as a PNG at `scale` times its size, on white (or `background`, a colour, or "transparent"); with `maxSide`, no side is longer than that many pixels (a big diagram is drawn smaller rather than as a huge file). Throws why when this window cannot. */
+export async function pngOfSvg(svg: string, scale = 2, maxSide = Infinity, background = "#ffffff"): Promise<Uint8Array> {
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   try {
     const image = new Image();
@@ -30,8 +30,10 @@ export async function pngOfSvg(svg: string, scale = 2, maxSide = Infinity): Prom
     canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("This window cannot draw a PNG");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, width, height);
+    if (background !== "transparent") {
+      context.fillStyle = background;
+      context.fillRect(0, 0, width, height);
+    }
     context.drawImage(image, 0, 0, width, height);
     const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/png"));
     if (!blob) throw new Error("This window cannot draw a PNG; open the diagram and export it from the editor");

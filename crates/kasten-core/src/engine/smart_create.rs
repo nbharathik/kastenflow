@@ -36,9 +36,24 @@ impl Kasten {
     /// What no mode lifts for a new smart page: a title, text files only, and
     /// every rule of the write ops for the folder it will hold.
     pub(super) fn smart_create_refusals(&self, op: &AgentOp) -> Result<()> {
-        let AgentOp::SmartCreate { title, files, .. } = op else {
+        let AgentOp::SmartCreate {
+            title,
+            files,
+            project,
+            parent,
+            ..
+        } = op
+        else {
             return Ok(());
         };
+        // Off where the page would be made (its project's key, else the vault's
+        // plugin): the agent is told to ask the person.
+        let folder = match (project, parent) {
+            (Some(project), _) => Some(crate::slug::slugify(project)),
+            (None, Some(parent)) => super::boards::project_of(parent),
+            (None, None) => None,
+        };
+        self.smart_gate_project(folder.as_deref())?;
         if title.trim().is_empty() {
             return Err(Error::Invalid("A smart page needs a title".to_owned()));
         }

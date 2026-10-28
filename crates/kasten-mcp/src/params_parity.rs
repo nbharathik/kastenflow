@@ -218,6 +218,42 @@ pub enum BoardStep {
         line: Option<String>,
         dashed: Option<bool>,
     },
+    /// Rewords a sticky or a shape (its text), a section (its label) or a web
+    /// link card (its address, which must be an http or https address). A card
+    /// for a note shows the note: change the note instead.
+    SetText { id: String, text: String },
+    /// A card for a web address (http or https) with its top-left corner at x, y.
+    AddLink { url: String, x: i64, y: i64 },
+    /// An empty section (a titled frame) at x, y with a size, behind the other
+    /// nodes. To put existing nodes in one, use group_on_board.
+    AddSection {
+        label: String,
+        x: i64,
+        y: i64,
+        width: i64,
+        height: i64,
+    },
+    /// A shape with words in it: `rect`, `rounded`, `ellipse`, `diamond`,
+    /// `parallelogram`, `cylinder`, `hexagon`, `document` or `triangle`.
+    AddShape {
+        shape: String,
+        text: String,
+        x: i64,
+        y: i64,
+        width: i64,
+        height: i64,
+    },
+    /// Gives a sticky or shape another outline (the shapes of add_shape); an
+    /// empty one makes it a plain sticky again.
+    Reshape { id: String, shape: String },
+    /// Takes arrows off the board by their ids. The cards stay. Taking many
+    /// off at once waits for the user, as it does for cards.
+    Unlink { ids: Vec<String> },
+    /// How a note's card shows: `title` only or `expanded` to the whole note;
+    /// null goes back to the title and first lines.
+    CardSize { id: String, size: Option<String> },
+    /// Folds a section to its label (true) or opens it again (false).
+    Collapse { id: String, collapsed: bool },
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

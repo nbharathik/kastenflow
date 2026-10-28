@@ -11,7 +11,21 @@ pub struct Told {
 }
 
 /// The tools of this file.
-pub const TOOLS: [&str; 4] = ["latex_list", "latex_read", "latex_edit", "latex_build"];
+pub const TOOLS: [&str; 13] = [
+    "latex_list",
+    "latex_read",
+    "latex_edit",
+    "latex_build",
+    "latex_create_document",
+    "latex_write_file",
+    "latex_append",
+    "latex_delete_file",
+    "latex_add_asset",
+    "latex_cite",
+    "latex_send_page",
+    "latex_export_pdf",
+    "diagram_to_latex_figure",
+];
 
 pub fn is_tool(name: &str) -> bool {
     TOOLS.contains(&name)
@@ -40,6 +54,12 @@ fn named(reference: &str, default: &str) -> String {
     }
 }
 
+/// The diagram a call names, as the person would say it.
+fn diagram_named(input: &Value) -> String {
+    let name = named(text(input, "diagram"), "the diagram");
+    name.replace(".drawio", "")
+}
+
 /// What a call set out to do, in words that follow "Could not" or "Waiting for review:".
 pub fn action(name: &str, input: &Value) -> Option<String> {
     if !is_tool(name) {
@@ -56,8 +76,56 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
             "change the LaTeX file {} of {doc}",
             named(text(input, "file"), "the file")
         ),
+        "latex_create_document" => match text(input, "title") {
+            "" => "start a new LaTeX document".to_owned(),
+            title => format!("start the LaTeX document “{title}”"),
+        },
+        "latex_write_file" => format!(
+            "write the LaTeX file {} of {doc}",
+            named(text(input, "file"), "the file")
+        ),
+        "latex_append" => format!(
+            "add to the LaTeX file {} of {doc}",
+            named(text(input, "file"), "the file")
+        ),
+        "latex_delete_file" => format!(
+            "move the LaTeX file {} of {doc} to the trash",
+            named(text(input, "file"), "the file")
+        ),
+        "latex_add_asset" => format!(
+            "add the picture {} to {doc}",
+            named(text(input, "name"), "a picture")
+        ),
+        "latex_cite" => format!(
+            "cite a reference in the LaTeX file {} of {doc}",
+            named(text(input, "file"), "the file")
+        ),
+        "latex_send_page" => {
+            let page = named(text(input, "page"), "the page");
+            match text(input, "doc") {
+                "" => format!("make a LaTeX document from the page {page}"),
+                _ => format!("add the page {page} to the LaTeX document {doc}"),
+            }
+        }
+        "latex_export_pdf" => format!("keep the PDF of {doc}"),
+        "diagram_to_latex_figure" => {
+            format!("draw {} as a figure of {doc}", diagram_named(input))
+        }
+        _ if input["wait"] == Value::Bool(true) => format!("build {doc} in the app"),
         _ => format!("read the last build of {doc}"),
     })
+}
+
+/// How a save of a file went, in words that follow the verb ("Changed", "Added to").
+fn saved_words(done: &Value, verb: &str, file: &str) -> String {
+    match text(done, "status") {
+        "unchanged" => format!("The LaTeX file {file} was already as asked"),
+        "merged" => format!("{verb} the LaTeX file {file} and kept the changes made meanwhile"),
+        "conflict" => format!(
+            "The LaTeX file {file} changed on the same lines, so the change was kept in a copy"
+        ),
+        _ => format!("{verb} the LaTeX file {file}"),
+    }
 }
 
 /// How a finished call went (`value` is what the tool answered); none for a
@@ -90,24 +158,108 @@ pub fn told(name: &str, input: &Value, value: &Value) -> Option<Told> {
             ),
             vec![],
         ),
-        "latex_edit" => {
+        "latex_edit" | "latex_write_file" | "latex_append" => {
             let done = &value["result"];
             let file = named(text(value, "file"), "the file");
-            let words = match text(done, "status") {
-                "unchanged" => format!("The LaTeX file {file} was already as asked"),
-                "merged" => {
-                    format!("Changed the LaTeX file {file} and kept the changes made meanwhile")
-                }
-                "conflict" => format!(
-                    "The LaTeX file {file} changed on the same lines, so the change was kept in a copy"
-                ),
-                _ => format!("Changed the LaTeX file {file}"),
+            // A write with no hash made the file.
+            let made = name == "latex_write_file" && text(input, "base_hash").is_empty();
+            let verb = match name {
+                "latex_append" => "Added to",
+                _ if made => "Made",
+                _ => "Changed",
+            };
+            (saved_words(done, verb, &file), own(text(done, "path")))
+        }
+        "latex_create_document" => {
+            let done = &value["result"];
+            let title = match text(done, "title") {
+                "" => text(input, "title"),
+                title => title,
+            };
+            (
+                format!("Started the LaTeX document “{title}”"),
+                own(text(done, "path")),
+            )
+        }
+        "latex_delete_file" => {
+            let done = &value["result"];
+            let file = named(text(value, "file"), "the file");
+            let paths = [text(done, "path"), text(done, "trashed")]
+                .into_iter()
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned)
+                .collect();
+            (format!("Moved the LaTeX file {file} to the trash"), paths)
+        }
+        "latex_add_asset" => {
+            let done = &value["result"];
+            let picture = match text(done, "figure") {
+                "" => named(text(input, "name"), "a picture"),
+                figure => named(figure, "a picture"),
+            };
+            let doc = named(text(input, "doc"), "the document");
+            let words = if text(done, "status") == "existing" {
+                format!("The picture {picture} was in {doc} already")
+            } else {
+                format!("Added the picture {picture} to {doc}")
+            };
+            (words, own(text(done, "path")))
+        }
+        "latex_cite" => {
+            let done = &value["result"];
+            let file = named(text(value, "file"), "the file");
+            let paths = [text(done, "path"), text(&done["bib"], "path")]
+                .into_iter()
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned)
+                .collect();
+            (format!("Cited a reference in the LaTeX file {file}"), paths)
+        }
+        "latex_send_page" => {
+            let done = &value["result"];
+            let doc = named(text(done, "doc"), "the document");
+            let words = if done["appended"] == Value::Bool(true) {
+                format!("Added the page to the LaTeX document {doc}")
+            } else {
+                format!("Made the LaTeX document {doc} from the page")
+            };
+            (words, own(text(done, "path")))
+        }
+        "latex_export_pdf" => {
+            let doc = named(
+                text(value, "doc"),
+                &named(text(input, "doc"), "the document"),
+            );
+            let words = if text(value, "status") == "pending_review" {
+                format!("The PDF of {doc} waits for review")
+            } else {
+                format!("Kept the PDF of {doc}")
+            };
+            (words, own(text(&value["result"], "path")))
+        }
+        "diagram_to_latex_figure" => {
+            let done = &value["result"];
+            let doc = named(
+                text(value, "doc"),
+                &named(text(input, "doc"), "the document"),
+            );
+            let diagram = diagram_named(input);
+            let words = if text(done, "status") == "existing" {
+                format!("The picture of {diagram} was in {doc} already")
+            } else {
+                format!("Drew {diagram} as a figure of {doc}")
             };
             (words, own(text(done, "path")))
         }
         _ => {
             let doc = named(text(input, "doc"), "the document");
-            let words = if value["built"] != Value::Bool(true) {
+            let words = if value["waited"] == Value::Bool(true) {
+                format!(
+                    "Built {doc}: {}, {}",
+                    count(value["errors"].as_u64().unwrap_or(0) as usize, "error"),
+                    count(value["warnings"].as_u64().unwrap_or(0) as usize, "warning")
+                )
+            } else if value["built"] != Value::Bool(true) {
                 format!("There is no build of {doc} to read yet")
             } else {
                 let errors = value["errors"].as_u64().unwrap_or(0) as usize;
@@ -125,56 +277,4 @@ pub fn told(name: &str, input: &Value, value: &Value) -> Option<Told> {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn every_tool_of_the_list_has_words_and_none_shows_its_name() {
-        for name in TOOLS {
-            let said = action(name, &json!({})).unwrap();
-            let told = told(name, &json!({}), &json!({})).unwrap().summary;
-            assert!(
-                !said.contains('_') && !told.contains('_'),
-                "{name}: {said} / {told}"
-            );
-        }
-        assert!(action("search", &json!({})).is_none());
-        assert!(told("search", &json!({}), &json!({})).is_none());
-    }
-
-    #[test]
-    fn calls_read_as_a_person_would_say_them() {
-        let input = json!({"doc": "projects/p/latex/paper", "file": "sections/intro.tex"});
-        assert_eq!(
-            action("latex_edit", &input).as_deref(),
-            Some("change the LaTeX file “intro.tex” of “paper”")
-        );
-        let saved = json!({"status": "done", "file": "sections/intro.tex",
-            "result": {"status": "saved", "path": "projects/p/latex/paper/sections/intro.tex"}});
-        let told_edit = told("latex_edit", &input, &saved).unwrap();
-        assert_eq!(told_edit.summary, "Changed the LaTeX file “intro.tex”");
-        assert_eq!(
-            told_edit.paths,
-            ["projects/p/latex/paper/sections/intro.tex"]
-        );
-        let build = json!({"built": true, "errors": 1, "warnings": 2});
-        assert_eq!(
-            told("latex_build", &json!({"doc": "paper"}), &build)
-                .unwrap()
-                .summary,
-            "Read the last build of “paper”: 1 error, 2 warnings"
-        );
-        assert_eq!(
-            told(
-                "latex_build",
-                &json!({"doc": "paper"}),
-                &json!({"built": false})
-            )
-            .unwrap()
-            .summary,
-            "There is no build of “paper” to read yet"
-        );
-    }
-}
+mod tests;

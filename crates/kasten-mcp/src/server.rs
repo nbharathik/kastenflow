@@ -43,23 +43,24 @@ Some writes come back as `pending_review` with a proposal id; the user decides t
 /// style catalogue).
 pub(crate) fn instructions() -> &'static str {
     static TEXT: OnceLock<String> = OnceLock::new();
-    TEXT.get_or_init(|| build(true, true))
+    TEXT.get_or_init(|| build(true, true, true))
 }
 
 /// The same for a vault whose plugins are `config`: a plugin that is off has
 /// no tools listed, so it is not talked about either.
 pub(crate) fn instructions_for(config: &kasten_core::Config) -> String {
-    let (diagrams, latex) = (
+    let (diagrams, latex, smart) = (
         config.plugin_enabled("diagrams"),
         config.plugin_enabled("latex"),
+        config.plugin_enabled(kasten_core::SMART_PLUGIN),
     );
-    if diagrams && latex {
+    if diagrams && latex && smart {
         return instructions().to_owned();
     }
-    build(diagrams, latex)
+    build(diagrams, latex, smart)
 }
 
-fn build(diagrams: bool, latex: bool) -> String {
+fn build(diagrams: bool, latex: bool, smart: bool) -> String {
     let mut parts = vec![format!(
         "{LEAD}{}{REST}",
         if diagrams { DIAGRAMS } else { "" }
@@ -69,7 +70,12 @@ fn build(diagrams: bool, latex: bool) -> String {
     if latex {
         parts.push(crate::latex_instructions::LATEX.to_owned());
     }
-    parts.push(crate::smart_instructions::SMART.to_owned());
+    if latex && diagrams {
+        parts.push(crate::latex_instructions::FIGURE.to_owned());
+    }
+    if smart {
+        parts.push(crate::smart_instructions::SMART.to_owned());
+    }
     parts.push(crate::decks::instructions());
     if diagrams {
         parts.push(kasten_core::diagrams::presets::instructions());
@@ -147,22 +153,34 @@ impl KastenServer {
             + Self::page_tools()
             + Self::structure_tools()
             + Self::parity_tools()
-            + Self::smart_tools()
             + Self::deck_tools()
+            + Self::selection_tools()
     }
 
-    /// Every tool there is, plugins' included.
+    /// Every tool there is, plugins' included, and the one that stands in for
+    /// the smart page tools while they are off.
     pub fn router() -> ToolRouter<KastenServer> {
         plugin_tools()
             .into_iter()
             .fold(Self::core_router(), |all, (_, tools)| all + tools)
+            + Self::smart_request_tools()
     }
 
     /// The tools a client sees now: the core ones, and each plugin's while the
     /// vault's config has it on (the engine keeps the config current with the
-    /// file, which the app changes).
+    /// file, which the app changes). Smart pages count as on when the vault or
+    /// any project has them on; while they are off for the whole vault, the
+    /// one tool listed instead is `request_smart_pages`.
     pub fn live_router(&self) -> ToolRouter<KastenServer> {
-        routes_for(&self.tool_router, &self.plugins, &self.kasten.config())
+        let mut config = self.kasten.config();
+        let smart = self.kasten.smart_enabled_anywhere();
+        config.set_plugin_enabled(kasten_core::SMART_PLUGIN, smart);
+        let listed = routes_for(&self.tool_router, &self.plugins, &config);
+        if smart {
+            listed
+        } else {
+            listed + Self::smart_request_tools()
+        }
     }
 
     /// A server for one HTTP session or request, sharing sessions by client.
@@ -256,8 +274,10 @@ impl ServerHandler for KastenServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
+        // The smart kit is the Smart pages plugin's: not offered while they are off.
+        let smart = self.kasten.smart_enabled_anywhere();
         Ok(ListResourcesResult::with_all_items(
-            crate::mcp_resources::listed(),
+            crate::mcp_resources::listed(smart),
         ))
     }
 
@@ -266,7 +286,7 @@ impl ServerHandler for KastenServer {
         request: ReadResourceRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
-        crate::mcp_resources::read(&request.uri)
+        crate::mcp_resources::read(&request.uri, self.kasten.smart_enabled_anywhere())
     }
 
     fn get_info(&self) -> ServerConfig {
@@ -281,6 +301,14 @@ impl ServerHandler for KastenServer {
             Implementation::new("kasten", kasten_core::VERSION)
                 .with_title(kasten_core::PRODUCT_NAME),
         )
-        .with_instructions(instructions_for(&self.kasten.config()))
+        .with_instructions(instructions_for(&{
+            // Smart pages are talked about wherever any of the vault may use them.
+            let mut config = self.kasten.config();
+            config.set_plugin_enabled(
+                kasten_core::SMART_PLUGIN,
+                self.kasten.smart_enabled_anywhere(),
+            );
+            config
+        }))
     }
 }

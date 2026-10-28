@@ -49,6 +49,8 @@ const options = () => within(screen.getByRole("listbox", { name: "Actions" })).g
 beforeEach(async () => {
   // "New diagram" is the diagrams plugin's, which is on unless the person turned it off.
   await usePlugins.getState().enable("diagrams");
+  // "New smart page" is offered once the person has turned smart pages on (they start off).
+  usePlugins.setState({ on: { smart: true } });
   capture.mockClear();
   clipUrl.mockClear();
   useShell.setState({ paletteOpen: false, gallery: null });
@@ -58,6 +60,7 @@ beforeEach(async () => {
 afterEach(() => {
   cleanup();
   usePlugins.getState().disable("diagrams");
+  usePlugins.setState({ on: {} });
 });
 
 describe("the capture field", () => {

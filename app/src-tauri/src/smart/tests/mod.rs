@@ -102,6 +102,11 @@ pub fn add_page_in(
 
 pub fn smart() -> Smart {
     let vault = vault();
+    // Smart pages are off in a fresh vault; a person turns the plugin on in Settings → Plugins.
+    vault
+        .kasten
+        .set_plugin_enabled(&Actor::Human, "smart", true, Instant::now())
+        .unwrap();
     let (path, id) = add_page(&vault.kasten, "Tracker", &files());
     let rt = Runtime::default();
     let frame = rt.open_frame(&id).unwrap();

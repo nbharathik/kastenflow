@@ -6,9 +6,12 @@
 //! text saved through `Kasten::save_source`. Builds are made in
 //! `.kasten/cache/latex/<hash>/` and never committed.
 
+mod append;
+mod cite;
 mod config;
 mod docs;
 mod export;
+mod figure;
 mod from_markdown;
 mod last_build;
 mod log;
@@ -18,11 +21,14 @@ mod sent;
 mod template;
 mod text;
 
+pub use append::{Appended, appended};
+pub use cite::{Cited, bib_entry, bib_has_key, citation_text, cite_into};
 pub use config::{BIBLIOGRAPHIES, DEFAULT_BIBLIOGRAPHY, DEFAULT_ENGINE, ENGINES, LatexConfig};
 pub use docs::{LatexDoc, doc_containing};
 pub(crate) use docs::{LatexFacts, dir_of, facts_of, find_docs, read_facts};
-pub(crate) use export::check_pdf;
 pub use export::{MAX_PDF_BYTES, pdf_path};
+pub(crate) use export::{cached_pdf, check_pdf};
+pub use figure::{FigureKind, base64_decode, figure_name, is_program, sniff};
 pub use from_markdown::{Converted, Mode, escape_text, markdown_to_latex, page_to_latex};
 pub use last_build::{LastBuild, MAX_LOG_BYTES};
 pub(crate) use last_build::{is_link, read as read_last_build};

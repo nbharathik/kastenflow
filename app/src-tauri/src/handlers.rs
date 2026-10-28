@@ -208,6 +208,8 @@ pub(crate) fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + '
         crate::smart::commands::smart_allow_run,
         crate::smart::commands::smart_run_enabled,
         crate::smart::commands::smart_set_run_enabled,
+        crate::smart::commands::smart_project_settings,
+        crate::smart::commands::smart_set_project_setting,
         crate::smart::commands::smart_history,
         crate::smart::commands::smart_restore_version,
         crate::smart::author::smart_starters,
@@ -241,6 +243,10 @@ pub(crate) fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + '
         crate::plugins::latex::vault_commands::latex_set_engine,
         crate::plugins::latex::vault_commands::latex_export_pdf,
         crate::plugins::latex::send::latex_send,
+        // --- the agents' bridge (1.2.2): the window's answers to what an agent asks of the app go here only
+        crate::bridge::window::diagram_png_answer,
+        crate::bridge::selection::selection_publish,
+        crate::bridge::selection::selection_watching,
         // --- backup (1.2.2): the simpler GitHub backup and its status go here only
         backup::status_cmds::backup_status,
         backup::status_cmds::backup_link_existing,

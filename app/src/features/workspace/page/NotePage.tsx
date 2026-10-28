@@ -145,7 +145,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   // A smart page (`layout: smart`): its smart view, its notes (this page) or the history of its code.
   const smartOn = own.layout === "smart" && !compact && !headless && !journal;
   const desktop = inTauri();
-  const run = useSmartRunning(undefined, smartOn && desktop);
+  const run = useSmartRunning(undefined, smartOn && desktop, session.path);
   const [side, setSide] = useSmartSide(pageKey);
   const smartOff = smartOn && desktop && run.known && !run.on;
   const frame = useRef<HTMLDivElement>(null);
@@ -213,7 +213,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
       <div className="kasten-page-main">
         {smartOn && (
           <div className="kasten-smart-notes-bar">
-            {smartOff ? <SmartOffLine /> : <SmartTabs side="notes" onSide={setSide} />}
+            {smartOff ? <SmartOffLine page={session.path} /> : <SmartTabs side="notes" onSide={setSide} />}
           </div>
         )}
         {conflict && <ConflictBanner copy={conflict} onDismiss={onDismissConflict} />}

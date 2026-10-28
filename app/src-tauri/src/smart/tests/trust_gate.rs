@@ -4,7 +4,6 @@
 //! pass for the person's "Allow to run".
 
 use std::fs;
-use std::path::Path;
 
 use kasten_core::Instant;
 use kasten_core::config_keys::AgentMode;
@@ -20,8 +19,8 @@ use crate::smart::protocol::{Serving, live_frame, respond};
 use crate::smart::settings;
 use crate::smart::trust::{may_open, trust};
 
-/// Asks the scheme for `path` as the app's handler does: the switch is read from `dir` per request.
-fn serve(s: &super::Smart, dir: &Path, frame: &str, path: &str) -> Response<Vec<u8>> {
+/// Asks the scheme for `path` as the app's handler does: whether smart pages are on is read from the vault per request.
+fn serve(s: &super::Smart, frame: &str, path: &str) -> Response<Vec<u8>> {
     let request = Request::builder()
         .method(Method::GET)
         .uri(format!("smart://localhost/{frame}{path}"))
@@ -30,31 +29,34 @@ fn serve(s: &super::Smart, dir: &Path, frame: &str, path: &str) -> Response<Vec<
     respond(
         &Serving {
             kasten: Some(s.k()),
-            frame_page: &|nonce| live_frame(Some(dir), Some(&s.rt), nonce),
+            frame_page: &|nonce| live_frame(Some(s.k()), Some(&s.rt), nonce),
             web_images: &|_| false,
         },
         &request,
     )
 }
 
+fn plugin(s: &super::Smart, on: bool) {
+    s.k()
+        .set_plugin_enabled(&Actor::Human, "smart", on, Instant::now())
+        .unwrap();
+}
+
 #[test]
-fn frames_open_before_the_switch_goes_off_serve_nothing_afterwards_and_come_back_on_when_it_is_on()
+fn frames_open_before_the_plugin_goes_off_serve_nothing_afterwards_and_come_back_on_when_it_is_on()
 {
     let s = smart();
     let dir = data("kill");
     let page = format!("/{}/index.html", s.id);
     let other = s.rt.open_frame(&s.id).unwrap();
-    assert_eq!(serve(&s, &dir, &s.frame, &page).status(), StatusCode::OK);
-    assert_eq!(
-        serve(&s, &dir, &other, "/kit/1/kit.js").status(),
-        StatusCode::OK
-    );
+    assert_eq!(serve(&s, &s.frame, &page).status(), StatusCode::OK);
+    assert_eq!(serve(&s, &other, "/kit/1/kit.js").status(), StatusCode::OK);
 
-    // The switch is written first, then the frames end (as the command does):
+    // The plugin is turned off first, then the frames end (as the command does):
     // between the two, and after, an old secret gets nothing.
-    settings::set_run_enabled(&dir, false).unwrap();
+    plugin(&s, false);
     for (frame, path) in [(&s.frame, page.as_str()), (&other, "/kit/1/kit.js")] {
-        let response = serve(&s, &dir, frame, path);
+        let response = serve(&s, frame, path);
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
         assert_safe_headers(&response, CSP, path);
         assert!(!text(&response).contains("window.app"), "{path}");
@@ -65,7 +67,7 @@ fn frames_open_before_the_switch_goes_off_serve_nothing_afterwards_and_come_back
         "no call is answered"
     );
     for frame in [&s.frame, &other] {
-        let response = serve(&s, &dir, frame, &page);
+        let response = serve(&s, frame, &page);
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         assert_safe_headers(&response, CSP, "after");
     }
@@ -74,14 +76,55 @@ fn frames_open_before_the_switch_goes_off_serve_nothing_afterwards_and_come_back
     assert!(may_open(s.k(), &note, Some(&dir), Instant::now()).is_err());
 
     // On again: the old secrets stay dead (the window makes new frames), new ones work.
-    settings::set_run_enabled(&dir, true).unwrap();
+    plugin(&s, true);
+    assert_eq!(serve(&s, &s.frame, &page).status(), StatusCode::NOT_FOUND);
+    let fresh = s.rt.open_frame(&s.id).unwrap();
+    assert_eq!(serve(&s, &fresh, &page).status(), StatusCode::OK);
+    assert!(may_open(s.k(), &note, Some(&dir), Instant::now()).is_ok());
+}
+
+#[test]
+fn a_frame_never_runs_while_the_plugin_is_off_even_if_it_was_never_closed() {
+    let s = smart();
+    let page = format!("/{}/index.html", s.id);
+    plugin(&s, false);
+    // The window did not end the frame (it was reloaded, say): the app still serves nothing.
+    assert_eq!(serve(&s, &s.frame, &page).status(), StatusCode::NOT_FOUND);
+    assert_eq!(live_frame(Some(s.k()), Some(&s.rt), &s.frame), None);
+}
+
+#[test]
+fn a_project_that_says_off_ends_only_its_own_frames() {
+    let s = smart();
+    let (_inside, inside_id) =
+        super::add_page_in(s.k(), "Inside", Some("photo-organiser"), &super::files());
+    let inside_frame = s.rt.open_frame(&inside_id).unwrap();
+    let page = |id: &str| format!("/{id}/index.html");
     assert_eq!(
-        serve(&s, &dir, &s.frame, &page).status(),
+        serve(&s, &inside_frame, &page(&inside_id)).status(),
+        StatusCode::OK
+    );
+
+    s.k()
+        .set_project_smart_pages(
+            &Actor::Human,
+            "projects/photo-organiser/_project.md",
+            kasten_core::ProjectSmart::Off,
+            Instant::now(),
+        )
+        .unwrap();
+    assert_eq!(
+        serve(&s, &inside_frame, &page(&inside_id)).status(),
         StatusCode::NOT_FOUND
     );
-    let fresh = s.rt.open_frame(&s.id).unwrap();
-    assert_eq!(serve(&s, &dir, &fresh, &page).status(), StatusCode::OK);
-    assert!(may_open(s.k(), &note, Some(&dir), Instant::now()).is_ok());
+    assert_eq!(
+        serve(&s, &s.frame, &page(&s.id)).status(),
+        StatusCode::OK,
+        "a page elsewhere goes on"
+    );
+    crate::smart::commands::end_disabled_frames(s.k(), &s.rt);
+    assert!(s.rt.frame_page(&inside_frame).is_none());
+    assert!(s.rt.frame_page(&s.frame).is_some());
 }
 
 #[test]
@@ -98,7 +141,6 @@ fn the_permission_file_is_tolerant_of_garbage_locks_and_a_missing_folder() {
     ] {
         fs::write(dir.join("smart-pages.json"), junk).unwrap();
         assert!(!settings::allowed(Some(&dir), "01AAA"), "{junk:?}");
-        assert!(settings::run_enabled(Some(&dir)), "{junk:?}");
         // A choice made over junk writes a good file.
         settings::set_allowed(&dir, "01AAA").unwrap();
         assert!(settings::allowed(Some(&dir), "01AAA"), "{junk:?}");
@@ -113,7 +155,6 @@ fn the_permission_file_is_tolerant_of_garbage_locks_and_a_missing_folder() {
     let in_the_way = data("in-the-way");
     fs::create_dir_all(in_the_way.join("smart-pages.json")).unwrap();
     assert!(!settings::allowed(Some(&in_the_way), "01AAA"));
-    assert!(settings::run_enabled(Some(&in_the_way)));
 }
 
 #[test]

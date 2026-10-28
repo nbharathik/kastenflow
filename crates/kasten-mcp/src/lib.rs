@@ -4,6 +4,7 @@
 //! through [`tools`].
 
 mod agent_guide;
+pub mod bridge;
 mod config_watch;
 pub mod decks;
 pub mod diagram_words;
@@ -14,7 +15,11 @@ mod mcp_board;
 mod mcp_diagram;
 mod mcp_diagram_ai;
 mod mcp_diagram_more;
+mod mcp_figure;
 mod mcp_latex;
+mod mcp_latex_app;
+mod mcp_latex_files;
+mod mcp_latex_more;
 mod mcp_pages;
 mod mcp_parity;
 mod mcp_read;
@@ -25,7 +30,10 @@ mod mcp_write;
 mod page_instructions;
 mod params;
 mod params_diagram;
+mod params_figure;
 mod params_latex;
+mod params_latex_files;
+mod params_latex_more;
 mod params_pages;
 mod params_parity;
 mod params_smart;

@@ -423,10 +423,22 @@ fn findings(k: &Kasten, s: &Session, page: &str) -> Vec<Value> {
         .clone()
 }
 
+/// Smart pages are off in a fresh vault; a person turns them on in Settings → Plugins.
+fn turn_on(k: &Kasten) {
+    k.set_plugin_enabled(
+        &kasten_core::history::Actor::Human,
+        "smart",
+        true,
+        Instant::now(),
+    )
+    .unwrap();
+}
+
 #[test]
 fn each_example_page_passes_smart_check() {
     let v = vault();
     let k = Kasten::open(&v.0).unwrap();
+    turn_on(&k);
     let s = Session::start("claude-code", Instant::now());
     for name in EXAMPLES {
         let files: Vec<Value> = FILES
@@ -465,6 +477,7 @@ fn each_example_page_passes_smart_check() {
 #[test]
 fn the_reference_is_a_listed_resource_and_reads_back_whole() {
     let v = vault();
+    turn_on(&Kasten::open(&v.0).unwrap());
     let mut c = Client::start(&v.0, "claude-code");
     let list = c.request("resources/list", json!({}));
     let found = list["resources"]
@@ -496,8 +509,17 @@ fn the_reference_is_a_listed_resource_and_reads_back_whole() {
 }
 
 #[test]
-fn the_server_still_tells_agents_when_to_make_a_smart_page() {
+fn the_server_tells_agents_when_to_make_a_smart_page_while_they_are_on_and_says_nothing_while_off()
+{
     let v = vault();
+    let off = Client::start(&v.0, "claude-code");
+    assert!(
+        !off.instructions.contains("smart page"),
+        "{}",
+        off.instructions
+    );
+    drop(off);
+    turn_on(&Kasten::open(&v.0).unwrap());
     let c = Client::start(&v.0, "claude-code");
     for needle in [
         "When to make a smart page",

@@ -15,7 +15,7 @@ const MAX_STEPS: usize = 200;
 pub(crate) fn board_edit(k: &dyn Lookup, a: BoardEditArgs) -> Result<AgentOp> {
     if a.steps.is_empty() {
         return Err(Error::Invalid(
-            "Give at least one step: add_sticky, move, resize, remove, restyle or edge_style"
+            "Give at least one step: add_sticky, add_link, add_section, add_shape, set_text, reshape, move, resize, remove, unlink, restyle, edge_style, card_size or collapse"
                 .to_owned(),
         ));
     }
@@ -25,7 +25,7 @@ pub(crate) fn board_edit(k: &dyn Lookup, a: BoardEditArgs) -> Result<AgentOp> {
         )));
     }
     let board = k.resolve_board(&a.board)?;
-    let (mut added, mut moved, mut taken, mut styled) = (0, 0, 0, 0);
+    let (mut added, mut moved, mut taken, mut styled, mut edited) = (0, 0, 0, 0, 0);
     let mut changes = Vec::with_capacity(a.steps.len());
     for step in a.steps {
         match step {
@@ -96,6 +96,64 @@ pub(crate) fn board_edit(k: &dyn Lookup, a: BoardEditArgs) -> Result<AgentOp> {
                     });
                 }
             }
+            BoardStep::SetText { id, text } => {
+                edited += 1;
+                changes.push(BoardChange::Text { id, text });
+            }
+            BoardStep::AddLink { url, x, y } => {
+                added += 1;
+                changes.push(BoardChange::Link { url, x, y });
+            }
+            BoardStep::AddSection {
+                label,
+                x,
+                y,
+                width,
+                height,
+            } => {
+                added += 1;
+                changes.push(BoardChange::Section {
+                    label,
+                    x,
+                    y,
+                    width,
+                    height,
+                });
+            }
+            BoardStep::AddShape {
+                shape,
+                text,
+                x,
+                y,
+                width,
+                height,
+            } => {
+                added += 1;
+                changes.push(BoardChange::Shape {
+                    shape,
+                    text,
+                    x,
+                    y,
+                    width,
+                    height,
+                });
+            }
+            BoardStep::Reshape { id, shape } => {
+                edited += 1;
+                changes.push(BoardChange::Reshape { id, shape });
+            }
+            BoardStep::Unlink { ids } => {
+                taken += ids.len();
+                changes.push(BoardChange::Unlink { ids });
+            }
+            BoardStep::CardSize { id, size } => {
+                edited += 1;
+                changes.push(BoardChange::CardSize { id, size });
+            }
+            BoardStep::Collapse { id, collapsed } => {
+                edited += 1;
+                changes.push(BoardChange::Collapse { id, collapsed });
+            }
         }
     }
     let parts: Vec<String> = [
@@ -103,6 +161,7 @@ pub(crate) fn board_edit(k: &dyn Lookup, a: BoardEditArgs) -> Result<AgentOp> {
         (moved, "moved or resized"),
         (taken, "taken off"),
         (styled, "restyled"),
+        (edited, "changed"),
     ]
     .into_iter()
     .filter(|(n, _)| *n > 0)

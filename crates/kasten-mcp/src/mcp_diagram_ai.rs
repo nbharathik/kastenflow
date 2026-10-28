@@ -75,7 +75,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Keeps a picture of a diagram in the vault's assets folder as an SVG file, ready to put in a note with ![](path) or on a slide. It is the editor's picture when the editor drew one for the diagram as it is, else the program's draft."
+        description = "Keeps a picture of a diagram in the vault's assets folder as an SVG file, ready to put in a note with ![](path) or on a slide. It is the editor's picture when the editor drew one for the diagram as it is, else the program's draft. With format png the KastenFlow app draws a PNG instead and keeps it in the same folder, so the app must be open: you are told if it is closed. For a LaTeX figure use diagram_to_latex_figure."
     )]
     async fn diagram_export(
         &self,

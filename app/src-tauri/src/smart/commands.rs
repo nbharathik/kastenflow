@@ -133,24 +133,80 @@ pub fn smart_allow_run(
     settings::set_allowed(&dir, &id)
 }
 
-/// Whether smart pages run at all (they do, until a person turns them off).
-#[tauri::command(async)]
-pub fn smart_run_enabled(app: AppHandle) -> bool {
-    settings::run_enabled(data_dir(&app).as_deref())
+/// Ends the frames of every page smart pages are now off for (the vault's
+/// plugin, or the page's project); pages they are still on for keep running.
+pub fn end_disabled_frames(kasten: &kasten_core::Kasten, runtime: &Runtime) {
+    runtime.retain_frames(|id| {
+        page::path_of(kasten, id).is_some_and(|path| kasten.smart_enabled_for_page(&path))
+    });
 }
 
-/// Turns smart pages on or off. Off ends every frame at once. Only the window
-/// calls it.
+/// Whether smart pages run for the page at `page` (its project's choice, else
+/// the vault's plugin); with no page, the vault's plugin. They are off until a
+/// person turns them on in Settings → Plugins.
+#[tauri::command(async)]
+pub fn smart_run_enabled(state: State<'_, OpenVault>, page: Option<String>) -> bool {
+    let Ok(kasten) = state.require() else {
+        return false;
+    };
+    match page {
+        Some(page) => kasten.smart_enabled_for_page(&page),
+        None => kasten.config().plugin_enabled(kasten_core::SMART_PLUGIN),
+    }
+}
+
+/// Turns the Smart pages plugin on or off for the open vault, as the switch in
+/// Settings → Plugins does. Off ends the frames of every page it is off for at
+/// once. Only the window calls it.
 #[tauri::command(async)]
 pub fn smart_set_run_enabled(
-    app: AppHandle,
+    state: State<'_, OpenVault>,
     runtime: State<'_, Runtime>,
     on: bool,
 ) -> Result<(), String> {
-    let dir = data_dir(&app).ok_or("KastenFlow has no place to keep this choice.")?;
-    settings::set_run_enabled(&dir, on)?;
+    let kasten = state.require()?;
+    kasten
+        .set_plugin_enabled(&Actor::Human, kasten_core::SMART_PLUGIN, on, Instant::now())
+        .map_err(|e| e.to_string())?;
     if !on {
-        runtime.close_all();
+        end_disabled_frames(&kasten, &runtime);
+    }
+    Ok(())
+}
+
+/// What each project says of its own about smart pages (`on` or `off`), by
+/// folder name; a project that follows the vault is not listed.
+#[tauri::command(async)]
+pub fn smart_project_settings(
+    state: State<'_, OpenVault>,
+) -> Result<std::collections::BTreeMap<String, kasten_core::ProjectSmart>, String> {
+    Ok(state.require()?.project_smart_settings())
+}
+
+/// A project's own choice for smart pages: `vault` (follow the vault), `on` or
+/// `off`. One change in History that Undo takes back. Turning them off ends the
+/// project's frames. Only the window calls it.
+#[tauri::command(async)]
+pub fn smart_set_project_setting(
+    state: State<'_, OpenVault>,
+    runtime: State<'_, Runtime>,
+    project: String,
+    setting: kasten_core::ProjectSmart,
+) -> Result<(), String> {
+    let kasten = state.require()?;
+    if project.is_empty() || project.contains(['/', '\\']) {
+        return Err("That is not a project.".to_owned());
+    }
+    kasten
+        .set_project_smart_pages(
+            &Actor::Human,
+            &format!("projects/{project}/_project.md"),
+            setting,
+            Instant::now(),
+        )
+        .map_err(|e| e.to_string())?;
+    if setting != kasten_core::ProjectSmart::On {
+        end_disabled_frames(&kasten, &runtime);
     }
     Ok(())
 }
@@ -207,6 +263,10 @@ pub fn smart_call(
     })?;
     let kasten = state.require().map_err(refused)?;
     bound(&kasten, &runtime, &page, &frame).map_err(refused)?;
+    // A frame that was open when smart pages went off for its page is answered with nothing.
+    if !kasten.smart_enabled_for_page(&page) {
+        return Err(refused("Smart pages are off for this page."));
+    }
     bridge::handle(&kasten, &runtime, &page, &call, Instant::now())
 }
 

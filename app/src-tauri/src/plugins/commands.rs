@@ -182,12 +182,24 @@ pub fn plugin_set_enabled(
     app: AppHandle,
     vault: State<'_, OpenVault>,
     browser: State<'_, Browser>,
+    frames: State<'_, crate::smart::Runtime>,
     id: String,
     on: bool,
 ) -> Result<bool, String> {
     let info = find(&id)?;
     match info.scope {
-        Scope::Vault => vault.run(|k| k.set_plugin_enabled(&Actor::Human, &id, on, Instant::now())),
+        Scope::Vault => {
+            let changed =
+                vault.run(|k| k.set_plugin_enabled(&Actor::Human, &id, on, Instant::now()))?;
+            // Smart pages off ends the frames of every page they are off for, at once.
+            if id == kasten_core::SMART_PLUGIN
+                && !on
+                && let Some(kasten) = vault.kasten()
+            {
+                crate::smart::commands::end_disabled_frames(&kasten, &frames);
+            }
+            Ok(changed)
+        }
         Scope::Computer => {
             let was = is_on(&app, &info);
             crate::browser::set_browser_enabled(app, browser, on)?;

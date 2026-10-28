@@ -137,8 +137,23 @@ pub fn merge(files: &[NoteFile]) -> Catalog {
     Catalog { actions, problems }
 }
 
-/// The actions on offer in the vault.
+/// The actions about smart pages. They are the Smart pages plugin's: offered
+/// only where smart pages are on, and they make or change a page's code.
+pub const SMART_ACTIONS: [&str; 3] = [
+    "make-smart-page",
+    "improve-smart-layout",
+    "fix-smart-errors",
+];
+
+/// The actions on offer in the vault. Those about smart pages are left out
+/// while smart pages are off everywhere (the vault's plugin and every project).
 pub fn load(kasten: &Kasten) -> Result<Catalog, String> {
     let files = kasten.ai_actions().map_err(|e| e.to_string())?;
-    Ok(merge(&files))
+    let mut catalog = merge(&files);
+    if !kasten.smart_enabled_anywhere() {
+        catalog
+            .actions
+            .retain(|action| !SMART_ACTIONS.contains(&action.slug.as_str()));
+    }
+    Ok(catalog)
 }

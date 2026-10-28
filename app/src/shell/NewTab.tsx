@@ -9,6 +9,7 @@ import { startNewBoard } from "../features/boards/store";
 import { onBrowserTab, openWebTab } from "../features/browser/commands";
 import { keyTitle } from "../features/shortcuts/store";
 import { newItems } from "../plugins/contributions";
+import { smartAvailable } from "../features/smart/availability";
 import { smartChoices } from "../features/smart/author/starter-list";
 import { startNewDeck } from "../features/slides/store";
 import { usePrefs } from "../features/workspace/prefs";
@@ -36,7 +37,8 @@ export function newTabItems(): MenuEntry[] {
     { label: "Slides", icon: icon("present"), onSelect: () => ws.go({ view: "slides" }, "tab") },
     { label: "New deck", icon: icon("present"), onSelect: () => startNewDeck(null, "tab") },
     { label: "New whiteboard", icon: icon("board"), onSelect: () => startNewBoard(null, "tab") },
-    { label: "New smart page", icon: icon("code"), submenu: smartChoices().map((choice) => ({ label: choice.label, icon: icon(choice.icon), onSelect: choice.run })) },
+    // Only while smart pages are on (Settings → Plugins).
+    ...(smartAvailable() ? [{ label: "New smart page", icon: icon("code"), submenu: smartChoices().map((choice) => ({ label: choice.label, icon: icon(choice.icon), onSelect: choice.run })) }] : []),
     // Views that are not there yet stay off the menu (the registry says which are).
     ...(availableNav().some((item) => item.id === "graph") ? [{ label: "Graph", icon: icon("graph"), onSelect: () => ws.go({ view: "graph" }, "tab") }] : []),
     ...(availableNav().some((item) => item.id === "browser") ? [{ label: "Browser", icon: icon("globe"), onSelect: () => ws.go({ view: "web" }, "tab") }] : []),
