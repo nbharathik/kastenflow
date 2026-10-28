@@ -31,6 +31,9 @@ class FakeObserver {
 
 const PROPS: SmartFrameProps = { pagePath: "projects/trip/tracker.md", pageId: "01PAGE", title: "Tracker", height: 300, maxHeight: 500 };
 
+/** Puts a recorder on the window the frame holds now. A slow machine may give the frame a new window after it loads: the recorder follows it. */
+let rehook: (() => void) | null = null;
+
 /** Renders the frame on screen, with the app behind it faked, and gives the window the frame holds with its postMessage recorded. */
 async function mount(extra: Partial<SmartFrameProps> = {}, backend = new FakeBackend()) {
   FakeObserver.show(true);
@@ -43,7 +46,14 @@ async function mount(extra: Partial<SmartFrameProps> = {}, backend = new FakeBac
     return found;
   });
   const sent: unknown[] = [];
-  if (frame.contentWindow) vi.spyOn(frame.contentWindow, "postMessage").mockImplementation(((message: unknown) => void sent.push(message)) as Window["postMessage"]);
+  const recorded = new WeakSet<object>();
+  rehook = () => {
+    const held = frame.contentWindow;
+    if (!held || recorded.has(held)) return;
+    recorded.add(held);
+    vi.spyOn(held, "postMessage").mockImplementation(((message: unknown) => void sent.push(message)) as Window["postMessage"]);
+  };
+  rehook();
   return { ...view, frame, sent, backend };
 }
 
@@ -52,6 +62,7 @@ const answersIn = (sent: unknown[]) => sent.filter((m) => typeof m === "object" 
 
 /** One message as the window hears it, from `source`. */
 function say(data: unknown, source: unknown) {
+  rehook?.();
   const event = new MessageEvent("message", { data });
   Object.defineProperty(event, "source", { value: source });
   act(() => void window.dispatchEvent(event));

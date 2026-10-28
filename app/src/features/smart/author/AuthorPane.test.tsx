@@ -115,8 +115,16 @@ describe("saving and the page beside it", () => {
     type(container, "<h1>New</h1>");
     expect(author.writes).toEqual([]);
     await waitFor(() => expect(author.writes).toEqual([{ path: "index.html", text: "<h1>New</h1>", base: read }]), { timeout: 3000 });
-    await waitFor(() => expect(frameSrc(container)).not.toBe(before), { timeout: 3000 });
-    expect(frameSrc(container)).toMatch(/\/01SMART\/index\.html$/);
+    // The page is loaded again: for a moment there is no frame at all, so wait for the new one by its address.
+    await waitFor(
+      () => {
+        FakeObserver.show(true);
+        const now = frameSrc(container);
+        expect(now).not.toBe(before);
+        expect(now ?? "").toMatch(/\/01SMART\/index\.html$/);
+      },
+      { timeout: 3000 },
+    );
     await waitFor(() => expect(screen.getByRole("status", { name: "" }).textContent).toBe("All changes saved"));
   });
 
