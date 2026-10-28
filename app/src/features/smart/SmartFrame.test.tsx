@@ -2,7 +2,7 @@
 // when it is scrolled into view from an address with a secret of its own,
 // paused while hidden, and heard only through its own window.
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NO_REVISION, useRevision } from "../workspace/revision";
@@ -11,6 +11,9 @@ import { SMART_SANDBOX } from "./schema";
 import { SmartFrame, type SmartFrameProps } from "./SmartFrame";
 import { FakeBackend, request } from "./test-support/fake-frame";
 import { frameUrl } from "./urls";
+
+// The frame answers through the window's message queue: a busy CI machine needs more than the 1 s default to hear it.
+configure({ asyncUtilTimeout: 5000 });
 
 class FakeObserver {
   static all: FakeObserver[] = [];

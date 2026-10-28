@@ -96,6 +96,9 @@ describe("the window state a host keeps", () => {
       />,
     );
     await waitFor(() => expect(view.container.querySelector(".ks-stage")).not.toBeNull());
+    // The editor starts telling the host in an effect after the stage is drawn: let that run first,
+    // or a quick change is taken as how the window began.
+    await act(async () => {});
     expect(seen).toHaveLength(0);
     act(() => ui!.openPanel("themes"));
     expect(seen.at(-1)?.panel).toBe("themes");
@@ -125,6 +128,7 @@ describe("the window state a host keeps", () => {
       />,
     );
     await waitFor(() => expect(first.container.querySelector(".ks-stage")).not.toBeNull());
+    await act(async () => {});
     act(() => {
       ui!.openPanel("ai");
       session!.goBy(2);
