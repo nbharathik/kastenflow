@@ -103,7 +103,11 @@ fn the_status_tool_says_the_limits_the_mode_and_the_plugins() {
     assert_eq!(status["limits"]["max_board_nodes_removed"], json!(10));
     assert_eq!(status["limits"]["max_write_bytes"], json!(204_800));
     assert_eq!(status["mode"], json!("balanced"));
-    assert_eq!(status["plugins"], json!({"diagrams": true, "latex": false}));
+    // Smart pages are off in a vault that says nothing.
+    assert_eq!(
+        status["plugins"],
+        json!({"diagrams": true, "latex": false, "smart": false})
+    );
 }
 
 #[test]

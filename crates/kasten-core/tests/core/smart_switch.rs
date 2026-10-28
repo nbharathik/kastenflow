@@ -75,7 +75,17 @@ fn a_person_turns_the_plugin_on_in_one_commit_and_undo_takes_it_back() {
     assert_eq!(commits(&k), before + 1);
     assert!(k.smart_enabled_for_page("library/anything.md"));
     undo_last(&k);
-    assert!(!k.config().plugin_enabled("smart"));
+    // The engine looks at the config file again about every 100 ms, so the undone setting shows
+    // a moment later on a machine where the file system is slower to tell.
+    let mut off = false;
+    for _ in 0..50 {
+        off = !k.config().plugin_enabled("smart");
+        if off {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    assert!(off, "undo turned the plugin off again");
     assert!(
         k.set_plugin_enabled(&agent(), "smart", true, NOW).is_err(),
         "an agent cannot"
