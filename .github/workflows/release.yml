@@ -176,7 +176,9 @@ jobs:
   sign:
     name: Sign the update files
     needs: build
-    if: github.ref_type == 'tag'
+    # `!cancelled()`: when the gate found a passed full run, "Full checks" is skipped, and a
+    # skipped job upstream would otherwise skip this one too. The build must have passed.
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # The updater's key lives in this environment alone, which takes only
@@ -219,7 +221,9 @@ jobs:
   publish:
     name: Draft the release
     needs: [build, sign]
-    if: github.ref_type == 'tag'
+    # See "Sign the update files": a skipped "Full checks" must not skip the draft. Both the
+    # builds and the signing must have passed.
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.build.result == 'success' && needs.sign.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

@@ -80,6 +80,13 @@ test("a release reuses a full CI run that already passed on its commit", () => {
   const build = job(release, "build");
   assert.match(build, /^    needs: \[gate, checks\]\r?$/m);
   assert.match(build, /^    if: \$\{\{ !cancelled\(\) && needs\.gate\.result == 'success' && \(needs\.checks\.result == 'success' \|\| needs\.checks\.result == 'skipped'\) \}\}\r?$/m);
+  // A skipped "checks" job skips every job downstream that does not say otherwise: signing and
+  // the draft must still run when the builds passed (the first real release on this path
+  // built everything and then skipped both).
+  const sign = job(release, "sign");
+  assert.match(sign, /^    if: \$\{\{ !cancelled\(\) && github\.ref_type == 'tag' && needs\.build\.result == 'success' \}\}\r?$/m);
+  const publish = job(release, "publish");
+  assert.match(publish, /^    if: \$\{\{ !cancelled\(\) && github\.ref_type == 'tag' && needs\.build\.result == 'success' && needs\.sign\.result == 'success' \}\}\r?$/m);
 });
 
 test("the frontend runs on Linux and Windows; macOS stays in the Rust matrix", () => {
