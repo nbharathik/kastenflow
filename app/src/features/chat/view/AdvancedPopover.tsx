@@ -12,7 +12,7 @@ import { allowed, anyControl, capabilitiesOf, type Allowed, type ModelCapabiliti
 import { learnedEffort, savedSettings, type ModelChoice } from "../prefs";
 import { describe, inRange, isSet, setting } from "../settings";
 import { useChat } from "../store";
-import type { Thread } from "../thread";
+import type { ComposerThread } from "../thread";
 import type { Effort, GenerationSettings } from "../types";
 
 const EFFORT_LABELS: Record<Effort, string> = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High" };
@@ -32,7 +32,7 @@ export function useCapabilities(provider: string, model: string): ModelCapabilit
 }
 
 /** The settings in force for a thread: its own, else the ones last used with its model. */
-export const settingsOf = (thread: Thread, choice: ModelChoice): GenerationSettings => thread.settings ?? savedSettings(choice.provider, choice.model);
+export const settingsOf = (thread: Pick<ComposerThread, "settings">, choice: ModelChoice): GenerationSettings => thread.settings ?? savedSettings(choice.provider, choice.model);
 
 /** A number typed in, held to its range when the field is left or Enter is pressed. */
 function NumberField({ label, value, range, whole, step, onCommit }: { label: string; value: number | undefined; range: Range; whole: boolean; step: number; onCommit: (value: number | undefined) => void }) {
@@ -106,7 +106,7 @@ function Controls({ controls, settings, change }: { controls: Allowed; settings:
   );
 }
 
-export function AdvancedPopover({ thread, choice }: { thread: Thread; choice: ModelChoice }) {
+export function AdvancedPopover({ thread, choice }: { thread: ComposerThread; choice: ModelChoice }) {
   const caps = useCapabilities(choice.provider, choice.model);
   // A turn that tried an effort may have found the model takes none: read it again.
   useChat((s) => s.learned);

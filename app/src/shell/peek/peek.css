@@ -17,7 +17,13 @@
   border-left: 1px solid var(--color-line);
   background: var(--color-canvas);
   box-shadow: var(--shadow-modal);
-  animation: kasten-enter-side var(--motion-base) var(--ease-standard);
+  animation: kasten-enter-side var(--motion-slow) var(--ease-standard);
+}
+
+/* Closed: it slips back out and fades (PagePeek keeps it for the exit). */
+.kasten-peek-side[data-state="closing"] {
+  animation: kasten-leave-side var(--motion-base) var(--ease-standard) forwards;
+  pointer-events: none;
 }
 
 .kasten-peek-head {

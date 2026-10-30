@@ -111,6 +111,7 @@ export const usePlugins = create<PluginsState>()((set, get) => ({
     try {
       info = await backend.list();
     } catch {
+      // The app did not answer: the plugins stay as they were, and the next sync (a vault change) asks again.
       return;
     }
     if (clicks !== asked) return;
@@ -150,7 +151,11 @@ export const usePlugins = create<PluginsState>()((set, get) => ({
       if (phase === "downloading" || phase === "verifying" || phase === "installing") void get().cancel(id);
       return get().disable(id);
     }
-    await get().enable(id, catalog);
+    // A plugin the catalogue knows that did not load says so on its card, not nothing.
+    if (!(await get().enable(id, catalog)) && catalog.some((e) => e.manifest.id === id)) {
+      set({ problem: { ...get().problem, [id]: "This plugin could not be loaded. Turn it off and on again, or restart KastenFlow." } });
+      return;
+    }
     const download = get().info.find((p) => p.id === id)?.payload;
     if (backend && download && !get().payload[id]?.installed) await get().install(id);
   },
@@ -171,6 +176,7 @@ export const usePlugins = create<PluginsState>()((set, get) => ({
   },
 
   async cancel(id) {
+    // Cancelling an install the person is leaving; if it cannot be told, the install finishes unseen.
     await pluginsBackend()?.cancel(id).catch(() => {});
   },
 

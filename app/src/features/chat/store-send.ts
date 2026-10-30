@@ -17,6 +17,8 @@ type Update = (id: string, change: (thread: Thread) => Thread) => void;
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+const holdOffline = (thread: Thread, text: string, attachments: SentAttachment[]): Thread => ({ ...thread, offline: [...(thread.offline ?? []), { text, ...(attachments.length ? { attachments } : {}) }] });
+
 interface Hooks {
   /** Hands streamed text waiting for the next frame to the store. */
   flush(): void;
@@ -27,8 +29,11 @@ interface Hooks {
   save(id: string): void;
 }
 
-/** `send` and `continueThread` for the store's `get` and `update`. */
-export function sendActions(get: Get, update: Update, hooks: Hooks): Pick<ChatState, "send" | "continueThread"> {
+/** Whether the computer says it has no connection. */
+export const offlineNow = (): boolean => typeof navigator !== "undefined" && navigator.onLine === false;
+
+/** `send`, `continueThread` and `flushOffline` for the store's `get` and `update`. */
+export function sendActions(get: Get, update: Update, hooks: Hooks): Pick<ChatState, "send" | "continueThread" | "flushOffline"> {
   /** What the model gets of the thread's settings (only what it takes), and the person's say on pictures. */
   async function settingsFor(thread: Thread, provider: string, model: string, id: string, pictures: boolean): Promise<GenerationSettings | undefined> {
     const client = get().ensure();
@@ -51,6 +56,11 @@ export function sendActions(get: Get, update: Update, hooks: Hooks): Pick<ChatSt
       if (!thread || !words || thread.stopping) return false;
       const choice = modelFor(thread, get().providers);
       if (!choice) return false;
+      // Without a connection it waits here, and goes when the connection is back (`flushOffline`).
+      if (offlineNow()) {
+        update(id, (t) => holdOffline(t, words, attachments));
+        return true;
+      }
       // While the model works, the message waits for its next step and the turn goes on.
       const working = thread.streaming;
       const begin = () => {
@@ -94,9 +104,28 @@ export function sendActions(get: Get, update: Update, hooks: Hooks): Pick<ChatSt
           useWorkspace.getState().toast(message(err));
           return false;
         }
+        // The connection went while it was sent: the question is kept to go later, not shown as a failed answer.
+        if (offlineNow()) {
+          update(id, (t) => holdOffline({ ...t, messages: t.messages.slice(0, -2), streaming: false, stopping: false }, words, attachments));
+          return true;
+        }
         update(id, (t) => endTurn(t, "error", message(err)));
       }
       return true;
+    },
+
+    async flushOffline() {
+      for (const [id, thread] of Object.entries(get().threads)) {
+        const held = thread.offline;
+        if (!held?.length) continue;
+        update(id, (t) => ({ ...t, offline: undefined }));
+        for (const [i, one] of held.entries()) {
+          if (await get().send(id, one.text, one.attachments)) continue;
+          // It did not go: it and what follows wait on.
+          update(id, (t) => ({ ...t, offline: [...held.slice(i), ...(t.offline ?? [])] }));
+          break;
+        }
+      }
     },
 
     async continueThread(id) {

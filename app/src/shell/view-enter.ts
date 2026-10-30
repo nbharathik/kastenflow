@@ -19,6 +19,8 @@ export function useViewEnter(element: RefObject<HTMLElement | null>, place: stri
     if (last.current === place) return;
     last.current = place;
     if (first && !fadeOnMount) return;
+    // A view transition (lib/view-transition.ts) is already fading the change.
+    if (document.documentElement.hasAttribute("data-view-transition")) return;
     const el = element.current;
     const ms = motionMs(VIEW_FADE_MS);
     if (!el || ms === 0 || typeof el.animate !== "function") return;

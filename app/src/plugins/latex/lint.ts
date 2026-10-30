@@ -8,12 +8,12 @@ import { type Diagnostic as Mark, lintGutter, nextDiagnostic, setDiagnostics } f
 import type { Extension, Text } from "@codemirror/state";
 import { keymap, type PluginValue, ViewPlugin, type EditorView } from "@codemirror/view";
 
-import { assist } from "./completion/binding";
+import { aiAsk, assist } from "./completion/binding";
 import { forFile, useDiagnostics } from "./diagnostics";
 import type { Diagnostic } from "./types";
 
-/** The marks for the diagnostics that name a line of `doc`. Lines past the end go to the last line; diagnostics with no line have no mark (the list under the editor still shows them). */
-export function toMarks(doc: Text, diagnostics: readonly Diagnostic[]): Mark[] {
+/** The marks for the diagnostics that name a line of `doc`. Lines past the end go to the last line; diagnostics with no line have no mark (the list under the editor still shows them). With `ask`, each mark offers "Fix this one" and "Explain" in its tooltip. */
+export function toMarks(doc: Text, diagnostics: readonly Diagnostic[], ask?: (kind: "fix" | "explain", problem: Diagnostic) => void): Mark[] {
   const marks: Mark[] = [];
   const seen = new Set<string>();
   for (const d of diagnostics) {
@@ -23,7 +23,21 @@ export function toMarks(doc: Text, diagnostics: readonly Diagnostic[]): Mark[] {
     if (seen.has(id)) continue;
     seen.add(id);
     const from = line.from + (line.text.length - line.text.trimStart().length);
-    marks.push({ from: Math.min(from, line.to), to: line.to, severity: d.severity, message: d.message, source: "LaTeX" });
+    marks.push({
+      from: Math.min(from, line.to),
+      to: line.to,
+      severity: d.severity,
+      message: d.message,
+      source: "LaTeX",
+      ...(ask
+        ? {
+            actions: [
+              { name: "Fix this one", apply: () => ask("fix", d) },
+              { name: "Explain", apply: () => ask("explain", d) },
+            ],
+          }
+        : {}),
+    });
   }
   return marks;
 }
@@ -33,6 +47,7 @@ const NONE: readonly Diagnostic[] = [];
 class FromBuild implements PluginValue {
   private lastAll: readonly Diagnostic[] | undefined;
   private lastFile: string | null | undefined;
+  private lastAsk: unknown;
   private marked = 0;
   private gone = false;
   private readonly stop: () => void;
@@ -48,11 +63,13 @@ class FromBuild implements PluginValue {
     const bound = assist.current;
     const file = bound?.currentFile();
     const all = bound ? (useDiagnostics.getState().byDoc[bound.folder] ?? NONE) : NONE;
-    if (this.lastAll === all && this.lastFile === (file ?? null)) return;
+    const ask = aiAsk.current;
+    if (this.lastAll === all && this.lastFile === (file ?? null) && this.lastAsk === ask) return;
     this.lastAll = all;
     this.lastFile = file ?? null;
+    this.lastAsk = ask;
     const mine = bound && file ? forFile(all, bound.index.rel(file), bound.main) : [];
-    const marks = toMarks(this.view.state.doc, mine);
+    const marks = toMarks(this.view.state.doc, mine, ask ?? undefined);
     if (marks.length === 0 && this.marked === 0) return;
     this.marked = marks.length;
     this.view.dispatch(setDiagnostics(this.view.state, marks));

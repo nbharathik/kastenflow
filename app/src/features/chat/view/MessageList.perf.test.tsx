@@ -4,14 +4,29 @@
 
 import { Profiler, type ProfilerOnRenderCallback } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { MemoryVault } from "../../workspace/preview/memory-vault";
 import { useWorkspace } from "../../workspace/store";
+import { parseWork } from "../markdown/blocks";
 import { flushStream, useChat } from "../store";
 import { resetChat, scriptedChat } from "../test-kit";
 import { newId, type Message } from "../thread";
 import { Conversation } from "./Conversation";
+
+// The model picker sits in the message box and draws whenever the box does,
+// so its draws say how often the box was drawn.
+const renders = vi.hoisted(() => ({ picker: 0 }));
+vi.mock("./ModelPicker", async (importActual) => {
+  const actual = await importActual<typeof import("./ModelPicker")>();
+  return {
+    ...actual,
+    ModelPicker: (props: Parameters<typeof actual.ModelPicker>[0]) => {
+      renders.picker++;
+      return actual.ModelPicker(props);
+    },
+  };
+});
 
 const EXCHANGES = 60;
 const ANSWER = [
@@ -78,4 +93,33 @@ it("redraws only the streaming answer in a thread of 120 messages", async () => 
   expect(shares[15]!).toBeLessThan(0.15);
   const last = useChat.getState().threads[id]!.messages.at(-1)!;
   expect(last.role === "assistant" && last.parts[0]).toMatchObject({ kind: "text", text: "Some more **words** ".repeat(30) });
+});
+
+it("reads only the new end of a long answer and leaves the message box alone while it streams", async () => {
+  const chat = scriptedChat();
+  resetChat(chat);
+  await useWorkspace.getState().connect({ client: new MemoryVault({}) });
+  await useChat.getState().loadProviders();
+  const id = useChat.getState().start({ open: true });
+  render(<Conversation id={id} variant="full" page={null} />);
+  await act(async () => void (await useChat.getState().send(id, "Write a long answer")));
+
+  const FRAMES = 200;
+  // Paragraphs of a few lines, a list and a fenced block now and then: what a long answer is.
+  const piece = (n: number) => (n % 10 === 9 ? "- one item\n- another item\n\n```js\nlet a = 1;\n```\n\n" : "A line of the answer, with **bold**.\nAnd one more line of it.\n\n");
+  parseWork.lines = 0;
+  renders.picker = 0;
+  let total = 0;
+  for (let i = 0; i < FRAMES; i++) {
+    const text = piece(i);
+    total += text.split("\n").length - 1;
+    act(() => {
+      chat.emit({ chat: id, turn: "turn-1", kind: "text", text });
+      flushStream();
+    });
+  }
+  // Read in full each frame this is about total * frames / 2 lines; read in pieces, a small multiple of total.
+  console.info(`stream cost: ${parseWork.lines} lines read for ${total} lines streamed in ${FRAMES} frames; message box drawn ${renders.picker} times`);
+  expect(parseWork.lines).toBeLessThan(total * 4);
+  expect(renders.picker).toBeLessThanOrEqual(2);
 });

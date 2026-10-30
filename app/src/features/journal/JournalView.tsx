@@ -2,7 +2,7 @@ import "./journal.css";
 
 import { useEffect, useMemo, useState } from "react";
 
-import { isoDay } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
 import type { TagSchema } from "../../lib/vault/types";
 import { dateItems, dateRanges } from "../calendar/dates";
 import { useEventDrop } from "../calendar/external/use-event-drop";
@@ -25,7 +25,7 @@ export function JournalView({ path }: { path?: string }) {
   const notes = useWorkspace((s) => s.notes);
   const client = useWorkspace((s) => s.client);
   const schemas = useSchemas(client) ?? NO_SCHEMAS;
-  const today = isoDay(new Date());
+  const today = useToday();
   // Opened on today, it stays on that day past midnight: the page being
   // written never changes under the writer.
   const [openedOn] = useState(today);

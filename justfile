@@ -73,6 +73,10 @@ release-tag:
 bench:
     cargo bench -p kasten-core
 
+# The first-page size budget; build first: pnpm -C app exec vite build
+bundle:
+    node scripts/check-bundle.mjs app/dist
+
 # The desktop app on the dev vault
 dev:
     pnpm -C app tauri dev

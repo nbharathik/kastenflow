@@ -1,6 +1,7 @@
 // A page's headings, for `[[Title#` to offer: read once per version of the
 // page and kept, so the menu answers each keystroke at once.
 
+import { setCapped } from "../../../lib/lru";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import { fenceAfter, type Fence } from "../links";
 import { noteAt } from "../tree";
@@ -21,6 +22,8 @@ export function headingsOf(body: string): string[] {
 }
 
 const cache = new Map<string, { stamp: number; headings: string[] }>();
+/** Pages whose headings are kept at most; the rest are read again when asked for. */
+const MOST = 500;
 const reading = new Set<string>();
 
 /** The page's headings if known, else null, reading them and calling `then`. */
@@ -34,12 +37,12 @@ export function pageHeadings(path: string, then: () => void): readonly string[] 
   client.read(path).then(
     (file) => {
       reading.delete(path);
-      cache.set(path, { stamp, headings: headingsOf(splitFrontmatter(file.text).body) });
+      setCapped(cache, path, { stamp, headings: headingsOf(splitFrontmatter(file.text).body) }, MOST);
       then();
     },
     () => {
       reading.delete(path);
-      cache.set(path, { stamp, headings: [] });
+      setCapped(cache, path, { stamp, headings: [] }, MOST);
       then();
     },
   );

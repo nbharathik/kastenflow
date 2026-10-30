@@ -1,8 +1,27 @@
 // Words and times for Home's "Agents today": what an agent session did, said
 // the way a person would, with no op, commit or session id in sight.
 
-import type { DigestSession, NoteMeta } from "../../lib/vault/types";
+import type { Digest, DigestSession, NoteMeta } from "../../lib/vault/types";
 import { count } from "../review/words";
+
+/** Sessions shown before "and N more". */
+export const SESSION_LIMIT = 3;
+
+/** Sessions with something waiting first (most waiting first), the rest as they came. */
+export function waitingFirst<T extends Pick<DigestSession, "proposalsWaiting">>(sessions: readonly T[]): T[] {
+  // Array.sort is stable, so sessions that wait equally keep their order (newest first).
+  return [...sessions].sort((a, b) => (b.proposalsWaiting > 0 ? b.proposalsWaiting : 0) - (a.proposalsWaiting > 0 ? a.proposalsWaiting : 0));
+}
+
+/** "5 agents · 23 changes · 2 waiting for you"; the last part only when something waits. */
+export function summaryLine(digest: Pick<Digest, "sessions" | "changes" | "waiting">): string {
+  const parts = [count(digest.sessions.length, "agent"), count(digest.changes, "change")];
+  if (digest.waiting > 0) parts.push(`${digest.waiting} waiting for you`);
+  return parts.join(" · ");
+}
+
+/** The strip under Home's top line: "Agents changed 23 things today". */
+export const stripLine = (digest: Pick<Digest, "changes">): string => `Agents changed ${count(digest.changes, "thing")} today`;
 
 /** Midnight at the start of today, in local time, in milliseconds. */
 export function startOfToday(now: Date = new Date()): number {

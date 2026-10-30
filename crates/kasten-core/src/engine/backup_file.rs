@@ -19,11 +19,11 @@ use crate::time::Instant;
 const RECORD_PATH: &str = ".kasten/cache/backup-file.json";
 /// How many of its own files each computer keeps.
 pub const KEEP: usize = 7;
-const DAY: u64 = 24 * 60 * 60 * 1000;
+pub(super) const DAY: u64 = 24 * 60 * 60 * 1000;
 /// A half-written file older than this was left by a write that stopped.
 const STALE_PARTIAL: u64 = 60 * 60 * 1000;
 /// How long the vault stays quiet before the daily file is written.
-const IDLE: u64 = 2 * 60 * 1000;
+pub(super) const IDLE: u64 = 2 * 60 * 1000;
 
 /// The last backup file written, kept in the cache.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,7 +171,7 @@ fn shown(path: &Path) -> String {
 }
 
 impl Kasten {
-    fn backup_file_record(&self) -> BackupFileRecord {
+    pub(super) fn backup_file_record(&self) -> BackupFileRecord {
         fs::read_to_string(self.root().join(RECORD_PATH))
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())

@@ -4,6 +4,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
+import { usePresence } from "../../../../lib/presence";
 import { Icon } from "../../../../ui/Icon";
 
 export function HelpTip({ label, children }: { label: string; children: ReactNode }) {
@@ -12,6 +13,10 @@ export function HelpTip({ label, children }: { label: string; children: ReactNod
   const box = useRef<HTMLSpanElement>(null);
   const id = useId();
   const open = pinned || hover;
+  // The note fades out for a moment after it is closed.
+  const { present, state } = usePresence(open, 90);
+  const shown = useRef(children);
+  if (open) shown.current = children;
 
   useEffect(() => {
     if (!pinned) return;
@@ -38,9 +43,9 @@ export function HelpTip({ label, children }: { label: string; children: ReactNod
       <button type="button" className="kasten-set-help-button" aria-label={`About ${label}`} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setPinned((was) => !was)}>
         <Icon name="help" className="size-[14px]" />
       </button>
-      {open && (
-        <span id={id} role="status" className="kasten-set-pop">
-          {children}
+      {present && (
+        <span id={id} role="status" data-state={state} className="kasten-set-pop">
+          {shown.current}
         </span>
       )}
     </span>

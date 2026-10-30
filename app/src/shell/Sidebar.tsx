@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useFlip } from "../lib/flip";
 import { usePluginsVersion } from "../plugins/registry";
 import { useBoards } from "../features/boards/store";
 import { useDiagrams } from "../features/diagrams/store";
@@ -20,6 +21,7 @@ import { FavouriteBoards } from "./BoardRows";
 import { FavouriteDecks } from "./DeckRows";
 import { FavouritePluginRows, usePluginFavourites } from "./PluginRows";
 import { FolderTree } from "./FolderTree";
+import { useDrawnNotes } from "./drawn-notes";
 import { Menu } from "./Menu";
 import { ACTIVE_ROW, IDLE_ROW, openView, ROW, useActive } from "./NavRow";
 import { RowList, TreeRow } from "./PageTree";
@@ -35,7 +37,7 @@ export function Sidebar() {
   const toggleSidebar = useShell((s) => s.toggleSidebar);
   const setPalette = useShell((s) => s.setPalette);
   const paletteKey = useKeyLabel("palette");
-  const notes = useWorkspace((s) => s.notes);
+  const notes = useDrawnNotes();
   const client = useWorkspace((s) => s.client);
   const create = useWorkspace((s) => s.create);
   const newPage = useWorkspace((s) => s.newPage);
@@ -63,6 +65,9 @@ export function Sidebar() {
   const [query, setQuery] = useState("");
   const named = useMemo<Named[]>(() => [...boards, ...decks, ...diagrams].map(({ path, title, project }) => ({ path, title, project: project ?? null })), [boards, decks, diagrams]);
   const match = useMemo(() => matchTree(notes, query, named), [notes, query, named]);
+  // Rows slide to their new place when pages are added, moved or trashed.
+  const tree = useRef<HTMLDivElement>(null);
+  useFlip(tree, notes);
 
   return (
     <nav aria-label="Sidebar" data-peek-closes className="relative flex shrink-0 flex-col border-r border-line bg-panel pb-2 pt-2.5" style={{ width }}>
@@ -110,7 +115,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <div data-tree="" className="mt-2 min-h-0 flex-1 overflow-y-auto px-2">
+      <div ref={tree} data-tree="" className="mt-2 min-h-0 flex-1 overflow-y-auto px-2">
         <TreeFilterBox value={query} onChange={setQuery} />
         <TreeFilterProvider value={match}>
           {match && match.show.size === 0 && <p className="px-3 py-2 text-13 text-muted">No page is called “{query.trim()}”.</p>}

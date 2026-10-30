@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { inDemo } from "../../demo/flag";
+import { useInterval } from "../../lib/use-interval";
 import { describeBackup, useVaultStatus, type Tone } from "../workspace/status";
 import { useWorkspace } from "../workspace/store";
 import { canBackUp } from "./api";
@@ -26,10 +27,7 @@ export function BackupStatusButton() {
   useEffect(() => {
     void useBackupStatus.getState().refresh();
   }, [vault?.backup.lastPush, vault?.backup.state, vault?.pending]);
-  useEffect(() => {
-    const every = setInterval(() => setNow((n) => n + 1), 60_000);
-    return () => clearInterval(every);
-  }, []);
+  useInterval(() => setNow((n) => n + 1), 60_000);
 
   if (!client || (client.kind !== "vault" && !inDemo()) || !canBackUp() || !vault) return null;
   const said = describeBackup(vault);

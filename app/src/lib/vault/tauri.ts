@@ -185,6 +185,7 @@ export function tauriVault(label: string): VaultClient {
     createDeckTemplate: (title, text) => invoke<string>("create_deck_template", { title, text }),
     proposals: () => invoke<Proposal[]>("list_proposals"),
     acceptProposal: (id) => invoke<unknown>("accept_proposal", { id }),
+    acceptProposalHunks: (id, body) => invoke<unknown>("accept_proposal_hunks", { id, body }),
     rejectProposal: (id) => invoke<void>("reject_proposal", { id }),
     sessions: (limit) => invoke<SessionInfo[]>("list_sessions", { limit }),
     activityDigest: (since) => invoke<Digest>("activity_digest", { since }),

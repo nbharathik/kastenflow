@@ -1,7 +1,8 @@
 // The journal's controls, in the pane's top bar: which day, a step back or
 // forward, today, the switch to the calendar and the list of days.
 
-import { addDays, isoDay, longDay } from "../../lib/dates";
+import { addDays, longDay } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
 import { Button, IconButton } from "../../ui/Button";
 import { Segmented } from "../../ui/Segmented";
 import { keyTitle } from "../shortcuts/store";
@@ -15,7 +16,7 @@ export function pickDay(day: string, how?: OpenHow): void {
 
 /** "Journal › Friday, September 25, 2026", with ‹ › and Today. */
 export function JournalCrumbs({ path }: { path?: string }) {
-  const today = isoDay(new Date());
+  const today = useToday();
   const day = dayOfPath(path, today);
   return (
     <span className="flex min-w-0 items-center gap-1">

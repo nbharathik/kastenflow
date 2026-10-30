@@ -4,6 +4,7 @@
 
 import { lazy, Suspense, useState, type ComponentProps } from "react";
 
+import { Wait } from "../../../ui/Wait";
 import type { NotePage as NotePageType } from "./NotePage";
 
 type Props = ComponentProps<typeof NotePageType>;
@@ -31,7 +32,7 @@ export function LazyNotePage(props: Props) {
   const [Page] = useState(() => loaded);
   if (Page) return <Page {...props} />;
   return (
-    <Suspense fallback={<p className="p-6 text-14 text-muted">Opening…</p>}>
+    <Suspense fallback={<Wait view label="Opening the page" />}>
       <Lazy {...props} />
     </Suspense>
   );

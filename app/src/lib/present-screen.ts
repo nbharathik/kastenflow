@@ -3,7 +3,7 @@
 // puts everything back afterwards (src-tauri/src/presenter_screen.rs). The window's own full screen is `fullscreen.ts`; either
 // may be refused, and the show must look right without it.
 
-import type { PresentScreens } from "@kasten-slides/react";
+import type { PresentScreens, ScreenInfo } from "@kasten-slides/react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -39,6 +39,12 @@ export const presentScreens: PresentScreens = {
   displays: () => invoke<string[]>("present_displays").catch(() => []),
   chosen: readPresentOn,
   choose: writePresentOn,
+  list: () => invoke<ScreenInfo[]>("present_screens").catch(() => []),
+  // A running show moves to another display; the page is not reloaded, so the slide, the step and the timer stay.
+  swap: () => invoke<void>("present_move", { target: "swap" }).catch(() => {}),
+  moveTo: (label: string) => invoke<void>("present_move", { target: `name:${label}` }).catch(() => {}),
+  // Screen moves and the numbers shown on each screen are conveniences; the talk goes on where it is.
+  identify: () => invoke<void>("present_identify").catch(() => {}),
 };
 
 const none = (): void => {};
@@ -52,17 +58,27 @@ export async function fillShowScreen(onLeft: () => void): Promise<() => void> {
   // The window goes to the display first: a window that is full screen on one display stays there.
   await invoke("present_enter", { choice: readPresentOn() }).catch(none);
   const back = await fillScreen(onLeft);
-  // A display that is plugged in or out, or one with another scale, changes the window's: fill the one it is on now.
+  // A display that is plugged in or out, or one with another scale, changes the window's: a show left on a display that is gone comes
+  // back to the main one (the app decides), then the display the window is on now is filled.
   const stop = await getCurrentWindow()
     .onScaleChanged(() => {
       const win = getCurrentWindow();
-      void win
-        .setFullscreen(false)
+      void invoke("present_check")
+        .catch(none)
+        .then(() => win.setFullscreen(false))
         .then(() => win.setFullscreen(true))
         .catch(none);
     })
     .catch(() => none);
+  // A window that was left off every display (the one it was on was unplugged) is moved by the system: look again once it settles.
+  let settle = 0;
+  const stopMoved = await Promise.resolve(getCurrentWindow().onMoved?.(() => {
+    window.clearTimeout(settle);
+    settle = window.setTimeout(() => void invoke("present_check").catch(none), 400);
+  })).catch(() => none);
   return () => {
+    window.clearTimeout(settle);
+    stopMoved?.();
     stop();
     back();
     void invoke("present_leave").catch(none);

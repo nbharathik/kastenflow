@@ -1,0 +1,71 @@
+/* Waiting (Wait.tsx): a spinner with its words for a part of a view, and a
+   skeleton for a whole one. Both keep running when motion is off (they show
+   that work goes on), as the kill rule in motion.css leaves them alone. */
+
+.ui-wait {
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+
+.ui-wait.is-view {
+  display: grid;
+  height: 100%;
+  align-content: start;
+  padding: 48px 56px;
+}
+
+.ui-wait-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  animation: kasten-fade var(--motion-base) var(--ease-standard);
+}
+
+.ui-spinner {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ui-bones {
+  display: flex;
+  max-width: 640px;
+  flex-direction: column;
+  gap: 14px;
+  animation: kasten-fade var(--motion-base) var(--ease-standard);
+}
+
+.ui-bone {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-well);
+  animation: ui-bone-pulse 1.4s ease-in-out infinite;
+}
+
+.ui-bone.is-title {
+  width: 40%;
+  height: 28px;
+  margin-bottom: 8px;
+}
+
+.ui-bone.is-short {
+  width: 60%;
+}
+
+@keyframes ui-bone-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

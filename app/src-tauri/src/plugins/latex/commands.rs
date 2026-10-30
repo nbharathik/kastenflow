@@ -217,6 +217,7 @@ pub(crate) fn prepare(
         buffers: request.buffers,
         vault_bib: doc.bibliography == "vault",
         timeout: Duration::from_secs(secs),
+        scratch: None,
     };
     Ok((doc.folder, job))
 }

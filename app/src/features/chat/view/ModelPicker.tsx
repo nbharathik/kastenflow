@@ -9,7 +9,7 @@ import { Popup } from "../../pages/page/Popup";
 import { openProviders } from "../actions";
 import { modelFor } from "../prefs";
 import { useChat } from "../store";
-import type { Thread } from "../thread";
+import type { ComposerThread } from "../thread";
 import type { ChatKind } from "../types";
 import { Icon } from "../../../ui/Icon";
 import { AdvancedPopover } from "./AdvancedPopover";
@@ -22,7 +22,7 @@ export const KIND_LABELS: Record<ChatKind, string> = { anthropic: "Anthropic", o
 const CHOOSE = "kasten:choose-model";
 export const chooseModel = (thread: string) => window.dispatchEvent(new CustomEvent<string>(CHOOSE, { detail: thread }));
 
-export function ModelPicker({ thread }: { thread: Thread }) {
+export function ModelPicker({ thread }: { thread: ComposerThread }) {
   const providers = useChat((s) => s.providers);
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);

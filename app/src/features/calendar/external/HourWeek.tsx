@@ -3,8 +3,9 @@
 // day's 24 hours with each timed event, and each to-do or mention with a
 // time (`@14:00`), placed on its hour. Things that overlap share the column.
 
-import { memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { memo, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 
+import { useInterval } from "../../../lib/use-interval";
 import { ActionsContext } from "../actions";
 import { EntryChip, entryKey } from "../Chip";
 import { dayEntries, fullDay } from "../layout";
@@ -41,11 +42,7 @@ function HourBody({ week, today, items, tasks, mentions, made, events, colors, d
   );
   const current = week.includes(today);
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    if (!current) return;
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, [current]);
+  useInterval(() => setNow(new Date()), 60_000, current);
 
   // The week opens at its first hour: an hour before now in this week.
   const scroller = useRef<HTMLDivElement>(null);

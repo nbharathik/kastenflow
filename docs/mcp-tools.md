@@ -227,9 +227,9 @@ These need the LaTeX plugin.
 | Tool | Changes? | What it does |
 | --- | --- | --- |
 | `latex_list` | no | Every LaTeX document: folder, root file, engine, and whether it is locked. |
-| `latex_read` | no | Reads a source file of a document, with its hash, and lists the other source files. |
+| `latex_read` | no | Reads a source file of a document, with its hash, and lists the other source files. With `around_line` (15 numbered lines each side) or `lines` (such as `40-80`) it gives numbered lines only; the hash is still the whole file's. |
 | `latex_edit` | yes | Replaces one piece of text in a source file; refused for a locked document or a changed file. |
-| `latex_build` | no | What the last build said: errors and warnings with file and line. With `wait` the KastenFlow app builds the document now and the answer adds the page count, the PDF's size and the time it took (the app must be open; it says so if not). The server itself never runs TeX. |
+| `latex_build` | no | What the last build said: errors and warnings with file and line. With `wait` the KastenFlow app builds the document now and the answer adds the page count, the PDF's size and the time it took (the app must be open; it says so if not; a document's first build waits longer, as it fetches TeX packages). Each error carries what TeX printed where it stopped. The server itself never runs TeX. |
 | `latex_create_document` | yes | Starts a document from a template (article, report or beamer) in a project or the library. Waits for review where you want to review changes. |
 | `latex_write_file` | yes | Makes a source file or replaces one whole (`.tex`, `.sty`, `.cls`, `.bst`, `.bib`); a replace needs the hash the agent read. |
 | `latex_append` | yes | Adds text at the end of a file, or after a piece of it that is there once; line breaks and every other byte stay as they were. |

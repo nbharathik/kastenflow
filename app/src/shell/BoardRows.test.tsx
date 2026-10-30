@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { useBoards } from "../features/boards/store";
 import { NOTE_DRAG } from "../features/workspace/drag";
@@ -19,6 +19,12 @@ const SEED = {
 };
 
 let vault: MemoryVault;
+
+// The palette and the boards view load when first shown; their module-load latency is separate from what is asserted below.
+beforeAll(async () => {
+  await import("../features/workspace/overlays/Palette");
+  await import("../features/boards/BoardsHome");
+}, 60_000);
 
 /** A DataTransfer good enough for dragstart in jsdom. */
 function transfer() {
@@ -92,7 +98,8 @@ describe("boards in the sidebar", () => {
     await within(sidebar).findByText("Demo project");
     await act(async () => useBoards.getState().load());
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    const search = screen.getByRole("textbox", { name: "Search" });
+    // The palette's code loads when it is first opened.
+    const search = await screen.findByRole("textbox", { name: "Search" });
     fireEvent.change(search, { target: { value: "launch" } });
     const results = screen.getByRole("listbox", { name: "Results" });
     const row = results.querySelector('[aria-selected="true"]');
@@ -103,7 +110,7 @@ describe("boards in the sidebar", () => {
 
     // Opened once, it is among the recent places.
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    expect(screen.getByRole("listbox", { name: "Results" }).textContent).toContain("Launch plan");
+    expect((await screen.findByRole("listbox", { name: "Results" })).textContent).toContain("Launch plan");
     const again = screen.getByRole("textbox", { name: "Search" });
     fireEvent.change(again, { target: { value: "new whiteboard" } });
     await act(async () => fireEvent.keyDown(again, { key: "Enter" }));

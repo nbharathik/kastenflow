@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { relativeTime } from "../../../lib/dates";
 import type { CommitInfo, NoteMeta } from "../../../lib/vault/types";
 import { Icon } from "../../../ui/Icon";
+import { Wait } from "../../../ui/Wait";
 import { describeChange } from "../../review/change-words";
 import { useVaultStatus } from "../../workspace/status";
 import { openSettingsAt } from "../../workspace/views/settings/jump";
@@ -61,7 +62,7 @@ export function HistoryTab({ note, body, page }: { note: NoteMeta; body: string;
   }, [index]);
 
   if (error) return <p className="kasten-panel-empty">The history could not be read: {error}</p>;
-  if (!versions) return <p className="kasten-panel-empty">Reading the history…</p>;
+  if (!versions) return <Wait className="kasten-panel-empty" label="Reading the history" />;
   if (versions.length === 0) {
     const off = status !== null && !status.history;
     return (

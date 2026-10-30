@@ -262,6 +262,8 @@ export interface VaultClient
   createDeckTemplate(title: string, text: string): Promise<string>;
   proposals(): Promise<Proposal[]>;
   acceptProposal(id: string): Promise<unknown>;
+  /** Accepts a change to a page's text with only the hunks the person kept: `body` is the text they put together. Merged with edits made since, and refused where those overlap. */
+  acceptProposalHunks(id: string, body: string): Promise<unknown>;
   rejectProposal(id: string): Promise<void>;
   sessions(limit?: number): Promise<SessionInfo[]>;
   /** What agents did since `since` (milliseconds since the Unix epoch), session by session; your own edits are not in it. */

@@ -20,3 +20,23 @@ export function writeControls(on: boolean): void {
     // Nothing is remembered; the choice still holds for the presentation that is open.
   }
 }
+
+/** Where the choice of the mouse toolbar is kept in this browser. */
+export const TOOLBAR_KEY = "ks-present-toolbar";
+
+/** Whether the mouse toolbar shows at the bottom left while presenting; on until the person turns it off. */
+export function readToolbar(): boolean {
+  try {
+    return localStorage.getItem(TOOLBAR_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function writeToolbar(on: boolean): void {
+  try {
+    localStorage.setItem(TOOLBAR_KEY, on ? "on" : "off");
+  } catch {
+    // Nothing is remembered; the choice still holds for the presentation that is open.
+  }
+}

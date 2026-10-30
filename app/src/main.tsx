@@ -4,8 +4,9 @@ import { createRoot } from "react-dom/client";
 // First: an earlier preview's samples go before anything reads storage.
 import "./features/workspace/preview/fresh-start";
 import { usePrefs } from "./features/workspace/prefs";
-import { applyMotion, watchSystemMotion } from "./lib/motion";
+import { applyMotion, watchHidden, watchSystemMotion } from "./lib/motion";
 import { startZoom } from "./lib/zoom";
+import { watchWake } from "./lib/wake";
 import { applyAccent, applyTheme, watchSystemTheme } from "./features/workspace/theme";
 import { AppShell } from "./shell/AppShell";
 import { watchProblems } from "./shell/problems";
@@ -20,6 +21,10 @@ applyAccent(usePrefs.getState().accent);
 watchSystemTheme(() => usePrefs.getState().theme);
 applyMotion(usePrefs.getState().motion);
 watchSystemMotion(() => usePrefs.getState().motion);
+// Animations rest while the window is hidden.
+watchHidden();
+// A sleep or a clock change tells the polls and the day to look again.
+watchWake();
 // The level of this display (the last one shown, until the display is known); the presenter's window has no zoom of its own.
 if (!new URLSearchParams(location.search).has("presenter")) startZoom();
 
@@ -28,6 +33,9 @@ if (!root) throw new Error("index.html is missing #root");
 
 // A failure anywhere is said and survived, never a blank window.
 watchProblems();
+
+// Slow handlers and long tasks in the console, in dev builds only: the branch is gone from release builds.
+if (import.meta.env.DEV) void import("./lib/interaction-timing").then((m) => m.watchInteractions());
 
 /** Forgets the saved tabs and recent pages, never notes, and starts again:
  * the way out if a saved layout keeps the window from drawing. */

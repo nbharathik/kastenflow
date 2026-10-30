@@ -21,7 +21,13 @@ export function motionOn(pref: MotionPref): boolean {
 
 /** Puts `pref`'s answer on the page. */
 export function applyMotion(pref: MotionPref): void {
-  document.documentElement.dataset.motion = motionOn(pref) ? "on" : "off";
+  const root = document.documentElement.dataset;
+  const on = motionOn(pref);
+  root.motion = on ? "on" : "off";
+  // The computer asked for less (rather than the setting saying Off): the
+  // CSS swaps movement for short fades instead of stopping everything.
+  if (!on && pref === "system") root.motionReduced = "";
+  else delete root.motionReduced;
 }
 
 /** `ms`, or no time at all while motion is off. */
@@ -37,6 +43,22 @@ export function watchSystemMotion(pref: () => MotionPref): () => void {
   const changed = () => applyMotion(pref());
   query.addEventListener("change", changed);
   return () => query.removeEventListener("change", changed);
+}
+
+/** Puts `data-window="hidden"` on <html> while the window is not shown (minimised, another desktop,
+ * locked screen); motion.css pauses every animation under it, so nothing runs for no one. Returns how to stop. */
+export function watchHidden(): () => void {
+  const apply = () => {
+    const root = document.documentElement.dataset;
+    if (document.visibilityState === "hidden") root.window = "hidden";
+    else delete root.window;
+  };
+  apply();
+  document.addEventListener("visibilitychange", apply);
+  return () => {
+    document.removeEventListener("visibilitychange", apply);
+    delete document.documentElement.dataset.window;
+  };
 }
 
 /** How a scroll the app starts moves: smoothly, or at once while motion is off. */

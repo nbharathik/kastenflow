@@ -6,6 +6,7 @@
 import { useEffect, useMemo } from "react";
 
 import { useShell } from "../../lib/store";
+import { useInterval } from "../../lib/use-interval";
 import { describeBackup, useVaultStatus } from "../workspace/status";
 import { useStamp } from "../workspace/revision";
 import { useWorkspace } from "../workspace/store";
@@ -41,13 +42,7 @@ export function ActivityStatus() {
     const timer = setTimeout(() => void useHealth.getState().refresh(), SETTLE_MS);
     return () => clearTimeout(timer);
   }, [client, stamp, status?.pending, commitError]);
-  useEffect(() => {
-    if (!client) return;
-    const every = setInterval(() => {
-      if (!document.hidden) void useHealth.getState().refresh();
-    }, POLL_MS);
-    return () => clearInterval(every);
-  }, [client]);
+  useInterval(() => void useHealth.getState().refresh(), POLL_MS, Boolean(client));
 
   const activity = useMemo(() => activityOf({ saves, commitError, health }), [saves, commitError, health]);
   if (!client) return null;

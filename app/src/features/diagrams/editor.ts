@@ -136,6 +136,7 @@ export const useDiagramEditor = create<EditorState>((set, get) => ({
   },
   async cancel() {
     const use = backend ?? (inTauri() ? desktop : null);
+    // Cancelling an install already being left behind.
     await use?.cancel().catch(() => {});
   },
   async remove() {

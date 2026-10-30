@@ -28,6 +28,21 @@ pub fn accept_proposal(state: State<'_, OpenVault>, id: String) -> Result<Value,
     })
 }
 
+/// Accepts a change to a page's text with only the hunks the person kept: `body`
+/// is the text they put together. Merged with edits made since, as a whole
+/// acceptance is, and refused where those overlap.
+#[tauri::command(async)]
+pub fn accept_proposal_hunks(
+    state: State<'_, OpenVault>,
+    id: String,
+    body: String,
+) -> Result<Value, String> {
+    state.run(|k| {
+        k.commit_edits()?;
+        k.accept_proposal_hunks(&id, &owner(), &body, Instant::now())
+    })
+}
+
 #[tauri::command(async)]
 pub fn reject_proposal(state: State<'_, OpenVault>, id: String) -> Result<(), String> {
     state.run(|k| k.reject_proposal(&id, &owner(), Instant::now()))

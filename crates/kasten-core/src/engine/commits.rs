@@ -70,6 +70,9 @@ impl Kasten {
         if id.is_some() {
             state.last_commit = Some(crate::time::Instant::now().millis);
         }
+        drop(state);
+        // The backup worker counts its push delay from this commit.
+        self.wake_workers();
         Ok(id)
     }
 
@@ -87,6 +90,8 @@ impl Kasten {
     pub fn outside_changes(&self, paths: &[String], now: u64) {
         let _ = self.index().refresh(&self.vault, paths);
         self.state().outside = Some(now);
+        // The quiet spell before its commit starts now.
+        self.wake_workers();
         self.revised(paths);
     }
 
@@ -130,6 +135,7 @@ impl Kasten {
         )?;
         if id.is_some() {
             self.state().last_commit = Some(crate::time::Instant::now().millis);
+            self.wake_workers();
         }
         Ok(id)
     }

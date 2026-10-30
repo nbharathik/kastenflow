@@ -28,6 +28,7 @@ mod notify;
 mod open_vault;
 mod plugins;
 mod presenter;
+mod presenter_move;
 mod presenter_screen;
 mod rehearsals;
 mod reveal;

@@ -16,6 +16,8 @@ const KEPT: usize = 64;
 pub struct EndedLog {
     events: Mutex<VecDeque<Event>>,
     changed: Condvar,
+    /// Builds (document, number) that said they were fetching TeX packages.
+    fetching: Mutex<VecDeque<(String, u64)>>,
 }
 
 impl EndedLog {
@@ -23,8 +25,27 @@ impl EndedLog {
         self.events.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Notes an event if it is an end (done, failed or cancelled).
+    /// Whether build `seq` of `doc` said it was fetching TeX packages (the
+    /// first build does, and can be slow on a poor line).
+    pub fn fetching(&self, doc: &str, seq: u64) -> bool {
+        let seen = self.fetching.lock().unwrap_or_else(|e| e.into_inner());
+        seen.iter().any(|(d, s)| d == doc && *s == seq)
+    }
+
+    /// Notes an event if it is an end (done, failed or cancelled), and a note
+    /// that packages are being fetched.
     pub fn record(&self, event: &Event) {
+        if event
+            .note
+            .as_deref()
+            .is_some_and(|n| n.to_ascii_lowercase().contains("download"))
+        {
+            let mut seen = self.fetching.lock().unwrap_or_else(|e| e.into_inner());
+            if seen.len() >= KEPT {
+                seen.pop_front();
+            }
+            seen.push_back((event.doc.clone(), event.seq));
+        }
         if !matches!(event.state, "done" | "failed" | "cancelled") {
             return;
         }

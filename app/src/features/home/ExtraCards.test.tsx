@@ -1,11 +1,23 @@
 // The cards Home keeps in reserve: the week ahead and the journal.
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { dayFrom } from "../../lib/dates";
 import type { NoteMeta, TaskRow } from "../../lib/vault/types";
+import type { CalendarInfo, ExternalEvent } from "../calendar/external/types";
 import { useTaskRows } from "../dashboard/task-rows";
+
+let events: ExternalEvent[] = [];
+const calendar: CalendarInfo = { id: "c1", name: "Work", color: "teal", refreshMinutes: 30, shown: true, host: "h", masked: "h", lastUpdated: 1, lastChecked: 1, error: null };
+vi.mock("../calendar/external/api", () => ({
+  canSubscribe: () => true,
+  calendarsList: vi.fn(async () => [calendar]),
+  calendarEvents: vi.fn(async (from: string, to: string) => ({ events: events.filter((e) => e.end.slice(0, 10) >= from && e.start.slice(0, 10) <= to), truncated: false })),
+  calendarRefresh: vi.fn(async () => [calendar]),
+  onCalendarsChanged: () => Promise.resolve(() => {}),
+}));
+import { useFeeds } from "../calendar/external/store";
 import { useWorkspace } from "../workspace/store";
 import { derive } from "../workspace/store-layout";
 import { initialLayout } from "../workspace/tabs";
@@ -40,6 +52,8 @@ beforeEach(() => {
   go.mockClear();
   useWorkspace.setState({ client: null, notes: [], ...derive(initialLayout()), openJournal, go });
   useTaskRows.setState({ rows: [] });
+  events = [];
+  useFeeds.setState({ list: null, version: 0 });
 });
 afterEach(cleanup);
 
@@ -56,6 +70,30 @@ describe("Home's week", () => {
     expect(days[1]!.getAttribute("aria-label")).toMatch(/: 2 to-dos$/);
     expect(days[3]!.getAttribute("aria-label")).toMatch(/: 1 to-do$/);
     expect(days[2]!.getAttribute("aria-label")).not.toMatch(/to-do/);
+  });
+
+  it("counts the calendar's events with the to-dos, and says which are which", async () => {
+    const e = (id: string, start: string, end: string, allDay = false) => ({ calendar: "c1", id, uid: id, title: id, allDay, start, end, location: null, description: null, link: null, tentative: false, zoneGuess: false });
+    events = [e("a", `${dayFrom(1)}T09:00`, `${dayFrom(1)}T10:00`), e("b", `${dayFrom(1)}T11:00`, `${dayFrom(1)}T12:00`), e("c", dayFrom(2), dayFrom(2), true)];
+    useTaskRows.setState({ rows: [todo("A", dayFrom(1))] });
+    render(<ExtraCard id="week" />);
+    const days = within(screen.getByRole("group", { name: "The next seven days" })).getAllByRole("button");
+    await waitFor(() => expect(days[1]!.getAttribute("aria-label")).toMatch(/: 2 events, 1 to-do$/));
+    expect(days[1]!.querySelector(".kasten-week-count")?.textContent).toBe("3");
+    expect(days[2]!.getAttribute("aria-label")).toMatch(/: 1 event$/);
+    expect(days[0]!.getAttribute("aria-label")).not.toMatch(/event|to-do/);
+  });
+
+  it("moves between the days with the left and right arrows", () => {
+    render(<ExtraCard id="week" />);
+    const days = within(screen.getByRole("group", { name: "The next seven days" })).getAllByRole("button");
+    days[0]!.focus();
+    fireEvent.keyDown(days[0]!, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(days[1]);
+    fireEvent.keyDown(days[1]!, { key: "End" });
+    expect(document.activeElement).toBe(days[6]);
+    fireEvent.keyDown(days[6]!, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(days[5]);
   });
 
   it("opens a day's journal, and the Calendar from its link", () => {

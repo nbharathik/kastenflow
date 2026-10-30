@@ -201,6 +201,7 @@ export function tauriChat(): ChatClient {
     brainstorm: (request) => invoke<Brainstormed>("brainstorm_board", { ...request }),
     onEvent(listener) {
       const stop = listen<ChatEvent>("chat-event", (e) => listener(e.payload));
+      // No event bridge (a browser preview): there are no events to hear.
       listening = stop.catch(() => {});
       return () => void stop.then((fn) => fn(), () => {});
     },

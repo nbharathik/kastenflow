@@ -3,7 +3,11 @@
 // belong to the document that is on screen; the workspace binds them here while
 // it is mounted and the extensions read them when they run.
 
+import type { Diagnostic } from "../types";
 import type { AssistIndex } from "./data";
+
+/** What the marks in the text ask the chat to do ("Fix this one", "Explain") for one problem; set while a document is on screen. */
+export const aiAsk: { current: ((kind: "fix" | "explain", problem: Diagnostic) => void) | null } = { current: null };
 
 export interface AssistBinding {
   index: AssistIndex;

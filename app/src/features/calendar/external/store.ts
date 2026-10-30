@@ -100,20 +100,37 @@ const NONE: readonly ExternalEvent[] = [];
 /** The events of the shown calendars on the days from `first` to `last`:
  * nothing while `enabled` is off, there are none, or in the browser preview. */
 export function useExternalEvents(first: string, last: string, enabled = true): readonly ExternalEvent[] {
+  return useExternalFeed(first, last, enabled).events;
+}
+
+/** `useExternalEvents` that also says when the events could not be read
+ * (`failed`, so a card can say so instead of "nothing on"), with `retry`. */
+export function useExternalFeed(first: string, last: string, enabled = true): { events: readonly ExternalEvent[]; failed: boolean; retry(): void } {
   const calendars = useCalendars();
   const version = useFeeds((s) => s.version);
   const [events, setEvents] = useState<readonly ExternalEvent[]>(NONE);
+  const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
   const anyShown = calendars?.some((c) => c.shown) ?? false;
   useEffect(() => {
     if (!enabled || !anyShown) return;
     let live = true;
     api.calendarEvents(first, last).then(
-      (found) => live && setEvents(found.events),
-      () => live && setEvents(NONE),
+      (found) => {
+        if (!live) return;
+        setEvents(found.events);
+        setFailed(false);
+      },
+      () => {
+        if (!live) return;
+        setEvents(NONE);
+        setFailed(true);
+      },
     );
     return () => {
       live = false;
     };
-  }, [enabled, anyShown, first, last, version]);
-  return useMemo(() => (enabled && anyShown ? shownEvents(events, calendars) : NONE), [enabled, anyShown, events, calendars]);
+  }, [enabled, anyShown, first, last, version, tries]);
+  const shown = useMemo(() => (enabled && anyShown ? shownEvents(events, calendars) : NONE), [enabled, anyShown, events, calendars]);
+  return { events: shown, failed: enabled && anyShown && failed, retry: () => setTries((n) => n + 1) };
 }

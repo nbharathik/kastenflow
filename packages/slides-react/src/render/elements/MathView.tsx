@@ -1,9 +1,9 @@
-import "katex/dist/katex.min.css";
 import { type JSX } from "react";
 
 import { colorOf, fontStack } from "../../theme/index.ts";
 import type { ViewProps } from "../context.ts";
-import { hasFormula, mathSize, renderMath } from "../math.ts";
+import { hasFormula, mathSize } from "../math-size.ts";
+import { useMath } from "../math-slot.ts";
 import "./math.css";
 
 /** The empty formula, which an editor shows so that there is something to select. */
@@ -25,9 +25,12 @@ export function MathView({ element, cx }: ViewProps<"math">): JSX.Element | null
   const size = mathSize(element.fontSize);
   const inline = element.inline === true;
   const label = element.alt ? { role: "img" as const, "aria-label": element.alt } : {};
+  const math = useMath();
   if (!hasFormula(element.latex)) return cx.mode === "edit" ? <EmptyFormula cx={cx} size={size} /> : null;
+  // KaTeX's code is still arriving: the formula appears as soon as it has.
+  if (!math) return null;
 
-  const rendered = renderMath(element.latex, inline);
+  const rendered = math.renderMath(element.latex, inline);
   if (!rendered.ok) {
     return (
       <div className="ks-math ks-math-error" title={rendered.message} role="img" aria-label={element.alt ?? `Formula that cannot be drawn: ${rendered.message}`} style={{ fontFamily: fontStack(cx.theme, "code"), fontSize: Math.min(Math.max(size * 0.4, 12), 20) }}>

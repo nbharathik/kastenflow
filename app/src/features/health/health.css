@@ -8,6 +8,9 @@
 
   display: flex;
   flex-direction: column;
+  /* Every section fills the card: left to right, never shrunk to its text and centred. */
+  align-items: stretch;
+  width: 100%;
   gap: 0.25rem;
   padding-block: 0.25rem;
 }
@@ -28,18 +31,23 @@
   font-size: var(--text-12);
 }
 
-/* A section is a grid of dot | content: the sentence and the issues sit in the
-   content column, so they line up under the title. */
+/* A section: a heading line (dot, then the title), and under it the sentence
+   and the issues, all starting at the same left edge as the dot. */
 .kasten-health-section {
+  align-self: stretch;
+  width: 100%;
   display: grid;
   grid-template-columns: var(--health-dot) minmax(0, 1fr);
   column-gap: var(--health-gap);
   align-items: center;
-  padding-block: 0.625rem;
+  justify-items: start;
+  padding-block: 0.75rem;
   border-top: 1px solid var(--color-line);
+  text-align: left;
 
   & > :not(.kasten-health-dot, .kasten-health-title) {
-    grid-column: 2;
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }
 
@@ -56,7 +64,7 @@
 }
 
 .kasten-health-summary {
-  margin: 0.125rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--color-muted);
   font-size: var(--text-12);
 }
@@ -65,20 +73,17 @@
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  /* Pulled back by one dot and gap, so each issue's dot sits under the
-     section's dot and its text lines up with the title and the sentence. */
-  margin: 0.375rem 0 0 calc(-1 * (var(--health-dot) + var(--health-gap)));
+  margin: 0.5rem 0 0;
   padding: 0;
   list-style: none;
 }
 
-/* An issue is a grid of dot | text | actions. The preview lives in the text
-   column, so it is indented with the text; the buttons wrap inside their own
-   column. */
+/* An issue is text | actions, flush left under the sentence. The section's
+   dot already says how it stands, so an issue draws none of its own. */
 .kasten-health-issue {
   display: grid;
-  grid-template-areas: "dot text actions";
-  grid-template-columns: var(--health-dot) minmax(0, 1fr) auto;
+  grid-template-areas: "text actions";
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: var(--health-gap);
   align-items: start;
   padding-block: 0.25rem;
@@ -86,24 +91,7 @@
 }
 
 .kasten-health-issue-dot {
-  grid-area: dot;
-  width: var(--health-dot);
-  height: var(--health-dot);
-  margin-top: 0.45rem;
-  border-radius: 50%;
-  background: var(--color-muted);
-
-  .kasten-health-issue[data-level="ok"] & {
-    background: var(--color-success);
-  }
-
-  .kasten-health-issue[data-level="warn"] & {
-    background: var(--color-warning);
-  }
-
-  .kasten-health-issue[data-level="fail"] & {
-    background: var(--color-danger);
-  }
+  display: none;
 }
 
 .kasten-health-issue-text {
@@ -164,9 +152,9 @@
 @media (max-width: 40rem) {
   .kasten-health-issue {
     grid-template-areas:
-      "dot text"
-      ". actions";
-    grid-template-columns: var(--health-dot) minmax(0, 1fr);
+      "text"
+      "actions";
+    grid-template-columns: minmax(0, 1fr);
     row-gap: 0.25rem;
   }
 

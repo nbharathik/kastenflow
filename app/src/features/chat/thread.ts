@@ -5,6 +5,7 @@
 
 import type { AttachKind, Binding, Paused, PlanItem } from "./agent-types";
 import { pausedOf, planOf, queuedOf, retryOf, roundOf } from "./thread-events";
+import type { Fork } from "./thread-versions";
 import type { ChangesInfo, ChatEvent, ChatTurn, ContextChip, FailKind, GenerationSettings, ToolCall, ToolResult } from "./types";
 
 /** Why a chip is on a thread: "auto" follows the page being looked at and is
@@ -67,9 +68,17 @@ export interface Answer {
   retry?: string;
   /** The card it was pinned as. */
   pinned: string | null;
+  /** When it began, for the time shown while it works. */
+  startedAt?: number;
 }
 
 export type Message = UserMessage | Answer;
+
+/** A message that waits for the connection to come back. */
+export interface OfflineMessage {
+  text: string;
+  attachments?: SentAttachment[];
+}
 
 export interface Thread {
   id: string;
@@ -94,6 +103,9 @@ export interface Thread {
   /** Its writes are made at once ("Apply directly") instead of waiting as
    * staged changes. Off unless set. */
   direct?: boolean;
+  /** "Auto": small writes to the page in front are applied when the turn ends,
+   * larger ones wait as staged changes (changes/auto.ts). Off unless set. */
+  auto?: boolean;
   /** What it answers with, set in the Advanced popover; unset takes what was
    * last used with its model (prefs.ts). */
   settings?: GenerationSettings;
@@ -109,6 +121,10 @@ export interface Thread {
   plan?: PlanItem[];
   /** Messages sent while it worked, waiting for its next step. */
   queued?: string[];
+  /** Messages written while offline, sent when the connection returns. Only this window holds them. */
+  offline?: OfflineMessage[];
+  /** Earlier versions of the conversation from a question on (thread-versions.ts); absent when nothing was asked again. */
+  forks?: Fork[];
   /** The step the model is on while it works. */
   round?: number;
   /** The last event of the backend's count taken in, so an event seen twice counts once. */
@@ -134,7 +150,21 @@ export function threadStatus(thread: Thread): ThreadStatus {
 }
 
 /** Whether the thread's page chip follows the page in front. */
-export const following = (thread: Thread): boolean => thread.follow !== false;
+export const following = (thread: Pick<Thread, "follow">): boolean => thread.follow !== false;
+
+/** What the message box and its bar read of a thread: nothing that changes
+ * per streamed frame, so they draw only when one of these does. */
+export type ComposerThread = Pick<Thread, "id" | "provider" | "model" | "settings" | "context" | "follow" | "allowImages" | "streaming" | "stopping">;
+
+const COMPOSER_KEYS = ["id", "provider", "model", "settings", "context", "follow", "allowImages", "streaming", "stopping"] as const;
+
+/** The thread's `ComposerThread`: a new object each time, to be compared field by field (`useShallow`). */
+export function composerOf(thread: Thread | undefined): ComposerThread | undefined {
+  if (!thread) return undefined;
+  const slice = {} as Record<string, unknown>;
+  for (const key of COMPOSER_KEYS) slice[key] = thread[key];
+  return slice as unknown as ComposerThread;
+}
 
 let seq = 0;
 
@@ -230,7 +260,7 @@ export function rememberedQuestions(messages: readonly Message[], upTo = message
 /** A message sent: the question, and an answer waiting for its turn. */
 export function startTurn(thread: Thread, text: string, provider: string, model: string, attachments: SentAttachment[] = []): Thread {
   const question: UserMessage = { id: newId("m"), role: "user", text, context: thread.context.map(bare), ...(attachments.length ? { attachments } : {}) };
-  const answer: Answer = { id: newId("m"), role: "assistant", turn: null, provider, model, parts: [], status: "streaming", error: null, pinned: null };
+  const answer: Answer = { id: newId("m"), role: "assistant", turn: null, provider, model, parts: [], status: "streaming", error: null, pinned: null, startedAt: Date.now() };
   // The automatic selection was for this question: it is gone once sent. Kept snippets stay.
   const context = thread.context.some((c) => c.kind === "selection" && originOf(c) === "auto") ? thread.context.filter((c) => !(c.kind === "selection" && originOf(c) === "auto")) : thread.context;
   return { ...thread, context, provider, model, messages: [...thread.messages, question, answer], streaming: true, stopping: false, pause: undefined, round: undefined };
@@ -379,6 +409,19 @@ function applyOne(thread: Thread, event: ChatEvent): Thread {
       return thread;
   }
 }
+
+/** The newest question of the thread. */
+export function lastQuestion(thread: Pick<Thread, "messages"> | undefined): UserMessage | undefined {
+  const messages = thread?.messages ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === "user") return m;
+  }
+  return undefined;
+}
+
+/** Whether the turn ended well with nothing said: no words, no tool call, nothing taken up. */
+export const isEmptyAnswer = (answer: Answer): boolean => answer.status === "done" && !answer.parts.some((p) => p.kind !== "text" || p.text.trim() !== "");
 
 /** The answer's text, its tool rows left out: the text around each tool
  * call as paragraphs of their own. */

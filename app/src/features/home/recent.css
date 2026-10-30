@@ -114,6 +114,15 @@
 button.kasten-home-row:hover {
   background: var(--color-hover);
 }
+/* Rows out of view are not laid out or painted; the row keeps the height it
+ * last had. The focus ring is drawn inside, as the row clips what is outside. */
+.kasten-home-item {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 32px;
+}
+button.kasten-home-row:focus-visible {
+  outline-offset: -2px;
+}
 .kasten-home-row-icon {
   display: grid;
   place-items: center;

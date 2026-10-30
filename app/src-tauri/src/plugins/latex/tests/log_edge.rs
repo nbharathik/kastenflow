@@ -9,7 +9,17 @@ fn d(severity: Severity, file: Option<&str>, line: Option<u32>, message: &str) -
         line,
         severity,
         message: message.to_owned(),
+        context: None,
     }
+}
+
+/// `parse_log` without the context lines (those have their own tests).
+fn parse_bare(text: &str) -> Vec<Diagnostic> {
+    let mut found = parse_log(text);
+    for d in &mut found {
+        d.context = None;
+    }
+    found
 }
 
 const MAIN: Option<&str> = Some("main.tex");
@@ -19,7 +29,7 @@ fn file_line_error_style_gives_the_file_and_line_of_the_line() {
     let log = "(./main.tex\n./main.tex:12: Undefined control sequence.\nl.12 \\foo\n         \n\
 ./main.tex:15: LaTeX Error: Environment foo undefined.\n\nSee the LaTeX manual.\n\nl.15 \\begin{foo}\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![
             d(
                 Severity::Error,
@@ -41,7 +51,7 @@ fn file_line_error_style_gives_the_file_and_line_of_the_line() {
 fn file_line_error_style_with_a_windows_path() {
     let log = "(C:/Users/u/book/main.tex\nC:/Users/u/book/chapters/one.tex:7: Undefined control sequence.\nl.7 \\x\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![d(
             Severity::Error,
             Some("C:/Users/u/book/chapters/one.tex"),
@@ -58,7 +68,7 @@ fn a_package_error_continues_on_package_lines() {
 See the hyperref package documentation for explanation.\nType  H <return>  for immediate help.\n \
 ...                                              \n\nl.7 \\begin{document}\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![d(
             Severity::Error,
             MAIN,
@@ -75,7 +85,7 @@ Type X to quit or <RETURN> to proceed,\nor enter new name. (Default extension: s
 Enter file name: \n! Emergency stop.\n<read *> \n\nl.3 \\usepackage{x}\n\n\
 *** (job aborted, file error in nonstop mode)\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![d(Severity::Error, MAIN, Some(3), "File 'x.sty' not found.")]
     );
 }
@@ -85,7 +95,7 @@ fn undefined_citations_and_references_with_straight_quotes() {
     let log = "(./main.tex\nLaTeX Warning: Citation 'k' on page 1 undefined on input line 15.\n\n\
 LaTeX Warning: Reference 'sec:a' on page 2 undefined on input line 18.\n)\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![
             d(
                 Severity::Warning,
@@ -110,7 +120,7 @@ fn a_pdftex_warning_and_its_context_do_not_unbalance_the_files() {
     let log = "(./main.tex\n(./a.tex\npdfTeX warning (ext4): destination with the same identifier has been already used\n\
 <to be read again> \n                   \\relax \nl.12 \\foo (bar\n\n)\nLaTeX Warning: Label `x' multiply defined.\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![
             d(
                 Severity::Warning,
@@ -140,7 +150,7 @@ fn a_flood_of_box_complaints_does_not_push_out_the_error_after_it() {
         );
     }
     log += "! Undefined control sequence.\nl.9 \\x\n";
-    let found = parse_log(&log);
+    let found = parse_bare(&log);
     assert_eq!(
         found
             .iter()

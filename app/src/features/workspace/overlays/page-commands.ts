@@ -8,7 +8,7 @@ import { useShell } from "../../../lib/store";
 import type { NoteMeta } from "../../../lib/vault/types";
 import { mapPage } from "../../../shell/page-menu";
 import { askPageOpens } from "../../../shell/PageOpens";
-import { askAboutPage } from "../../chat/actions";
+import { askAboutPage } from "../../chat/ask-page";
 import { homeItem, templateItems } from "../../projects/home-menu";
 import { saveAsTemplate } from "../../templates/kits";
 import { titleOf } from "../names";
@@ -210,7 +210,7 @@ export const PAGE_COMMANDS: Command[] = [
     words: "chat assistant claude question",
     run: () => {
       const note = openNote();
-      if (note) askAboutPage(note);
+      if (note) void askAboutPage(note);
     },
   },
   {
@@ -269,6 +269,12 @@ export const PAGE_COMMANDS: Command[] = [
     },
   },
   { id: "fold-properties-all", label: "Fold properties on every page", words: "collapse hide tags properties all pages", run: foldEveryPage },
+  {
+    id: "agent-tint",
+    label: "Tint or untint what agents wrote today",
+    words: "agent colour color highlight changed keep undo wash",
+    run: () => usePrefs.getState().set({ agentTint: !usePrefs.getState().agentTint }),
+  },
   {
     id: "page-comments",
     label: "Comments on this page",

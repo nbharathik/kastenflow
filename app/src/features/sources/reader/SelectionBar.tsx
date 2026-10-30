@@ -19,7 +19,7 @@ export function lastColor(): HighlightColor {
   }
 }
 
-function keepColor(color: HighlightColor): void {
+export function keepColor(color: HighlightColor): void {
   try {
     localStorage.setItem(KEY, color);
   } catch {

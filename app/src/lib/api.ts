@@ -198,5 +198,6 @@ export function reportStartup(): void {
   if (reported || !inTauri()) return;
   reported = true;
   const marks = (performance.getEntriesByType?.("mark") ?? []).filter((m) => m.name.startsWith("kasten:")).map((m): [string, number] => [`page:${m.name.slice("kasten:".length)}`, m.startTime]);
+  // Timing for the support log only.
   void invoke("startup_marks", { now: performance.now(), marks }).catch(() => {});
 }

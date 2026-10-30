@@ -9,6 +9,7 @@ import "./browser.css";
 import { useEffect, useRef, useState } from "react";
 
 import { openUrl } from "../../lib/api";
+import { said } from "../../lib/said";
 import { Button } from "../../ui/Button";
 import { openSettingsAt } from "../workspace/views/settings/jump";
 import { usePaneId } from "../workspace/pane-context";
@@ -122,6 +123,7 @@ export function BrowserView({ place }: { place: Place }) {
   // Not shown any more (another tab, another view): hidden, not closed.
   useEffect(
     () => () => {
+      // The view is going away anyway; a native view that stays shown is hidden by the next tab's own show.
       if (shown.current) void backend.hide(tabId).catch(() => {});
       shown.current = false;
     },
@@ -185,7 +187,7 @@ export function BrowserView({ place }: { place: Place }) {
   ) : error && !live ? (
     <Note heading="This page could not be shown">
       {error}
-      {url && <Button onClick={() => void openUrl(url).catch(() => {})}>Open in system browser</Button>}
+      {url && <Button onClick={() => void openUrl(url).catch(said("Could not open the system browser"))}>Open in system browser</Button>}
     </Note>
   ) : hidden ? (
     <Note heading={title ?? url ?? "Browser"}>Hidden while something is open over it.</Note>

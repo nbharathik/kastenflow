@@ -77,3 +77,13 @@ test("the app must not import from inside a Slides package", () => {
   assert.equal(problems.length, 1);
   assert.match(problems[0], /main\.ts:2: imports @kasten-slides\/react\/src\/units\.ts/);
 });
+
+test("the app may use a further entry point the package exports, and no other path", () => {
+  const { root, metadata } = repo({
+    manifest: { exports: { ".": "./src/index.ts", "./presenter-entry": "./src/presenter-entry.ts" } },
+    appSource: 'import { a } from "@kasten-slides/canvas/presenter-entry";\nimport { b } from "@kasten-slides/canvas/src/presenter-entry.ts";\n',
+  });
+  const problems = checkBoundaries(root, metadata);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /main\.ts:2: imports @kasten-slides\/canvas\/src\/presenter-entry\.ts/);
+});

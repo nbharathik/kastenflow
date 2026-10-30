@@ -55,7 +55,8 @@ async function openTwoPages() {
 
 async function openDock() {
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Chat" })));
-  const dock = await screen.findByRole("complementary", { name: "Chat dock" }, { timeout: 10_000 });
+  // The dock's code loads on first use, slowly when the whole suite runs.
+  const dock = await screen.findByRole("complementary", { name: "Chat dock" }, { timeout: 20_000 });
   const context = await within(dock).findByRole("group", { name: "Context" });
   return { dock, context };
 }

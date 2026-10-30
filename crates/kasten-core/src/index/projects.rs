@@ -2,8 +2,9 @@
 //! notes, task notes, to-dos, newest note and newest update, each taken for
 //! all projects at once in one grouped query (never one query per project).
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
+use rusqlite::params;
 use serde_json::Value;
 
 use super::Index;
@@ -47,7 +48,7 @@ pub struct Update {
 }
 
 /// Everything about every project that one pass over the index gives.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ProjectRows {
     /// Project pages, by title.
     pub pages: Vec<ProjectRow>,
@@ -59,6 +60,33 @@ pub struct ProjectRows {
     pub checklist: HashMap<String, Counts>,
     pub newest: HashMap<String, Newest>,
     pub updates: HashMap<String, Update>,
+}
+
+impl ProjectRows {
+    /// These rows with what they hold of the projects in `folders` replaced by
+    /// `fresh` (`Index::project_rows_for` for those folders): a project that
+    /// is gone is dropped, one that is new comes in, and the pages stay in the
+    /// order the index gives them (by title, then path).
+    pub fn with_projects(&self, folders: &BTreeSet<String>, fresh: ProjectRows) -> ProjectRows {
+        let mut out = self.clone();
+        out.pages.retain(|page| !folders.contains(&page.folder));
+        out.notes.retain(|folder, _| !folders.contains(folder));
+        out.tasks.retain(|folder, _| !folders.contains(folder));
+        out.checklist.retain(|folder, _| !folders.contains(folder));
+        out.newest.retain(|folder, _| !folders.contains(folder));
+        out.updates.retain(|folder, _| !folders.contains(folder));
+        out.pages.extend(fresh.pages);
+        // The index sorts by the lower-cased, trimmed title, then the path,
+        // as bytes: the same order as these strings.
+        out.pages
+            .sort_by_cached_key(|page| (page.title.trim().to_lowercase(), page.path.clone()));
+        out.notes.extend(fresh.notes);
+        out.tasks.extend(fresh.tasks);
+        out.checklist.extend(fresh.checklist);
+        out.newest.extend(fresh.newest);
+        out.updates.extend(fresh.updates);
+        out
+    }
 }
 
 /// A note that is the page of its project.
@@ -92,15 +120,43 @@ impl Index {
     /// The rows project summaries are built from; `today` is the person's day,
     /// `YYYY-MM-DD`, which decides what is overdue.
     pub fn project_rows(&self, today: &str) -> Result<ProjectRows> {
-        let mut out = ProjectRows::default();
+        self.rows_in(today, None)
+    }
 
-        let mut stmt = self.conn.prepare_cached(
+    /// The same rows for the projects in `folders` alone: what to put in place
+    /// of those a kept copy holds (`ProjectRows::with_projects`).
+    pub fn project_rows_for(&self, today: &str, folders: &BTreeSet<String>) -> Result<ProjectRows> {
+        let mut out = ProjectRows::default();
+        for folder in folders {
+            let one = self.rows_in(today, Some(folder))?;
+            out.pages.extend(one.pages);
+            out.notes.extend(one.notes);
+            out.tasks.extend(one.tasks);
+            out.checklist.extend(one.checklist);
+            out.newest.extend(one.newest);
+            out.updates.extend(one.updates);
+        }
+        Ok(out)
+    }
+
+    /// `project_rows`, for the project in folder `only` when there is one.
+    fn rows_in(&self, today: &str, only: Option<&str>) -> Result<ProjectRows> {
+        let mut out = ProjectRows::default();
+        // For one project the queries name it (`notes_project` finds its
+        // notes without a scan); for all of them they do not. A test of
+        // "is it null" in the query would keep the planner from the index.
+        let (one, args): (&str, Vec<&str>) = match only {
+            Some(folder) => (" AND n.project = ?1", vec![folder]),
+            None => ("", Vec::new()),
+        };
+
+        let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT n.path, n.project, n.id, n.title, n.icon, n.props FROM notes n
              WHERE n.kind = 'project' AND n.project IS NOT NULL
-               AND n.path = 'projects/' || n.project || '/_project.md'
-             ORDER BY n.title_key, n.path",
-        )?;
-        let mut rows = stmt.query([])?;
+               AND n.path = 'projects/' || n.project || '/_project.md'{one}
+             ORDER BY n.title_key, n.path"
+        ))?;
+        let mut rows = stmt.query(rusqlite::params_from_iter(&args))?;
         while let Some(r) = rows.next()? {
             let props: String = r.get(5)?;
             out.pages.push(ProjectRow {
@@ -116,11 +172,11 @@ impl Index {
         // Every note that belongs to a project, once: how many each has (its
         // page apart) and the newest, the first path on a tie. Only the
         // winners' titles are read afterwards.
-        let mut stmt = self.conn.prepare_cached(
-            "SELECT project, path, modified FROM notes
-             WHERE project IS NOT NULL AND kind != 'template'",
-        )?;
-        let mut rows = stmt.query([])?;
+        let mut stmt = self.conn.prepare_cached(&format!(
+            "SELECT n.project, n.path, n.modified FROM notes n
+             WHERE n.project IS NOT NULL AND n.kind != 'template'{one}"
+        ))?;
+        let mut rows = stmt.query(rusqlite::params_from_iter(&args))?;
         while let Some(r) = rows.next()? {
             let project: String = r.get(0)?;
             let path: String = r.get(1)?;
@@ -157,16 +213,23 @@ impl Index {
         }
 
         // The to-do lines, counted per project in the table that holds them.
-        let mut stmt = self.conn.prepare_cached(
+        let day_and_one = match only {
+            Some(_) => " AND n.project = ?2",
+            None => "",
+        };
+        let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT n.project,
                     SUM(CASE WHEN t.done = 0 THEN 1 ELSE 0 END),
                     SUM(CASE WHEN t.done != 0 THEN 1 ELSE 0 END),
                     SUM(CASE WHEN t.done = 0 AND t.due IS NOT NULL AND t.due < ?1 THEN 1 ELSE 0 END)
              FROM tasks t JOIN notes n ON n.num = t.num
-             WHERE n.project IS NOT NULL AND n.kind != 'template'
-             GROUP BY n.project",
-        )?;
-        let mut rows = stmt.query([today])?;
+             WHERE n.project IS NOT NULL AND n.kind != 'template'{day_and_one}
+             GROUP BY n.project"
+        ))?;
+        let mut rows = match only {
+            Some(folder) => stmt.query(params![today, folder])?,
+            None => stmt.query(params![today])?,
+        };
         while let Some(r) = rows.next()? {
             out.checklist.insert(
                 r.get(0)?,
@@ -183,9 +246,9 @@ impl Index {
         let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT n.project, n.props FROM notes n
              WHERE n.num IN (SELECT num FROM tags WHERE tag = 'task')
-               AND n.project IS NOT NULL AND n.kind != 'template' AND {NOT_THE_PAGE}"
+               AND n.project IS NOT NULL AND n.kind != 'template' AND {NOT_THE_PAGE}{one}"
         ))?;
-        let mut rows = stmt.query([])?;
+        let mut rows = stmt.query(rusqlite::params_from_iter(&args))?;
         while let Some(r) = rows.next()? {
             let props: Value = serde_json::from_str(&r.get::<_, String>(1)?).unwrap_or(Value::Null);
             let done = props
@@ -212,9 +275,9 @@ impl Index {
         let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT n.project, n.path, n.title, n.props, n.created, n.modified FROM notes n
              WHERE n.num IN (SELECT num FROM tags WHERE tag = 'project-update')
-               AND n.project IS NOT NULL AND n.kind != 'template' AND {NOT_THE_PAGE}"
+               AND n.project IS NOT NULL AND n.kind != 'template' AND {NOT_THE_PAGE}{one}"
         ))?;
-        let mut rows = stmt.query([])?;
+        let mut rows = stmt.query(rusqlite::params_from_iter(&args))?;
         let mut best: HashMap<String, (String, u64)> = HashMap::new();
         while let Some(r) = rows.next()? {
             let props: Value = serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or(Value::Null);

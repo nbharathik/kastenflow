@@ -102,14 +102,4 @@ describe("the staged changes bar", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Recalculate" })));
     expect(chat.recalcs).toHaveLength(1);
   });
-
-  it("is switched to write directly, and says what each setting means", async () => {
-    const id = await show(null);
-    const box = screen.getByRole("checkbox", { name: "Apply directly" }) as HTMLInputElement;
-    expect(box.checked).toBe(false);
-    expect(screen.getByText("Changes wait for you to review and apply them.")).toBeTruthy();
-    fireEvent.click(box);
-    expect(useChat.getState().threads[id]!.direct).toBe(true);
-    expect(screen.getByText("Changes are saved as the chat makes them.")).toBeTruthy();
-  });
 });

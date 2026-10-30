@@ -32,6 +32,18 @@ pub struct Job {
     /// Copy the vault's bibliography in as `references.bib`.
     pub vault_bib: bool,
     pub timeout: Duration,
+    /// A preview of text that is not saved: the build is made in a scratch
+    /// folder of this name (see `preview_dir`), so neither the document's own
+    /// build, nor its last good PDF, nor its log are touched.
+    pub scratch: Option<String>,
+}
+
+/// Where previews are built: below the vault's cache, one folder for each.
+pub const PREVIEW_PARENT: &str = ".kasten/cache/latex-preview";
+
+/// The scratch folder of the preview called `name` (a plain name).
+pub fn preview_dir(name: &str) -> String {
+    format!("{PREVIEW_PARENT}/{name}")
 }
 
 impl Job {
@@ -39,9 +51,12 @@ impl Job {
         self.root.join(&self.folder)
     }
 
-    /// This document's folder in the vault's cache.
+    /// This document's folder in the vault's cache (or the preview's scratch folder).
     pub fn build(&self) -> PathBuf {
-        self.root.join(kasten_core::latex::build_dir(&self.folder))
+        match &self.scratch {
+            Some(name) => self.root.join(preview_dir(name)),
+            None => self.root.join(kasten_core::latex::build_dir(&self.folder)),
+        }
     }
 
     pub fn tree(&self) -> PathBuf {

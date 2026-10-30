@@ -6,11 +6,14 @@
 
 import "./markdown.css";
 
-import { Fragment, memo, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, memo, useMemo, useRef, type MouseEvent, type ReactNode } from "react";
 
 import { howFrom, type OpenHow } from "../../workspace/store";
-import { parseBlocks, type Block, type SourcedBlock } from "./blocks";
+import type { Block, SourcedBlock } from "./blocks";
+import { CodeBlock } from "./CodeBlock";
 import { parseInline, unsaidDestination, type Inline } from "./inline";
+import { MathView } from "./Math";
+import { blocksOfParsed, parseMore, type Parsed } from "./stream-blocks";
 
 /** Opens a page by title, as a wiki link asks. */
 export type OpenTitle = (title: string, how: OpenHow) => void;
@@ -21,17 +24,23 @@ interface Props {
 }
 
 /** The blocks of `text`, or the text as it is should it ever not parse:
- * an answer is always shown. */
-function blocksOf(text: string): SourcedBlock[] {
+ * an answer is always shown. `prev` is the same answer a frame earlier, so
+ * only its end is read again. */
+function blocksOf(prev: Parsed | null, text: string): Parsed | SourcedBlock[] {
   try {
-    return parseBlocks(text);
+    return parseMore(prev, text);
   } catch {
     return [{ type: "code", lang: "", text, src: text }];
   }
 }
 
 export const Markdown = memo(function Markdown({ text, onOpenTitle }: Props) {
-  const blocks = useMemo(() => blocksOf(text), [text]);
+  const last = useRef<Parsed | null>(null);
+  const blocks = useMemo(() => {
+    const read = blocksOf(last.current, text);
+    last.current = Array.isArray(read) ? null : read;
+    return Array.isArray(read) ? read : blocksOfParsed(read);
+  }, [text]);
   return (
     <div className="kasten-md">
       {blocks.map((block, i) => (
@@ -59,6 +68,8 @@ function BlockView({ block, open }: { block: Block; open: OpenTitle }): ReactNod
     }
     case "code":
       return <CodeBlock lang={block.lang} text={block.text} />;
+    case "math":
+      return <MathView tex={block.text} display block />;
     case "rule":
       return <hr />;
     case "quote":
@@ -121,6 +132,8 @@ function inlines(nodes: Inline[], open: OpenTitle): ReactNode[] {
         return <br key={i} />;
       case "code":
         return <code key={i}>{node.text}</code>;
+      case "math":
+        return <MathView key={i} tex={node.tex} display={node.display} />;
       case "strong":
         return <strong key={i}>{inlines(node.children, open)}</strong>;
       case "em":
@@ -160,29 +173,4 @@ function inlines(nodes: Inline[], open: OpenTitle): ReactNode[] {
         );
     }
   });
-}
-
-function CodeBlock({ lang, text }: { lang: string; text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="kasten-md-code">
-      <div className="kasten-md-code-bar">
-        <span>{lang || "code"}</span>
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard?.writeText(text).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <pre>
-        <code>{text}</code>
-      </pre>
-    </div>
-  );
 }

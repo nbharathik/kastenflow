@@ -35,6 +35,7 @@ function show(theme: "light" | "dark"): void {
   document.documentElement.dataset.theme = theme;
   if (theme === told || !inTauri()) return;
   told = theme;
+  // Only for the next start's first paint; the theme in use is already applied.
   void invoke("remember_theme", { dark: theme === "dark" }).catch(() => {});
 }
 

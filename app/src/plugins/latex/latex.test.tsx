@@ -34,7 +34,7 @@ vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => {
 
 const ALWAYS = ["latex", "new-latex", "new-latex-report", "new-latex-slides"];
 // Apply only while a document is on screen.
-const WITH_DOCUMENT = ["latex-build", "latex-stop", "latex-export", "latex-sync", "latex-auto", "latex-files", "latex-cite", "latex-fix-ai"];
+const WITH_DOCUMENT = ["latex-build", "latex-stop", "latex-export", "latex-sync", "latex-auto", "latex-files", "latex-cite", "latex-fix-ai", "latex-inline-ai", "latex-ai-refs", "latex-ai-citations", "latex-ai-boxes", "latex-ai-draft", "latex-ai-table"];
 // Apply only while a page is open.
 const ON_A_PAGE = ["latex-send-page", "latex-add-page"];
 const IDS = [...ALWAYS, ...WITH_DOCUMENT, ...ON_A_PAGE];
@@ -123,10 +123,12 @@ describe("with the plugin on", () => {
       toggleAuto: () => calls.push("auto"),
       toggleFiles: () => calls.push("files"),
       fixWithAi: () => calls.push("fix"),
+      inlineAi: () => calls.push("inline"),
+      runAction: (slug) => calls.push(slug),
     });
     expect(mine().map((c) => c.id).sort()).toEqual([...ALWAYS, ...WITH_DOCUMENT].sort());
-    for (const id of ["latex-build", "latex-stop", "latex-export", "latex-sync", "latex-auto", "latex-files", "latex-fix-ai"]) allCommands().find((c) => c.id === id)!.run();
-    expect(calls).toEqual(["build", "stop", "export", "sync", "auto", "files", "fix"]);
+    for (const id of ["latex-build", "latex-stop", "latex-export", "latex-sync", "latex-auto", "latex-files", "latex-fix-ai", "latex-inline-ai", "latex-ai-refs", "latex-ai-table"]) allCommands().find((c) => c.id === id)!.run();
+    expect(calls).toEqual(["build", "stop", "export", "sync", "auto", "files", "fix", "inline", "check-latex-refs", "table-to-booktabs"]);
     stop();
     expect(activeActions()).toBeNull();
     expect(mine().map((c) => c.id).sort()).toEqual([...ALWAYS].sort());

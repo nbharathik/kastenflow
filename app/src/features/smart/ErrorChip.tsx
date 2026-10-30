@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 
+import { said } from "../../lib/said";
 import type { ErrorLog } from "../../lib/vault/smart-types";
 import { Button } from "../../ui/Button";
 import type { SmartBackend } from "./backend";
@@ -37,7 +38,7 @@ export function ErrorChip({ pagePath, backend, version }: Props) {
   const clear = () => {
     setLog({ records: [] });
     setOpen(false);
-    backend.clearErrors(pagePath).catch(() => {});
+    backend.clearErrors(pagePath).catch(said("Could not clear the errors"));
   };
 
   return (

@@ -2,9 +2,10 @@
 // the history is, read from the backup's status once a second or so. Then a
 // summary in plain words with a way to open the repository.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { openUrl } from "../../../lib/api";
+import { useInterval } from "../../../lib/use-interval";
 import type { BackupStatus } from "../../../lib/vault/backup-types";
 import { Button } from "../../../ui/Button";
 import { call } from "./api";
@@ -45,16 +46,7 @@ export function StepFirstBackup() {
   const { job, problem, summary, where, retry } = useBackupWizard();
   const [status, setStatus] = useState<BackupStatus | null>(null);
 
-  useEffect(() => {
-    if (job !== "running") return;
-    let live = true;
-    const look = () => call("backup_status").then((found) => live && setStatus(found), () => {});
-    const timer = setInterval(() => void look(), POLL_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [job]);
+  useInterval(() => void call("backup_status").then(setStatus, () => {}), POLL_MS, job === "running");
 
   const { go } = useBackupWizard.getState();
   // "Both": GitHub is done, the folder comes next.

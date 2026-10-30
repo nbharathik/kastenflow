@@ -59,8 +59,17 @@ fn latex(side: &dyn Side, request: Request, call: Call) -> Result<Value, String>
     let kasten = side.kasten()?;
     let doc = document(&kasten, call.doc())?;
     match call {
-        Call::LatexBuild { wait_ms, .. } => {
+        Call::LatexBuild {
+            wait_ms, preview, ..
+        } => {
             let wait = Duration::from_millis(wait_ms.clamp(MIN_WAIT_MS, MAX_WAIT_MS));
+            // Changes that wait for review are built where they cannot touch the files or the last good PDF.
+            if preview
+                && let Some(session) = &request.session
+                && let Some(done) = preview_build(side, &kasten, &doc, &session.id, wait)?
+            {
+                return Ok(done);
+            }
             let outcome = side.build(&doc, wait)?;
             if outcome.ended == Ended::Cancelled {
                 return Err(
@@ -72,6 +81,45 @@ fn latex(side: &dyn Side, request: Request, call: Call) -> Result<Value, String>
         Call::LatexExportPdf { reason, .. } => export(side, &kasten, &doc, request.session, reason),
         _ => Err("The app does not know how to do that".to_owned()),
     }
+}
+
+/// The answer for a build of what the waiting changes of `session` would make
+/// of `doc`; none when it has no waiting changes (the saved files are then
+/// what there is to build).
+fn preview_build(
+    side: &dyn Side,
+    kasten: &Kasten,
+    doc: &LatexDoc,
+    session: &str,
+    wait: Duration,
+) -> Result<Option<Value>, String> {
+    let files = kasten
+        .latex_proposed(&doc.folder, session)
+        .map_err(|err| err.to_string())?;
+    if files.is_empty() {
+        return Ok(None);
+    }
+    let names: Vec<String> = files.keys().cloned().collect();
+    let made = side.build_preview(doc, files.into_iter().collect(), wait)?;
+    if made.outcome.ended == Ended::Cancelled {
+        return Err("The preview build was stopped: ask again".to_owned());
+    }
+    if made.outcome.ended == Ended::Failed
+        && made.fetched_packages
+        && made
+            .outcome
+            .error
+            .as_ref()
+            .is_some_and(|e| e.kind == "timeout")
+    {
+        return Err(super::side::STILL_FETCHING.to_owned());
+    }
+    Ok(Some(report::built_preview(
+        kasten,
+        doc,
+        &made.outcome,
+        &names,
+    )))
 }
 
 /// The LaTeX document whose folder is `folder`, among this vault's.

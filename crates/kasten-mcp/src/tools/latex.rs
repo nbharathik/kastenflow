@@ -9,7 +9,7 @@
 //! (`latex_app.rs`).
 
 use kasten_core::agent::{AgentOp, Session};
-use kasten_core::latex::{LastBuild, LatexDoc};
+use kasten_core::latex::{self, LastBuild, LatexDoc};
 use kasten_core::{Error, Kasten, Result};
 use serde_json::{Value, json};
 
@@ -92,15 +92,49 @@ pub(crate) fn latex_read(k: &Kasten, a: LatexReadArgs) -> Result<Value> {
     let file = file_to_read(&doc, &a).unwrap_or_else(|| doc.main.clone());
     let (path, rel) = path_in(&doc, &file)?;
     let source = source_of(k, &doc, &path, &rel)?;
-    Ok(json!({
+    let total = latex::line_count(&source.text);
+    let mut out = json!({
         "doc": doc.folder,
         "file": rel,
         "path": source.path,
-        "text": source.text,
         "hash": source.hash,
         "locked": k.latex_is_locked(&doc),
         "files": k.latex_files(&doc)?,
-    }))
+        "total_lines": total,
+    });
+    match window(&a, total)? {
+        Some((from, to)) => {
+            out["excerpt"] = json!(latex::numbered_lines(&source.text, from, to));
+            out["shown_lines"] = json!(format!("{from}-{}", to.min(total)));
+            out["note"] = json!(
+                "Numbered lines. The numbers are not part of the file: copy only the text after the bar into latex_edit. The hash is of the whole file."
+            );
+        }
+        None => out["text"] = json!(source.text),
+    }
+    Ok(out)
+}
+
+/// The lines a read asks for, when it asks for some: `lines` ("40-80"), else
+/// 15 each side of `around_line`.
+fn window(a: &LatexReadArgs, total: usize) -> Result<Option<(usize, usize)>> {
+    let (from, to) = if let Some(spec) = a.lines.as_deref().filter(|s| !s.trim().is_empty()) {
+        latex::parse_line_range(spec).map_err(invalid)?
+    } else if let Some(line) = a.around_line {
+        let line = (line as usize).max(1);
+        (
+            line.saturating_sub(latex::EXCERPT_RADIUS).max(1),
+            line + latex::EXCERPT_RADIUS,
+        )
+    } else {
+        return Ok(None);
+    };
+    if from > total {
+        return Err(invalid(format!(
+            "The file has {total} lines, so there is nothing at {from}"
+        )));
+    }
+    Ok(Some((from, to)))
 }
 
 /// `text` with its one `search` put right; why not when it is not there once.
@@ -140,8 +174,19 @@ pub(crate) fn latex_edit(
             "{rel} changed since you read it, so nothing was written. Read it again with latex_read and redo the change"
         )));
     }
-    let text = replaced(&current.text, &rel, &a)?;
-    if text == current.text {
+    // A chat that asks first holds each edit as a proposal. A second edit of
+    // the same file is made on top of the first, so the newest proposal holds
+    // them all and a preview build sees every fix at once.
+    let staged = matches!(writes, Writes::Staged(_));
+    let basis = if staged {
+        k.latex_proposed(&doc.folder, &s.id)?
+            .remove(&rel)
+            .unwrap_or_else(|| current.text.clone())
+    } else {
+        current.text.clone()
+    };
+    let text = replaced(&basis, &rel, &a)?;
+    if text == basis {
         return Err(invalid(
             "replace is the same as search, so there is nothing to change",
         ));
@@ -154,6 +199,11 @@ pub(crate) fn latex_edit(
     };
     let mut out = agent_in(k, s, writes, |_| Ok(op))?;
     out["file"] = json!(rel);
+    if staged {
+        out["next"] = json!(
+            "The change waits for the user's review; the file is not changed yet. latex_build with wait set to true builds the text you proposed (not the saved files) and says how many errors it has."
+        );
+    }
     Ok(out)
 }
 
@@ -196,17 +246,41 @@ fn build_json(doc: &LatexDoc, last: &LastBuild) -> Result<Value> {
     Ok(out)
 }
 
+/// Adds the advice on the engine to a build's answer, when there is some.
+pub(super) fn with_advice(
+    k: &Kasten,
+    doc: &LatexDoc,
+    found: &[latex::Diagnostic],
+    out: &mut Value,
+) {
+    if let Some(advice) = k.latex_engine_advice(doc, found) {
+        out["engine_advice"] = json!(advice);
+    }
+}
+
 /// `session` is the caller's, when it has one: the app is told whose request it is.
 pub(crate) fn latex_build(
     k: &Kasten,
     session: Option<&Session>,
+    writes: Writes,
     a: LatexBuildArgs,
 ) -> Result<Value> {
     let doc = k.latex_find_doc(&a.doc)?;
     if a.wait == Some(true) {
-        let wait = super::latex_app::wait_for(a.timeout_seconds);
-        return super::latex_app::build_and_wait(k, session, &doc, wait);
+        // A document that was never built also makes the engine fetch its packages: it gets longer.
+        let first = !k.latex_last_build(&doc)?.built;
+        let wait = super::latex_app::wait_for_build(a.timeout_seconds, first);
+        // A chat that asks first has edits waiting that the saved files do not hold: build those.
+        let preview = match (writes, session) {
+            (Writes::Staged(_), Some(s)) => !k.latex_proposed(&doc.folder, &s.id)?.is_empty(),
+            _ => false,
+        };
+        return super::latex_app::build_and_wait(k, session, &doc, wait, preview);
     }
     let last = k.latex_last_build(&doc)?;
-    build_json(&doc, &last)
+    let mut out = build_json(&doc, &last)?;
+    if last.built {
+        with_advice(k, &doc, &last.diagnostics, &mut out);
+    }
+    Ok(out)
 }

@@ -24,6 +24,10 @@ export interface ViewActions {
   insertCitation?(): void;
   /** Starts a chat that fixes the errors of the last build in the open file. */
   fixWithAi?(): void;
+  /** Opens the inline AI panel (Ctrl/Cmd+K) at the caret. */
+  inlineAi?(): void;
+  /** Starts a chat that runs one of the LaTeX AI actions (draft a section, check references, …) on the open file. */
+  runAction?(slug: string): void;
 }
 
 let active: ViewActions | null = null;

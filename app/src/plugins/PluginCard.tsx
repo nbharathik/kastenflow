@@ -64,7 +64,7 @@ export function PluginCard({ data, catalog }: { data: CardData; catalog: readonl
       {status.kind === "downloading" && (
         <div className="kasten-plugin-more">
           <span className="kasten-plugin-track" role="progressbar" aria-label={`${name} download`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={status.percent ?? undefined}>
-            <span style={{ width: `${status.percent ?? 100}%` }} className={status.percent === null ? "is-unknown" : undefined} />
+            <span style={{ transform: `scaleX(${(status.percent ?? 100) / 100})` }} className={status.percent === null ? "is-unknown" : undefined} />
           </span>
           <span className="kasten-set-detail">{payload && payload.total > 0 ? `${megabytes(payload.done)} of ${megabytes(payload.total)}` : ""}</span>
           <Button size="sm" onClick={() => void store().cancel(id)}>

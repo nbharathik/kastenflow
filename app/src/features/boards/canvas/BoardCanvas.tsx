@@ -13,6 +13,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { useEffect, useState } from "react";
 
 import type { VaultClient } from "../../../lib/vault/types";
+import { Wait } from "../../../ui/Wait";
 import { useWorkspace } from "../../workspace/store";
 import { Canvas } from "./Canvas";
 import { BoardContext } from "./context";
@@ -80,6 +81,6 @@ export function BoardCanvas({ path, embedded = false }: { path: string; embedded
       </section>
     );
   }
-  if (!board) return <div className="grid h-full place-items-center text-13 text-muted">Opening the board…</div>;
+  if (!board) return <Wait view label="Opening the board" />;
   return <BoardView board={board} embedded={embedded} />;
 }

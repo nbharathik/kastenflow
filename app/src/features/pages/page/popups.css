@@ -2,7 +2,9 @@
 .kasten-popup {
   position: absolute;
   z-index: 40;
-  animation: kasten-enter var(--motion-fast) var(--ease-standard);
+  /* Grows out of its button (Popup.tsx sets the origin); fades out when taken away. */
+  transform-origin: top left;
+  animation: kasten-pop-in var(--motion-base) var(--ease-standard);
   border-radius: var(--radius-lg);
   background: var(--notion-menu-bg);
   box-shadow: var(--notion-shadow);
@@ -10,6 +12,10 @@
   font-family: var(--notion-font);
   font-size: var(--text-14);
   text-align: left;
+}
+
+.kasten-popup[data-state="closing"] {
+  animation: kasten-leave var(--motion-fast) var(--ease-standard) forwards;
 }
 
 .kasten-popup-bar {

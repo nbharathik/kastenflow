@@ -7,6 +7,7 @@ import "./recent.css";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
+import { useFlip } from "../../lib/flip";
 import { useShell } from "../../lib/store";
 import { useBoards } from "../boards/store";
 import { useDiagrams } from "../diagrams/store";
@@ -60,6 +61,8 @@ export function RecentList() {
 
   const counts = useMemo(() => (loading ? null : countTypes({ notes, boards, decks, diagrams, opened: [] })), [loading, notes, boards, decks, diagrams]);
   const picked = useMemo(() => pick({ notes, boards, decks, diagrams, opened }, { type, project, text }, ROWS), [notes, boards, decks, diagrams, opened, type, project, text]);
+  // Rows slide to their place when the list changes (a new page, a filter).
+  useFlip(list, picked.items);
   const everything = counts ? Object.values(counts).reduce((sum, n) => sum + n, 0) : 0;
 
   const set = usePrefs.getState().set;

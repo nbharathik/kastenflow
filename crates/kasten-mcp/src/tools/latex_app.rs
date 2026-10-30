@@ -23,6 +23,8 @@ use crate::params_latex::LatexExportPdfArgs;
 /// How long a build is waited for unless the caller says, and the most it may be.
 pub(crate) const DEFAULT_WAIT_SECS: u64 = 90;
 pub(crate) const MAX_WAIT_SECS: u64 = MAX_WAIT_MS / 1000;
+/// The wait for a document's first build, which fetches TeX packages.
+pub(crate) const FIRST_BUILD_WAIT_SECS: u64 = 240;
 /// The least a caller can ask to wait.
 const MIN_WAIT_SECS: u64 = 1;
 /// How long keeping a PDF is waited for: a build if one is needed, then the write.
@@ -54,11 +56,19 @@ fn answered(answer: Answer, timed_out: &str) -> Result<Value> {
 
 /// The time to wait a build: `seconds` or the default, within the limits.
 pub(crate) fn wait_for(seconds: Option<u64>) -> Duration {
-    Duration::from_secs(
-        seconds
-            .unwrap_or(DEFAULT_WAIT_SECS)
-            .clamp(MIN_WAIT_SECS, MAX_WAIT_SECS),
-    )
+    wait_for_build(seconds, false)
+}
+
+/// `wait_for`, for a build that may be the first: a document never built
+/// before also makes the engine fetch the TeX packages it needs, which takes
+/// minutes on a slow line, so it is waited for longer unless the caller says.
+pub(crate) fn wait_for_build(seconds: Option<u64>, first: bool) -> Duration {
+    let usual = if first {
+        FIRST_BUILD_WAIT_SECS
+    } else {
+        DEFAULT_WAIT_SECS
+    };
+    Duration::from_secs(seconds.unwrap_or(usual).clamp(MIN_WAIT_SECS, MAX_WAIT_SECS))
 }
 
 /// Asks the app to build `doc` now and waits up to `timeout` for the result.
@@ -69,6 +79,7 @@ pub(crate) fn build_and_wait(
     session: Option<&Session>,
     doc: &LatexDoc,
     timeout: Duration,
+    preview: bool,
 ) -> Result<Value> {
     let wait_ms = (timeout.as_millis() as u64)
         .saturating_sub(2_000)
@@ -76,6 +87,7 @@ pub(crate) fn build_and_wait(
     let call = Call::LatexBuild {
         doc: doc.folder.clone(),
         wait_ms,
+        preview,
     };
     let answer = mailbox_of(k)?.ask(&call, session, timeout)?;
     let mut out = answered(answer, BUILD_TIMED_OUT)?;
@@ -110,7 +122,7 @@ pub(crate) fn latex_export_pdf(
         }
         // A chat that previews its changes: the app builds, and keeping the PDF waits with the rest.
         Writes::Staged(_) => {
-            build_and_wait(k, Some(s), &doc, wait_for(None))?;
+            build_and_wait(k, Some(s), &doc, wait_for(None), false)?;
             let op = AgentOp::ExportLatexPdf {
                 doc: doc.folder.clone(),
                 reason: a.reason,

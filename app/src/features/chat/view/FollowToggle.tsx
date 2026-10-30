@@ -3,9 +3,9 @@
 
 import { Icon } from "../../../ui/Icon";
 import { useChat } from "../store";
-import { following, type Thread } from "../thread";
+import { following, type ComposerThread } from "../thread";
 
-export function FollowToggle({ thread }: { thread: Thread }) {
+export function FollowToggle({ thread }: { thread: ComposerThread }) {
   const follow = following(thread);
   return (
     <button

@@ -316,7 +316,10 @@
     font-size: var(--text-12);
     line-height: 1.4;
     pointer-events: none;
-    animation: kasten-fade var(--motion-fast) var(--ease-standard);
+    animation: kasten-pop-in var(--motion-base) var(--ease-standard);
+  }
+  .kasten-tip[data-state="closing"] {
+    animation: kasten-leave var(--motion-fast) var(--ease-standard) forwards;
   }
   .kasten-tip kbd {
     padding: 0 4px;
@@ -338,7 +341,11 @@
     justify-content: center;
     padding: 6vh 24px 24px;
     background: var(--color-scrim);
-    animation: kasten-fade var(--motion-fast) var(--ease-standard);
+    animation: kasten-fade var(--motion-base) var(--ease-standard);
+  }
+  /* Taken away: a copy fades out (lib/presence.ts), the panel with it. */
+  .ui-overlay[data-state="closing"] {
+    animation: kasten-leave var(--motion-base) var(--ease-standard) forwards;
   }
   /* The palette and pickers sit higher, where a search box belongs. */
   .ui-overlay.is-high {
@@ -378,7 +385,7 @@
     background: var(--color-canvas);
     box-shadow: var(--shadow-modal);
     outline: none;
-    animation: kasten-enter var(--motion-base) var(--ease-standard);
+    animation: kasten-rise var(--motion-slow) var(--ease-standard);
   }
 }
 

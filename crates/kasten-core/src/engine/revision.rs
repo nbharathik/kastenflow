@@ -122,6 +122,9 @@ impl Kasten {
 
     /// Tells the listener, if there is one.
     pub(super) fn announce(&self, revision: Revision) {
+        // Typing waiting for its commit, a commit waiting for its push, a
+        // tidy index: the workers look again.
+        self.wake_workers();
         if let Some(listener) = self.listener.get() {
             listener(revision);
         }

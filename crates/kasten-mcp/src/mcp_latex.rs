@@ -22,7 +22,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Reads a LaTeX source file of a document (its root file when you give no file), with its hash, and lists the document's other source files. Send the hash back as base_hash when you change the file with latex_edit.",
+        description = "Reads a LaTeX source file of a document (its root file when you give no file), with its hash, and lists the document's other source files. Send the hash back as base_hash when you change the file with latex_edit. For a long file give around_line or lines (\"40-80\") to get numbered lines only.",
         annotations(read_only_hint = true)
     )]
     async fn latex_read(&self, Parameters(a): Parameters<LatexReadArgs>) -> CallToolResult {
@@ -43,7 +43,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "What the last build of a document said: its errors and warnings, each with the file and line. By default this only reads the last build (it says when a file changed after it). With wait set to true the app builds the document now and this gives the result: errors and warnings with file and line, the page count, the PDF's size and how long it took. Building needs the KastenFlow app open: you are told if it is closed or the build did not finish in time (timeout_seconds, 90 if left out, at most 300). To fix errors, change files with latex_edit and build again.",
+        description = "What the last build of a document said: its errors and warnings, each with the file and line. By default this only reads the last build (it says when a file changed after it). With wait set to true the app builds the document now and this gives the result: errors and warnings with file and line, the page count, the PDF's size and how long it took. Building needs the KastenFlow app open: you are told if it is closed or the build did not finish in time (timeout_seconds, 90 if left out, 240 for a first build, at most 300). To fix errors, change files with latex_edit and build again.",
         annotations(read_only_hint = true)
     )]
     async fn latex_build(
@@ -52,7 +52,7 @@ impl KastenServer {
         Parameters(a): Parameters<LatexBuildArgs>,
     ) -> CallToolResult {
         let session = self.peek_session(&context);
-        self.run(move |k| tools::latex_build(k, session.as_ref(), a))
+        self.run(move |k| tools::latex_build(k, session.as_ref(), tools::Writes::Direct, a))
             .await
     }
 }

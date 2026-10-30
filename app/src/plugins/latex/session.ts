@@ -8,6 +8,7 @@
 // that has not reached the disk yet, so it never waits for a save. Auto-build:
 // a build is asked for a moment after typing stops (the delay is a setting).
 
+import { said } from "../../lib/said";
 import { Autosaver } from "./autosave";
 import { buildErrorOf, type LatexBackend, sentence } from "./backend";
 import { type BuildState, IDLE, reduce } from "./build-state";
@@ -79,6 +80,7 @@ export class Session {
         if (this.gone) stop();
         else this.stop = stop;
       })
+      // The same backend answers `files` just below, whose failure is reported; this one has nothing more to add.
       .catch(() => {});
     try {
       this.files = await this.backend.files(this.doc.folder);
@@ -197,7 +199,7 @@ export class Session {
 
   /** Stops the build that runs or waits. */
   cancel(): void {
-    void this.backend.cancel(this.doc.folder).catch(() => {});
+    void this.backend.cancel(this.doc.folder).catch(said("Could not stop the build"));
   }
 
   /** Uses the person's own TeX installation (or any engine) for this document, then builds. */

@@ -7,7 +7,7 @@ import { useShell } from "../../lib/store";
 import type { NoteMeta } from "../../lib/vault/types";
 import { DEFAULT_KEYS } from "../shortcuts/keymap";
 import { COMMANDS } from "../workspace/overlays/commands";
-import { askAboutPage } from "./actions";
+import { askAboutPage } from "./ask-page";
 import { useChat } from "./store";
 import { resetChat, scriptedChat } from "./test-kit";
 
@@ -19,8 +19,8 @@ beforeEach(() => {
 });
 
 describe("asking AI about a page", () => {
-  it("starts a chat in the dock with the page attached", () => {
-    askAboutPage(PAGE);
+  it("starts a chat in the dock with the page attached", async () => {
+    await askAboutPage(PAGE);
     expect(useShell.getState().chatOpen).toBe(true);
     const { active, threads } = useChat.getState();
     expect(threads[active!]!.context.map((chip) => chip.ref)).toEqual([["library/trip.md"]]);

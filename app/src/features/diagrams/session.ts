@@ -195,6 +195,7 @@ export class DrawioSession {
     this.inflight += 1;
     const guarded = () => step().finally(() => void (this.inflight -= 1));
     const next = this.chain.then(guarded, guarded);
+    // The chain only keeps order; each step's own failure is reported by the step.
     this.chain = next.catch(() => {});
     return next;
   }
@@ -312,6 +313,7 @@ export class DrawioSession {
         this.o.post(action);
       });
     const next = this.exports.then(run, run);
+    // The queue only keeps order; each export's own failure is reported by it.
     this.exports = next.catch(() => {});
     return next;
   }

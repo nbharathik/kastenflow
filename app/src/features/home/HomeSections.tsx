@@ -5,8 +5,8 @@
 
 import { lazy, Suspense } from "react";
 
-import { DashCard } from "../dashboard/DashCard";
 import { CardBoundary } from "./CardBoundary";
+import { CardPlace } from "./CardPlace";
 import { Favourites } from "./Favourites";
 import { PageDirectory } from "./PageDirectory";
 import { ProjectTiles } from "./ProjectTiles";
@@ -19,18 +19,6 @@ const ExtraCard = lazy(() => import("./ExtraCards").then((m) => ({ default: m.Ex
 const AgentsToday = lazy(() => import("./AgentsToday").then((m) => ({ default: m.AgentsToday })));
 /** Apart from the others: their pictures bring the Slides package with them. */
 const ThumbCard = lazy(() => import("./ThumbCards").then((m) => ({ default: m.ThumbCard })));
-
-/** Today's place while its code loads: the same card, so nothing moves when it arrives. */
-function TodayPlace() {
-  return (
-    <DashCard title="Today" icon="calendar">
-      <div className="kasten-todo-skeleton" aria-hidden="true">
-        <span className="kasten-todo-bone" />
-        <span className="kasten-todo-bone" />
-      </div>
-    </DashCard>
-  );
-}
 
 /** `withToday`: Today is on, so the to-dos leave out what is due today. */
 export function HomeSectionView({ id, withToday = false }: { id: HomeSection; withToday?: boolean }) {
@@ -46,7 +34,7 @@ export function HomeSectionView({ id, withToday = false }: { id: HomeSection; wi
     case "schedule":
       return (
         <CardBoundary name="Today">
-          <Suspense fallback={<TodayPlace />}>
+          <Suspense fallback={<CardPlace id="schedule" />}>
             <Schedule />
           </Suspense>
         </CardBoundary>
@@ -59,7 +47,7 @@ export function HomeSectionView({ id, withToday = false }: { id: HomeSection; wi
     case "journal":
       return (
         <CardBoundary name={HOME_SECTIONS.find((d) => d.id === id)!.label}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<CardPlace id={id} />}>
             <ExtraCard id={id} />
           </Suspense>
         </CardBoundary>
@@ -67,7 +55,7 @@ export function HomeSectionView({ id, withToday = false }: { id: HomeSection; wi
     case "agents":
       return (
         <CardBoundary name="Agents today">
-          <Suspense fallback={null}>
+          <Suspense fallback={<CardPlace id="agents" />}>
             <AgentsToday />
           </Suspense>
         </CardBoundary>
@@ -76,7 +64,7 @@ export function HomeSectionView({ id, withToday = false }: { id: HomeSection; wi
     case "decks":
       return (
         <CardBoundary name={HOME_SECTIONS.find((d) => d.id === id)!.label}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<CardPlace id={id} />}>
             <ThumbCard id={id} />
           </Suspense>
         </CardBoundary>

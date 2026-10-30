@@ -10,7 +10,7 @@
   max-height: 70vh;
   overflow: hidden;
   border-radius: var(--radius-2xl);
-  animation: kasten-enter var(--motion-base) var(--ease-standard);
+  animation: kasten-rise var(--motion-slow) var(--ease-standard);
   background: var(--notion-menu-bg);
   box-shadow: var(--shadow-modal);
   color: var(--notion-text);
@@ -97,6 +97,16 @@
   font-size: var(--text-12);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The row the arrow keys are on shows all of a long title, wrapped (a hover tooltip is no help to the keyboard). */
+.kasten-palette-row[aria-selected="true"] :is(.kasten-palette-label, .kasten-palette-detail) {
+  display: -webkit-box;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
 }
 
 .kasten-palette-foot {

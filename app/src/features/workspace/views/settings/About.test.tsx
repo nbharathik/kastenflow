@@ -29,6 +29,13 @@ describe("Settings: About", () => {
     vi.unstubAllEnvs();
   });
 
+  it("shows how long this start took, from the page's marks", () => {
+    performance.mark("kasten:listed");
+    render(<About />);
+    expect(screen.getByText(/Startup: \d+ ms/)).toBeTruthy();
+    performance.clearMarks();
+  });
+
   it("says so when a build has none", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<!doctype html>", { status: 200 })));
     render(<About />);

@@ -103,6 +103,8 @@ export const COMMANDS: Command[] = [
   { id: "export-project", label: "Export a project…", words: "bundle share copy folder send give project export backup package", run: () => exportCurrentProject() },
   { id: "chat-dock", label: "Chat about the pages open", words: "ai ask assistant chat dock side panel claude message box focus", run: () => chatShortcut() },
   { id: "chat-add-selection", label: "Add selection to chat", words: "ai snippet quote context selected text keep ask", run: () => void import("../../chat/selection/add").then((m) => m.addSelectionToChat()) },
+  { id: "chat-copy-answer", label: "Copy the last chat answer", words: "ai assistant reply copy clipboard response", run: () => void import("../../chat/keys").then((m) => m.copyShownAnswer()) },
+  { id: "chat-focus", label: "Go to the chat message box", words: "ai assistant type write message focus cursor", run: () => void import("../../chat/keys").then((m) => m.focusComposer()) },
   { id: "running-chats", label: "Show running chats", words: "agents working background paused progress chats busy", run: () => useRunningChats.getState().show(true) },
   { id: "chat", label: "Go to Chat", words: "ai assistant ask claude model llm conversation", run: () => workspace().go({ view: "chat" }) },
   { id: "trash", label: "Go to Trash", words: "deleted restore", run: () => workspace().go({ view: "trash" }) },
@@ -258,6 +260,13 @@ export const EDITOR_SHORTCUTS: { title: string; rows: [string, string][] }[] = [
       ["---", "Divider"],
       ["```", "Code block"],
       ["-> <- =>", "→ ← ⇒"],
+    ],
+  },
+  {
+    title: "Chat",
+    rows: [
+      ["Esc", "Stop the running answer (message box empty or not in use)"],
+      ["↑ (empty message box)", "Change your last question"],
     ],
   },
 ];

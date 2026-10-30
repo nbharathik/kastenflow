@@ -39,6 +39,15 @@
   line-height: 1.65;
 }
 
+/* A finished answer that is not the newest draws only while it is near the
+   view, so a long thread costs what is in front of you. `auto` in the size
+   keeps the height it had once drawn. The newest and the one streaming are
+   always drawn: the list keeps to the bottom by their height. */
+.kasten-chat-log > .kasten-chat-answer[aria-busy="false"]:not(:last-child) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
+
 .kasten-chat-thinking {
   margin: 0;
   color: var(--notion-text-3);

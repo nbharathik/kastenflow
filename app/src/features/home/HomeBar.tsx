@@ -1,6 +1,7 @@
 // The top of Home, on one line: the greeting and the date, the capture field,
 // "+ New" and Customize.
 
+import { useNow, useToday } from "../../lib/use-today";
 import { Customize } from "../dashboard/Customize";
 import { sameList } from "../dashboard/sections";
 import { usePrefs } from "../workspace/prefs";
@@ -15,14 +16,18 @@ export function greeting(hour = new Date().getHours()): string {
   return "Good evening";
 }
 
-const today = () => new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+const dateLine = (now: Date) => now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 
 export function HomeBar({ sections }: { sections: readonly HomeSection[] }) {
+  // The clock moves the greeting on (morning to afternoon) and the day rolls at midnight.
+  useNow(60_000);
+  useToday();
+  const now = new Date();
   return (
     <header className="kasten-home-bar">
       <div className="kasten-home-hello">
-        <h1>{greeting()}</h1>
-        <p>{today()}</p>
+        <h1>{greeting(now.getHours())}</h1>
+        <p>{dateLine(now)}</p>
       </div>
       <CaptureBar />
       <div className="kasten-home-actions">

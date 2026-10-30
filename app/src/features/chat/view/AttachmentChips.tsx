@@ -13,7 +13,7 @@ import { useAttachments, type Attached } from "../attach-store";
 import { capabilitiesOf, pictures } from "../capabilities";
 import { modelFor } from "../prefs";
 import { useChat } from "../store";
-import type { Thread } from "../thread";
+import type { ComposerThread } from "../thread";
 import { AttachmentViewer } from "./AttachmentViewer";
 
 type Sight = "reads" | "unsure" | "blind";
@@ -22,7 +22,7 @@ type Sight = "reads" | "unsure" | "blind";
 export const INSERT_TEXT = "kasten:chat-insert-text";
 
 /** Whether the thread's model can see pictures; it reads them when that is not known to be otherwise. */
-function useSight(thread: Thread): Sight {
+function useSight(thread: ComposerThread): Sight {
   const providers = useChat((s) => s.providers);
   const choice = modelFor(thread, providers);
   const provider = choice?.provider;
@@ -50,7 +50,7 @@ function insertAsText(thread: string, key: string): void {
   if (text !== null) window.dispatchEvent(new CustomEvent<{ thread: string; text: string }>(INSERT_TEXT, { detail: { thread, text } }));
 }
 
-export function AttachmentChips({ thread }: { thread: Thread }) {
+export function AttachmentChips({ thread }: { thread: ComposerThread }) {
   const items = useAttachments((s) => s.byThread[thread.id]);
   const sight = useSight(thread);
   const [looking, setLooking] = useState<string | null>(null);
@@ -110,7 +110,7 @@ export function AttachmentChips({ thread }: { thread: Thread }) {
   );
 }
 
-function Chip({ item, thread, warn, open, onLook }: { item: Attached; thread: Thread; warn: string | null; open: boolean; onLook(button: HTMLButtonElement): void }) {
+function Chip({ item, thread, warn, open, onLook }: { item: Attached; thread: ComposerThread; warn: string | null; open: boolean; onLook(button: HTMLButtonElement): void }) {
   const ready = item.state === "ready";
   return (
     <span

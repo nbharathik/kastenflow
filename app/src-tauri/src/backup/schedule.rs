@@ -56,6 +56,17 @@ pub fn file_if_due(kasten: &Kasten, settings_dir: &Path) -> Option<Result<Backup
     )
 }
 
+/// How long until the daily backup file may be due, so the backup thread
+/// can sleep that long; None when only a change can make one due: no folder
+/// is set for this vault (setting one wakes the thread), or the engine has
+/// nothing new to write.
+pub fn file_wait(kasten: &Kasten, settings_dir: &Path) -> Option<Duration> {
+    super::backup_folder(&AppSettings::load(settings_dir), kasten)?;
+    kasten
+        .backup_file_wait(Instant::now().millis)
+        .map(Duration::from_millis)
+}
+
 /// One last push as Kasten closes, when the backup lacks something and no
 /// push failed lately; closing waits for it eight seconds at most.
 pub fn final_backup(kasten: &Arc<Kasten>) {

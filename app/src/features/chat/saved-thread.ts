@@ -9,6 +9,7 @@ import type { LoadedThread, Paused, PlanItem, RunStatus } from "./agent-types";
 import { readSettings } from "./settings";
 import { newId, newThread, type Answer, type AnswerStatus, type Chip, type Message, type Part, type SentAttachment, type Thread } from "./thread";
 import { pauseDetail, planOf } from "./thread-events";
+import { readForks, type Branch, type Fork } from "./thread-versions";
 import type { ChipKind, ContextChip, FailKind, SelectionPayload, SelectionSource } from "./types";
 
 /** The most a blob may be: `chat_save_ui` refuses more than 5 MB. */
@@ -26,6 +27,7 @@ export interface SavedThread {
   title?: string;
   follow?: boolean;
   direct?: boolean;
+  auto?: boolean;
   allowImages?: boolean;
   settings?: Thread["settings"];
   context: Chip[];
@@ -37,6 +39,8 @@ export interface SavedThread {
   plan?: PlanItem[];
   queued?: string[];
   pause?: Paused;
+  /** Earlier versions of the conversation (thread-versions.ts). */
+  forks?: Fork[];
   /** The highest event number taken in: `chat_load` gives it back, so only the events after it are replayed. */
   seq?: number;
 }
@@ -51,6 +55,9 @@ const clean = (message: Message): Message => {
   return { ...message, attachments: message.attachments.map(({ thumb: _thumb, ...rest }) => rest) };
 };
 
+const cleanBranch = (branch: Branch): Branch => ({ messages: branch.messages.map(clean), forks: branch.forks.map(cleanFork) });
+const cleanFork = (fork: Fork): Fork => ({ ...fork, versions: fork.versions.map((v) => (v ? cleanBranch(v) : v)) });
+
 /** What of `thread` is kept: everything but what is only of this moment (it works, it is stopping, the step it is on). */
 export function savedOf(thread: Thread): SavedThread {
   return {
@@ -62,6 +69,7 @@ export function savedOf(thread: Thread): SavedThread {
     ...(thread.title !== undefined ? { title: thread.title } : {}),
     ...(thread.follow !== undefined ? { follow: thread.follow } : {}),
     ...(thread.direct !== undefined ? { direct: thread.direct } : {}),
+    ...(thread.auto !== undefined ? { auto: thread.auto } : {}),
     ...(thread.allowImages !== undefined ? { allowImages: thread.allowImages } : {}),
     ...(thread.settings ? { settings: thread.settings } : {}),
     context: thread.context,
@@ -73,6 +81,7 @@ export function savedOf(thread: Thread): SavedThread {
     ...(thread.plan ? { plan: thread.plan } : {}),
     ...(thread.queued ? { queued: thread.queued } : {}),
     ...(thread.pause ? { pause: thread.pause } : {}),
+    ...(thread.forks?.length ? { forks: thread.forks.map(cleanFork) } : {}),
     ...(thread.seq !== undefined ? { seq: thread.seq } : {}),
   };
 }
@@ -82,9 +91,15 @@ const withoutInputs = (messages: Message[]): Message[] =>
 
 /** `savedOf(thread)`, held under the limit: the inputs of tool calls go first, then the oldest messages. */
 export function blobOf(thread: Thread): SavedThread {
-  const saved = savedOf(thread);
+  let saved = savedOf(thread);
   const size = (value: unknown) => JSON.stringify(value).length;
   if (size(saved) <= SAVE_LIMIT) return saved;
+  // The older versions go first: the conversation on screen matters more.
+  if (saved.forks) {
+    const { forks: _forks, ...rest } = saved;
+    saved = rest;
+    if (size(saved) <= SAVE_LIMIT) return saved;
+  }
   const messages = withoutInputs(saved.messages);
   const lengths = messages.map(size);
   let total = size({ ...saved, messages: [] }) + lengths.reduce((a, b) => a + b + 1, 0);
@@ -182,6 +197,7 @@ function readMessage(raw: unknown): Message | null {
       pinned: text(m["pinned"]) ?? null,
       ...(kind ? { errorKind: kind } : {}),
       ...(text(m["notice"]) ? { notice: text(m["notice"])! } : {}),
+      ...(typeof m["startedAt"] === "number" ? { startedAt: m["startedAt"] } : {}),
     };
     return answer;
   }
@@ -231,12 +247,15 @@ export function restore(id: string, loaded: LoadedThread): Thread {
   if (text(saved["title"])?.trim()) thread.title = text(saved["title"])!;
   if (typeof saved["follow"] === "boolean") thread.follow = saved["follow"];
   if (typeof saved["direct"] === "boolean") thread.direct = saved["direct"];
+  if (typeof saved["auto"] === "boolean") thread.auto = saved["auto"];
   if (typeof saved["allowImages"] === "boolean") thread.allowImages = saved["allowImages"];
   if (Object.keys(settings).length) thread.settings = settings;
   if (typeof changes["id"] === "string" && typeof changes["count"] === "number" && changes["count"] > 0) {
     thread.changes = { id: changes["id"], count: changes["count"], paths: list(changes["paths"]).filter((p): p is string => typeof p === "string") };
   }
   if (plan.length) thread.plan = plan;
+  const forks = readForks(saved["forks"], readMessage);
+  if (forks.length) thread.forks = forks;
   if (waiting.length) thread.queued = waiting;
   if (pause && !running) thread.pause = pause;
   return thread;

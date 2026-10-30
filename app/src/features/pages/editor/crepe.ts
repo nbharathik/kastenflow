@@ -42,6 +42,7 @@ import { setLocationCopier } from "./menus/location-link";
 import { mentionMenu } from "./menus/mention";
 import { placeholder } from "./menus/placeholder";
 import { fileLinks } from "./file-links";
+import { pasteBig } from "./paste-big";
 import { pasteFiles } from "./paste-files";
 import { pasteLink } from "./paste-link";
 import { templatePickerCtx } from "./template-pick";
@@ -146,6 +147,7 @@ export async function createKastenCrepe(root: HTMLElement, options: KastenCrepeO
     .use(aiPlugin)
     .use(imageBlock)
     .use(pasteFiles)
+    .use(pasteBig)
     .use(pasteLink)
     .use(fileLinks)
     .use([remarkWikiLink, wikiLinkSchema, wikiLinkView, aloneLinks].flat())

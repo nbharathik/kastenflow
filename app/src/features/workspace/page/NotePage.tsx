@@ -7,8 +7,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 
 import { useShell } from "../../../lib/store";
 import type { VaultClient } from "../../../lib/vault/types";
+import { Wait } from "../../../ui/Wait";
 import { isCaptured } from "../../annotations/captured";
-import { HighlightBar } from "../../annotations/HighlightBar";
 import { useHighlighter } from "../../annotations/highlight-actions";
 import { useTextHighlights } from "../../annotations/use-text-highlights";
 import { CommentsColumn } from "../../pages/comments/CommentsColumn";
@@ -85,7 +85,7 @@ export function NotePage({
 }) {
   const { loaded, error, conflict, dismissConflict, session, reload } = useNoteSession(client, path);
   if (error) return <p className="kasten-note-message">This page could not be opened: {error}</p>;
-  if (!loaded || !session.current) return <p className="kasten-note-message">Opening…</p>;
+  if (!loaded || !session.current) return <Wait view label="Opening the page" />;
   return (
     <LoadedPage
       key={loaded.version}
@@ -196,11 +196,11 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
   const shownHeader = journal ? { ...header, title: titleOf(live) } : header;
 
   // The app has not said yet whether smart pages run: a moment, not a flash of the wrong side.
-  if (smartOn && desktop && !run.known) return <p className="kasten-note-message">Opening…</p>;
+  if (smartOn && desktop && !run.known) return <Wait view label="Opening the page" />;
   if (smartOn && !smartOff && side !== "notes") {
     return (
       <div ref={frame} className={`kasten-page is-smart-view${layout.width === "full" ? " is-full-width" : ""}`} style={style}>
-        <Suspense fallback={<p className="kasten-note-message">Opening…</p>}>
+        <Suspense fallback={<Wait view label="Opening the page" />}>
           <SmartPage pagePath={session.path} pageId={live.id ?? ""} title={titleOf(live)} side={side} onSide={setSide} />
         </Suspense>
       </div>
@@ -249,7 +249,6 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
           {!compact && <PageFooter note={live} notes={notes} client={client} />}
         </div>
       </div>
-      {captured && <HighlightBar model={highlights} editor={editor} ready={editorReady} root={bodyRoot} />}
       {smart && !compact && !headless && !peek && <CommentsColumn client={client} path={session.path} editor={editor} ready={editorReady} body={body} />}
       {panelOpen && !compact && !peek && (
         <RightPanel note={live} body={body} root={bodyRoot} client={client} session={session} onReload={onReload} editor={editor} ready={editorReady} highlights={captured ? highlights : undefined} />

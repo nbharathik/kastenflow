@@ -51,6 +51,7 @@ describe("the page menu's structure", () => {
       "  Fold all sections",
       "  Unfold all sections",
       "  Mind map from this page",
+      "  Tint what agents wrote",
       "> Present & export",
       "  Present this page",
       "  Turn sections into a deck",

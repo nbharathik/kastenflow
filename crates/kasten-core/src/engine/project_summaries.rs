@@ -15,9 +15,10 @@ use super::projects::{HEALTHS, STATUSES};
 use crate::error::{Error, Result};
 use crate::index::{Counts, ProjectRows};
 
-/// The index's answer for one day, with the index state it was read at.
+/// The index's answer for one day, with the version of the index file it was
+/// read at (it moves when another program changes the file).
 pub(super) struct KeptRows {
-    stamp: (i64, i128),
+    version: i64,
     today: String,
     rows: Arc<ProjectRows>,
 }
@@ -262,27 +263,46 @@ impl Kasten {
         Ok(out)
     }
 
-    /// The index's rows for `today`, read once and kept until the index
-    /// changes (by this engine or by another program with the same index
-    /// open) or the day does: ten thousand notes are most of what the
-    /// summaries cost, and a hub asks again every time something changes
-    /// that is not a note.
+    /// The index's rows for `today`, read once and kept. After a change made
+    /// through this engine, only the projects whose notes changed are read
+    /// again and put in place of their old rows; everything is read again when
+    /// the day changes, when another program changed the index file (the app
+    /// and the MCP server share one) or when the index was rebuilt. Ten
+    /// thousand notes are most of what the summaries cost, and a hub asks
+    /// again every time something changes.
     fn kept_project_rows(&self, today: &str) -> Result<Arc<ProjectRows>> {
-        let index = self.index();
-        let stamp = index.stamp();
+        let mut index = self.index();
+        let version = index.data_version();
         let mut kept = self
             .kept_project_rows
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        if let Some(found) = kept
+        let touched = index.take_touched();
+        let current = kept
             .as_ref()
-            .filter(|found| found.stamp == stamp && found.today == today)
-        {
-            return Ok(Arc::clone(&found.rows));
-        }
-        let rows = Arc::new(index.project_rows(today)?);
+            .filter(|found| found.version == version && found.today == today);
+        let rows = match current {
+            Some(found) if touched.is_empty() => return Ok(Arc::clone(&found.rows)),
+            Some(found) if !touched.all => {
+                let fresh = index.project_rows_for(today, &touched.projects);
+                match fresh {
+                    Ok(fresh) => Arc::new(found.rows.with_projects(&touched.projects, fresh)),
+                    Err(err) => {
+                        index.restore_touched(touched);
+                        return Err(err);
+                    }
+                }
+            }
+            _ => match index.project_rows(today) {
+                Ok(rows) => Arc::new(rows),
+                Err(err) => {
+                    index.restore_touched(touched);
+                    return Err(err);
+                }
+            },
+        };
         *kept = Some(KeptRows {
-            stamp,
+            version,
             today: today.to_owned(),
             rows: Arc::clone(&rows),
         });

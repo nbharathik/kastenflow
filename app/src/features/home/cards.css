@@ -1,0 +1,210 @@
+/* Home's cards with a full day in them: Today's groups, the agents' strip and
+   list, the folds that open in place and the places that hold a card's size.
+   Only opacity moves, and the fold's height; every length is a motion token. */
+
+/* A part of a card that opens in place: the row height runs 0fr to 1fr. */
+.kasten-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--motion-base) var(--ease-standard);
+}
+.kasten-fold[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.kasten-fold-inner {
+  min-height: 0;
+  overflow: clip;
+  overflow-clip-margin: 2px;
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-standard);
+}
+.kasten-fold[data-open="true"] > .kasten-fold-inner {
+  opacity: 1;
+}
+
+/* Today */
+.kasten-today {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kasten-today-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kasten-today-chip {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-well);
+  font-size: var(--text-12);
+}
+.kasten-today-chip:hover {
+  background: var(--color-hover);
+}
+.kasten-today-chip-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-today-chip-note {
+  flex: none;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+/* The whole title when the chip has focus, as a tooltip is only for the mouse. */
+.kasten-today-chip:focus-visible {
+  padding-block: 3px;
+}
+.kasten-today-chip:focus-visible .kasten-today-chip-title {
+  overflow: visible;
+  white-space: normal;
+}
+
+.kasten-today-group h4 {
+  padding: 2px 0;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  font-weight: 500;
+}
+.kasten-today-earlier {
+  display: block;
+  padding: 2px 0;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+}
+.kasten-today-earlier:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+.kasten-now-line {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--color-accent);
+  opacity: 0.6;
+}
+.kasten-next-cap {
+  display: block;
+  padding: 2px 4px 0;
+  color: var(--color-accent);
+  font-size: var(--text-12);
+  font-weight: 500;
+}
+.kasten-today-event.is-next > .kasten-dash-row {
+  background: var(--color-soft);
+}
+.kasten-today-event.is-past .kasten-dash-row {
+  color: var(--color-muted);
+}
+.kasten-today-note {
+  flex: none;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  white-space: nowrap;
+}
+.kasten-today-note.is-overlap {
+  color: var(--color-ink);
+}
+/* Full title on focus: the row grows to hold it. */
+.kasten-home .kasten-today .kasten-dash-row:focus-visible {
+  height: auto;
+  min-height: 28px;
+  padding-block: 4px;
+}
+.kasten-home .kasten-today .kasten-dash-row:focus-visible .kasten-dash-row-title {
+  overflow: visible;
+  white-space: normal;
+}
+.kasten-home-side .kasten-todo:focus-within {
+  height: auto;
+  min-height: 28px;
+}
+.kasten-home-side .kasten-todo:focus-within .kasten-todo-text {
+  overflow: visible;
+  white-space: normal;
+}
+.kasten-home .kasten-dash-row:focus-visible .kasten-dash-row-title {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* Agents: the strip under the top line, the totals, the one-line sessions. */
+.kasten-agent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  line-height: 20px;
+}
+.kasten-agent-summary {
+  padding: 2px 0 6px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+.kasten-agent-oneline {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+.kasten-agent-oneline-text {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kasten-agent-oneline:focus-visible .kasten-agent-oneline-text {
+  overflow: visible;
+  white-space: normal;
+}
+.kasten-agent-row:focus-within .kasten-agent-notes {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* A card's place while it loads: the lines appear only after a second. */
+.kasten-card-place .kasten-todo-bone {
+  transition: opacity var(--motion-slow) var(--ease-standard);
+}
+.kasten-card-place[data-late="false"] .kasten-todo-bone {
+  opacity: 0;
+}
+.kasten-card-place {
+  min-height: 56px;
+}
+
+/* A narrow pane: Today and the agents come above the list, not below it. */
+@container kasten-home (max-width: 700px) {
+  .kasten-home .kasten-home-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .kasten-home .kasten-home-main,
+  .kasten-home .kasten-home-side {
+    display: contents;
+  }
+  .kasten-home-cell[data-section="favourites"],
+  .kasten-home-cell[data-section="projects"] {
+    order: -3;
+  }
+  .kasten-home-cell[data-section="schedule"],
+  .kasten-home-cell[data-section="agents"] {
+    order: -2;
+  }
+}

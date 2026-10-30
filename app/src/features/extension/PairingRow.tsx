@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { relativeTime } from "../../lib/dates";
+import { useInterval } from "../../lib/use-interval";
 import { Button } from "../../ui/Button";
 import { Block, Row } from "../workspace/views/settings/parts";
 import { secondsLeft, useExtension } from "./store";
@@ -22,15 +23,9 @@ export function PairingRow({ pollMs }: { pollMs: number }) {
   const [now, setNow] = useState(() => Date.now());
   const left = secondsLeft(status, at, now);
 
-  useEffect(() => {
-    if (!waiting) return undefined;
-    const tick = setInterval(() => setNow(Date.now()), 500);
-    const poll = setInterval(() => void useExtension.getState().refresh(), pollMs);
-    return () => {
-      clearInterval(tick);
-      clearInterval(poll);
-    };
-  }, [waiting !== null, pollMs]);
+  // Only while a code is shown and the window is in view.
+  useInterval(() => setNow(Date.now()), 500, waiting !== null);
+  useInterval(() => void useExtension.getState().refresh(), pollMs, waiting !== null);
 
   // The time ran out here: ask the app, which has forgotten the code too.
   useEffect(() => {

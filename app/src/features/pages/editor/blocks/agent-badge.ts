@@ -4,6 +4,7 @@
 // first, in place.
 
 import { relativeTime } from "../../../../lib/dates";
+import { said } from "../../../../lib/said";
 import type { AgentMark } from "../../../../lib/vault/types";
 import { el, withGlyph } from "../ui/dom";
 import type { AgentActions } from "./agent-marks";
@@ -29,7 +30,11 @@ function align(anchor: HTMLElement): void {
   const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.5 || 24;
   const shown = anchor.getClientRects().length > 0 && block.getClientRects().length > 0;
   const offset = shown ? line.getBoundingClientRect().top - anchor.getBoundingClientRect().top : Number.parseFloat(getComputedStyle(block).marginTop) || 0;
-  badge.style.top = `${Math.max(0, offset + (Number.parseFloat(style.paddingTop) || 0) + (lineHeight - BADGE_HEIGHT) / 2)}px`;
+  const top = Math.max(0, offset + (Number.parseFloat(style.paddingTop) || 0) + (lineHeight - BADGE_HEIGHT) / 2);
+  badge.style.top = `${top}px`;
+  // Keep and Undo sit just under the badge.
+  const quick = anchor.querySelector<HTMLElement>(".kasten-agent-quick");
+  if (quick) quick.style.top = `${top + BADGE_HEIGHT + 2}px`;
   if (!shown) return;
   let edge = anchor.parentElement;
   while (edge && getComputedStyle(edge).overflowX === "visible") edge = edge.parentElement;
@@ -82,7 +87,18 @@ export function agentBadge(mark: AgentMark, actions: () => AgentActions): HTMLEl
     current?.close();
     if (!wasOpen) current = new Card(badge, mark, actions);
   });
-  anchor.append(badge);
+  // Keep and Undo for the writing, shown on hover and focus when the page's tint is on (agent.css).
+  const quick = el("span", "kasten-agent-quick");
+  const keep = el("button", "", { type: "button", textContent: "Keep", title: "Keep the agent's writing on this page as it stands" });
+  keep.addEventListener("click", () => void actions().accept().catch(said("Could not keep the agent's writing")));
+  const undo = el("button", "", { type: "button", textContent: "Undo", title: "Undo what this agent session changed (asks first)" });
+  undo.addEventListener("click", () => {
+    current?.close();
+    current = new Card(badge, mark, actions, { kind: "confirm" });
+  });
+  for (const button of [keep, undo]) button.addEventListener("mousedown", (event) => event.preventDefault());
+  quick.append(keep, undo);
+  anchor.append(badge, quick);
   // Measured once the editor has put it in the page.
   requestAnimationFrame(() => align(anchor));
   if (!edges && !listening) {
@@ -103,6 +119,7 @@ class Card {
     readonly badge: HTMLElement,
     private readonly mark: AgentMark,
     private readonly actions: () => AgentActions,
+    first: Stage = { kind: "ask" },
   ) {
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-label", `Written by ${mark.client}`);
@@ -114,8 +131,10 @@ class Card {
     );
     this.el.append(head, this.text, this.buttons);
     document.body.append(this.el);
-    this.show({ kind: "ask" });
-    this.buttons.querySelector("button")?.focus();
+    this.show(first);
+    // Asked to confirm an undo, focus starts on Cancel, not on the undo.
+    const choices = this.buttons.querySelectorAll("button");
+    (first.kind === "confirm" ? choices[choices.length - 1] : choices[0])?.focus();
     document.addEventListener("pointerdown", this.onOutside, true);
     document.addEventListener("keydown", this.onKey, true);
     document.addEventListener("scroll", this.onScroll, true);

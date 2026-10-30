@@ -19,6 +19,7 @@ mod mirror;
 mod out_dirs;
 pub mod paths;
 pub mod pinned;
+pub mod preview;
 pub mod proc;
 pub mod scheduler;
 pub mod send;

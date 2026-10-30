@@ -22,9 +22,11 @@ interface Props {
   onSync(): void;
   /** Opens the list of references to cite. */
   onCite?(): void;
+  /** Opens the inline AI panel at the caret. */
+  onAsk?(): void;
 }
 
-export function Toolbar({ title, folder, filesOpen, auto, building, hasPdf, onFiles, onAuto, onBuild, onStop, onExport, onSync, onCite }: Props) {
+export function Toolbar({ title, folder, filesOpen, auto, building, hasPdf, onFiles, onAuto, onBuild, onStop, onExport, onSync, onCite, onAsk }: Props) {
   return (
     <div className="latex-toolbar" role="toolbar" aria-label="LaTeX document">
       <IconButton icon="sidebar" label={filesOpen ? "Hide the files" : "Show the files"} active={filesOpen} onClick={onFiles} />
@@ -39,6 +41,11 @@ export function Toolbar({ title, folder, filesOpen, auto, building, hasPdf, onFi
       {onCite && (
         <Button icon="book" onClick={onCite} title="Insert a citation from your references">
           Cite
+        </Button>
+      )}
+      {onAsk && (
+        <Button icon="wand" onClick={onAsk} title={`Ask AI to write or rewrite at the cursor (${MOD()}+K). Its answer may be wrong: you keep or undo it.`}>
+          Ask AI
         </Button>
       )}
       {building && (

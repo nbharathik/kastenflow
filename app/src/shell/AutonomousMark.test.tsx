@@ -57,6 +57,8 @@ describe("the autonomous mark in the top bar", () => {
   });
 
   it("opens on hover with where and until when, and closes when the pointer leaves", async () => {
+    // A fixed mid-morning clock: an hour later is the same day, whatever time the suite runs.
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(2026, 9, 29, 10, 0) });
     await open({ mode: "autonomous", until: untilFor("hour", Date.now()), projects: {} });
     fireEvent.mouseEnter(mark()!);
     const info = card()!;

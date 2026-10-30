@@ -35,6 +35,8 @@ export interface PresenterProps {
   onEnd?: () => void;
   /** The presenter closed the view. */
   onClose?: () => void;
+  /** The presenter asked for the show and this view to change screens. A button appears when it is given. */
+  onSwapScreens?: () => void;
   /** Where rehearsals are kept. With it the view can time a run-through; without it there are no rehearsal controls. */
   rehearsal?: RehearsalSetup;
 }
@@ -59,7 +61,7 @@ export function stepText(deck: Deck, step: number, steps: number): string {
   return deck.present.stepLabel.replaceAll("{n}", String(step)).replaceAll("{total}", String(steps));
 }
 
-export function Presenter({ deck, imageUrl, position, paused, since, onGo, onEnd, onClose, rehearsal }: PresenterProps): JSX.Element {
+export function Presenter({ deck, imageUrl, position, paused, since, onGo, onEnd, onClose, onSwapScreens, rehearsal }: PresenterProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const spot = spotAt(plan, position);
   const ahead = move(plan, position, "right");
@@ -114,6 +116,11 @@ export function Presenter({ deck, imageUrl, position, paused, since, onGo, onEnd
           <span className="ks-pv-fact ks-pv-jump" role="status">
             Press Esc again to end the show
           </span>
+        ) : null}
+        {onSwapScreens ? (
+          <button type="button" className="ks-pv-button" onClick={onSwapScreens}>
+            Swap screens
+          </button>
         ) : null}
         {onClose ? (
           <button type="button" className="ks-pv-button" onClick={onClose}>

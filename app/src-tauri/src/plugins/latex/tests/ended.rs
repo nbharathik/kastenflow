@@ -21,6 +21,19 @@ fn a_build_that_ended_before_the_wait_is_found() {
 }
 
 #[test]
+fn a_build_that_said_it_was_fetching_packages_is_remembered() {
+    let log = EndedLog::default();
+    let mut step = Event::of("a", 3, "running");
+    step.note = Some("Downloading TeX packages…".to_owned());
+    log.record(&step);
+    log.record(&Event::of("b", 3, "running"));
+    assert!(log.fetching("a", 3));
+    assert!(!log.fetching("a", 4) && !log.fetching("b", 3));
+    // A step is not an end: nothing to wait for yet.
+    assert!(log.wait("a", 3, Duration::from_millis(5)).is_none());
+}
+
+#[test]
 fn a_build_that_ends_meanwhile_wakes_the_waiter() {
     let log = Arc::new(EndedLog::default());
     let waiter = Arc::clone(&log);

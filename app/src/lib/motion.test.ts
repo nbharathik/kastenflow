@@ -23,6 +23,7 @@ function system(reduce: boolean) {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete document.documentElement.dataset.motion;
+  delete document.documentElement.dataset.motionReduced;
 });
 
 describe("motion", () => {
@@ -45,6 +46,16 @@ describe("motion", () => {
     applyMotion("system");
     expect(document.documentElement.dataset.motion).toBe("on");
     expect(motionMs(240)).toBe(240);
+  });
+
+  it("tells the computer's request for less motion from the setting being Off", () => {
+    system(true);
+    applyMotion("system");
+    expect(document.documentElement.dataset.motion).toBe("off");
+    expect(document.documentElement.dataset.motionReduced).toBeDefined();
+    applyMotion("off");
+    expect(document.documentElement.dataset.motion).toBe("off");
+    expect(document.documentElement.dataset.motionReduced).toBeUndefined();
   });
 
   it("hears the computer change its mind while on System", () => {

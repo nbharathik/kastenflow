@@ -4,6 +4,7 @@
 
 import type { KeyboardEvent } from "react";
 
+import { viewTransition } from "../../lib/view-transition";
 import { IconOrEmoji } from "../../ui/IconOrEmoji";
 import { openMenuHandlers } from "../../shell/open-menu";
 import { howFrom, useWorkspace } from "../workspace/store";
@@ -21,15 +22,22 @@ export function RecentRow({ item, project, tab, onFocus }: { item: HomeItem; pro
     useWorkspace.getState().openPath(item.path, "right");
   };
   return (
-    <li className="kasten-home-item">
+    <li className="kasten-home-item" data-flip={item.path}>
       <button
         type="button"
         className="kasten-home-row"
         data-type={item.type}
         data-row=""
         tabIndex={tab ? 0 : -1}
-        title={`${kind}${project ? ` · ${project}` : ""} · ${agoLong(item.modified)}`}
-        onClick={(event) => useWorkspace.getState().openPath(item.path, howFrom(event))}
+        // The whole title first: the row cuts a long one with an ellipsis, and the tooltip shows on keyboard focus too.
+        title={`${item.title}\n${kind}${project ? ` · ${project}` : ""} · ${agoLong(item.modified)}`}
+        onClick={(event) => {
+          const how = howFrom(event);
+          const go = () => useWorkspace.getState().openPath(item.path, how);
+          // Opening in this pane fades from Home to the page.
+          if (how === "here") viewTransition(go);
+          else go();
+        }}
         onKeyDown={open}
         onFocus={onFocus}
         {...openMenuHandlers(item.path)}

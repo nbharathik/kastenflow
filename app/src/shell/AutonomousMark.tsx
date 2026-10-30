@@ -2,6 +2,7 @@ import "./auto-mark.css";
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useInterval } from "../lib/use-interval";
 import { autonomousOn, scopeWords, untilWords } from "../features/agents/policy";
 import { useAgentMode } from "../features/agents/store";
 import { openSettingsAt } from "../features/workspace/views/settings/jump";
@@ -43,12 +44,9 @@ export function AutonomousMark() {
       void useAgentMode.getState().load();
     };
     window.addEventListener("focus", look);
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => {
-      window.removeEventListener("focus", look);
-      clearInterval(timer);
-    };
+    return () => window.removeEventListener("focus", look);
   }, []);
+  useInterval(() => setNow(Date.now()), TICK_MS);
 
   useEffect(() => {
     if (!pinned) return;

@@ -145,6 +145,39 @@ pub(super) fn is_context_line(line: &str) -> bool {
     context_number(line).is_some() || SOURCES.iter().any(|s| line.starts_with(s))
 }
 
+/// The most characters of context kept for one error.
+const MAX_CONTEXT: usize = 400;
+
+/// The context TeX printed after an error, from the lines `lines` it printed
+/// them in: the `<argument>`-style lines, `l.<n> text` and the rest of that
+/// line (indented to where TeX stopped), without the blank lines, the help
+/// text and the `?` prompt. None when there is nothing.
+pub(super) fn context_text(lines: &[String]) -> Option<String> {
+    let mut kept: Vec<&str> = Vec::new();
+    let mut after_context = false;
+    for line in lines {
+        let line = line.trim_end();
+        if line.is_empty() || line == "?" {
+            continue;
+        }
+        let context = is_context_line(line);
+        if context || (after_context && line.starts_with(' ')) {
+            kept.push(line);
+            after_context = true;
+        } else {
+            after_context = false;
+        }
+    }
+    if kept.is_empty() {
+        return None;
+    }
+    let mut text = kept.join("\n");
+    if let Some((end, _)) = text.char_indices().nth(MAX_CONTEXT) {
+        text.truncate(end);
+    }
+    Some(text)
+}
+
 /// The `n` of a context line `l.<n> text`.
 pub(super) fn context_number(line: &str) -> Option<u32> {
     let rest = line.strip_prefix("l.")?;

@@ -198,6 +198,27 @@ fn building_now_and_keeping_the_pdf_read_as_a_person_would_say_them() {
         told("latex_build", &wait, &built).unwrap().summary,
         "Built “paper”: 0 errors, 1 warning"
     );
+    // A build of changes that wait for review says it was them, not the saved files, that were built.
+    let preview =
+        json!({"built": true, "waited": true, "preview": true, "errors": 2, "warnings": 0});
+    assert_eq!(
+        told("latex_build", &wait, &preview).unwrap().summary,
+        "Checked the changes waiting for review in “paper”: 2 errors, 0 warnings"
+    );
+    // A read of some lines says so.
+    let part = json!({"doc": "projects/p/latex/paper", "file": "intro.tex", "around_line": 40});
+    assert_eq!(
+        action("latex_read", &part).as_deref(),
+        Some("read some lines of the LaTeX file “intro.tex”")
+    );
+    assert_eq!(
+        action(
+            "latex_read",
+            &json!({"doc": "projects/p/latex/paper", "lines": "1-9"})
+        )
+        .as_deref(),
+        Some("read some lines of the LaTeX document “paper”")
+    );
     let input = json!({"doc": "projects/p/latex/paper"});
     assert_eq!(
         action("latex_export_pdf", &input).as_deref(),

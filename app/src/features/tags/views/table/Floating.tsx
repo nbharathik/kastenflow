@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
+import { useLeaveGhost } from "../../../../lib/presence";
 import { useOccludesElement } from "../../../browser/occlusion";
 import { useLatest } from "./context";
 
@@ -46,6 +47,8 @@ export function Floating({ anchor, label, onClose, children, className = "", rol
   const close = useLatest(onClose);
   // A browser tab's page beside the table steps aside while the panel is open (the menus and pickers of the table all sit in this panel).
   useOccludesElement(panel);
+  // It fades out as its parent takes it away.
+  useLeaveGhost(panel, 90, true);
   // Placed from the first render: a hidden panel could not take focus.
   const [place, setPlace] = useState<Place | null>(() => {
     const box = anchor.current?.getBoundingClientRect();

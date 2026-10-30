@@ -11,6 +11,12 @@ pub struct LatexReadArgs {
     pub doc: String,
     /// The file to read, relative to the document's folder (`sections/intro.tex`). The root file when left out, or the file `doc` names.
     pub file: Option<String>,
+    /// A line number: read 15 numbered lines each side of it instead of the whole file.
+    #[serde(default)]
+    pub around_line: Option<u32>,
+    /// A range such as "40-80": read those numbered lines only (wins over around_line).
+    #[serde(default)]
+    pub lines: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -38,7 +44,7 @@ pub struct LatexBuildArgs {
     /// True to have the app build the document now and wait for the result. Left out or false, this only reads what the last build said. Building needs the app open.
     #[serde(default)]
     pub wait: Option<bool>,
-    /// With wait: how many seconds to wait for the build (90 if left out, at most 300).
+    /// With wait: how many seconds to wait for the build (90 if left out, 240 when the document was never built, at most 300).
     #[serde(default)]
     pub timeout_seconds: Option<u64>,
 }

@@ -1,6 +1,7 @@
 // Small previews of nested boards: the rectangles of what is on them, read
 // once and kept until that board's file changes.
 
+import { setCapped } from "../../../../lib/lru";
 import type { VaultClient } from "../../../../lib/vault/types";
 import { onBoardFiles } from "../../events";
 import { bounds, shownRect, type Rect } from "../model/geometry";
@@ -14,6 +15,8 @@ export interface Preview {
 }
 
 const cache = new Map<string, Promise<Preview>>();
+/** Previews kept at most; the rest are read again when shown. */
+const MOST = 200;
 let watching = false;
 
 /** A board's preview, read once. */
@@ -31,7 +34,7 @@ export function boardPreview(client: Pick<VaultClient, "board">, path: string): 
       return { title: board.title, boxes, frame: bounds(boxes) };
     });
     found.catch(() => cache.delete(path));
-    cache.set(path, found);
+    setCapped(cache, path, found, MOST);
   }
   return found;
 }

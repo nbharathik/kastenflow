@@ -76,6 +76,11 @@ export function filesChanged(paths: string[]): void {
   for (const entry of [...open]) if (paths.includes(entry.session.path)) entry.check();
 }
 
+/** Asks every open page to look at its file (after a sleep, when changes may have gone unreported). */
+export function checkOpenPages(): void {
+  for (const entry of [...open]) entry.check();
+}
+
 /** Registers how to read a page's caret and scroll position. */
 export function setPageView(session: PageSession, read: (() => PageView) | null): void {
   const entry = entryOf(session);

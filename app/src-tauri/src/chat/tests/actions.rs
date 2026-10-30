@@ -83,7 +83,7 @@ fn mistakes_are_described_in_words() {
 }
 
 #[test]
-fn the_fourteen_that_ship_all_read() {
+fn the_twenty_three_that_ship_all_read() {
     let all = catalog::built_in();
     let names: Vec<(&str, &str)> = all
         .iter()
@@ -103,6 +103,15 @@ fn the_fourteen_that_ship_all_read() {
             ("check-diagram", "Check this diagram"),
             ("layout-page", "Lay out this page"),
             ("fix-latex-errors", "Fix LaTeX errors"),
+            ("fix-latex-error", "Fix this problem"),
+            ("explain-latex-error", "Explain this problem"),
+            ("fix-overfull-boxes", "Fix overfull boxes"),
+            ("check-latex-refs", "Check references and labels"),
+            ("find-missing-citations", "Find missing citations"),
+            ("draft-latex-section", "Draft a section from a page"),
+            ("table-to-booktabs", "Page table to booktabs"),
+            ("figure-from-diagram", "Figure from a diagram"),
+            ("latex-inline", "Write LaTeX in place"),
             ("make-smart-page", "Make a smart page from this"),
             ("improve-smart-layout", "Improve this smart page's layout"),
             ("fix-smart-errors", "Fix its errors"),
@@ -220,7 +229,7 @@ fn fix_latex_errors_is_offered_in_latex_views_only_and_asks_for_latex_edit_chang
         .map(|s| s.name)
         .collect();
     for word in words.split(|c: char| !(c.is_ascii_lowercase() || c == '_')) {
-        if word.contains('_') && word != "base_hash" {
+        if word.contains('_') && !FIELDS.contains(&word) {
             assert!(known.iter().any(|k| k == word), "{word} is not a tool");
         }
     }
@@ -230,11 +239,14 @@ fn fix_latex_errors_is_offered_in_latex_views_only_and_asks_for_latex_edit_chang
     assert!(words.contains("base_hash"));
     // It does not rewrite the document to make errors go away.
     assert!(words.contains("never take text out just to make an error go away"));
-    assert!(words.split_whitespace().count() < 220);
-    // The other actions are not for the LaTeX editor.
+    // It checks its work by building and says how the count moved.
+    assert!(words.contains("latex_build with wait set to true"));
+    assert!(words.contains("3 errors → 0"));
+    assert!(words.split_whitespace().count() < 270);
+    // Only the LaTeX actions are for the LaTeX editor.
     assert!(
         all.iter()
-            .filter(|a| a.slug != "fix-latex-errors")
+            .filter(|a| !LATEX_ACTIONS.contains(&a.slug.as_str()))
             .all(|a| !a.places.contains(&Place::Latex))
     );
     // A file that asks for the new place reads, and one with a typo is told the places.
@@ -321,12 +333,109 @@ fn the_smart_page_actions_propose_and_name_only_tools_that_exist() {
             .instruction
             .contains("the errors the page reported")
     );
-    // Only the LaTeX action is for the LaTeX editor.
+    // Only the LaTeX actions are for the LaTeX editor.
     assert!(
         all.iter()
-            .filter(|a| a.slug != "fix-latex-errors")
+            .filter(|a| !LATEX_ACTIONS.contains(&a.slug.as_str()))
             .all(|a| !a.places.contains(&Place::Latex))
     );
+}
+
+/// The actions that are for the LaTeX editor, and the words in them that name
+/// a field of a tool rather than a tool.
+const LATEX_ACTIONS: [&str; 10] = [
+    "fix-latex-errors",
+    "fix-latex-error",
+    "explain-latex-error",
+    "fix-overfull-boxes",
+    "check-latex-refs",
+    "find-missing-citations",
+    "draft-latex-section",
+    "table-to-booktabs",
+    "figure-from-diagram",
+    "latex-inline",
+];
+const FIELDS: [&str; 3] = ["base_hash", "around_line", "timeout_seconds"];
+
+#[test]
+fn an_inline_latex_action_is_told_to_answer_in_latex_not_markdown() {
+    let all = catalog::built_in();
+    let inline = all.iter().find(|a| a.slug == "latex-inline").unwrap();
+    let system = crate::chat::actions::context::system(inline);
+    assert!(system.contains("only the LaTeX"), "{system}");
+    assert!(!system.contains("Markdown"), "{system}");
+    // A page's insert action keeps the Markdown words.
+    let outline = all.iter().find(|a| a.slug == "outline").unwrap();
+    assert!(crate::chat::actions::context::system(outline).contains("Markdown"));
+    // Its words say where the answer goes and that no package is added silently.
+    assert!(inline.instruction.contains("replaces it"));
+    assert!(inline.instruction.contains("no code fence"));
+}
+
+#[test]
+fn the_latex_actions_are_for_the_latex_editor_and_name_only_real_tools() {
+    let all = catalog::built_in();
+    let known: Vec<String> = kasten_mcp::tools::specs()
+        .into_iter()
+        .map(|s| s.name)
+        .collect();
+    for slug in LATEX_ACTIONS {
+        let action = all.iter().find(|a| a.slug == slug).unwrap();
+        assert_eq!(action.places, [Place::Latex], "{slug}");
+        // The inline one works from the text around the cursor and the file when it is attached.
+        if slug != "latex-inline" {
+            assert_eq!(action.needs, [Need::Sources], "{slug}");
+        }
+        for word in action
+            .instruction
+            .split(|c: char| !(c.is_ascii_lowercase() || c == '_'))
+        {
+            // (A lone `_` is a character the action lists, not a name.)
+            if word.contains('_')
+                && word.chars().any(|c| c.is_ascii_lowercase())
+                && !FIELDS.contains(&word)
+            {
+                assert!(
+                    known.iter().any(|k| k == word),
+                    "{slug}: {word} is not a tool"
+                );
+            }
+        }
+        assert!(
+            action.instruction.split_whitespace().count() < 270,
+            "{slug}"
+        );
+    }
+    // Reading what is wrong changes nothing; the rest propose, so in a chat they wait for the person.
+    for (slug, writes) in [
+        ("explain-latex-error", Writes::None),
+        ("fix-latex-error", Writes::Propose),
+        ("fix-overfull-boxes", Writes::Propose),
+        ("check-latex-refs", Writes::Propose),
+        ("find-missing-citations", Writes::Propose),
+        ("draft-latex-section", Writes::Propose),
+        ("table-to-booktabs", Writes::Propose),
+        ("figure-from-diagram", Writes::Propose),
+        // The inline one answers with LaTeX that the editor puts in place for the person to keep or undo.
+        ("latex-inline", Writes::Insert),
+    ] {
+        assert_eq!(
+            all.iter().find(|a| a.slug == slug).unwrap().writes,
+            writes,
+            "{slug}"
+        );
+    }
+    // The one-problem actions are told what to say about a guess, and fixing says how the count moved.
+    for slug in ["fix-latex-error", "explain-latex-error", "fix-latex-errors"] {
+        let words = &all.iter().find(|a| a.slug == slug).unwrap().instruction;
+        assert!(words.contains("may be wrong"), "{slug}");
+    }
+    let one = &all
+        .iter()
+        .find(|a| a.slug == "fix-latex-error")
+        .unwrap()
+        .instruction;
+    assert!(one.contains("latex_build") && one.contains("wait set to true"));
 }
 
 fn vault_with(files: &[(&str, &str)]) -> super::Vault {
@@ -363,9 +472,9 @@ fn the_smart_page_actions_are_offered_only_where_smart_pages_are_on() {
         "improve-smart-layout",
         "fix-smart-errors",
     ];
-    // Off in a fresh vault: the other eleven stay, these three are not listed.
+    // Off in a fresh vault: the other twenty stay, these three are not listed.
     let catalog = catalog::load(&v.kasten).unwrap();
-    assert_eq!(catalog.actions.len(), 11);
+    assert_eq!(catalog.actions.len(), 20);
     for slug in smart {
         assert!(catalog.find(slug).is_none(), "{slug}");
     }
@@ -384,7 +493,7 @@ fn the_smart_page_actions_are_offered_only_where_smart_pages_are_on() {
             kasten_core::Instant::now(),
         )
         .unwrap();
-    assert_eq!(catalog::load(&v.kasten).unwrap().actions.len(), 14);
+    assert_eq!(catalog::load(&v.kasten).unwrap().actions.len(), 23);
     assert!(v.kasten.smart_enabled_for_project(Some("photo-organiser")));
     assert!(
         !v.kasten
@@ -417,6 +526,15 @@ fn a_vault_file_replaces_the_built_in_of_its_name_in_place_and_others_follow_by_
             "check-diagram",
             "layout-page",
             "fix-latex-errors",
+            "fix-latex-error",
+            "explain-latex-error",
+            "fix-overfull-boxes",
+            "check-latex-refs",
+            "find-missing-citations",
+            "draft-latex-section",
+            "table-to-booktabs",
+            "figure-from-diagram",
+            "latex-inline",
             "make-smart-page",
             "improve-smart-layout",
             "fix-smart-errors",
@@ -436,7 +554,7 @@ fn a_vault_file_replaces_the_built_in_of_its_name_in_place_and_others_follow_by_
     smart_on(&v);
     let catalog = catalog::load(&v.kasten).unwrap();
     assert_eq!(catalog.find("compare-sources").unwrap().title, "Mine");
-    assert_eq!(catalog.actions.len(), 14);
+    assert_eq!(catalog.actions.len(), 23);
 }
 
 #[test]

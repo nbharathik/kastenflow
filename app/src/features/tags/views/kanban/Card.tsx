@@ -37,7 +37,7 @@ export const Card = memo(function Card({ note, defs, colorBy, today }: CardProps
   const calculated = defs.filter(isFormula).map((d) => d.key);
   const excerpt = note.excerpt && note.excerpt !== title ? note.excerpt : "";
   return (
-    <li className="kasten-kanban-slot">
+    <li className="kasten-kanban-slot" data-flip={note.path}>
       <div
         role="button"
         tabIndex={0}

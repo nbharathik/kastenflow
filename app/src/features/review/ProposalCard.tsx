@@ -3,7 +3,7 @@
 // itself, and Accept or Reject. A and R decide while the card has focus;
 // J and K move between cards.
 
-import { Suspense, lazy, useMemo, type KeyboardEvent, type Ref } from "react";
+import { Suspense, lazy, useMemo, type KeyboardEvent, type ReactNode, type Ref } from "react";
 
 import { relativeTime } from "../../lib/dates";
 import type { NoteMeta, Proposal } from "../../lib/vault/types";
@@ -34,6 +34,10 @@ interface CardProps {
   /** Moves focus to the next (1) or previous (-1) card. */
   onStep(delta: 1 | -1): void;
   ref?: Ref<HTMLElement>;
+  /** Draws the change in place of the card's own (the chat draws a text change hunk by hunk). */
+  change?: ReactNode;
+  /** Takes the place of Accept and Reject (the chat's stale card and its per-hunk Keep). */
+  footer?: ReactNode;
 }
 
 const typing = (target: EventTarget) => {
@@ -41,7 +45,7 @@ const typing = (target: EventTarget) => {
   return el.isContentEditable || el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
 };
 
-export function ProposalCard({ proposal: p, state, mode, note, onDecide, onOpen, onStep, ref }: CardProps) {
+export function ProposalCard({ proposal: p, state, mode, note, onDecide, onOpen, onStep, ref, change, footer }: CardProps) {
   const words = opWords(p.op);
   const created = millisOf(p.created);
   const busy = Boolean(state.busy);
@@ -92,7 +96,7 @@ export function ProposalCard({ proposal: p, state, mode, note, onDecide, onOpen,
             </span>
           </p>
         )}
-        <Change proposal={p} mode={mode} />
+        {change ?? <Change proposal={p} mode={mode} />}
         {state.failed && (
           <Callout tone="bad" icon="alert" role="alert">
             <span className="font-medium">Could not {state.failed.verb}.</span> {state.failed.reason}
@@ -100,15 +104,19 @@ export function ProposalCard({ proposal: p, state, mode, note, onDecide, onOpen,
         )}
       </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-line px-4 py-2.5">
-        <button type="button" className={PRIMARY} disabled={busy} aria-keyshortcuts="A" onClick={() => onDecide("accept")}>
-          {state.busy === "accept" ? "Accepting…" : "Accept"}
-          <Kbd onAccent>A</Kbd>
-        </button>
-        <button type="button" className={BUTTON} disabled={busy} aria-keyshortcuts="R" onClick={() => onDecide("reject")}>
-          {state.busy === "reject" ? "Rejecting…" : "Reject"}
-          <Kbd>R</Kbd>
-        </button>
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line px-4 py-2.5">
+        {footer ?? (
+          <>
+            <button type="button" className={PRIMARY} disabled={busy} aria-keyshortcuts="A" onClick={() => onDecide("accept")}>
+              {state.busy === "accept" ? "Accepting…" : "Accept"}
+              <Kbd onAccent>A</Kbd>
+            </button>
+            <button type="button" className={BUTTON} disabled={busy} aria-keyshortcuts="R" onClick={() => onDecide("reject")}>
+              {state.busy === "reject" ? "Rejecting…" : "Reject"}
+              <Kbd>R</Kbd>
+            </button>
+          </>
+        )}
       </div>
     </article>
   );

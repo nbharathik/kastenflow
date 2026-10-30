@@ -118,7 +118,7 @@ export function Triage({ cards, onExit }: { cards: NoteMeta[]; onExit: () => voi
           {index + 1} of {shown.length}
         </p>
         <div className="h-1 min-w-24 flex-1 overflow-hidden rounded-full bg-line">
-          <div className="h-full rounded-full bg-accent transition-[width] duration-(--motion-slow)" style={{ width: `${((index + 1) / shown.length) * 100}%` }} />
+          <div className="h-full origin-left rounded-full bg-accent transition-transform duration-(--motion-slow)" style={{ transform: `scaleX(${(index + 1) / shown.length})` }} />
         </div>
         <Segmented
           label="Which captures"

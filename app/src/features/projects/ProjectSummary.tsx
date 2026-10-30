@@ -37,7 +37,7 @@ export function ProjectSummary({ project, parts }: { project: NoteMeta; parts: P
       {total > 0 && (
         <div className="kasten-dash-progress">
           <span className="kasten-dash-track" role="progressbar" aria-label="To-dos done" aria-valuemin={0} aria-valuemax={100} aria-valuenow={done}>
-            <span style={{ width: `${done}%` }} />
+            <span style={{ transform: `scaleX(${done / 100})` }} />
           </span>
           <em>
             {todos.done} of {total} to-dos done

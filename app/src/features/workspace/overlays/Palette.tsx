@@ -162,6 +162,7 @@ export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
             id={`kasten-palette-row-${i}`}
             data-index={i}
             aria-selected={i === current}
+            title={row.detail ? `${row.label}\n${row.detail}` : row.label}
             className="kasten-palette-row"
             onMouseMove={() => setSelected(i)}
             onClick={(e) => run(row, howFrom(e))}

@@ -64,6 +64,68 @@
   text-overflow: ellipsis;
 }
 
+/* The optional tint (page menu → View → Tint what agents wrote): blocks an
+   agent wrote today get a soft wash, and Keep / Undo appear under the badge
+   on hover or keyboard focus. Off unless the document says `agentTint: on`
+   (workspace/agent-tint.ts). */
+.kasten-agent-quick {
+  position: absolute;
+  top: 27px;
+  left: calc(100% + 12px);
+  display: none;
+  gap: 4px;
+
+  & button {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--notion-line);
+    border-radius: var(--radius-lg);
+    background: var(--notion-menu-bg);
+    color: var(--notion-text);
+    font: 500 var(--text-12) var(--notion-font);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--notion-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--kasten-agent);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.kasten-page.is-compact .kasten-agent-quick {
+  left: calc(100% + 1px);
+}
+
+:root[data-agent-tint="on"] {
+  & .kasten-page-editor .milkdown .ProseMirror > .kasten-agent-today {
+    background: color-mix(in srgb, var(--kasten-agent) 9%, transparent);
+    border-radius: var(--radius-md);
+    transition: background-color var(--motion-fast) var(--ease-standard);
+
+    &:hover {
+      background: color-mix(in srgb, var(--kasten-agent) 15%, transparent);
+    }
+  }
+
+  & .kasten-agent-quick {
+    display: inline-flex;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--motion-fast) var(--ease-standard);
+  }
+
+  & .kasten-agent-anchor:has(+ .kasten-agent-block:hover) .kasten-agent-quick,
+  & .kasten-agent-anchor:hover .kasten-agent-quick,
+  & .kasten-agent-quick:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* A narrow margin (the side stack, a journal day, a card on a board, a
    narrow window): the star alone, the agent's name in its tooltip and card. */
 .kasten-page.is-compact .kasten-agent-badge {

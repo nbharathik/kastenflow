@@ -2,11 +2,11 @@
 // this, and so does the picture PowerPoint gets, so both come from here.
 
 import katex from "katex";
+import "katex/dist/katex.min.css";
 
-import { pointsToUnits } from "../units.ts";
+import { provideMath } from "./math-slot.ts";
 
-/** The size of a formula when the element names none, in points. */
-export const MATH_POINTS = 32;
+export { MATH_POINTS, hasFormula, mathSize } from "./math-size.ts";
 
 /**
  * KaTeX's limits for LaTeX that anyone, or an agent, may have written into a
@@ -49,8 +49,5 @@ export function renderMath(latex: string, inline: boolean, output: MathOutput = 
   return made;
 }
 
-/** The type size of a formula in slide units (1/96 inch): its points, or 32. */
-export const mathSize = (points: number | null | undefined): number => pointsToUnits(points != null && points > 0 && Number.isFinite(points) ? points : MATH_POINTS);
-
-/** Whether there is a formula to draw at all. */
-export const hasFormula = (latex: string): boolean => latex.trim() !== "";
+// Slides draw formulas through this, once the code is here (see `math-slot.ts`).
+provideMath({ renderMath });

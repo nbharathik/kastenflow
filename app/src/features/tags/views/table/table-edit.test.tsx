@@ -52,7 +52,7 @@ describe("editing table cells", () => {
 
   it("edits text in place: Enter saves, Escape leaves the value as it was", async () => {
     const { vault, grid } = await open();
-    fireEvent.click(cellOf(grid, "Book flights", "summary"));
+    fireEvent.doubleClick(cellOf(grid, "Book flights", "summary"));
     const input = screen.getByRole("textbox", { name: "summary of Book flights" }) as HTMLInputElement;
     expect(input.value).toBe("Window seats");
     fireEvent.change(input, { target: { value: "Aisle seats" } });
@@ -60,7 +60,7 @@ describe("editing table cells", () => {
     await expect.poll(async () => (await propsOf(vault, FLIGHTS)).summary).toBe("Aisle seats");
     expect(screen.queryByRole("textbox", { name: "summary of Book flights" })).toBeNull();
 
-    fireEvent.click(cellOf(grid, "Book flights", "summary"));
+    fireEvent.doubleClick(cellOf(grid, "Book flights", "summary"));
     const again = screen.getByRole("textbox", { name: "summary of Book flights" });
     fireEvent.change(again, { target: { value: "Never mind" } });
     fireEvent.keyDown(again, { key: "Escape" });
@@ -80,7 +80,7 @@ describe("editing table cells", () => {
 
   it("puts a refused value back, and says why", async () => {
     const { vault, grid } = await open();
-    fireEvent.click(cellOf(grid, "Write intro", "points"));
+    fireEvent.doubleClick(cellOf(grid, "Write intro", "points"));
     const input = screen.getByRole("textbox", { name: "points of Write intro" });
     fireEvent.change(input, { target: { value: "lots" } });
     await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
@@ -188,7 +188,7 @@ describe("editing table cells", () => {
     expect(cellOf(grid, "Book flights", "blocks").querySelector(".is-missing")).toBeNull();
   });
 
-  it("opens the note from its title: a peek, Ctrl or the middle button in a tab, Shift in the side stack", async () => {
+  it("opens the note from its title: Ctrl or the middle button in a tab, Shift in the side stack; a plain click only picks", async () => {
     const { grid } = await open();
     const openPath = vi.fn();
     const real = useWorkspace.getState().openPath;
@@ -203,7 +203,6 @@ describe("editing table cells", () => {
         [FLIGHTS, "tab"],
         [FLIGHTS, "stack"],
         [FLIGHTS, "tab"],
-        [FLIGHTS, "peek"],
       ]);
     } finally {
       useWorkspace.setState({ openPath: real });

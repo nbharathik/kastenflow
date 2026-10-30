@@ -2,6 +2,7 @@
 // shown large, already copied, and GitHub's page is open in the browser.
 
 import { openUrl } from "../../../lib/api";
+import { copyOrSay, said } from "../../../lib/said";
 import { Button } from "../../../ui/Button";
 import { SignInOther } from "./SignInOther";
 import { useBackupWizard } from "./state";
@@ -38,8 +39,8 @@ export function StepSignIn() {
           <div className="kasten-wiz-row">
             <Button
               onClick={() => {
-                void navigator.clipboard?.writeText(view.code.userCode).catch(() => {});
-                void openUrl(view.code.verificationUri);
+                void copyOrSay(view.code.userCode, "the code");
+                void openUrl(view.code.verificationUri).catch(said("Could not open GitHub's page. Open it yourself and type the code"));
               }}
             >
               Open GitHub again

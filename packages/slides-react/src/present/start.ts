@@ -7,8 +7,9 @@ import type { EditorSession } from "../editor/session/session.ts";
 import { readMatte } from "./matte.ts";
 import { type Presentation, openPresentation, presenting } from "./open.tsx";
 import { openBroadcastPresenter } from "./open-presenter.ts";
-import { readControls } from "./options.ts";
+import { readControls, readToolbar } from "./options.ts";
 import { showScreen } from "./screen.ts";
+import type { ShowScreens } from "./runtime/chrome.js";
 import type { PresentSync } from "./sync.ts";
 
 export interface PresentOptions {
@@ -20,12 +21,26 @@ export interface PresentOptions {
   rehearse?: boolean;
 }
 
+/** What the show can do about screens while it runs; none where the host cannot move a show. */
+export function showScreens(host: SlidesHost): ShowScreens | undefined {
+  const screens = host.screens;
+  if (!screens?.swap || !screens.moveTo || !screens.list) return undefined;
+  const { list, swap, moveTo, identify } = screens;
+  return {
+    list: () => list.call(screens),
+    swap: () => void swap.call(screens),
+    moveTo: (label) => void moveTo.call(screens, label),
+    ...(identify ? { identify: () => void identify.call(screens) } : {}),
+  };
+}
+
 export async function presentDeck(session: EditorSession, host: SlidesHost, from: "start" | "current", options: PresentOptions = {}): Promise<void> {
   const deck = session.deck;
   const start = from === "start" ? 0 : Math.max(0, deck.slides.findIndex((slide) => slide.id === session.state.slideId));
   // One talk at a time: asking again must not make the host get ready (and hold the window) for a show that never opens.
   if (presenting()) return;
   const imageUrl = (path: string): string | undefined => host.imageUrl(path);
+  const moving = showScreens(host);
   const finished = await host.willPresent?.(deck);
   let link: PresentSync | null = null;
   let presentation: Presentation | null = null;
@@ -85,6 +100,8 @@ export async function presentDeck(session: EditorSession, host: SlidesHost, from
       // What the person chose in the slideshow options: the colour round a slide on a screen of another shape, and the arrows.
       matte: readMatte(),
       controls: readControls(),
+      toolbar: readToolbar(),
+      ...(moving ? { screens: moving } : {}),
       ...(options.view ? { view: options.view } : {}),
       ...(options.rehearse ? { rehearse: true } : {}),
       onPresenter: () => void openLink(),

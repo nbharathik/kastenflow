@@ -10,10 +10,13 @@ import { registerActions } from "./actions";
 import { type LatexBackend, sentence } from "./backend";
 import "./assist.css";
 import { Banners } from "./Banners";
+import { latexSelection, runLatexAction } from "./chat";
+import { openInline } from "./inline/panel";
 import { useDiagnostics } from "./diagnostics";
 import { Editor, type EditorHandle } from "./editor/Editor";
 import { ErrorList } from "./ErrorList";
 import { FileTree } from "./FileTree";
+import { engineAdvice } from "./fixable";
 import { insertCitation } from "./insert-citation";
 import { Outline } from "./Outline";
 import { USUAL_PREVIEW, USUAL_TREE, useLatexPrefs } from "./prefs";
@@ -69,7 +72,7 @@ function Body({ backend, session }: { backend: LatexBackend; session: Session })
   const sourceBox = useRef<HTMLDivElement>(null);
   const assist = useAssist({ session, backend, editor, preview, open: snap.open, side, source: sourceBox });
   const problems = useDiagnostics((s) => s.byDoc[doc.folder]);
-  const chat = useLatexChat(editor, snap.open, doc.folder);
+  const chat = useLatexChat(editor, snap.open, doc.folder, doc.main);
 
   // The editor follows the session when a merge or a choice changes a file's text.
   useEffect(() => {
@@ -121,6 +124,14 @@ function Body({ backend, session }: { backend: LatexBackend; session: Session })
       focusProblems: () => assistRef.current.focusProblems(),
       insertCitation: () => insertCitation(assistRef.current.index, editor),
       fixWithAi: () => chatRef.current.fix(),
+      inlineAi: () => {
+        const view = editor.current?.view();
+        if (view) openInline(view);
+      },
+      runAction: (slug) => {
+        const at = session.snapshot().open;
+        if (at) void runLatexAction(slug, at, latexSelection(editor.current?.view() ?? null, at));
+      },
     });
     return withdraw;
   }, [session]);
@@ -142,6 +153,10 @@ function Body({ backend, session }: { backend: LatexBackend; session: Session })
         onExport={() => void exportPdf()}
         onSync={() => void syncToPdf()}
         onCite={() => insertCitation(assist.index, editor)}
+        onAsk={() => {
+          const view = editor.current?.view();
+          if (view) openInline(view);
+        }}
       />
       <Banners snap={snap} onKeepMine={() => void session.keepMine()} onUseDisk={() => session.useDisk()} onRetry={() => void session.saveAll()} />
       <div className="latex-body">
@@ -180,7 +195,7 @@ function Body({ backend, session }: { backend: LatexBackend; session: Session })
               <p className="m-0">Opening the document…</p>
             </div>
           )}
-          <ErrorList diagnostics={problems ?? []} folder={doc.folder} main={doc.main} files={snap.files} onJump={assist.goTo} onFix={chat.fix} />
+          <ErrorList diagnostics={problems ?? []} folder={doc.folder} main={doc.main} files={snap.files} onJump={assist.goTo} onFix={chat.fix} onFixOne={chat.fixOne} onExplain={chat.explain} advice={engineAdvice(doc.engine, session.textOf(doc.mainPath), problems ?? [])} />
         </div>
         <div className="latex-panel" style={{ width: previewWidth }}>
           <ResizeHandle label="Resize the preview" edge="left" width={previewWidth} min={240} max={900} initial={USUAL_PREVIEW} onChange={setPreviewWidth} onCommit={(previewWidth) => prefs.set({ previewWidth })} />

@@ -44,7 +44,7 @@ afterEach(() => {
 
 const start = (options: Parameters<typeof attachChrome>[2] = {}) => {
   const fake = fakeReveal();
-  const chrome = attachChrome(fake.reveal as never, host, { hintSeconds: 0, ...options });
+  const chrome = attachChrome(fake.reveal as never, host, options);
   return { ...fake, chrome };
 };
 
@@ -219,14 +219,147 @@ describe("the list of keys", () => {
     expect(host.querySelector(".ks-show-hints")).toBeNull();
   });
 
-  it("shows a line of the main keys at the start, and takes it away by itself", () => {
+  it("shows no line of keys at the start: the list is behind the question mark and the toolbar", () => {
     vi.useFakeTimers();
-    start({ hintSeconds: 2 });
-    const bar = host.querySelector(".ks-show-hintbar");
-    expect(bar?.textContent).toContain("overview");
-    expect(bar?.classList.contains("is-gone")).toBe(false);
-    vi.advanceTimersByTime(2100);
-    expect(bar?.classList.contains("is-gone")).toBe(true);
+    start({ toolbar: true });
+    expect(host.querySelector(".ks-show-hintbar")).toBeNull();
+    vi.advanceTimersByTime(10000);
+    expect(host.querySelector(".ks-show-hintbar")).toBeNull();
+  });
+});
+
+describe("the toolbar", () => {
+  const tool = (id: string) => host.querySelector<HTMLButtonElement>(`[data-tool="${id}"]`);
+
+  it("is not there unless asked for (the exported page has none)", () => {
+    start();
+    expect(host.querySelector(".ks-show-toolbar")).toBeNull();
+  });
+
+  it("shows while the mouse moves and goes when it rests, and never for a finger", () => {
+    vi.useFakeTimers();
+    start({ toolbar: true });
+    expect(stage.classList.contains("is-pointing")).toBe(false);
+    window.dispatchEvent(new MouseEvent("pointermove"));
+    expect(stage.classList.contains("is-pointing")).toBe(true);
+    vi.advanceTimersByTime(2600);
+    expect(stage.classList.contains("is-pointing")).toBe(false);
+    const touch = new MouseEvent("pointermove");
+    Object.defineProperty(touch, "pointerType", { value: "touch" });
+    window.dispatchEvent(touch);
+    expect(stage.classList.contains("is-pointing")).toBe(false);
+  });
+
+  it("has a button for each key, with a tooltip that names the key", () => {
+    start({ toolbar: true, onPresenter: () => {}, onExit: () => {}, screens: { list: async () => [], swap: () => {}, moveTo: () => {} } });
+    const titles = [...host.querySelectorAll<HTMLButtonElement>(".ks-show-tool")].map((b) => [b.dataset.tool, b.title]);
+    expect(titles).toEqual([
+      ["previous", "Previous slide (←)"],
+      ["next", "Next slide (→)"],
+      ["overview", "Overview of all the slides (O)"],
+      ["laser", "Laser pointer (L)"],
+      ["black", "Black screen (B)"],
+      ["presenter", "Presenter view (S)"],
+      ["screen", "Screen to show on"],
+      ["fullscreen", "Full screen (F)"],
+      ["keys", "All keys (?)"],
+      ["end", "End the show (Esc)"],
+    ]);
+    for (const button of host.querySelectorAll<HTMLButtonElement>(".ks-show-tool")) {
+      expect(button.getAttribute("aria-label")).toBeTruthy();
+      expect(button.tabIndex).toBe(-1);
+    }
+  });
+
+  it("has no presenter, screen or end button where those do nothing", () => {
+    start({ toolbar: true });
+    for (const id of ["presenter", "screen", "end"]) expect(tool(id)).toBeNull();
+  });
+
+  it("does with each button what its key does", () => {
+    const fullscreen = vi.fn();
+    const onPresenter = vi.fn();
+    const onExit = vi.fn();
+    const { press, calls, state, chrome } = start({ toolbar: true, fullscreen, onPresenter, onExit });
+    tool("next")?.click();
+    press(34);
+    tool("previous")?.click();
+    press(33);
+    expect(calls).toEqual(["right", "right", "left", "left"]);
+    tool("overview")?.click();
+    expect(state.overview).toBe(true);
+    tool("overview")?.click();
+    expect(state.overview).toBe(false);
+    calls.length = 0;
+    tool("black")?.click();
+    press(191);
+    expect(calls).toEqual(["pause", "pause"]);
+    tool("laser")?.click();
+    expect(stage.classList.contains("ks-show-laser-on")).toBe(true);
+    expect(tool("laser")?.getAttribute("aria-pressed")).toBe("true");
+    press(76);
+    expect(stage.classList.contains("ks-show-laser-on")).toBe(false);
+    expect(tool("laser")?.getAttribute("aria-pressed")).toBe("false");
+    tool("presenter")?.click();
+    press(83);
+    expect(onPresenter).toHaveBeenCalledTimes(2);
+    tool("fullscreen")?.click();
+    press(70);
+    expect(fullscreen).toHaveBeenCalledTimes(2);
+    tool("keys")?.click();
+    expect(host.querySelector(".ks-show-hints")).not.toBeNull();
+    expect(chrome.hints(false)).toBe(false);
+    tool("end")?.click();
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays out of the keys' way: a press does not take the focus, and a click does not reach the slide", () => {
+    start({ toolbar: true });
+    const press = new MouseEvent("mousedown", { cancelable: true, bubbles: true });
+    tool("next")?.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(true);
+    expect(tool("next")?.tabIndex).toBe(-1);
+  });
+
+  it("opens a menu of the screens: swap, each screen with the current one marked, identify", async () => {
+    const screens = {
+      list: async () => [
+        { label: "Built-in", primary: true, current: false },
+        { label: "Projector", primary: false, current: true },
+      ],
+      swap: vi.fn(),
+      moveTo: vi.fn(),
+      identify: vi.fn(),
+    };
+    start({ toolbar: true, screens });
+    tool("screen")?.click();
+    await vi.waitFor(() => expect(host.querySelector(".ks-show-menu")).not.toBeNull());
+    const rows = [...host.querySelectorAll<HTMLElement>(".ks-show-menu-item")];
+    expect(rows.map((row) => row.textContent)).toEqual(["Swap screens", "1. Built-in (main)", "2. Projector", "Identify screens"]);
+    expect(rows[2]?.getAttribute("aria-checked")).toBe("true");
+    rows[1]?.click();
+    expect(screens.moveTo).toHaveBeenCalledWith("Built-in");
+    expect(host.querySelector(".ks-show-menu")).toBeNull();
+    tool("screen")?.click();
+    await vi.waitFor(() => expect(host.querySelector(".ks-show-menu")).not.toBeNull());
+    host.querySelectorAll<HTMLElement>(".ks-show-menu-item")[0]?.click();
+    expect(screens.swap).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts the menu away with Esc before it leaves the show, and says when there is one screen", async () => {
+    const onExit = vi.fn();
+    const { press } = start({ toolbar: true, onExit, screens: { list: async () => [{ label: "Only", primary: true, current: true }], swap: () => {}, moveTo: () => {} } });
+    tool("screen")?.click();
+    await vi.waitFor(() => expect(host.querySelector(".ks-show-menu-note")).not.toBeNull());
+    press(27);
+    expect(host.querySelector(".ks-show-menu")).toBeNull();
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("is taken away with the tools", () => {
+    const { chrome } = start({ toolbar: true });
+    chrome.destroy();
+    expect(host.querySelector(".ks-show-toolbar")).toBeNull();
   });
 });
 

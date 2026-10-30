@@ -8,6 +8,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { SlideView } from "../render/index.ts";
+// Formulas are drawn as the markup is made, so KaTeX is loaded with this file.
+import "../render/math.ts";
 import { katexStyles } from "./katex-css.ts";
 import { type PrintPage, pagesOf } from "./print.tsx";
 import { rasterize } from "./raster.ts";

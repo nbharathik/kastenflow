@@ -63,6 +63,7 @@ mod latex_export;
 mod latex_figures;
 mod latex_files;
 mod latex_more;
+mod latex_preview;
 mod latex_send;
 mod latex_send_agent;
 mod latex_source;
@@ -86,6 +87,7 @@ mod references;
 mod replace;
 mod restore;
 mod review;
+mod review_hunks;
 mod revision;
 mod setup_agent;
 mod setup_manage;
@@ -119,6 +121,7 @@ mod undo;
 mod verify;
 mod verify_names;
 mod view_order;
+mod wake;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, RwLock};
@@ -215,6 +218,8 @@ pub struct Kasten {
     /// What the index said about the projects at the last summaries, while
     /// the index and the day are as they were (engine/project_summaries.rs).
     kept_project_rows: Mutex<Option<project_summaries::KeptRows>>,
+    /// What the commit and backup workers sleep on (engine/wake.rs).
+    wakes: wake::Wakes,
 }
 
 /// What an op did: its result, the paths it touched and its commit message.
@@ -286,6 +291,7 @@ impl Kasten {
             file_cache: Mutex::new(FileCache::default()),
             graph_inputs: Mutex::new(None),
             kept_project_rows: Mutex::new(None),
+            wakes: wake::Wakes::default(),
         };
         kasten.load_backup();
         Ok(kasten)
@@ -343,6 +349,7 @@ impl Kasten {
         let name = self.config().name;
         let history = self.lock.hold(|| History::init(self.vault.root(), &name))?;
         let _ = self.history.set(history);
+        self.wake_workers();
         Ok(())
     }
 

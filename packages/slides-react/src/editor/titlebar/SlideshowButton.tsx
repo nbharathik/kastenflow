@@ -1,7 +1,8 @@
 import { type JSX, useEffect, useMemo, useState } from "react";
 
 import { MATTES, readMatte, writeMatte } from "../../present/matte.ts";
-import { readControls, writeControls } from "../../present/options.ts";
+import { readControls, readToolbar, writeControls, writeToolbar } from "../../present/options.ts";
+import type { ScreenInfo } from "../host.ts";
 import { keysOf, runCommand } from "../commands/index.ts";
 import { commandItem, groups, plainItem, submenu } from "../menus/build.ts";
 import { DropMenu } from "../menus/DropMenu.tsx";
@@ -22,6 +23,7 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
   // The displays attached are asked for when the options open: one may have been plugged in since.
   const screens = session.host.screens;
   const [displays, setDisplays] = useState<string[]>([]);
+  const [info, setInfo] = useState<ScreenInfo[]>([]);
   const opened = dd.anchor !== null;
   useEffect(() => {
     if (!screens || !opened) return;
@@ -29,6 +31,10 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
     void screens.displays().then(
       (names) => current && setDisplays(names),
       () => current && setDisplays([]),
+    );
+    void Promise.resolve(screens.list?.()).then(
+      (found) => current && setInfo(found ?? []),
+      () => current && setInfo([]),
     );
     return () => {
       current = false;
@@ -57,7 +63,8 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
         items={() => {
           const matte = readMatte();
           const controls = readControls();
-          const on = presentOnRows(screens, displays);
+          const toolbar = readToolbar();
+          const on = presentOnRows(screens, displays, info);
           return groups(
             [
               commandItem("view.present-start", ctx, { label: "Present from beginning" }),
@@ -67,6 +74,8 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
               commandItem("view.rehearsals", ctx),
               commandItem("view.present-scroll", ctx),
             ],
+            // Where people look for it: with the ways to start, not among the options (it appears with two or more displays).
+            on.length > 0 && [submenu("present-on", "Present on", on, "monitor-play")],
             [
               // A slide is shown whole and centred at its own proportions, never cropped or scrolled; the matte is what shows round it on a screen of another shape.
               plainItem("fit", "Fit slide to window", () => {}, { checked: true, disabled: true }),
@@ -78,7 +87,8 @@ export function SlideshowButton({ session, ui }: { session: EditorSession; ui: E
               ),
               // The arrows and the progress bar of the show: off, so a talk is the slide and nothing else.
               plainItem("controls", "Arrows and progress bar", () => writeControls(!controls), { checked: controls }),
-              ...(on.length > 0 ? [submenu("present-on", "Present on", on, "monitor-play")] : []),
+              // The mouse tools at the bottom left of the show; off for a screen with nothing on it but the slide.
+              plainItem("toolbar", "Show the toolbar while presenting", () => writeToolbar(!toolbar), { checked: toolbar }),
             ],
           );
         }}

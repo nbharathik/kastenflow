@@ -45,14 +45,15 @@ export function useDecisions() {
   }, []);
 
   /** Accepts or rejects one proposal; true when it went through. `quiet`
-   * leaves the toast and the note list to the caller (bulk decisions). */
+   * leaves the toast and the note list to the caller (bulk decisions). `body`
+   * accepts a text change with only the hunks the person kept (the chat's cards). */
   const decide = useCallback(
-    async (p: Proposal, verb: Verb, quiet = false): Promise<boolean> => {
+    async (p: Proposal, verb: Verb, quiet = false, body?: string): Promise<boolean> => {
       const { client, toast, refresh } = useWorkspace.getState();
       if (!client) return false;
       patch(p.id, { busy: verb });
       try {
-        if (verb === "accept") await client.acceptProposal(p.id);
+        if (verb === "accept") await (body === undefined ? client.acceptProposal(p.id) : client.acceptProposalHunks(p.id, body));
         else await client.rejectProposal(p.id);
       } catch (err) {
         patch(p.id, { failed: { verb, reason: message(err) } });

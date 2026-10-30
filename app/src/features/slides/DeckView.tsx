@@ -2,6 +2,7 @@ import { SlidesEditor, type EditorSession, type EditorUi } from "@kasten-slides/
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
+import { Wait } from "../../ui/Wait";
 import { useWorkspace } from "../workspace/store";
 import { useDeckFocus } from "./deck-focus";
 import { deckUi, keepDeckUi, setLiveDeck } from "./deck-ui";
@@ -44,7 +45,7 @@ export function DeckView({ path }: { path: string }) {
     });
   }, [client, path]);
 
-  if (loaded.status === "loading") return <div className="grid h-full place-items-center text-14 text-muted">Opening the deck…</div>;
+  if (loaded.status === "loading") return <Wait view label="Opening the deck" />;
   if (loaded.status === "failed") {
     return (
       <div role="alert" className="mx-auto mt-24 max-w-[420px] text-center">

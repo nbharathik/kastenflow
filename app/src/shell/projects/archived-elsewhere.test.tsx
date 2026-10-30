@@ -51,7 +51,8 @@ describe("an archived project beyond the sidebar", () => {
     expect(chips).toEqual(["Beta", "Alpha"]);
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    fireEvent.change(screen.getByRole("textbox", { name: "Search" }), { target: { value: "gamma" } });
+    // The palette's code loads on first use.
+    fireEvent.change(await screen.findByRole("textbox", { name: "Search" }, { timeout: 20_000 }), { target: { value: "gamma" } });
     const found = screen.getByRole("listbox", { name: "Results" }).querySelector('[aria-selected="true"]');
     expect(found?.textContent).toContain("Gamma");
     expect(found?.textContent).toContain("Archived project");

@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 
+import { startInterval } from "../../lib/use-interval";
 import type { Proposal, VaultClient } from "../../lib/vault/types";
 import { useWorkspace } from "../workspace/store";
 import { oldestFirst } from "./group";
@@ -52,17 +53,14 @@ export const useReview = create<ReviewState>()((set) => ({
 }));
 
 const refresh = () => void useReview.getState().refresh();
-const visible = () => typeof document === "undefined" || document.visibilityState !== "hidden";
 const PROPOSALS_DIR = ".kasten/proposals/";
 
 /** Reads now, then on the clock, on focus and on coming back into view.
  * Inside the app the vault watcher also reports proposal files as they
  * appear, so the badge need not wait for the clock. */
 function startPolling(client: VaultClient): () => void {
-  const tick = () => visible() && refresh();
-  const timer = setInterval(tick, POLL_MS);
+  const stopEvery = startInterval(refresh, POLL_MS);
   window.addEventListener("focus", refresh);
-  document.addEventListener("visibilitychange", tick);
   const unwatch = client.watch?.({
     changed(paths) {
       if (paths.some((p) => p.startsWith(PROPOSALS_DIR))) refresh();
@@ -72,9 +70,8 @@ function startPolling(client: VaultClient): () => void {
   });
   refresh();
   return () => {
-    clearInterval(timer);
+    stopEvery();
     window.removeEventListener("focus", refresh);
-    document.removeEventListener("visibilitychange", tick);
     unwatch?.();
   };
 }

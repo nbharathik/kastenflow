@@ -42,7 +42,7 @@ export function EngineCard({ error, session }: { error: BuildError; session: Ses
       {running ? (
         <div className="mt-3 flex items-center gap-3 text-13">
           <span className="latex-meter" role="progressbar" aria-label="Downloading Tectonic" aria-valuenow={percent ?? undefined} aria-valuemin={0} aria-valuemax={100}>
-            <span className={percent === null ? "is-unknown" : undefined} style={{ width: `${percent ?? 100}%` }} />
+            <span className={percent === null ? "is-unknown" : undefined} style={{ transform: `scaleX(${(percent ?? 100) / 100})` }} />
           </span>
           <span>{phase === "verifying" ? "Checking the download" : phase === "installing" ? "Installing" : percent === null ? "Downloading" : `Downloading ${percent} %`}</span>
           <Button size="sm" tone="quiet" onClick={() => void usePlugins.getState().cancel("latex")}>

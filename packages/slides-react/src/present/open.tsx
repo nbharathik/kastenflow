@@ -20,6 +20,10 @@ export interface PresentRequest {
   matte?: Matte;
   /** Whether the arrows and the progress bar show (off when left out). */
   controls?: boolean;
+  /** Whether the mouse toolbar shows at the bottom left while the pointer moves (off when left out). */
+  toolbar?: boolean;
+  /** The displays the show may be on (the toolbar's screen menu). */
+  screens?: PresentModeProps["screens"];
   /** The link to a presenter's window that is already open. */
   sync?: PresentSync | null;
   /** What the S key does. */

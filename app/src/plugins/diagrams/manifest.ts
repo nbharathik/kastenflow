@@ -12,7 +12,7 @@ export const DIAGRAMS_MANIFEST: PluginManifest = {
   summary: "Draw flowcharts and sketches in a diagram file.",
   offName: "draw.io",
   icon: "diagram",
-  version: "1.2.2",
+  version: "1.2.3",
   defaultOn: true,
   scope: "vault",
 };

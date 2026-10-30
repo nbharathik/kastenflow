@@ -11,6 +11,8 @@ import { EditorView, keymap } from "@codemirror/view";
 import { assist } from "./completion/binding";
 import { argumentSource, commandSource } from "./completion/sources";
 import { addEditorExtension } from "./editor/extensions";
+import "./inline/inline.css";
+import { inlineAi } from "./inline/panel";
 import { buildMarks } from "./lint";
 
 /** Ctrl/Cmd+click on a line: the caret goes there and the line is shown in the PDF. */
@@ -52,6 +54,7 @@ export function installAssist(): void {
   addEditorExtension([
     autocompletion({ override: [commandSource, argumentSource], icons: false, maxRenderedOptions: 60, activateOnTypingDelay: 40 }),
     buildMarks,
+    inlineAi,
     clickToPdf,
     syncKey,
   ]);

@@ -1,0 +1,118 @@
+/* How a thread moves and folds: the pill that leads back to the latest
+   message, long runs of steps folded into one line, versions of an answer,
+   and messages entering. Motion goes through the app's tokens, only
+   transform and opacity move, and none of it moves under data-motion="off". */
+
+.kasten-chat-scroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Jump to latest / New below. */
+.kasten-chat-jump {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px 0 12px;
+  border-radius: 14px;
+  background: var(--notion-bg);
+  box-shadow: var(--shadow-pop);
+  color: var(--notion-text);
+  font-size: var(--text-12);
+  font-weight: 500;
+  transform: translateX(-50%);
+  animation: kasten-chat-rise var(--motion-fast) var(--ease-standard);
+
+  &:hover {
+    background: var(--notion-hover);
+  }
+}
+
+.kasten-chat-jump-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--notion-accent);
+}
+
+@keyframes kasten-chat-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+}
+
+/* A message or step that appears while the thread is open: a short fade and rise. */
+.is-entering {
+  animation: kasten-enter var(--motion-fast) var(--ease-standard);
+}
+
+:root[data-motion="off"] .is-entering,
+:root[data-motion="off"] .kasten-chat-jump {
+  animation: none;
+}
+
+/* A long run of steps, folded. */
+.kasten-chat-run {
+  margin: 8px 0;
+}
+
+.kasten-chat-run-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px 0 4px;
+  border-radius: var(--radius-lg);
+  color: var(--notion-text-2);
+  font-size: var(--text-13);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text);
+  }
+}
+
+.kasten-chat-run-chevron {
+  transition: transform var(--motion-fast) var(--ease-standard);
+
+  [data-open="true"] > .kasten-chat-run-toggle > & {
+    transform: rotate(90deg);
+  }
+}
+
+/* Rows of a run: the steps that need a look stay when it is folded, so they sit as ordinary rows. */
+.kasten-chat-run > .kasten-chat-tool,
+.kasten-chat-run-rows > .kasten-chat-tool {
+  margin: 4px 0;
+}
+
+/* The question's own buttons: copy, and edit. */
+.kasten-chat-question-tools {
+  display: flex;
+  gap: 2px;
+}
+
+/* "‹ 2 / 3 ›" on an answer that has other versions. */
+.kasten-chat-versions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin-right: 4px;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+
+  & button {
+    width: 22px;
+    padding: 0;
+    font-size: var(--text-14);
+  }
+}

@@ -8,7 +8,7 @@ import { syntaxTree } from "@codemirror/language";
 import type { Extension, Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 
-const KEYWORDS = new Set([
+export const KEYWORDS = new Set([
   "function", "const", "let", "var", "return", "if", "else", "for", "while", "do", "new", "class", "extends", "import", "export", "from", "default", "async", "await", "try", "catch", "finally", "throw", "typeof", "instanceof", "of", "in", "switch", "case", "break", "continue", "this", "null", "true", "false", "void", "delete", "yield",
 ]);
 

@@ -156,6 +156,8 @@ fn middle(area: Rect, size: (u32, u32)) -> (i32, i32) {
 struct Active {
     presenter_area: Option<Rect>,
     restore: Option<Restore>,
+    /// Where the main window came from, kept even when the show started on its own display: a later move of the show needs it.
+    origin: Restore,
 }
 
 static ACTIVE: Mutex<Option<Active>> = Mutex::new(None);
@@ -169,7 +171,24 @@ pub fn presenter_area() -> Option<Rect> {
     active().as_ref().and_then(|a| a.presenter_area)
 }
 
-fn outer_rect(window: &WebviewWindow) -> Option<Rect> {
+/// The show was moved to another display while it ran (`presenter_move`): the presenter's window goes on `presenter_area`, and the main
+/// window is put back where it came from when the show ends. False when no show holds the window.
+pub(crate) fn note_moved(presenter_area: Option<Rect>) -> bool {
+    let mut slot = active();
+    let Some(held) = slot.as_mut() else {
+        return false;
+    };
+    held.presenter_area = presenter_area;
+    held.restore = Some(held.origin);
+    true
+}
+
+/// Where the main window came from, while a show holds it.
+pub(crate) fn origin() -> Option<Restore> {
+    active().as_ref().map(|a| a.origin)
+}
+
+pub(crate) fn outer_rect(window: &WebviewWindow) -> Option<Rect> {
     let at = window.outer_position().ok()?;
     let size = window.outer_size().ok()?;
     Some(Rect {
@@ -180,7 +199,7 @@ fn outer_rect(window: &WebviewWindow) -> Option<Rect> {
     })
 }
 
-fn displays_of(app: &AppHandle) -> Vec<Display> {
+pub(crate) fn displays_of(app: &AppHandle) -> Vec<Display> {
     let monitors = app.available_monitors().unwrap_or_default();
     let primary = app.primary_monitor().ok().flatten();
     let names: Vec<Option<String>> = monitors.iter().map(|m| m.name().cloned()).collect();
@@ -241,6 +260,10 @@ pub fn present_enter(app: AppHandle, choice: String) -> Result<(), String> {
     *slot = Some(Active {
         presenter_area: plan.presenter.map(|i| displays[i].area),
         restore: restore_after(&plan, before, maximized),
+        origin: Restore {
+            rect: before,
+            maximized,
+        },
     });
     Ok(())
 }
@@ -253,7 +276,11 @@ pub fn present_leave(app: AppHandle) {
         return;
     };
     let _ = window.set_fullscreen(false);
-    if let Some(Restore { rect, maximized }) = noted.and_then(|a| a.restore) {
+    // A display that was unplugged during the show cannot take the window back: it comes to the main display instead.
+    let restore = noted
+        .and_then(|a| a.restore)
+        .map(|r| crate::presenter_move::visible_restore(&displays_of(&app), r));
+    if let Some(Restore { rect, maximized }) = restore {
         let _ = window.set_size(PhysicalSize::new(rect.w, rect.h));
         let _ = window.set_position(PhysicalPosition::new(rect.x, rect.y));
         if maximized {

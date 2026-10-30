@@ -59,9 +59,12 @@ function decorate(ctx: Ctx, doc: Node, { blocks, marks }: Change): DecorationSet
     pos += node.nodeSize;
   }
   const decorations: Decoration[] = [];
-  for (const { from, to, badge } of found) {
+  const midnight = new Date().setHours(0, 0, 0, 0);
+  for (const { from, to, badge, time } of found) {
+    // Writing from today also gets the optional tint (agent.css, shown when the page menu turns it on).
+    const block = time >= midnight ? "kasten-agent-block kasten-agent-today" : "kasten-agent-block";
     for (let i = from; i < to; i++) {
-      decorations.push(Decoration.node(starts[i]!, starts[i]! + nodes[i]!.nodeSize, { class: "kasten-agent-block" }));
+      decorations.push(Decoration.node(starts[i]!, starts[i]! + nodes[i]!.nodeSize, { class: block }));
     }
     if (badge) {
       const toDom = () => agentBadge(badge, () => actionsOf(ctx));

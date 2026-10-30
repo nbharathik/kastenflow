@@ -211,7 +211,14 @@ fn waiting_for_a_build_asks_the_app_and_gives_its_answer() {
             Some("claude-code".to_owned())
         )]
     );
-    // The default wait is 90 s and the most is 300 s.
+    // A document never built is waited for 240 s (the engine fetches its packages), one that was 90 s, and the most is 300 s.
+    assert_eq!(
+        build_now(&k, &s, json!({})).unwrap()["asked_to_wait_ms"],
+        json!(238_000)
+    );
+    let log = v.0.join(build_dir(ARTICLE)).join("out/main.log");
+    fs::create_dir_all(log.parent().unwrap()).unwrap();
+    fs::write(&log, "This is XeTeX, Version 3\n").unwrap();
     assert_eq!(
         build_now(&k, &s, json!({})).unwrap()["asked_to_wait_ms"],
         json!(88_000)

@@ -24,6 +24,7 @@ pub fn build(doc: &str) -> Call {
     Call::LatexBuild {
         doc: doc.into(),
         wait_ms: 5_000,
+        preview: false,
     }
 }
 

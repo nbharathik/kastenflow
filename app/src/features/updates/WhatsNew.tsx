@@ -7,6 +7,7 @@ import "../workspace/overlays/overlays.css";
 import "./updates.css";
 
 import { openUrl } from "../../lib/api";
+import { said } from "../../lib/said";
 import { Icon } from "../../ui/Icon";
 import { Modal } from "../../ui/Modal";
 import { Markdown } from "../chat/markdown/Markdown";
@@ -39,7 +40,7 @@ export default function WhatsNew({ open = openUrl, install = installAndRestart }
   const installError = useUpdates((s) => s.installError);
   if (!info?.newer) return null;
   const released = dateText(info.published);
-  const go = (url: string) => void open(url).catch(() => {});
+  const go = (url: string) => void open(url).catch(said("Could not open the link"));
   const busy = phase === "downloading" || phase === "installing";
   // In place first; after a failure, the installer in the browser.
   const inPlace = canInstall && phase !== "failed";

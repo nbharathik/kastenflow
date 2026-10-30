@@ -98,6 +98,7 @@ export function useCapture(id: string, onSaved?: (saved: Saved) => void): Captur
   const release = useCallback(() => {
     const token = held.current;
     held.current = null;
+    // Tidying a held preview: one that is not released is dropped when the app closes.
     if (token) void browserBackend().discard(token).catch(() => {});
   }, []);
 

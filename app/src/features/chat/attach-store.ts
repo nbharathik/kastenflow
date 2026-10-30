@@ -92,6 +92,7 @@ export const useAttachments = create<AttachState>()((set, get) => {
       return { byThread };
     });
   const patch = (thread: string, key: string, change: Partial<Attached>) => setRows(thread, rows(thread).map((a) => (a.key === key ? { ...a, ...change } : a)));
+  // Frees a held copy of a removed attachment; a copy that stays is cleared when the chat is closed.
   const drop = (id: string) => void useChat.getState().ensure().dropAttachment(id).catch(() => {});
 
   /** Prepares and keeps one attachment for the chip `key`; `extra` is set on its chip once it is ready. */

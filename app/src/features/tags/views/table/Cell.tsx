@@ -2,7 +2,7 @@
 // (read-only) or a property, shown and edited by its type. A property edit
 // shows at once and goes to the core; a refusal puts the old value back.
 
-import { useContext, useRef, type ComponentType, type KeyboardEvent } from "react";
+import { useContext, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
 
 import { relativeTime } from "../../../../lib/dates";
 import type { NoteMeta } from "../../../../lib/vault/types";
@@ -23,6 +23,7 @@ import { useCellHandle, usePending, type Move, type TableCtx } from "./context";
 import { own, readableDate } from "./format";
 import { Glyph } from "./icons";
 import { RowToolsContext } from "./row-tools";
+import { TitleRename } from "./TitleRename";
 import type { Fold } from "./subitems";
 import { dragNotes } from "../../../workspace/drag";
 import { Icon } from "../../../../ui/Icon";
@@ -60,16 +61,22 @@ export function Cell(props: CellProps) {
 const cellClass = (extra: string, active: boolean, editing = false) =>
   `kasten-table-cell ${extra}${active ? " is-active" : ""}${editing ? " is-editing" : ""}`;
 
-/** The title: a click opens the note (Ctrl or the middle button in a tab,
- * Shift in the side stack), and so does Enter; Shift+Enter opens it as a full
- * page, and Space picks the row. */
+/** The title: a click picks it, a double-click or F2 renames it in place.
+ * Enter opens the note and Shift+Enter opens it as a full page; Ctrl or the
+ * middle button on a click open it in a tab, Shift in the side stack. Space
+ * picks the row. */
 function TitleCell({ note, row, col, active, ctx, id, depth, fold, dim, selected = false }: CellProps) {
   const tree = fold !== "none";
   const tools = useContext(RowToolsContext);
+  const [renaming, setRenaming] = useState(false);
   useCellHandle(
     ctx,
-    active,
+    active && !renaming,
     (e) => {
+      if (e.key === "F2" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setRenaming(true);
+        return true;
+      }
       if (e.key === " " && !e.ctrlKey && !e.metaKey && !e.altKey) {
         tools.pick(note.path, e.shiftKey);
         return true;
@@ -105,7 +112,7 @@ function TitleCell({ note, row, col, active, ctx, id, depth, fold, dim, selected
       aria-selected={active}
       className={cellClass("is-title", active)}
       style={depth > 0 ? { paddingLeft: `calc(10px + ${depth} * var(--sub-step))` } : undefined}
-      draggable={tree || undefined}
+      draggable={(tree && !renaming) || undefined}
       onDragStart={tree ? (e) => dragNotes(e, [note.path]) : undefined}
       onContextMenu={
         tree
@@ -119,7 +126,12 @@ function TitleCell({ note, row, col, active, ctx, id, depth, fold, dim, selected
       onMouseDown={(e) => e.button === 1 && e.preventDefault()}
       onClick={(e) => {
         ctx.activate(row, col);
-        ctx.open(note.path, howFromView(e));
+        // A plain click only picks; Ctrl, Cmd or Shift open the note.
+        if (e.ctrlKey || e.metaKey || e.shiftKey) ctx.open(note.path, howFromView(e));
+      }}
+      onDoubleClick={(e) => {
+        if (renaming || e.ctrlKey || e.metaKey || e.shiftKey || (e.target as HTMLElement).closest("button, input")) return;
+        setRenaming(true);
       }}
       onAuxClick={(e) => {
         if (e.button !== 1) return;
@@ -158,9 +170,13 @@ function TitleCell({ note, row, col, active, ctx, id, depth, fold, dim, selected
       <span className="kasten-table-icon" aria-hidden="true">
         <IconOrEmoji icon={iconOf(note)} />
       </span>
-      <span className="kasten-table-title" title={titleOf(note)}>
-        {titleOf(note)}
-      </span>
+      {renaming ? (
+        <TitleRename path={note.path} title={titleOf(note)} done={() => setRenaming(false)} />
+      ) : (
+        <span className="kasten-table-title" title={titleOf(note)}>
+          {titleOf(note)}
+        </span>
+      )}
       <button
         type="button"
         tabIndex={-1}
@@ -254,6 +270,9 @@ const BODIES: Record<string, ComponentType<TypeCellProps>> = {
 /** Types whose editor starts from the character typed: text, or a search. */
 const TYPED = new Set(["text", "number", "url", "select", "multi_select", "relation"]);
 
+/** Types that open a picker on one click; the rest select on a click and edit on a double-click. */
+const ONE_CLICK = new Set(["select", "multi_select", "date", "relation"]);
+
 /** What a key does to an active property cell that is not being edited. */
 function cellKey(e: KeyboardEvent, type: string, value: unknown, edit: (typed?: string | null) => void, save: (value: unknown) => void): boolean {
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
@@ -314,7 +333,11 @@ function PropCell({ note, column, row, col, active, editing, seed, ctx, id }: Ce
         // Clicks inside an open editor (its menu too) stay there.
         if (editing) return;
         ctx.activate(row, col);
-        if (def.type !== "checkbox") edit();
+        // Pickers open on a click; text, numbers and links wait for a double-click.
+        if (ONE_CLICK.has(def.type)) edit();
+      }}
+      onDoubleClick={() => {
+        if (!editing && !ONE_CLICK.has(def.type) && def.type !== "checkbox") edit();
       }}
     >
       <Body value={value} def={def} editing={editing} seed={seed} label={`${column.label} of ${titleOf(note)}`} path={note.path} anchor={anchor} save={save} finish={finish} />

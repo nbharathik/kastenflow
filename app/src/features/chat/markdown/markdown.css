@@ -213,3 +213,57 @@
     font-weight: 600;
   }
 }
+
+/* Math (Math.tsx): KaTeX's own stylesheet loads with it. A display equation
+   scrolls sideways rather than widening the panel. */
+.kasten-md-math {
+  &.is-error {
+    color: var(--notion-red);
+  }
+
+  &[data-drawn="false"] > code {
+    font-size: 0.9em;
+  }
+}
+
+div.kasten-md-math {
+  margin: 0 0 0.8em;
+  overflow-x: auto;
+  text-align: center;
+}
+
+/* Code colours (highlight-code.ts), from the app's tokens so light and dark follow the theme. */
+.kasten-md-code {
+  & .cm-code-tag,
+  & .cm-code-keyword {
+    color: var(--notion-accent);
+  }
+
+  & .cm-code-keyword,
+  & .cm-code-def {
+    font-weight: 600;
+  }
+
+  & .cm-code-attr {
+    color: var(--notion-purple);
+  }
+
+  & .cm-code-string,
+  & .cm-code-number {
+    color: var(--notion-green);
+  }
+
+  & .cm-code-value,
+  & .cm-code-comment {
+    color: var(--notion-text-3);
+  }
+
+  & .cm-code-comment {
+    font-style: italic;
+  }
+
+  & .cm-code-error {
+    color: var(--notion-red);
+    text-decoration: underline wavy;
+  }
+}

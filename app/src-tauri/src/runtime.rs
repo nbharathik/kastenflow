@@ -1,7 +1,10 @@
 //! What runs beside the commands while the app is open: the watcher, which
 //! indexes changes made outside Kasten and tells the window, and the clock,
 //! which commits quiet edits, pushes backups on schedule and writes the
-//! daily backup file.
+//! daily backup file. The clock and the backup thread sleep until their next
+//! work is due or the engine reports a change (engine `wake_workers`), not on
+//! a five-second beat: a quiet vault wakes them only for a safety check
+//! every ten minutes.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -56,8 +59,12 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
             {
                 let _ = clock.emit_to(MAIN, "vault-error", problem);
             }
+            let mut last = std::time::Instant::now();
             loop {
-                std::thread::sleep(Duration::from_secs(5));
+                pace(&mut last);
+                // Read before looking at what is pending, so a change made
+                // while this round runs ends the sleep below at once.
+                let mark = kasten.work_mark();
                 // A slip in one tick must not end the clock, or edits
                 // would stop being committed.
                 let ticked = crash::caught(|| {
@@ -74,6 +81,13 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
                         let _ = clock.emit_to(MAIN, "vault-error", problem);
                     }
                 }
+                // Sleep until the quiet spell of what waits for a commit is
+                // over, or until the engine reports a change. With nothing
+                // pending, only a change (or the safety limit) wakes the clock.
+                let wait = kasten
+                    .commit_wait(Instant::now().millis)
+                    .map_or(SAFETY, |ms| Duration::from_millis(ms).min(SAFETY));
+                kasten.wait_for_work(mark, wait);
             }
         });
     if let Err(err) = started {
@@ -87,18 +101,23 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
     let started = std::thread::Builder::new()
         .name("kasten-backup".into())
         .spawn(move || {
-            let mut tick: u64 = 0;
+            let mut looks = crate::git_host::visibility::Looks::new();
             let mut pushes = crate::notify::Streak::default();
             let mut files = crate::notify::Streak::default();
+            let mut last = std::time::Instant::now();
+            let mut file_look = last;
             loop {
-                std::thread::sleep(Duration::from_secs(5));
-                tick = tick.wrapping_add(1);
+                pace(&mut last);
+                let mark = pushing.work_mark();
                 // Who can see the backup repository: at the start, then daily.
-                crate::git_host::visibility::tick(&backup, &pushing, tick);
-                // The daily backup file, looked at once a minute.
-                if tick.is_multiple_of(12)
+                if looks.due() {
+                    crate::git_host::visibility::tick(&backup, &pushing, &mut looks);
+                }
+                // The daily backup file, looked at once a minute at most.
+                if file_look.elapsed() >= FILE_LOOK
                     && let Some(dir) = &settings
                 {
+                    file_look = std::time::Instant::now();
                     let wrote = crash::caught(|| Ok(crate::backup::file_if_due(&pushing, dir)));
                     match wrote {
                         Ok(Some(written)) => {
@@ -150,10 +169,43 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
                         let _ = backup.emit_to(MAIN, "vault-error", problem);
                     }
                 }
+                // Sleep until the next look at the repository, push or daily
+                // file is due, or until the engine reports a change. With
+                // none of them waiting, only a change (or the safety limit)
+                // wakes this thread.
+                let mut wait = SAFETY.min(looks.next_in());
+                if let Some(ms) = pushing.push_wait(Instant::now().millis) {
+                    wait = wait.min(Duration::from_millis(ms));
+                }
+                if let Some(dir) = &settings
+                    && let Some(due) = crate::backup::file_wait(&pushing, dir)
+                {
+                    wait = wait.min(due.max(FILE_LOOK.saturating_sub(file_look.elapsed())));
+                }
+                pushing.wait_for_work(mark, wait);
             }
         });
     if let Err(err) = started {
         eprintln!("Backups cannot run on schedule: {err}");
     }
     watcher
+}
+
+/// The fastest either thread goes round, however busy the vault: changes
+/// make it go round at once, but never more often than the old five-second
+/// clock did.
+const PACE: Duration = Duration::from_secs(5);
+
+/// The longest either thread sleeps with nothing waiting. The engine wakes
+/// them for every change it sees; this only covers one it cannot, such as a
+/// git command run by hand in the vault.
+const SAFETY: Duration = Duration::from_secs(10 * 60);
+
+/// How seldom the daily backup file is looked at.
+const FILE_LOOK: Duration = Duration::from_secs(60);
+
+/// Sleeps out what is left of `PACE` since `last` and starts the next round.
+fn pace(last: &mut std::time::Instant) {
+    std::thread::sleep(PACE.saturating_sub(last.elapsed()));
+    *last = std::time::Instant::now();
 }

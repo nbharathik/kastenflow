@@ -93,6 +93,7 @@ fn fallback(output: &str) -> Option<Diagnostic> {
         line: None,
         severity: Severity::Error,
         message: line.trim().chars().take(MAX_FALLBACK).collect(),
+        context: None,
     })
 }
 

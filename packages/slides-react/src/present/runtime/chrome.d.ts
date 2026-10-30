@@ -11,8 +11,28 @@ export interface ChromeOptions {
   fullscreen?: () => void;
   /** What the page's own full screen fills. */
   fullscreenTarget?: HTMLElement;
-  /** Seconds the line of keys shows at the start (4 when left out, 0 for never). */
-  hintSeconds?: number;
+  /** The mouse toolbar at the bottom left, shown while the pointer moves. Off when left out (the exported page has none). */
+  toolbar?: boolean;
+  /** The displays the show may be on; with it the toolbar has a menu to swap or pick one. */
+  screens?: ShowScreens;
+}
+
+/** One display, as the toolbar's menu lists it. */
+export interface ShowScreen {
+  label: string;
+  primary?: boolean;
+  /** The show is on it. */
+  current?: boolean;
+}
+
+export interface ShowScreens {
+  list(): Promise<ShowScreen[]>;
+  /** The show goes to the other display. */
+  swap(): void;
+  /** The show goes to the display with this label. */
+  moveTo(label: string): void;
+  /** Flashes each display's number. */
+  identify?(): void;
 }
 
 export interface Chrome {

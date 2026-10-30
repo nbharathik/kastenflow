@@ -135,5 +135,8 @@ impl Kasten {
         watch.problem = None;
         watch.doubtful = false;
         watch.generation += 1;
+        drop(watch);
+        // The push delay and interval may have changed.
+        self.wake_workers();
     }
 }

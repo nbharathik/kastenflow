@@ -28,10 +28,18 @@ fn default_wait() -> u64 {
 pub enum Call {
     /// Build the LaTeX document in the folder `doc` now, and wait up to
     /// `wait_ms` for the build to end.
+    ///
+    /// With `preview`, the app builds what the asker's waiting changes would
+    /// make of the files (the request's session says whose) in a scratch
+    /// folder, and leaves the document's own build, and its last good PDF,
+    /// alone. No text travels in the request: the app reads the changes
+    /// itself.
     LatexBuild {
         doc: String,
         #[serde(default = "default_wait")]
         wait_ms: u64,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        preview: bool,
     },
     /// Build the document if it needs it, and keep its PDF in its folder.
     /// `reason` is for the person who reviews it.

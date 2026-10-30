@@ -79,6 +79,10 @@ export class MemoryAgents extends MemoryDiagrams {
     throw new Error("The browser preview has no agent proposals");
   }
 
+  async acceptProposalHunks(): Promise<unknown> {
+    throw new Error("The browser preview has no agent proposals");
+  }
+
   async rejectProposal(): Promise<void> {
     throw new Error("The browser preview has no agent proposals");
   }

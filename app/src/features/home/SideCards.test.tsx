@@ -1,6 +1,6 @@
 // The slim column beside Home's list: the first open to-dos and the Inbox.
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { dayFrom } from "../../lib/dates";
@@ -70,6 +70,33 @@ describe("Home's To-dos", () => {
     useTaskRows.setState({ rows: [todo("Due today", { due: today }), todo("Due tomorrow", { due: dayFrom(1) }), todo("No day")] });
     render(<Todos withToday />);
     expect(within(screen.getByRole("region", { name: "To-dos" })).getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"))).toEqual(["Due tomorrow", "No day"]);
+  });
+
+  it("moves on at midnight: what was due tomorrow is due today, and Today's list takes it", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      useTaskRows.setState({ rows: [todo("Tomorrow's", { due: dayFrom(1) }), todo("No day")] });
+      render(<Todos withToday />);
+      const card = screen.getByRole("region", { name: "To-dos" });
+      expect(within(card).getAllByRole("checkbox")).toHaveLength(2);
+      vi.setSystemTime(new Date(Date.now() + 24 * 3_600_000));
+      act(() => void window.dispatchEvent(new Event("focus")));
+      expect(within(card).getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"))).toEqual(["No day"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("moves between the to-dos with the arrow keys", () => {
+    useTaskRows.setState({ rows: [todo("One"), todo("Two"), todo("Three")] });
+    render(<Todos />);
+    const boxes = within(screen.getByRole("region", { name: "To-dos" })).getAllByRole("checkbox");
+    boxes[0]!.focus();
+    fireEvent.keyDown(boxes[0]!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(boxes[1]);
+    fireEvent.keyDown(boxes[1]!, { key: "ArrowUp" });
+    fireEvent.keyDown(boxes[0]!, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(boxes[0]);
   });
 
   it("has a field to add one, and goes to Tasks from its link", () => {
