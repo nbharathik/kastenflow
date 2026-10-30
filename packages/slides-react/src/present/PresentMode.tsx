@@ -23,6 +23,7 @@ import { type Matte, matteColor } from "./matte.ts";
 import { type Plan, type Position, fromState, planOf, startPosition } from "./plan.ts";
 import { installRevealCss } from "./reveal-css.ts";
 import { attachChrome } from "./runtime/chrome.js";
+import type { ShowScreens } from "./runtime/chrome.js";
 import { revealConfig } from "./runtime/config.js";
 import { animateMorph, matchSlides } from "./runtime/morph.js";
 import { ScrollView } from "./ScrollView.tsx";
@@ -53,6 +54,10 @@ export interface PresentModeProps {
   matte?: Matte;
   /** Whether reveal.js's arrows and progress bar show. Off when left out: a show is the slide and nothing else. */
   controls?: boolean;
+  /** The mouse toolbar at the bottom left, shown while the pointer moves. Off when left out. */
+  toolbar?: boolean;
+  /** The displays the show may be on, for the toolbar's menu and the presenter's "Swap screens". Without it the show has no such choice. */
+  screens?: ShowScreens;
   /**
    * What the host gives the slides to do with pages of its own: read the pages a deck embeds, open a web address, and show a page
    * in a panel at the side when a link to it is followed. Without it those links do nothing (a web address opens a window).
@@ -81,7 +86,7 @@ function locator(plan: Plan): (number: number) => [number, number] | null {
   return (number) => bySlide.get(Math.min(Math.max(Math.trunc(number) || 1, 1), plan.count)) ?? null;
 }
 
-function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", controls = false, pages }: PresentModeProps): JSX.Element {
+function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", controls = false, toolbar = false, screens, pages }: PresentModeProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const store = useMemo(() => new PresentStore(startPosition(plan, start)), [plan, start]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -93,9 +98,9 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
   const tools = useRef<HTMLDivElement>(null);
   const applying = useRef(false);
   const since = useRef(Date.now());
-  const latest = useRef({ onExit, onPresenter, fullscreen, sync, plan, store });
+  const latest = useRef({ onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar });
   useEffect(() => {
-    latest.current = { onExit, onPresenter, fullscreen, sync, plan, store };
+    latest.current = { onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar };
   });
 
   useLayoutEffect(() => installRevealCss(), []);
@@ -212,6 +217,18 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
       onPresenter: () => latest.current.onPresenter?.(),
       ...(latest.current.fullscreen ? { fullscreen: () => latest.current.fullscreen?.() } : {}),
       ...(stage.current ? { fullscreenTarget: stage.current } : {}),
+      toolbar: latest.current.toolbar,
+      // Read when used, so a show that gets its screens late (or loses them) is followed.
+      ...(latest.current.screens
+        ? {
+            screens: {
+              list: () => latest.current.screens?.list() ?? Promise.resolve([]),
+              swap: () => latest.current.screens?.swap(),
+              moveTo: (label: string) => latest.current.screens?.moveTo(label),
+              identify: () => latest.current.screens?.identify?.(),
+            },
+          }
+        : {}),
     });
     teardown.current = () => {
       for (const type of MOVES) instance.off(type, commit);
@@ -245,7 +262,12 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     const stop = sync.subscribe((message) => {
       if (message.type === "hello") introduce();
       else if (message.type === "end") latest.current.onExit();
-      else if (message.type === "state") {
+      // The presenter's window asks to change screens: the window moves, this page stays (slide, step and timer are kept).
+      else if (message.type === "screen") {
+        const where = latest.current.screens;
+        if (message.target === "swap") where?.swap();
+        else where?.moveTo(message.target);
+      } else if (message.type === "state") {
         applying.current = true;
         try {
           // reveal.js takes a state with any part left out; its typing says every part is there.

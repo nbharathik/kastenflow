@@ -122,8 +122,15 @@
   transform: translateY(-4px) scale(0.99);
 }
 
-:root[data-motion="off"] {
+:root[data-motion="off"]:not([data-motion-reduced]) {
   .kr-leave {
     transition: none;
+  }
+}
+
+/* The computer asks for less: the card fades out, and does not move. */
+:root[data-motion-reduced] {
+  .kr-leave[data-leaving="true"] {
+    transform: none;
   }
 }

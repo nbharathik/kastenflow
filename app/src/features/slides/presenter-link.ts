@@ -2,7 +2,7 @@
 // (src-tauri/src/presenter.rs) passes what one says to the other, without reading it. The presenter's view is a window of its own,
 // made by the core.
 
-import { type PresentSync, linkOver } from "@kasten-slides/react";
+import { type PresentSync, linkOver } from "@kasten-slides/react/presenter-entry";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
@@ -25,6 +25,7 @@ export async function tauriLink(window?: { number: number | null }): Promise<Pre
     for (const handler of [...handlers]) handler(event.payload);
   });
   return linkOver({
+    // A beat of the sync with the speaker's window; the next one carries the full state.
     send: (payload) => void invoke("presenter_post", { message: payload }).catch(() => {}),
     listen(handler) {
       handlers.add(handler);
@@ -59,6 +60,7 @@ export async function openTauriPresenter(path: string): Promise<PresentSync | nu
 
 /** Lets the frames of a presentation load the pages the deck embeds (the core refuses every other address); an empty list ends it. */
 export async function allowEmbeds(urls: string[]): Promise<void> {
+  // Without the list the core refuses the embedded pages, which the slide then shows as blank frames.
   await invoke("allow_embeds", { urls }).catch(() => {});
 }
 

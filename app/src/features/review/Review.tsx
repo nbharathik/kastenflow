@@ -2,6 +2,7 @@ import "./review.css";
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { FlipList } from "../../lib/FlipList";
 import type { Proposal } from "../../lib/vault/types";
 import { useWorkspace } from "../workspace/store";
 import { useDecisions, useDiffMode, type CardState, type Verb } from "./decide";
@@ -12,6 +13,7 @@ import { Segmented } from "../../ui/Segmented";
 import { BUTTON, Callout, ClientBadge, ConfirmBar, Empty, QUIET } from "./ui";
 import { count } from "./words";
 import { Icon } from "../../ui/Icon";
+import { Wait } from "../../ui/Wait";
 
 const NO_STATE: CardState = {};
 
@@ -95,15 +97,15 @@ export function Review() {
         </div>
       )}
 
-      {!loaded && shown.length === 0 && <p className="py-10 text-center text-13 text-muted">Reading the review queue…</p>}
+      {!loaded && shown.length === 0 && <Wait className="py-10 text-center" label="Reading the review queue" />}
       {loaded && shown.length === 0 && !error && <NothingToReview />}
 
       {groups.map((group) => (
         <section key={group.session} aria-label={`Proposals from ${group.client}`} className="mt-8">
           <SessionHeader group={group} live={group.proposals.filter((p) => !gone.has(p.id) && !states[p.id]?.busy)} onAll={decideAll} />
-          <div className="mt-3">
+          <FlipList className="mt-3" order={group.proposals.map((p) => p.id).join(",")}>
             {group.proposals.map((p) => (
-              <div key={p.id} className="kr-leave" data-leaving={gone.has(p.id)}>
+              <div key={p.id} className="kr-leave" data-leaving={gone.has(p.id)} data-flip={p.id}>
                 <div className={`min-h-0 pb-4 ${gone.has(p.id) ? "overflow-hidden" : ""}`}>
                   <ProposalCard
                     ref={(el: HTMLElement | null) => {
@@ -121,7 +123,7 @@ export function Review() {
                 </div>
               </div>
             ))}
-          </div>
+          </FlipList>
         </section>
       ))}
     </div>

@@ -23,7 +23,7 @@ use crate::app_settings::AppSettings;
 use crate::closing::MAIN;
 use crate::commands::notes::OpenVault;
 
-pub use schedule::{file_if_due, final_backup};
+pub use schedule::{file_if_due, file_wait, final_backup};
 
 fn settings_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map_err(|e| e.to_string())
@@ -99,7 +99,10 @@ pub fn set_backup_folder(
             s.backup_folders.remove(&vault);
         }
     })
-    .map_err(|e| format!("Could not keep the backup folder: {e}"))
+    .map_err(|e| format!("Could not keep the backup folder: {e}"))?;
+    // The backup thread sleeps while no folder is set: it looks again now.
+    kasten.wake_workers();
+    Ok(())
 }
 
 /// Writes a backup file now, into the folder set for this vault.

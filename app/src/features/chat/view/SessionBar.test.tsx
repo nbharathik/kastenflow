@@ -1,6 +1,6 @@
 // "Undo this chat's changes": a few changes are undone at once and can be
-// undone again; many are counted first. "Apply directly" gives way to the
-// agent mode.
+// undone again; many are counted first. (The write choice and its agent-mode
+// override are tested with the menu: WriteMenu.test.tsx.)
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -131,30 +131,5 @@ describe("Undo this chat's changes", () => {
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Undo the undo" })));
     expect((await screen.findByRole("alert")).textContent).toContain("The undo stopped at “undo: a1”");
     expect(screen.getByText("This chat's changes were undone.")).toBeTruthy();
-  });
-});
-
-describe("Apply directly and the agent mode", () => {
-  const apply = () => screen.getByRole("checkbox", { name: "Apply directly" }) as HTMLInputElement;
-
-  it("is the thread's own choice on Balanced", async () => {
-    await open(1);
-    expect(apply().disabled).toBe(false);
-    expect(apply().checked).toBe(false);
-    expect(screen.getByText("Changes wait for you to review and apply them.")).toBeTruthy();
-  });
-
-  it("gives way to Review everything, which always holds changes", async () => {
-    await open(1, { mode: "review", until: null, projects: {} });
-    expect(apply().disabled).toBe(true);
-    expect(apply().checked).toBe(false);
-    expect(screen.getByText(/Review everything is on, so changes wait/)).toBeTruthy();
-  });
-
-  it("and to Autonomous, which never does", async () => {
-    await open(1, { mode: "autonomous", until: null, projects: {} });
-    expect(apply().disabled).toBe(true);
-    expect(apply().checked).toBe(true);
-    expect(screen.getByText(/Autonomous agents are on, so changes are saved as the chat makes them/)).toBeTruthy();
   });
 });

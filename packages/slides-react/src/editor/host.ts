@@ -338,6 +338,26 @@ export interface PresentScreens {
   /** The choice kept for this computer. */
   chosen(): string;
   choose(value: string): void;
+  /**
+   * The displays with which is the main one and which the show is on. Left out, the menu lists `displays()` by name.
+   * With `swap` and `moveTo` it also serves the running show's screen menu.
+   */
+  list?(): Promise<ScreenInfo[]>;
+  /** Moves the running show to the other display (the presenter's window takes the one it leaves), keeping the slide, step and timer. */
+  swap?(): Promise<void> | void;
+  /** Moves the running show to the display with this label. */
+  moveTo?(label: string): Promise<void> | void;
+  /** Flashes each display's number and name for a moment, so a name like "DELL U2720Q" can be told from the others. */
+  identify?(): Promise<void> | void;
+}
+
+/** A display as the host lists it. */
+export interface ScreenInfo {
+  label: string;
+  /** The main display. */
+  primary: boolean;
+  /** The show (or the window) is on it now. */
+  current: boolean;
 }
 
 /** The deck's star: read it, change it, and hear when it was changed somewhere else (the sidebar). */

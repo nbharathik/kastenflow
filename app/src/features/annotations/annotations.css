@@ -1,12 +1,16 @@
-/* Highlights on a page kept from the web: the bar that offers them and their
-   list in the Details panel (the marks over the words are paint.css). */
+/* Highlights on a page kept from the web: the selection bar's items that offer
+   them and their list in the Details panel (the marks over the words are paint.css). */
 
-/* The bar's anchor: a point on the window where the selection is; the bar hangs from it. */
-.kasten-text-hl-host {
+/* The colours and Comment are the selection bar's, on a page kept from the web only. */
+.kasten-page:not([data-captured]) [data-toolbar-item^="kasten-hl-"] {
+  display: none;
+}
+
+/* The card under Comment: hangs below the bar's item, not centred on a point. */
+.kasten-sel-pop {
   position: fixed;
   z-index: 60;
-  width: 0;
-  height: 0;
+  translate: none;
 }
 
 /* The list in the panel. */

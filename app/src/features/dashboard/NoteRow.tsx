@@ -16,7 +16,7 @@ export const openOnClick = (path: string) => (event: MouseEvent) => useWorkspace
 
 export function NoteRow({ note, detail }: { note: NoteMeta; detail?: ReactNode }) {
   return (
-    <button type="button" onClick={openOnClick(note.path)} {...openMenuHandlers(note.path)} className="kasten-dash-row">
+    <button type="button" data-rove="" onClick={openOnClick(note.path)} {...openMenuHandlers(note.path)} className="kasten-dash-row">
       <span className="kasten-dash-row-icon" aria-hidden="true">
         <IconOrEmoji icon={iconOf(note)} />
       </span>

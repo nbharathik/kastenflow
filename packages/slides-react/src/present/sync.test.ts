@@ -10,6 +10,9 @@ describe("messages between the two windows", () => {
   it("reads the four kinds and nothing else", () => {
     expect(readMessage({ type: "hello" })).toEqual({ type: "hello" });
     expect(readMessage({ type: "bye" })).toEqual({ type: "bye" });
+    expect(readMessage({ type: "screen", target: "swap" })).toEqual({ type: "screen", target: "swap" });
+    expect(readMessage({ type: "screen" })).toBeNull();
+    expect(readMessage({ type: "screen", target: "" })).toBeNull();
     expect(readMessage({ type: "state", state: { indexh: 2, indexv: 1, indexf: 0, paused: true, overview: false } })).toEqual({ type: "state", state: { indexh: 2, indexv: 1, indexf: 0, paused: true, overview: false } });
     const sent = { type: "deck", deck: deck(), images: { "a.png": "blob:x" }, state: { indexh: 0, indexv: 0 }, since: 5 };
     expect(readMessage(sent)).toMatchObject({ type: "deck", since: 5, images: { "a.png": "blob:x" } });

@@ -103,6 +103,7 @@ pub fn job(root: &Path, engine: Engine) -> Job {
         buffers: Vec::new(),
         vault_bib: false,
         timeout: Duration::from_secs(60),
+        scratch: None,
     }
 }
 

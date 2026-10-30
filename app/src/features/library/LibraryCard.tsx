@@ -55,7 +55,7 @@ export const LibraryCard = memo(function LibraryCard({ row, index, selected, sel
       // Shift+click extends the selection, not the text selection.
       onMouseDown={(event) => event.shiftKey && event.preventDefault()}
       onFocus={() => onFocus(index)}
-      className={`group relative flex min-h-[176px] cursor-pointer scroll-mb-24 scroll-mt-44 flex-col rounded-xl border p-4 text-left outline-none transition ease-standard focus-visible:ring-2 focus-visible:ring-accent/70 motion-reduce:transition-none ${
+      className={`group relative flex min-h-[176px] cursor-pointer [contain-intrinsic-block-size:auto_176px] [content-visibility:auto] scroll-mb-24 scroll-mt-44 flex-col rounded-xl border p-4 text-left outline-none transition ease-standard focus-visible:ring-2 focus-visible:ring-accent/70 motion-reduce:transition-none ${
         selected
           ? "border-accent/60 bg-raised shadow-card ring-1 ring-accent/40"
           : "border-line bg-raised shadow-card hover:border-line-hover hover:shadow-hover"

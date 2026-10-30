@@ -1,8 +1,9 @@
 import "./peek.css";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 
 import { longDay } from "../../lib/dates";
+import { usePresence } from "../../lib/presence";
 import { LazyBoard } from "../../features/boards/canvas/LazyBoard";
 import { boxOf } from "../../features/browser/bounds";
 import { useOccludes } from "../../features/browser/occlusion";
@@ -23,17 +24,26 @@ import { IconOrEmoji } from "../../ui/IconOrEmoji";
 import { lineIcon } from "../../ui/glyph";
 import { noteAt } from "../../features/workspace/tree";
 
-const placeOf = (path: string): Place => ({ view: openKind(path), path });
+/** A side peek slides out in this long (the base step, as peek.css). */
+const SIDE_EXIT_MS = 140;
+
+const placeOf =(path: string): Place => ({ view: openKind(path), path });
 
 /** A page shown over the view it was picked in (Notion's peeks): in the
  * center as a modal, or at the side. Escape or a click outside closes it;
  * its header opens it as a full page or moves it. */
 export function PagePeek() {
   const peek = usePeek((s) => s.peek);
-  if (!peek) return null;
+  // A side peek stays, sliding out, for a moment after it is closed.
+  const { present, state } = usePresence(Boolean(peek), SIDE_EXIT_MS);
+  const last = useRef<Peek | null>(null);
+  if (peek) last.current = peek;
+  const leaving = !peek && present && last.current?.mode === "side" ? last.current : null;
+  const shown = peek ?? leaving;
+  if (!shown) return null;
   // A deck or a diagram is not shown in a peek: it opens as a tab of its own.
-  if (isStandaloneView(openKind(peek.path))) return <DeckInstead path={peek.path} />;
-  return peek.mode === "center" ? <CenterPeek peek={peek} /> : <SidePeek peek={peek} />;
+  if (peek && isStandaloneView(openKind(peek.path))) return <DeckInstead path={peek.path} />;
+  return shown.mode === "center" ? <CenterPeek peek={shown} /> : <SidePeek peek={shown} state={state} />;
 }
 
 /** Where a peek at a deck ends up, should anything ask for one: a full tab. */
@@ -54,7 +64,7 @@ function CenterPeek({ peek }: { peek: Peek }) {
   );
 }
 
-function SidePeek({ peek }: { peek: Peek }) {
+function SidePeek({ peek, state }: { peek: Peek; state: "open" | "closing" }) {
   // Over a browser tab's page it would be hidden behind it (a center peek is a Modal, which steps it aside).
   useOccludes(true, () => {
     const side = document.querySelector(".kasten-peek-side");
@@ -77,7 +87,7 @@ function SidePeek({ peek }: { peek: Peek }) {
     };
   }, []);
   return (
-    <aside className="kasten-peek-side" role="dialog" aria-label="Page peek">
+    <aside className="kasten-peek-side" role="dialog" aria-label="Page peek" data-state={state} inert={state === "closing" ? true : undefined}>
       <PeekHeader peek={peek} />
       <PeekBody path={peek.path} />
     </aside>

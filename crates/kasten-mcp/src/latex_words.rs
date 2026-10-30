@@ -35,6 +35,11 @@ fn text<'a>(value: &'a Value, key: &str) -> &'a str {
     value[key].as_str().unwrap_or_default().trim()
 }
 
+/// Whether a read asked for some lines (`around_line` or `lines`) rather than the whole file.
+fn has_lines(input: &Value) -> bool {
+    input["around_line"].is_number() || !text(input, "lines").is_empty()
+}
+
 fn count(n: usize, what: &str) -> String {
     format!("{n} {what}{}", if n == 1 { "" } else { "s" })
 }
@@ -68,9 +73,14 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
     let doc = named(text(input, "doc"), "the document");
     Some(match name {
         "latex_list" => "list the LaTeX documents".to_owned(),
-        "latex_read" => match text(input, "file") {
-            "" => format!("read the LaTeX document {doc}"),
-            file => format!("read the LaTeX file {}", named(file, "the file")),
+        "latex_read" => match (text(input, "file"), has_lines(input)) {
+            ("", false) => format!("read the LaTeX document {doc}"),
+            ("", true) => format!("read some lines of the LaTeX document {doc}"),
+            (file, false) => format!("read the LaTeX file {}", named(file, "the file")),
+            (file, true) => format!(
+                "read some lines of the LaTeX file {}",
+                named(file, "the file")
+            ),
         },
         "latex_edit" => format!(
             "change the LaTeX file {} of {doc}",
@@ -254,8 +264,14 @@ pub fn told(name: &str, input: &Value, value: &Value) -> Option<Told> {
         _ => {
             let doc = named(text(input, "doc"), "the document");
             let words = if value["waited"] == Value::Bool(true) {
+                // A build of changes that wait for review says so: the saved files were not built.
+                let kind = if value["preview"] == Value::Bool(true) {
+                    "Checked the changes waiting for review in"
+                } else {
+                    "Built"
+                };
                 format!(
-                    "Built {doc}: {}, {}",
+                    "{kind} {doc}: {}, {}",
                     count(value["errors"].as_u64().unwrap_or(0) as usize, "error"),
                     count(value["warnings"].as_u64().unwrap_or(0) as usize, "warning")
                 )

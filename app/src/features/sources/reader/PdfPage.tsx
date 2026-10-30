@@ -97,6 +97,7 @@ export const PdfPage = memo(function PdfPage({ doc, number, scale, fallback, nea
     picture.width = Math.floor(viewport.width * dpr);
     picture.height = Math.floor(viewport.height * dpr);
     const drawing = page.render({ canvas: picture, viewport, transform: dpr === 1 ? undefined : [dpr, 0, 0, dpr, 0, 0] });
+    // A render cancelled by leaving the page rejects; a page that cannot draw stays blank.
     drawing.promise.catch(() => {});
     let words: { cancel(): void } | null = null;
     void pdfjs()
@@ -107,6 +108,7 @@ export const PdfPage = memo(function PdfPage({ doc, number, scale, fallback, nea
         words = textLayer;
         return textLayer.render().then(() => !cancelled && setDrawn((n) => n + 1));
       })
+      // The text layer is for selecting words; without it the page is still readable.
       .catch(() => {});
     return () => {
       cancelled = true;

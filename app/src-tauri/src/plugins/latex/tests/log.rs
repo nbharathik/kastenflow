@@ -19,7 +19,18 @@ fn d(severity: Severity, file: Option<&str>, line: Option<u32>, message: &str) -
         line,
         severity,
         message: message.to_owned(),
+        context: None,
     }
+}
+
+/// `parse_log` without the context lines (those have their own tests), so
+/// the cases below compare the file, line and message only.
+fn parse_bare(text: &str) -> Vec<Diagnostic> {
+    let mut found = parse_log(text);
+    for d in &mut found {
+        d.context = None;
+    }
+    found
 }
 
 fn err(file: Option<&str>, line: Option<u32>, message: &str) -> Diagnostic {
@@ -200,7 +211,7 @@ fn every_fixture_log_gives_its_diagnostics() {
     let cases = cases();
     assert!(cases.len() >= 8, "at least eight logs");
     for case in cases {
-        assert_eq!(parse_log(case.log), case.want, "log {}", case.name);
+        assert_eq!(parse_bare(case.log), case.want, "log {}", case.name);
     }
 }
 
@@ -217,7 +228,7 @@ fn only_the_nested_log_has_a_line_wrapped_at_79_columns() {
 fn windows_line_endings_read_the_same() {
     for case in cases() {
         let crlf = case.log.replace('\n', "\r\n");
-        assert_eq!(parse_log(&crlf), case.want, "log {}", case.name);
+        assert_eq!(parse_bare(&crlf), case.want, "log {}", case.name);
     }
 }
 
@@ -229,7 +240,7 @@ fn a_file_name_wrapped_at_79_columns_is_joined() {
     let log = format!("{head}\n{tail}\n! Undefined control sequence.\nl.4 \\x\n          \n");
     let want = format!("{}.tex", "d".repeat(80));
     assert_eq!(
-        parse_log(&log),
+        parse_bare(&log),
         vec![err(Some(&want), Some(4), "Undefined control sequence.")]
     );
 }
@@ -238,7 +249,7 @@ fn a_file_name_wrapped_at_79_columns_is_joined() {
 fn a_file_name_with_a_drive_letter_is_the_file() {
     let log = "(C:\\tex\\main.tex\n! Undefined control sequence.\nl.1 \\x\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![err(
             Some("C:\\tex\\main.tex"),
             Some(1),
@@ -254,7 +265,7 @@ Type X to quit or <RETURN> to proceed,\nor enter new name. (Default extension: s
 Enter file name: \n! Emergency stop.\n<read *> \n\nl.3 \\usepackage{x}\n\n\
 *** (job aborted, file error in nonstop mode)\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![err(MAIN, Some(3), "File `x.sty' not found.")]
     );
 }
@@ -264,7 +275,7 @@ fn parentheses_in_messages_do_not_close_files() {
     let log = "(./a.tex\nLaTeX Warning: Reference `x' (see below) on page 1 undefined on input line 3.\n\
 (./b.tex) (and then some) ) (./c.tex\nOverfull \\hbox (1.0pt too wide) in paragraph at lines 7--8\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![
             warn(
                 Some("a.tex"),
@@ -285,7 +296,7 @@ fn a_new_tex_run_drops_the_diagnostics_of_the_one_before() {
     let log = "This is pdfTeX, Version 3.1\n(./a.tex\n! Undefined control sequence.\nl.1 \\x\n\
 This is XeTeX, Version 3.1\n(./a.tex\nOverfull \\hbox (1.0pt too wide) detected at line 2\n";
     assert_eq!(
-        parse_log(log),
+        parse_bare(log),
         vec![info(
             Some("a.tex"),
             Some(2),

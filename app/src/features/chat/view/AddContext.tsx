@@ -21,7 +21,7 @@ import { boardChip, cardsChip, diagramChip, noteChip, searchChip, tagChip } from
 import { useOpenNotes } from "../open-pages";
 import { pickFiles } from "../pick-files";
 import { useChat } from "../store";
-import { chipKey, type Chip, type Thread } from "../thread";
+import { chipKey, type Chip, type ComposerThread } from "../thread";
 import { IconOrEmoji } from "../../../ui/IconOrEmoji";
 import { lineIcon } from "../../../ui/glyph";
 import { Icon } from "../../../ui/Icon";
@@ -55,7 +55,7 @@ function arrows(event: KeyboardEvent<HTMLElement>): void {
   event.preventDefault();
 }
 
-export function AddContext({ thread, page }: { thread: Thread; page: NoteMeta | null }) {
+export function AddContext({ thread, page }: { thread: ComposerThread; page: NoteMeta | null }) {
   const [step, setStep] = useState<Step | null>(null);
   const [tag, setTag] = useState<string | null>(null);
   const within = useRef<HTMLSpanElement>(null);

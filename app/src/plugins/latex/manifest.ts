@@ -13,7 +13,7 @@ export const LATEX_MANIFEST: PluginManifest = {
   name: "LaTeX",
   summary: "Write pages in LaTeX and get a PDF.",
   icon: "sigma",
-  version: "1.2.2",
+  version: "1.2.3",
   defaultOn: false,
   scope: "vault",
 };

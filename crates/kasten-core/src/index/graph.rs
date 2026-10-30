@@ -33,6 +33,15 @@ impl Index {
         (version, i128::from(self.conn.total_changes()))
     }
 
+    /// Changes only when another connection to the same file changed it (the
+    /// app and the MCP server share one); this connection's own changes are
+    /// told by `take_touched` instead.
+    pub fn data_version(&self) -> i64 {
+        self.conn
+            .query_row("PRAGMA data_version", [], |r| r.get::<_, i64>(0))
+            .unwrap_or(-1)
+    }
+
     /// What the link graph is built from: every note outside templates with
     /// what following links needs (path, title, kind and project), by path,
     /// and every link those notes make, a note's links together.

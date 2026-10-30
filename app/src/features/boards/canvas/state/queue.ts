@@ -70,10 +70,12 @@ export class BoardQueue {
       } catch (err) {
         this.round++;
         this.pending = [];
+        // The failure below is what the caller says; a reload that fails too keeps the board as it is.
         await this.reload().catch(() => {});
         throw err;
       }
     });
+    // The chain only keeps order; each batch's own failure is reported through `run`.
     this.chain = run.catch(() => {});
     return run;
   }

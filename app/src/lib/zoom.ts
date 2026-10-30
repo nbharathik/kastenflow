@@ -174,6 +174,7 @@ export function createZoom(host: () => ZoomHost) {
   /** One at a time, so a move and a key press never cross. */
   const queued = <T>(job: () => Promise<T>): Promise<T> => {
     const run = chain.then(job);
+    // The chain only keeps order; the caller of `run` gets its failure (Settings says it).
     chain = run.catch(() => {});
     return run;
   };
@@ -217,6 +218,8 @@ export function createZoom(host: () => ZoomHost) {
     /** At start-up: the level of last time at once (before the first paint), then
      * the display's own; and a look again when the window moves or its scale changes. */
     start(): void {
+      // Nobody asked for these at start-up: a window that cannot be scaled stays at 100%, and the
+      // next look at the display (below) or a click in Settings tries again and says why.
       const last = startLevel();
       if (last !== 1) {
         void queued(async () => {
@@ -224,12 +227,14 @@ export function createZoom(host: () => ZoomHost) {
           applied = last;
         }).catch(() => {});
       }
+      // The same look, at start and after the window settles on a display.
       void refresh().catch(() => {});
       let timer: ReturnType<typeof setTimeout> | undefined;
       const changed = () => {
         clearTimeout(timer);
         timer = setTimeout(() => void refresh().catch(() => {}), SETTLE_MS);
       };
+      // Without the watch a moved window keeps its level until the next start.
       void host().watch(changed).catch(() => {});
     },
   };

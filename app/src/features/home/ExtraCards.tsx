@@ -5,12 +5,17 @@
 import { useMemo } from "react";
 
 import { dayFrom, longDay } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
+import { canSubscribe } from "../calendar/external/api";
+import { partsByDay } from "../calendar/external/external";
+import { useExternalEvents } from "../calendar/external/store";
 import { DashCard, DashEmpty } from "../dashboard/DashCard";
 import { SeeAll } from "../dashboard/Minis";
 import { NoteRow } from "../dashboard/NoteRow";
 import { useTaskList } from "../dashboard/task-rows";
 import { useWorkspace } from "../workspace/store";
 import { journalDays } from "../workspace/tree";
+import { roveKeys } from "./roving";
 
 export function ExtraCard({ id }: { id: "week" | "journal" }) {
   return id === "week" ? <Week /> : <Journal />;
@@ -22,27 +27,35 @@ function weekday(day: string): string {
   return new Date(y!, m! - 1, d).toLocaleDateString(undefined, { weekday: "short" });
 }
 
-/** The next seven days, each a button to its journal day, with the to-dos due on it. */
+/** The next seven days, each a button to its journal day, with the events and to-dos on it. */
 function Week() {
   const rows = useTaskList();
-  const today = dayFrom(0);
-  // `today` is in the list so the week moves on when midnight passes and the view draws again.
+  const today = useToday();
+  // `today` is in the list so the week moves on when midnight passes.
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => dayFrom(i)), [today]);
-  const counts = useMemo(() => {
+  const events = useExternalEvents(days[0]!, days[6]!, canSubscribe());
+  const todos = useMemo(() => {
     const out = new Map<string, number>();
     for (const row of rows ?? []) if (!row.done && row.due && days.includes(row.due)) out.set(row.due, (out.get(row.due) ?? 0) + 1);
     return out;
   }, [rows, days]);
+  const meetings = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const [day, parts] of partsByDay(events, days[0]!, days[6]!)) out.set(day, parts.length);
+    return out;
+  }, [events, days]);
   return (
     <DashCard title="This week" icon="calendar-days" actions={<SeeAll label="Calendar" run={() => useWorkspace.getState().go({ view: "calendar" })} />}>
-      <div role="group" aria-label="The next seven days" className="kasten-week">
+      <div role="group" aria-label="The next seven days" className="kasten-week" data-rove-across="" onKeyDown={roveKeys}>
         {days.map((day) => {
-          const n = counts.get(day) ?? 0;
+          const t = todos.get(day) ?? 0;
+          const e = meetings.get(day) ?? 0;
+          const said = [e ? `${e} event${e === 1 ? "" : "s"}` : "", t ? `${t} to-do${t === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
           return (
-            <button key={day} type="button" className={`kasten-week-day${day === today ? " is-today" : ""}`} aria-label={`${longDay(day)}${n ? `: ${n} to-do${n === 1 ? "" : "s"}` : ""}`} onClick={() => void useWorkspace.getState().openJournal(day)}>
+            <button key={day} type="button" data-rove="" className={`kasten-week-day${day === today ? " is-today" : ""}`} aria-label={`${longDay(day)}${said ? `: ${said}` : ""}`} onClick={() => void useWorkspace.getState().openJournal(day)}>
               <span className="kasten-week-name">{weekday(day)}</span>
               <span className="kasten-week-date">{Number(day.slice(8))}</span>
-              <span className="kasten-week-count">{n || ""}</span>
+              <span className="kasten-week-count">{t + e || ""}</span>
             </button>
           );
         })}
@@ -60,7 +73,7 @@ function Journal() {
       {latest.length === 0 ? (
         <DashEmpty>No days written yet. Today's page is one click away.</DashEmpty>
       ) : (
-        <div className="kasten-dash-rows">
+        <div className="kasten-dash-rows" onKeyDown={roveKeys}>
           {latest.map((day) => (
             <NoteRow key={day.path} note={day} detail={day.excerpt || "No entry"} />
           ))}

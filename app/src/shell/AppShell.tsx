@@ -4,10 +4,7 @@ import { loadNotePage } from "../features/workspace/page/LazyNotePage";
 import { usePlugins } from "../plugins/registry";
 import { forgetProjectSmart } from "../features/smart/availability";
 import { forgetRunSwitch } from "../features/smart/run-switch";
-import { Palette } from "../features/workspace/overlays/Palette";
-import { SideStack } from "../features/stack/SideStack";
-import { VaultChooser } from "../features/vaults/VaultChooser";
-import { ShortcutsHelp } from "../features/workspace/overlays/ShortcutsHelp";
+import { usePeek } from "../features/peek/store";
 import { Toasts } from "../features/workspace/overlays/Toasts";
 import { useKeyLabel, withKey } from "../features/shortcuts/store";
 import { useGlobalShortcuts } from "../features/workspace/shortcuts";
@@ -38,7 +35,6 @@ import { useSaveSetupRequest } from "../features/projects/setups/request";
 import { useBackupWizard } from "../features/backup/wizard";
 import { usePaperDialog } from "../features/references/add-state";
 import { useCompareDialog } from "../features/sources/compare/compare-state";
-import { PagePeek } from "./peek/PagePeek";
 import { OpenMenuHost } from "./open-menu";
 import { useDiagramHost } from "../features/diagrams/host-store";
 import { useUpdates } from "../features/updates/store";
@@ -66,6 +62,14 @@ const BackupWizard = lazy(() => import("../features/backup/wizard/WizardHost"));
 // The template gallery (with the starter kits and its previews) and the "Move to" picker load when they are opened.
 const TemplateGallery = lazy(() => import("../features/templates/TemplateGallery").then((m) => ({ default: m.TemplateGallery })));
 const MovePicker = lazy(() => import("../features/workspace/overlays/MovePicker").then((m) => ({ default: m.MovePicker })));
+// What is not on the first frame loads when it is first shown: the palette and the shortcuts list (warmed while the window is idle,
+// so the first press is not slow), the vault chooser, the side stack and a page peek.
+const loadPalette = () => import("../features/workspace/overlays/Palette").then((m) => ({ default: m.Palette }));
+const Palette = lazy(loadPalette);
+const ShortcutsHelp = lazy(() => import("../features/workspace/overlays/ShortcutsHelp").then((m) => ({ default: m.ShortcutsHelp })));
+const VaultChooser = lazy(() => import("../features/vaults/VaultChooser").then((m) => ({ default: m.VaultChooser })));
+const SideStack = lazy(() => import("../features/stack/SideStack").then((m) => ({ default: m.SideStack })));
+const PagePeek = lazy(() => import("./peek/PagePeek").then((m) => ({ default: m.PagePeek })));
 
 /** Loads and warms the page editor while the window is idle, so the first
  * page opens at once instead of waiting for the editor's code. */
@@ -75,6 +79,8 @@ function preloadEditor(): void {
     void loadNotePage()
       .then(() => import("../features/pages/editor/warm"))
       .then((warm) => warm.warmEditor())
+      .then(() => loadPalette())
+      // Warming ahead of need: the page loads the same code itself when it is opened.
       .catch(() => {});
   if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(load, { timeout: 2000 });
   else setTimeout(load, 300);
@@ -93,6 +99,7 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   const moving = useShell((s) => s.moving);
   const gallery = useShell((s) => s.gallery);
   const stackOpen = useWorkspace((s) => s.stackOpen);
+  const peeking = usePeek((s) => s.peek !== null);
   const chatOpen = useShell((s) => s.chatOpen);
   const ready = useWorkspace((s) => s.ready);
   const problem = useWorkspace((s) => s.problem);
@@ -164,14 +171,20 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
             <p className="p-8 text-14 text-muted">Opening your notes…</p>
           ) : choosing ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <VaultChooser problem={problem} />
+              <Suspense fallback={null}>
+                <VaultChooser problem={problem} />
+              </Suspense>
             </div>
           ) : problem ? (
             <Problem text={problem} />
           ) : (
             <div className="flex min-h-0 flex-1" data-peek-closes>
               <Panes />
-              {stackOpen && !focusMode && <SideStack />}
+              {stackOpen && !focusMode && (
+                <Suspense fallback={null}>
+                  <SideStack />
+                </Suspense>
+              )}
               {chatOpen && !focusMode && (
                 <ViewBoundary place="chat">
                   <Suspense fallback={null}>
@@ -184,8 +197,16 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
         </main>
       </div>
       {!focusMode && <StatusBar />}
-      {paletteOpen && <Palette />}
-      {shortcutsOpen && <ShortcutsHelp />}
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <Palette />
+        </Suspense>
+      )}
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsHelp />
+        </Suspense>
+      )}
       {moving && (
         <Suspense fallback={null}>
           <MovePicker path={moving} />
@@ -196,7 +217,11 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
           <TemplateGallery />
         </Suspense>
       )}
-      <PagePeek />
+      {peeking && (
+        <Suspense fallback={null}>
+          <PagePeek />
+        </Suspense>
+      )}
       <OpenMenuHost />
       {diagramsWork && (
         <Suspense fallback={null}>

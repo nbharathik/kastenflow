@@ -11,6 +11,7 @@ import { create } from "zustand";
 import { useWorkspace } from "../workspace/store";
 import type { AdoptFailure, Binding, DeletedArchived, ThreadSummary } from "./agent-types";
 import { forgetCapabilities } from "./capabilities";
+import { autoApplyIfSmall } from "./changes/auto";
 import { connectChat, type ChatClient } from "./client";
 import { keepModel, keepSettings, modelFor } from "./prefs";
 import { outcomeOf, touched } from "./store-events";
@@ -23,8 +24,10 @@ import { selectionActions } from "./store-selection";
 import { sendActions } from "./store-send";
 import { FrameQueue } from "./stream";
 import { applyEvent, endTurn, newThread, type Chip, type SentAttachment, type Thread } from "./thread";
+import { latestFirst } from "./thread-versions";
 import type { ChangesInfo, ChatEvent, ChatProvider, GenerationSettings, ProviderDraft } from "./types";
 import { useUnread, workingCount } from "./unread";
+import type { WriteChoice } from "./writes";
 
 export { flushSaves } from "./store-persist";
 
@@ -95,6 +98,8 @@ export interface ChatState {
   /** Whether the message went. While the model works it is queued for its next
    * step; not without a provider, text, or while Stop is waited for. */
   send(id: string, text: string, attachments?: SentAttachment[]): Promise<boolean>;
+  /** Sends what was written while offline, now that the connection is back. */
+  flushOffline(): Promise<void>;
   /** Carries a paused turn on in place with a fresh budget. Whether it did. */
   continueThread(id: string): Promise<boolean>;
   stop(id: string): Promise<void>;
@@ -114,6 +119,10 @@ export interface ChatState {
   regenerate(id: string): Promise<boolean>;
   /** Asks `text` in place of the last question and its answer. Whether it went. */
   resend(id: string, text: string): Promise<boolean>;
+  /** Asks `text` in place of any earlier question (`message` is its id): what followed stays as an earlier version. Whether it went. */
+  resendAt(id: string, message: string, text: string): Promise<boolean>;
+  /** Shows version `k` of the conversation that branches at the question with index `at`. */
+  showVersion(id: string, at: number, k: number): void;
   addChip(id: string, chip: Chip): void;
   removeChip(id: string, key: string): void;
   /** The page chip becomes the page being looked at (none leaves it as it is); not while the thread does not follow. */
@@ -128,6 +137,8 @@ export interface ChatState {
   undone(id: string, undone?: boolean): void;
   /** Whether the thread's writes are made at once ("Apply directly") or wait as staged changes. */
   setDirect(id: string, direct: boolean): void;
+  /** How the thread's writes reach the vault: ask first (the default), apply directly, or auto. */
+  setWrites(id: string, choice: WriteChoice): void;
   /** What the thread has staged, as the backend last said; none when nothing waits. */
   setChanges(id: string, changes: ChangesInfo | undefined): void;
   /** The thread's staged changes were written: it changed the vault, and nothing waits. */
@@ -181,6 +192,8 @@ export const useChat = create<ChatState>()((set, get, api) => {
   const sent = {
     ...sending,
     async send(...args: Parameters<typeof sending.send>) {
+      // A message goes into the conversation the assistant remembers, not into an earlier version on screen.
+      update(args[0], latestFirst);
       const went = await sending.send(...args);
       if (went) void get().bindIfPending(args[0]);
       return went;
@@ -190,6 +203,8 @@ export const useChat = create<ChatState>()((set, get, api) => {
   api.subscribe((s, before) => {
     if (s.threads !== before.threads) useUnread.getState().setWorking(workingCount(s));
   });
+  // What was written while offline goes when the connection returns.
+  if (typeof window !== "undefined") window.addEventListener("online", () => void get().flushOffline());
 
   return {
     client: null,
@@ -284,18 +299,6 @@ export const useChat = create<ChatState>()((set, get, api) => {
     ...selectionActions(get, update),
     ...historyActions(api, kept),
 
-    async retry(id) {
-      const thread = get().threads[id];
-      const count = thread?.messages.length ?? 0;
-      const failed = thread?.messages[count - 1];
-      const asked = thread?.messages[count - 2];
-      if (!thread || thread.streaming || failed?.role !== "assistant" || failed.status !== "error" || asked?.role !== "user") return false;
-      // An answer that said nothing left no trace in the backend's thread, so
-      // the question takes its place instead of standing twice.
-      if (failed.parts.length === 0) update(id, (t) => ({ ...t, messages: t.messages.slice(0, -2) }));
-      return get().send(id, asked.text, asked.attachments);
-    },
-
     async stop(id) {
       const thread = get().threads[id];
       if (!thread?.streaming) return;
@@ -340,6 +343,7 @@ export const useChat = create<ChatState>()((set, get, api) => {
       await get()
         .ensure()
         .reset(id)
+        // Only frees memory; the chat is already archived above.
         .catch(() => {});
       if (written) void kept.loadSaved();
       return true;
@@ -384,6 +388,8 @@ export const useChat = create<ChatState>()((set, get, api) => {
         if (was && !get().threads[event.chat]?.streaming) useUnread.getState().note(event.chat, outcome);
         void kept.flush(event.chat);
       }
+      // On Auto, what is small and safe is applied now the turn is over; the rest stays staged.
+      if (event.kind === "done" && !event.stopped) void autoApplyIfSmall(event.chat);
       if (event.kind === "done" || event.kind === "error") {
         const client = get().client;
         if (client) {

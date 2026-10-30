@@ -13,6 +13,7 @@ mod related;
 mod search;
 mod store;
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
@@ -30,6 +31,24 @@ pub use related::Related;
 
 pub struct Index {
     conn: Connection,
+    /// Which projects' notes this connection changed since `take_touched`.
+    touched: Touched,
+}
+
+/// The projects whose notes changed through one connection, for readers that
+/// keep per-project answers (project summaries).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Touched {
+    /// The whole index was rebuilt: every project may have changed.
+    pub all: bool,
+    /// The folders (`projects/<folder>/`) whose notes were added, changed or removed.
+    pub projects: BTreeSet<String>,
+}
+
+impl Touched {
+    pub fn is_empty(&self) -> bool {
+        !self.all && self.projects.is_empty()
+    }
 }
 
 impl std::fmt::Debug for Index {
@@ -140,7 +159,27 @@ impl Index {
                 [SCHEMA_VERSION],
             )?;
         }
-        Ok(Index { conn })
+        // Added after schema 7 without a new version, so an index made by an
+        // earlier build gains it in place (a few milliseconds) instead of
+        // being rebuilt: it lets one project's notes be found without a scan.
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS notes_project ON notes(project);")?;
+        Ok(Index {
+            conn,
+            touched: Touched::default(),
+        })
+    }
+
+    /// The projects changed through this connection since the last call, and
+    /// forgets them. A change made through another connection to the same
+    /// file is not here: `stamp` tells of it.
+    pub fn take_touched(&mut self) -> Touched {
+        std::mem::take(&mut self.touched)
+    }
+
+    /// Puts back what `take_touched` gave, for a reader that could not use it.
+    pub fn restore_touched(&mut self, back: Touched) {
+        self.touched.all |= back.all;
+        self.touched.projects.extend(back.projects);
     }
 
     /// How many notes are indexed.

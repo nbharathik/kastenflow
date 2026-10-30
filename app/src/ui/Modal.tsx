@@ -6,7 +6,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { useOccludes } from "../features/browser/occlusion";
+import { useLeaveGhost } from "../lib/presence";
 import { keepTabInside } from "./focus-trap";
+
+/** How long the modal takes to fade out (the base step, as ui.css). */
+const EXIT_MS = 140;
 
 /** A press this soon after the modal opened is the second half of the
  * double-click that opened it, not a press outside. */
@@ -30,12 +34,15 @@ interface ModalProps {
 
 export function Modal({ label, labelledBy, describedBy, role = "dialog", onClose, className = "", plain, children }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
+  const overlay = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   const opened = useRef(0);
   // Taken as the modal first renders, before a field inside takes focus.
   const [before] = useState(() => document.activeElement as HTMLElement | null);
   // A browser tab's page is drawn above the window: it steps aside while this is open.
   useOccludes();
+  // The window and panel fade out as the parent takes the modal away.
+  useLeaveGhost(overlay, EXIT_MS, false);
   useEffect(() => {
     close.current = onClose;
   }, [onClose]);
@@ -61,6 +68,7 @@ export function Modal({ label, labelledBy, describedBy, role = "dialog", onClose
 
   return createPortal(
     <div
+      ref={overlay}
       className={`ui-overlay${plain ? " is-high" : ""}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && performance.now() - opened.current > DOUBLE_CLICK_MS) close.current();

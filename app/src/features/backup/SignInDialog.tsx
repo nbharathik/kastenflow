@@ -3,14 +3,15 @@
 // person's password; GitHub hands it a token for this computer.
 
 import { openUrl } from "../../lib/api";
+import { copyOrSay, said } from "../../lib/said";
 import { Button } from "../../ui/Button";
 import { Modal } from "../../ui/Modal";
 import type { SignInCode } from "./api";
 
 export function SignInDialog({ code, onCancel }: { code: SignInCode; onCancel: () => void }) {
   const go = () => {
-    void navigator.clipboard?.writeText(code.userCode).catch(() => {});
-    void openUrl(code.verificationUri);
+    void copyOrSay(code.userCode, "the code");
+    void openUrl(code.verificationUri).catch(said("Could not open GitHub's page. Open it yourself and type the code"));
   };
   return (
     <Modal label="Sign in with GitHub" onClose={onCancel} className="ui-dialog">

@@ -67,7 +67,8 @@ function openLightbox(doc, host, image, onClosed) {
  * @param {() => void} [options.onPresenter] what S does
  * @param {() => void} [options.fullscreen] what F does; the page's full screen when left out
  * @param {HTMLElement} [options.fullscreenTarget] what F fills when it is the page's own full screen
- * @param {number} [options.hintSeconds] how long the line of keys shows at the start; 0 for never
+ * @param {boolean} [options.toolbar] show the mouse toolbar at the bottom left while the pointer moves; off when left out (the exported page has none)
+ * @param {{ list(): Promise<{label: string, primary?: boolean, current?: boolean}[]>, swap(): void, moveTo(label: string): void, identify?(): void }} [options.screens] the displays the show may be on; the toolbar offers a menu of them
  * @returns {{ destroy(): void, laser(on?: boolean): boolean, hints(on?: boolean): boolean, lightboxOpen(): boolean }}
  */
 export function attachChrome(reveal, host, options = {}) {
@@ -79,6 +80,9 @@ export function attachChrome(reveal, host, options = {}) {
   let typedTimer = 0;
   let hintsBox = null;
   let closeLightbox = null;
+  let screenMenu = null;
+  let laserButton = null;
+  let toolbar = null;
 
   const dot = make(doc, "div", "ks-show-laser");
   dot.hidden = true;
@@ -103,6 +107,7 @@ export function attachChrome(reveal, host, options = {}) {
     laserOn = on;
     (host.parentElement ?? host).classList.toggle("ks-show-laser-on", on);
     dot.hidden = true;
+    laserButton?.setAttribute("aria-pressed", String(on));
     if (on) win.addEventListener("pointermove", move);
     else win.removeEventListener("pointermove", move);
     return laserOn;
@@ -164,8 +169,10 @@ export function attachChrome(reveal, host, options = {}) {
 
   bind([32], advance);
   // A clicker's page keys and N and P mean the next slide and the last: never into the backup slides.
-  bind([34, 78], () => reveal.right());
-  bind([33, 80], () => reveal.left());
+  const nextSlide = () => reveal.right();
+  const prevSlide = () => reveal.left();
+  bind([34, 78], nextSlide);
+  bind([33, 80], prevSlide);
   bind([40], (event) => {
     if (reveal.hasVerticalSlides()) reveal.down({ skipFragments: !event.altKey });
     else reveal.next({ skipFragments: event.altKey });
@@ -187,7 +194,8 @@ export function attachChrome(reveal, host, options = {}) {
     else if (reveal.isOverview()) reveal.toggleOverview(false);
   });
   bind([27], () => {
-    if (hintsBox !== null) hints(false);
+    if (screenMenu !== null) closeScreenMenu();
+    else if (hintsBox !== null) hints(false);
     else if (typed !== "") clearTyped();
     else if (reveal.isOverview()) reveal.toggleOverview(false);
     else options.onExit?.();
@@ -209,24 +217,98 @@ export function attachChrome(reveal, host, options = {}) {
   const stage = host.parentElement;
   let restTimer = 0;
   let wokeAt = 0;
-  const wake = () => {
+  const wake = (event) => {
     // A pointer moves many times a frame; the timer is set again a few times a second, not for each step.
     const now = win.performance.now();
     if (now - wokeAt < 200 && stage?.classList.contains("is-active")) return;
     wokeAt = now;
     stage?.classList.add("is-active");
+    // The toolbar is for a mouse: a finger or a clicker's keys never bring it up.
+    if (toolbar && event.pointerType !== "touch") stage?.classList.add("is-pointing");
     win.clearTimeout(restTimer);
-    restTimer = win.setTimeout(() => stage?.classList.remove("is-active"), 2500);
+    restTimer = win.setTimeout(() => stage?.classList.remove("is-active", "is-pointing"), 2500);
   };
   win.addEventListener("pointermove", wake);
 
-  let hintTimer = 0;
-  let hintBar = null;
-  const seconds = options.hintSeconds ?? 4;
-  if (seconds > 0) {
-    hintBar = make(doc, "div", "ks-show-hintbar", "← → next and back   ·   O overview   ·   B black   ·   L laser   ·   ? all keys");
-    host.append(hintBar);
-    hintTimer = win.setTimeout(() => hintBar?.classList.add("is-gone"), seconds * 1000);
+  // The toolbar: the mouse's way to the keys. Each button runs what its key runs.
+  const closeScreenMenu = () => {
+    screenMenu?.remove();
+    screenMenu = null;
+    toolbar?.removeAttribute("data-open");
+  };
+  // A press anywhere but in the toolbar puts the menu away.
+  const outside = (event) => {
+    if (screenMenu !== null && !toolbar?.contains(event.target)) closeScreenMenu();
+  };
+  const openScreenMenu = async () => {
+    if (screenMenu !== null) return closeScreenMenu();
+    const screens = options.screens;
+    if (!screens || !toolbar) return;
+    const shown = await Promise.resolve(screens.list()).catch(() => []);
+    if (screenMenu !== null || !toolbar) return;
+    screenMenu = make(doc, "div", "ks-show-menu");
+    screenMenu.setAttribute("role", "menu");
+    screenMenu.setAttribute("aria-label", "Screen to show on");
+    const item = (text, run, checked) => {
+      const row = make(doc, "button", "ks-show-menu-item", text);
+      row.type = "button";
+      row.tabIndex = -1;
+      row.setAttribute("role", checked === undefined ? "menuitem" : "menuitemradio");
+      if (checked !== undefined) row.setAttribute("aria-checked", String(checked));
+      row.addEventListener("mousedown", (e) => e.preventDefault());
+      row.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeScreenMenu();
+        run();
+      });
+      screenMenu.append(row);
+    };
+    if (shown.length < 2) screenMenu.append(make(doc, "p", "ks-show-menu-note", "There is only one screen."));
+    else {
+      item("Swap screens", () => screens.swap());
+      shown.forEach((s, i) => item(`${i + 1}. ${s.label}${s.primary ? " (main)" : ""}`, () => screens.moveTo(s.label), Boolean(s.current)));
+      if (screens.identify) item("Identify screens", () => screens.identify());
+    }
+    toolbar.setAttribute("data-open", "");
+    toolbar.append(screenMenu);
+  };
+  const tools = [
+    ["previous", "‹", "Previous slide", "←", prevSlide],
+    ["next", "›", "Next slide", "→", nextSlide],
+    ["overview", "▦", "Overview of all the slides", "O", () => reveal.toggleOverview()],
+    ["laser", "●", "Laser pointer", "L", () => laser()],
+    ["black", "■", "Black screen", "B", () => reveal.togglePause()],
+    ...(options.onPresenter ? [["presenter", "▤", "Presenter view", "S", () => options.onPresenter()]] : []),
+    ...(options.screens ? [["screen", "⇄", "Screen to show on", "", openScreenMenu]] : []),
+    ["fullscreen", "⛶", "Full screen", "F", fill],
+    ["keys", "?", "All keys", "?", () => hints()],
+    ...(options.onExit ? [["end", "✕", "End the show", "Esc", () => options.onExit()]] : []),
+  ];
+  if (options.toolbar) {
+    toolbar = make(doc, "div", "ks-show-toolbar");
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", "Slide show tools");
+    for (const [id, glyph, label, key, run] of tools) {
+      const button = make(doc, "button", "ks-show-tool", glyph);
+      button.type = "button";
+      // Keys already do all of this; a focused button would also act on Space and Enter, which belong to the show.
+      button.tabIndex = -1;
+      button.dataset.tool = id;
+      button.setAttribute("aria-label", label);
+      button.title = key ? `${label} (${key})` : label;
+      button.addEventListener("mousedown", (e) => e.preventDefault());
+      button.addEventListener("click", (e) => {
+        e.stopPropagation();
+        run();
+      });
+      if (id === "laser") {
+        laserButton = button;
+        button.setAttribute("aria-pressed", String(laserOn));
+      }
+      toolbar.append(button);
+    }
+    host.append(toolbar);
+    win.addEventListener("pointerdown", outside, true);
   }
 
   return {
@@ -239,11 +321,12 @@ export function attachChrome(reveal, host, options = {}) {
       win.removeEventListener("pointermove", wake);
       win.clearTimeout(restTimer);
       win.clearTimeout(typedTimer);
-      win.clearTimeout(hintTimer);
       slides?.removeEventListener("click", onClick);
       closeLightbox?.();
       hintsBox?.remove();
-      hintBar?.remove();
+      win.removeEventListener("pointerdown", outside, true);
+      toolbar?.remove();
+      stage?.classList.remove("is-pointing");
       dot.remove();
       jumpBox.remove();
       (host.parentElement ?? host).classList.remove("ks-show-laser-on");

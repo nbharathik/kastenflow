@@ -25,23 +25,34 @@ fn day_of(created: Option<&str>, updated: Option<&str>, modified: u64) -> String
     own.unwrap_or_else(|| Instant { millis: modified }.rfc3339()[..10].to_owned())
 }
 
-fn remove(tx: &Transaction, path: &str) -> Result<()> {
-    let num: Option<i64> = tx
-        .query_row("SELECT num FROM notes WHERE path = ?1", [path], |r| {
-            r.get(0)
-        })
+/// Drops the note at `path` from every table; the project it was in, if it was in one.
+fn remove(tx: &Transaction, path: &str) -> Result<Option<String>> {
+    let found: Option<(i64, Option<String>)> = tx
+        .query_row(
+            "SELECT num, project FROM notes WHERE path = ?1",
+            [path],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
         .ok();
-    if let Some(num) = num {
-        for table in ["tags", "links", "tasks"] {
-            tx.execute(&format!("DELETE FROM {table} WHERE num = ?1"), [num])?;
-        }
-        tx.execute("DELETE FROM fts WHERE rowid = ?1", [num])?;
-        tx.execute("DELETE FROM notes WHERE num = ?1", [num])?;
+    let Some((num, project)) = found else {
+        return Ok(None);
+    };
+    for table in ["tags", "links", "tasks"] {
+        tx.execute(&format!("DELETE FROM {table} WHERE num = ?1"), [num])?;
     }
-    Ok(())
+    tx.execute("DELETE FROM fts WHERE rowid = ?1", [num])?;
+    tx.execute("DELETE FROM notes WHERE num = ?1", [num])?;
+    Ok(project)
 }
 
-fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) -> Result<()> {
+/// Indexes the note at `path`; the project it is in, if it is in one.
+fn insert(
+    tx: &Transaction,
+    path: &str,
+    text: &str,
+    modified: u64,
+    size: u64,
+) -> Result<Option<String>> {
     // One note the parser trips on is listed by its name alone, and the
     // rest of the vault still opens.
     let (meta, extract) = std::panic::catch_unwind(|| meta_with_extract(path, text, modified))
@@ -113,7 +124,7 @@ fn insert(tx: &Transaction, path: &str, text: &str, modified: u64, size: u64) ->
         "INSERT INTO fts (rowid, title, body) VALUES (?1, ?2, ?3)",
         params![num, meta.title, split(text).body],
     )?;
-    Ok(())
+    Ok(meta.project)
 }
 
 fn millis(meta: &fs::Metadata) -> u64 {
@@ -141,6 +152,7 @@ impl Index {
             }
         }
         tx.commit()?;
+        self.touched.all = true;
         Ok(count)
     }
 
@@ -159,20 +171,23 @@ impl Index {
                 [paths.len() as i64],
             )?;
         }
+        // The projects the notes were in and are in now.
+        let mut projects: Vec<String> = Vec::new();
         for path in &paths {
             if vault.path_of(path).is_err() {
                 continue;
             }
-            remove(&tx, path)?;
+            projects.extend(remove(&tx, path)?);
             let full = vault.root().join(path);
             if let Ok(meta) = fs::metadata(&full)
                 && meta.is_file()
                 && let Ok(text) = fs::read_to_string(&full)
             {
-                insert(&tx, path, &text, millis(&meta), meta.len())?;
+                projects.extend(insert(&tx, path, &text, millis(&meta), meta.len())?);
             }
         }
         tx.commit()?;
+        self.touched.projects.extend(projects);
         Ok(())
     }
 

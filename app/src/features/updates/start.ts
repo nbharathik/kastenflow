@@ -7,6 +7,8 @@
 import { useEffect } from "react";
 
 import { appInfo, checkUpdate, inTauri, openUrl, type AppInfo, type UpdateInfo } from "../../lib/api";
+import { said } from "../../lib/said";
+import { startInterval } from "../../lib/use-interval";
 import { useWorkspace } from "../workspace/store";
 import { download, installAndRestart } from "./install";
 import { dueAt, loadUpdates, newerThan, updatePrefs } from "./prefs";
@@ -23,6 +25,9 @@ export async function dailyCheck(run: () => Promise<UpdateInfo | null> = checkUp
   if (!dueAt(prefs, now)) return;
   updatePrefs({ checked: now });
   const info = await useUpdates.getState().check(run);
+  // A check that could not reach GitHub (offline) does not use up the day: the next beat, wake or
+  // return of the connection looks again. The reason stays in the store for Settings to show.
+  if (!info && useUpdates.getState().error) updatePrefs({ checked: prefs.checked });
   if (!info?.newer || info.latest === prefs.skipped || info.latest === prefs.announced) return;
   const ready = prefs.download && useUpdates.getState().canInstall && (await fetch());
   updatePrefs({ announced: info.latest });
@@ -56,7 +61,7 @@ export function greetUpdate(info: AppInfo, open = openUrl): void {
   updatePrefs({ ran: now });
   if (!prefs.ran || !newerThan(now, prefs.ran) || !info.releases) return;
   const page = `${info.releases}/tag/v${now}`;
-  useWorkspace.getState().toast(`KastenFlow is now ${now}`, { label: "What’s new", run: () => void open(page).catch(() => {}) });
+  useWorkspace.getState().toast(`KastenFlow is now ${now}`, { label: "What’s new", run: () => void open(page).catch(said("Could not open the link")) });
 }
 
 /** The desktop app's updates, from a moment after it opens. */
@@ -65,20 +70,28 @@ export function useUpdatesAtStart(): void {
     if (!inTauri()) return;
     void appInfo()
       .then((info) => useUpdates.setState({ canInstall: info?.canInstall === true }))
+      // Without the answer the update is offered in the browser instead of in place.
       .catch(() => {});
     const start = setTimeout(() => {
       void appInfo()
         .then((info) => info && greetUpdate(info))
+        // The "now on this version" word is a courtesy; the next start says it.
         .catch(() => {});
       void dailyCheck();
       // Asked once a vault is open, not over the first choice of one.
       const { ready, choosing, client } = useWorkspace.getState();
       if (ready && !choosing && client) askOnce();
     }, 4000);
-    const again = setInterval(() => void dailyCheck(), AGAIN);
+    // Rests while the window is hidden; looks once when it returns (a sleeping laptop missed its beats).
+    // The check itself says nothing offline: `dailyCheck` keeps the reason in the store for Settings and tries again next time.
+    const stopAgain = startInterval(() => void dailyCheck(), AGAIN);
+    // A window that opened offline looks as soon as the connection is back.
+    const online = () => void dailyCheck();
+    window.addEventListener("online", online);
     return () => {
       clearTimeout(start);
-      clearInterval(again);
+      stopAgain();
+      window.removeEventListener("online", online);
     };
   }, []);
 }

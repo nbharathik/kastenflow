@@ -167,7 +167,13 @@
   line-height: 1.45;
   text-align: left;
   white-space: normal;
-  animation: kasten-fade var(--motion-fast) var(--ease-standard);
+  transform-origin: top left;
+  animation: kasten-pop-in var(--motion-base) var(--ease-standard);
+}
+
+.kasten-set-pop[data-state="closing"] {
+  animation: kasten-leave var(--motion-fast) var(--ease-standard) forwards;
+  pointer-events: none;
 }
 
 /* A found setting too big to draw: a line that opens its group at it. */

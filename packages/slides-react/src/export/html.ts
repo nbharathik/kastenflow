@@ -11,6 +11,8 @@ import { planOf } from "../present/plan.ts";
 import presentCss from "../present/present.css?raw";
 import { REVEAL_CSS } from "../present/reveal-css.ts";
 import scrollCss from "../present/scroll.css?raw";
+// Formulas are drawn as the markup is made, so KaTeX is loaded with this file.
+import "../render/math.ts";
 import { pageStyles, readPictures } from "./html-assets.ts";
 import { assemblePage } from "./html-page.ts";
 import { pageScript, revealSource } from "./html-runtime.ts";

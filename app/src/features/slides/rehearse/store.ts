@@ -1,7 +1,7 @@
 // Rehearsals kept by the app: on this computer, in the app's data folder, not in the vault (src-tauri/src/rehearsals.rs). Outside the desktop
 // app (the browser preview) the Slides package keeps them in the page's local storage.
 
-import { type RehearsalRecord, type RehearsalStore, localRehearsals } from "@kasten-slides/react";
+import { type RehearsalRecord, type RehearsalStore, localRehearsals } from "@kasten-slides/react/presenter-entry";
 import { invoke } from "@tauri-apps/api/core";
 
 import { inTauri } from "../../../lib/api";

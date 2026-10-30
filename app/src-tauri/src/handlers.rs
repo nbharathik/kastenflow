@@ -9,7 +9,8 @@ use tauri::ipc::Invoke;
 use crate::{
     backup, brainstorm, browser, calendars, capture, chat, clip, closing, commands, desktop_prefs,
     diagrams, downloads, drops, extension, git_host, guard, main_window, meaning, presenter,
-    presenter_screen, rehearsals, reveal, shortcut, startup, update_install, updates, web,
+    presenter_move, presenter_screen, rehearsals, reveal, shortcut, startup, update_install,
+    updates, web,
 };
 
 /// Every command of the app, wrapped by the guard.
@@ -176,6 +177,7 @@ pub(crate) fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + '
         commands::agents::mcp_token,
         commands::agents::list_proposals,
         commands::agents::accept_proposal,
+        commands::agents::accept_proposal_hunks,
         commands::agents::reject_proposal,
         commands::agents::list_sessions,
         commands::agents::activity_digest,
@@ -271,6 +273,10 @@ pub(crate) fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + '
         presenter::open_presenter,
         presenter::presenter_post,
         presenter::presenter_close,
+        presenter_move::present_check,
+        presenter_move::present_identify,
+        presenter_move::present_move,
+        presenter_move::present_screens,
         presenter_screen::present_displays,
         presenter_screen::present_enter,
         presenter_screen::present_leave,

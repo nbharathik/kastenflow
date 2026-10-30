@@ -11,7 +11,7 @@
   box-shadow: var(--shadow-modal);
   color: var(--notion-text);
   font-family: var(--notion-font);
-  animation: kasten-enter var(--motion-base) var(--ease-standard);
+  animation: kasten-rise var(--motion-slow) var(--ease-standard);
 }
 
 .kasten-gallery-side {

@@ -36,6 +36,20 @@ describe("marks from diagnostics", () => {
     const marks = toMarks(doc, [d({ line: 3 })]);
     expect(marks[0]!.from).toBe(marks[0]!.to);
   });
+
+  it("offers Fix this one and Explain in the mark's tooltip when the chat can be asked", () => {
+    const asked: [string, string][] = [];
+    const problem = d({ line: 4, message: "Boom" });
+    const [mark] = toMarks(doc, [problem], (kind, p) => asked.push([kind, p.message]));
+    expect(mark!.actions?.map((a) => a.name)).toEqual(["Fix this one", "Explain"]);
+    mark!.actions![0]!.apply(null as never, mark!.from, mark!.to);
+    mark!.actions![1]!.apply(null as never, mark!.from, mark!.to);
+    expect(asked).toEqual([
+      ["fix", "Boom"],
+      ["explain", "Boom"],
+    ]);
+    expect(toMarks(doc, [problem])[0]!.actions).toBeUndefined();
+  });
 });
 
 describe("the gutter and marks in an editor", () => {

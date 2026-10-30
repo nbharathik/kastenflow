@@ -1,4 +1,4 @@
-import { type PresentSync, PresenterWindow, broadcastSync } from "@kasten-slides/react";
+import { type PresentSync, PresenterWindow, broadcastSync } from "@kasten-slides/react/presenter-entry";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 
@@ -34,5 +34,6 @@ export default function PresenterApp({ name }: { name: string }) {
   // A rehearsal in this window is kept where the app keeps them (the data folder), not in the page.
   const rehearsals = useMemo(() => rehearsalStore(), []);
   if (!link) return null;
-  return <PresenterWindow sync={link} rehearsals={rehearsals} onClose={() => (inTauri() ? void invoke("presenter_close").catch(() => {}) : window.close())} />;
+  // This window has no toasts; if the shell cannot close it, the window's own close button still does.
+  return <PresenterWindow sync={link} rehearsals={rehearsals} swapScreens={inTauri()} onClose={() => (inTauri() ? void invoke("presenter_close").catch(() => {}) : window.close())} />;
 }

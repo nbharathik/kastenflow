@@ -216,9 +216,9 @@
   border-radius: 2px;
   background: var(--notion-accent);
   pointer-events: none;
+  /* Glides to the next gap; its width follows at once (layout is never animated). */
   transition:
     transform var(--motion-fast) var(--ease-standard),
-    width var(--motion-fast) var(--ease-standard),
     opacity var(--motion-fast);
 
   &[data-show="false"] {

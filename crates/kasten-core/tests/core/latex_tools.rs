@@ -169,6 +169,22 @@ fn the_last_build_reads_the_log_the_app_left_with_files_inside_the_document() {
 }
 
 #[test]
+fn the_last_build_keeps_the_tex_context_of_each_error() {
+    let (t, k) = open();
+    leave_log(
+        &t,
+        ARTICLE,
+        "main",
+        &fixture_log("undefined-control-sequence.log"),
+    );
+    let doc = k.latex_find_doc("article").unwrap();
+    let last = k.latex_last_build(&doc).unwrap();
+    let context = last.diagnostics[0].context.as_deref().unwrap();
+    assert!(context.starts_with("l.12 \\sectoin"), "{context}");
+    assert!(context.contains("{Introduction}"), "{context}");
+}
+
+#[test]
 fn a_source_changed_after_the_build_makes_it_stale() {
     let (t, k) = open();
     leave_log(

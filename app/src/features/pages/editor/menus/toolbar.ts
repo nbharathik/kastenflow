@@ -8,6 +8,7 @@ import { editorViewCtx, schemaCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 
 import { selectionTools } from "../../../../plugins/contributions";
+import { addHighlightItems } from "../../../annotations/toolbar-items";
 import { openAi } from "../ai/ai";
 import { applyColor } from "../blocks/color";
 import { closesWith } from "../ui/close-with-editor";
@@ -113,12 +114,14 @@ export const buildToolbar: NonNullable<ToolbarFeatureConfig["buildToolbar"]> = (
   const groups = builder.build();
   groups.unshift(groups.pop()!);
 
-  builder
+  const kastenGroup = builder
     .addGroup("kasten", "Colour")
     .addItem("kasten-color", { icon: COLOR_ICON, label: "Colour", shortcut: shortcut("Ctrl+Shift+H"), active: hasColor, onRun: openColorMenu })
     .addItem("kasten-turn", { icon: TURN_ICON, label: "Turn into", shortcut: shortcut("Ctrl+/"), active: () => false, onRun: openTurnInto })
     // Keeps the selection with the chat (loaded on demand: the chat is not part of the editor).
     .addItem("kasten-to-chat", { icon: CHAT_ICON, label: "Add to chat", shortcut: shortcut("Ctrl+Alt+L"), active: () => false, onRun: () => void import("../../../chat/selection/add").then((m) => m.addSelectionToChat()) });
+  // The highlight colours and a comment: shown on a page kept from the web only.
+  addHighlightItems(kastenGroup);
   // What plugins that are on add over a selection (Send to LaTeX).
   const kasten = builder.getGroup("kasten");
   for (const tool of selectionTools()) {

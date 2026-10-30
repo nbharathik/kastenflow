@@ -280,6 +280,7 @@ class WikiLinkView implements NodeView {
         hints.set(title, text);
         if (into.isConnected) into.textContent = text;
       })
+      // A hover preview: the link just has no hint.
       .catch(() => {});
   }
 }

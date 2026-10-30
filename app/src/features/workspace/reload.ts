@@ -8,5 +8,6 @@ import { useWorkspace } from "./store";
 
 export async function reloadLists(): Promise<void> {
   await useWorkspace.getState().refresh();
+  // A list that cannot be read keeps what the window had; each store says its own failure when asked.
   await Promise.all([useBoards.getState().load(), useTags.getState().load(), useSources.getState().loadList()]).catch(() => {});
 }

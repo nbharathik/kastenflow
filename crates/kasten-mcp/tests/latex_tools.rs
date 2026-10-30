@@ -406,6 +406,87 @@ fn a_chat_that_previews_holds_a_latex_edit_for_review_and_writes_nothing() {
 }
 
 #[test]
+fn a_second_edit_of_a_held_file_is_made_on_top_of_the_first() {
+    let (v, k, s) = open();
+    let hash = read(&k, &s, json!({"doc": "article"}))["hash"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let set = Mutex::new(k.begin_changes(&s, Instant::now()));
+    let edit = |search: &str, replace: &str| {
+        call_in(
+            &k,
+            &s,
+            Writes::Staged(&set),
+            "latex_edit",
+            json!({"doc": "article", "file": "main.tex", "search": search, "replace": replace, "base_hash": hash}),
+        )
+        .unwrap()
+    };
+    let first = edit("fixed rate", "steady rate");
+    assert!(
+        first["next"].as_str().unwrap().contains("latex_build"),
+        "{first}"
+    );
+    edit("simple", "plain");
+    let proposed = k.latex_proposed(ARTICLE, &s.id).unwrap();
+    let text = proposed.get("main.tex").unwrap();
+    assert!(
+        text.contains("steady rate") && text.contains("plain"),
+        "{text}"
+    );
+    assert!(
+        text_of(&v, MAIN).contains("fixed rate"),
+        "the file is not changed"
+    );
+}
+
+#[test]
+fn a_read_can_ask_for_numbered_lines_around_a_line_or_a_range() {
+    let (_v, k, s) = open();
+    let whole = read(&k, &s, json!({"doc": "article"}));
+    assert!(
+        whole["text"]
+            .as_str()
+            .unwrap()
+            .contains("\\section{Method}")
+    );
+    assert_eq!(whole["total_lines"], json!(31));
+    let near = read(&k, &s, json!({"doc": "article", "around_line": 26}));
+    assert!(near.get("text").is_none(), "{near}");
+    let excerpt = near["excerpt"].as_str().unwrap();
+    assert!(excerpt.contains("26 | We sample the signal"), "{excerpt}");
+    assert_eq!(near["shown_lines"], json!("11-31"));
+    assert_eq!(near["hash"], whole["hash"], "the hash is the whole file's");
+    let range = read(&k, &s, json!({"doc": "article", "lines": "1-3"}));
+    assert_eq!(
+        range["excerpt"],
+        json!(
+            "1 | \\documentclass[11pt]{article}\n2 | \\usepackage[utf8]{inputenc}\n3 | \\usepackage{amsmath}"
+        )
+    );
+    // A range wins over a line, and a range that is not one is said so.
+    let both = read(
+        &k,
+        &s,
+        json!({"doc": "article", "lines": "5-5", "around_line": 26}),
+    );
+    assert_eq!(both["shown_lines"], json!("5-5"));
+    for bad in ["x", "9-2", "99-120"] {
+        assert!(
+            call(
+                &k,
+                &s,
+                "latex_read",
+                json!({"doc": "article", "lines": bad})
+            )
+            .is_err(),
+            "{bad}"
+        );
+    }
+}
+
+#[test]
 fn latex_build_without_a_build_says_to_build_from_the_app() {
     let (_v, k, s) = open();
     let told = call(&k, &s, "latex_build", json!({"doc": "article"})).unwrap();

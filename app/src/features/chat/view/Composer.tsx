@@ -7,17 +7,19 @@
 // page to add as context. Files dropped or pasted on the box are attached.
 // Without a provider the box says why it is off.
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { memo, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import type { NoteMeta } from "../../../lib/vault/types";
 import { Picker } from "../../library/Picker";
 import { useWorkspace } from "../../workspace/store";
 import { sentOf, useAttachments } from "../attach-store";
 import { noteChip } from "../context";
+import { requestEdit } from "../edit-request";
 import { drafts } from "../message-drafts";
 import { modelFor } from "../prefs";
 import { useChat } from "../store";
-import type { Thread } from "../thread";
+import { composerOf, lastQuestion, type ComposerThread } from "../thread";
 import type { AiAction } from "../types";
 import { usePasteDrop } from "../usePasteDrop";
 import { NotePick } from "./AddContext";
@@ -32,7 +34,8 @@ export interface ComposerHandle {
 }
 
 interface Props {
-  thread: Thread;
+  /** The thread it writes to; it reads the fields it needs from the store, so a streamed answer does not redraw it. */
+  id: string;
   /** The page "This page" adds. */
   page: NoteMeta | null;
   autoFocus?: boolean;
@@ -43,7 +46,13 @@ interface Props {
   ref?: Ref<ComposerHandle>;
 }
 
-export function Composer({ thread, page, autoFocus = false, ask = "Ask about your notes…", showFollow = true, ref }: Props) {
+export const Composer = memo(function Composer({ id, ...rest }: Props) {
+  const thread = useChat(useShallow((s) => composerOf(s.threads[id])));
+  const started = useChat((s) => (s.threads[id]?.messages.length ?? 0) > 0);
+  return thread ? <Box thread={thread} started={started} {...rest} /> : null;
+});
+
+function Box({ thread, started, page, autoFocus = false, ask = "Ask about your notes…", showFollow = true, ref }: Omit<Props, "id"> & { thread: ComposerThread; started: boolean }) {
   const providers = useChat((s) => s.providers);
   const [text, setText] = useState(() => drafts.get(thread.id) ?? "");
   const box = useRef<HTMLTextAreaElement>(null);
@@ -173,13 +182,22 @@ export function Composer({ thread, page, autoFocus = false, ask = "Ask about you
         autoFocus={autoFocus}
         disabled={Boolean(off)}
         aria-label="Message"
-        placeholder={off ?? (thread.streaming ? "Add to it: it is read at the next step…" : thread.messages.length ? "Reply…" : ask)}
+        placeholder={off ?? (thread.streaming ? "Add to it: it is read at the next step…" : started ? "Reply…" : ask)}
         onPaste={paste.onPaste}
         onChange={(event) => {
           typed(event.target.value, event.target.selectionStart ?? event.target.value.length);
           change(event.target.value);
         }}
         onKeyDown={(event) => {
+          // The up arrow in an empty box opens the newest question to be changed.
+          if (event.key === "ArrowUp" && text === "" && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing) {
+            const asked = lastQuestion(useChat.getState().threads[thread.id]);
+            if (asked) {
+              event.preventDefault();
+              requestEdit(thread.id, asked.id);
+            }
+            return;
+          }
           if (event.key !== "Enter" || event.shiftKey || event.altKey || event.nativeEvent.isComposing) return;
           event.preventDefault();
           void send();

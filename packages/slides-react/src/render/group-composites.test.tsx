@@ -3,6 +3,8 @@
 import type { Element } from "@kasten-slides/wasm";
 import { describe, expect, it, vi } from "vitest";
 
+// Formulas draw once the math module has loaded; load it up front, as the exports do.
+import "./math.ts";
 import { SlideView } from "./SlideView.tsx";
 import { box, scene } from "./testing/decks.ts";
 import { draw, elementsOf } from "./testing/dom.ts";

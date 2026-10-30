@@ -11,7 +11,7 @@ use serde::Serialize;
 use super::parse::{Action, parse};
 
 /// The shipped actions, in the order they are offered.
-const BUILT_IN: [(&str, &str); 14] = [
+const BUILT_IN: [(&str, &str); 23] = [
     ("explain", include_str!("builtin/explain.md")),
     (
         "compare-sources",
@@ -38,6 +38,39 @@ const BUILT_IN: [(&str, &str); 14] = [
         "fix-latex-errors",
         include_str!("builtin/fix-latex-errors.md"),
     ),
+    (
+        "fix-latex-error",
+        include_str!("builtin/fix-latex-error.md"),
+    ),
+    (
+        "explain-latex-error",
+        include_str!("builtin/explain-latex-error.md"),
+    ),
+    (
+        "fix-overfull-boxes",
+        include_str!("builtin/fix-overfull-boxes.md"),
+    ),
+    (
+        "check-latex-refs",
+        include_str!("builtin/check-latex-refs.md"),
+    ),
+    (
+        "find-missing-citations",
+        include_str!("builtin/find-missing-citations.md"),
+    ),
+    (
+        "draft-latex-section",
+        include_str!("builtin/draft-latex-section.md"),
+    ),
+    (
+        "table-to-booktabs",
+        include_str!("builtin/table-to-booktabs.md"),
+    ),
+    (
+        "figure-from-diagram",
+        include_str!("builtin/figure-from-diagram.md"),
+    ),
+    ("latex-inline", include_str!("builtin/latex-inline.md")),
     (
         "make-smart-page",
         include_str!("builtin/make-smart-page.md"),

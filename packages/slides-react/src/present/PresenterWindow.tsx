@@ -36,11 +36,13 @@ export interface PresenterWindowProps {
   sync: PresentSync;
   /** Closes the window, where the page can (a button appears when it is given). */
   onClose?: () => void;
+  /** The show's window can change screens (the desktop app): a "Swap screens" button appears. */
+  swapScreens?: boolean;
   /** Where rehearsals are kept; the page's own storage when left out. */
   rehearsals?: RehearsalStore;
 }
 
-export function PresenterWindow({ sync, onClose, rehearsals }: PresenterWindowProps): JSX.Element {
+export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: PresenterWindowProps): JSX.Element {
   const [talk, setTalk] = useState<Talk | null>(null);
   const [state, setState] = useState<RevealState>({ indexh: 0, indexv: 0 });
   const [ended, setEnded] = useState(false);
@@ -135,6 +137,7 @@ export function PresenterWindow({ sync, onClose, rehearsals }: PresenterWindowPr
     [plan, state.paused, state.overview, sync],
   );
   const end = useCallback(() => sync.post({ type: "end" }), [sync]);
+  const swap = useCallback(() => sync.post({ type: "screen", target: "swap" }), [sync]);
 
   if (!talk || !plan) {
     return (
@@ -150,7 +153,7 @@ export function PresenterWindow({ sync, onClose, rehearsals }: PresenterWindowPr
   }
   return (
     <>
-      <Presenter key={talk.since} deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} onEnd={end} rehearsal={rehearsal} {...(onClose ? { onClose } : {})} />
+      <Presenter key={talk.since} deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} onEnd={end} rehearsal={rehearsal} {...(onClose ? { onClose } : {})} {...(swapScreens ? { onSwapScreens: swap } : {})} />
       {ended ? (
         <p className="ks-pv-ended" role="status">
           The presentation has ended.

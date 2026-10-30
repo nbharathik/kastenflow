@@ -245,22 +245,16 @@ body.kasten-table-resizing * {
   white-space: nowrap;
   cursor: default;
 
-  /* Only the active or edited cell draws its ring. */
+  /* Only the active or edited cell draws its ring: a thin outline drawn
+     inside the cell's edge, so neither its clipping nor its neighbours'
+     borders cut it, and the same whether or not the grid has focus. */
   &.is-active,
   &.is-editing {
-    box-shadow: var(--cell-ring);
-  }
-
-  &.is-active {
-    --cell-ring: inset 0 0 0 2px color-mix(in srgb, var(--color-accent) 38%, transparent);
-  }
-
-  .kasten-table-scroll:focus &.is-active {
-    --cell-ring: inset 0 0 0 2px var(--color-accent);
+    outline: 1.5px solid var(--color-accent);
+    outline-offset: -1.5px;
   }
 
   &.is-editing {
-    --cell-ring: inset 0 0 0 2px var(--color-accent);
     z-index: 2;
   }
 

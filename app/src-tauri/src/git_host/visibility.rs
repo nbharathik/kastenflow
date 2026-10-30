@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use kasten_core::Kasten;
 use tauri::{AppHandle, Manager};
@@ -18,8 +19,8 @@ use crate::app_settings::AppSettings;
 use crate::backup::contract::{Protection, Visibility};
 use crate::chat::commands::ChatState;
 
-/// Ticks of the backup thread (five seconds each) in a day.
-const DAY_TICKS: u64 = 24 * 60 * 60 / 5;
+/// How long between the daily looks.
+const DAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Default)]
 struct Seen {
@@ -150,14 +151,57 @@ fn release(app: &AppHandle, kasten: &Kasten) {
     kasten.confirm_remote(settings.confirmed_remote(&kasten.root().display().to_string()));
 }
 
-/// Called by the backup thread each tick: checks at the first tick after the
-/// vault opens (the start; tried again for a few ticks until GitHub answers)
-/// and then daily.
-pub fn tick(app: &AppHandle, kasten: &Arc<Kasten>, tick: u64) {
-    let waiting = tick <= FIRST_TRIES && !ANSWERED.load(Ordering::Relaxed);
-    if !waiting && !tick.is_multiple_of(DAY_TICKS) {
-        return;
+/// How long after a look the first answer is tried again.
+const RETRY: Duration = Duration::from_secs(5);
+
+/// What the backup thread remembers of its looks: how many were made and
+/// when the thread started or last looked.
+pub struct Looks {
+    made: u64,
+    since: Instant,
+}
+
+impl Default for Looks {
+    fn default() -> Self {
+        Self::new()
     }
+}
+
+impl Looks {
+    pub fn new() -> Looks {
+        Looks {
+            made: 0,
+            since: Instant::now(),
+        }
+    }
+
+    /// How long until the next look is due: at once at the start while no
+    /// answer is known, soon after while the first answer is awaited, then a
+    /// day after the last look.
+    pub fn next_in(&self) -> Duration {
+        let gap = if self.made >= FIRST_TRIES || ANSWERED.load(Ordering::Relaxed) {
+            DAY
+        } else if self.made == 0 {
+            Duration::ZERO
+        } else {
+            RETRY
+        };
+        gap.saturating_sub(self.since.elapsed())
+    }
+
+    /// Whether a look is due now.
+    pub fn due(&self) -> bool {
+        self.next_in().is_zero()
+    }
+}
+
+/// Called by the backup thread when `looks` says a look is due: checks at the
+/// start (tried again for a few tries until GitHub answers) and then daily.
+pub fn tick(app: &AppHandle, kasten: &Arc<Kasten>, looks: &mut Looks) {
+    looks.made += 1;
+    looks.since = Instant::now();
+    let tick = looks.made;
+    let waiting = tick <= FIRST_TRIES && !ANSWERED.load(Ordering::Relaxed);
     let answer = crate::crash::caught(|| {
         Ok(tauri::async_runtime::block_on(check_open_vault(
             app, kasten,
@@ -212,6 +256,18 @@ mod tests {
         assert!(!hold_at_open(&settings, None));
         settings.public_ok.insert("ada/notes".into());
         assert!(!hold_at_open(&settings, github));
+    }
+
+    #[test]
+    fn after_the_first_tries_the_next_look_is_a_day_after_the_last() {
+        let mut looks = Looks::new();
+        looks.made = FIRST_TRIES;
+        let wait = looks.next_in();
+        assert!(
+            wait > DAY - Duration::from_secs(60) && wait <= DAY,
+            "{wait:?}"
+        );
+        assert!(!looks.due());
     }
 
     #[test]

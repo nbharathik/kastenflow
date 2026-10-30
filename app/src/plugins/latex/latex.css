@@ -326,14 +326,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .latex-progress > span {
-    animation: none;
-    width: 100%;
-    opacity: 0.5;
-  }
-}
-
 .latex-meter {
   display: block;
   height: 6px;
@@ -349,7 +341,9 @@
   height: 100%;
   border-radius: inherit;
   background: var(--color-accent);
-  transition: width var(--motion-slow) var(--ease-standard);
+  /* The bar is full width, scaled to the share (never an animated width). */
+  transform-origin: left;
+  transition: transform var(--motion-slow) var(--ease-standard);
 }
 
 .latex-meter > .is-unknown {

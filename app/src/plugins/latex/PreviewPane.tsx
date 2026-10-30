@@ -63,6 +63,7 @@ export const PreviewPane = forwardRef<PreviewHandle, Props>(function PreviewPane
     void backend
       .readPdf(folder)
       .then((bytes) => made.load(bytes))
+      // No earlier PDF (never built, or cleaned): the pane waits for the first build.
       .catch(() => {});
     let timer: ReturnType<typeof setTimeout> | null = null;
     const watch =

@@ -1,14 +1,12 @@
 // What a chat does with the vault from the window: save the thread to
 // chats/, pin an answer as a card. Both go through the backend and the
-// vault client, so kasten-core writes them. And how a page asks about
-// itself: a new chat in the dock with the page attached.
+// vault client, so kasten-core writes them. (How a page asks about itself is
+// in ask-page.ts.)
 
-import { useShell } from "../../lib/store";
-import type { NoteFile, NoteMeta } from "../../lib/vault/types";
+import type { NoteFile } from "../../lib/vault/types";
 import { useBoards } from "../boards/store";
 import { useWorkspace, type OpenHow } from "../workspace/store";
 import { openSettingsAt } from "../workspace/views/settings/jump";
-import { noteChip } from "./context";
 import { flushStream, useChat } from "./store";
 import { threadTitle, type Answer } from "./thread";
 import { cardFrom, transcript } from "./transcript";
@@ -66,10 +64,4 @@ export function takeProvidersJump(): boolean {
   const wanted = jump;
   jump = false;
   return wanted;
-}
-
-/** A new chat in the dock, about `note` alone: it does not follow the page in front. */
-export function askAboutPage(note: NoteMeta): void {
-  useChat.getState().start({ context: [noteChip(note)], open: true, follow: false });
-  useShell.getState().toggleChat(true);
 }

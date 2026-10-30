@@ -10,6 +10,8 @@ export type Inline =
   | { type: "link"; href: string; children: Inline[] }
   /** `[[Title]]`, `[[Title#Heading]]`, `[[Title|alias]]` or `![[Title]]`. */
   | { type: "wiki"; title: string; label: string }
+  /** `$x^2$`, or `$$x^2$$` written inside a line. */
+  | { type: "math"; tex: string; display: boolean }
   | { type: "break" };
 
 const PUNCTUATION = /[!-/:-@[-`{-~]/;
@@ -33,6 +35,8 @@ export function wordsOf(nodes: Inline[]): string {
         case "text":
         case "code":
           return node.text;
+        case "math":
+          return node.tex;
         case "wiki":
           return node.label;
         case "break":
@@ -138,6 +142,23 @@ function destination(src: string, from: number): { url: string; end: number } | 
   return null;
 }
 
+/** Math opened by the `$` at `from`: `$$…$$`, or `$…$` as Pandoc reads it (no space inside the marks, and no digit straight after the closing one, so "$5 and $10" stays two prices). */
+function mathAt(src: string, from: number): { tex: string; display: boolean; end: number } | null {
+  if (src[from + 1] === "$") {
+    const close = src.indexOf("$$", from + 2);
+    const tex = close < 0 ? "" : src.slice(from + 2, close).trim();
+    return tex ? { tex, display: true, end: close + 2 } : null;
+  }
+  if (/\s/.test(src[from + 1] ?? " ")) return null;
+  for (let at = from + 1; at < src.length; at++) {
+    const c = src[at];
+    if (c === "\\") at++;
+    else if (c === "\n") return null;
+    else if (c === "$") return /\s/.test(src[at - 1]!) || /\d/.test(src[at + 1] ?? "") ? null : { tex: src.slice(from + 1, at), display: false, end: at + 1 };
+  }
+  return null;
+}
+
 /** How deep marks and links nest before the rest reads as text. */
 const MAX_DEPTH = 32;
 
@@ -189,6 +210,14 @@ export function parseInline(src: string, depth = 0): Inline[] {
       push({ type: "code", text: /^ .*[^ ].* $/.test(code) ? code.slice(1, -1) : code });
       i = close + (end - i);
       continue;
+    }
+    if (c === "$") {
+      const math = mathAt(src, i);
+      if (math) {
+        push({ type: "math", tex: math.tex, display: math.display });
+        i = math.end;
+        continue;
+      }
     }
     const wikiAt = src.startsWith("[[", i) ? i : c === "!" && src.startsWith("[[", i + 1) ? i + 1 : -1;
     if (wikiAt >= 0) {

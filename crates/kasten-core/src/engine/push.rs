@@ -126,6 +126,7 @@ impl Kasten {
     /// outside the vault and gives it here on opening.
     pub fn confirm_remote(&self, url: Option<&str>) {
         self.state().confirmed_remote = url.map(str::to_owned);
+        self.wake_workers();
     }
 
     /// The token to sign in to the remote's server with, from the app's
@@ -133,6 +134,7 @@ impl Kasten {
     /// Kept in memory only, and sent only to its own server.
     pub fn set_git_token(&self, token: Option<crate::history::GitToken>) {
         self.state().git_token = token;
+        self.wake_workers();
     }
 
     pub(super) fn git_token(&self) -> Option<crate::history::GitToken> {
@@ -148,40 +150,45 @@ impl Kasten {
     }
 
     fn push_due(&self, now: u64) -> bool {
+        self.push_due_at().is_some_and(|due| now >= due)
+    }
+
+    /// The time (milliseconds since the Unix epoch) from which a push is due,
+    /// or None when none is waiting: no history, no confirmed remote, nothing
+    /// new to send, or a rewritten backup.
+    pub(super) fn push_due_at(&self) -> Option<u64> {
         let config = self.config();
-        let Some(history) = self.history.get() else {
-            return false;
-        };
-        let Some(url) = self.confirmed_remote() else {
-            return false;
-        };
+        let history = self.history.get()?;
+        let url = self.confirmed_remote()?;
         let head = history.head();
         let state = self.state();
         // A rewritten backup takes no pushes until it is dealt with.
         if head.is_none() || head == state.backup.pushed_head || state.backup.lost_for(&url) {
-            return false;
+            return None;
         }
         // After failures, each try waits longer, counted from the last
         // try: a long outage costs one try an hour, and new commits do not
         // cut the wait short.
         if state.backup.failures > 0 {
             let wait = backoff(state.backup.failures);
-            return state
-                .backup
-                .last_attempt
-                .is_none_or(|t| now >= t.saturating_add(wait));
+            return Some(
+                state
+                    .backup
+                    .last_attempt
+                    .map_or(0, |t| t.saturating_add(wait)),
+            );
         }
         // Saturating: the waits come from a config file anyone can edit.
         let delay = config.git.push_delay_seconds.saturating_mul(1000);
         let interval = config.git.push_interval_minutes.saturating_mul(60_000);
-        let settled = state
-            .last_commit
-            .is_none_or(|t| now >= t.saturating_add(delay));
+        // Settled after the delay since the last commit, or overdue after the
+        // interval since the last push: whichever comes first.
+        let settled = state.last_commit.map_or(0, |t| t.saturating_add(delay));
         let overdue = state
             .backup
             .last_push
-            .is_none_or(|t| now >= t.saturating_add(interval));
-        settled || overdue
+            .map_or(0, |t| t.saturating_add(interval));
+        Some(settled.min(overdue))
     }
 
     /// Whether one last push is worth trying as Kasten closes: the backup
@@ -263,6 +270,8 @@ impl Kasten {
         }
         self.save_backup(&record);
         self.state().backup = record;
+        // The next try (or none) is counted from this one.
+        self.wake_workers();
         result.map(|_| ())
     }
 

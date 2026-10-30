@@ -5,12 +5,13 @@ import { MAX_KEPT } from "./selection/chip";
 import type { ChatState } from "./store";
 import { keptCount } from "./store-selection";
 import { chipKey, followChips, type Answer, type Thread } from "./thread";
+import { fieldsOf } from "./writes";
 
 type Update = (id: string, change: (thread: Thread) => Thread) => void;
 
 type Fields = Pick<
   ChatState,
-  "setAllowImages" | "addChip" | "removeChip" | "followPage" | "setFollow" | "pinChip" | "rename" | "pinned" | "undone" | "setDirect" | "setChanges" | "applied"
+  "setAllowImages" | "addChip" | "removeChip" | "followPage" | "setFollow" | "pinChip" | "rename" | "pinned" | "undone" | "setDirect" | "setWrites" | "setChanges" | "applied"
 >;
 
 /** The field actions for the store's `update`. */
@@ -56,7 +57,15 @@ export function fieldActions(update: Update): Fields {
     },
 
     pinned(id, messageId, path) {
-      update(id, (t) => ({ ...t, messages: t.messages.map((m) => (m.id === messageId && m.role === "assistant" ? ({ ...m, pinned: path } satisfies Answer) : m)) }));
+      update(id, (t) => {
+        const at = t.messages.findIndex((m) => m.id === messageId && m.role === "assistant");
+        const answer = t.messages[at];
+        // Only the pinned answer is replaced; the other rows keep their objects (and stay memoised).
+        if (!answer || answer.role !== "assistant" || answer.pinned === path) return t;
+        const messages = t.messages.slice();
+        messages[at] = { ...answer, pinned: path } satisfies Answer;
+        return { ...t, messages };
+      });
     },
 
     undone(id, undone = true) {
@@ -64,7 +73,14 @@ export function fieldActions(update: Update): Fields {
     },
 
     setDirect(id, direct) {
-      update(id, (t) => ((t.direct ?? false) === direct ? t : { ...t, direct }));
+      update(id, (t) => ((t.direct ?? false) === direct && !t.auto ? t : { ...t, direct, auto: false }));
+    },
+
+    setWrites(id, choice) {
+      update(id, (t) => {
+        const next = fieldsOf(choice);
+        return (t.direct ?? false) === next.direct && (t.auto ?? false) === next.auto ? t : { ...t, ...next };
+      });
     },
 
     setChanges(id, changes) {

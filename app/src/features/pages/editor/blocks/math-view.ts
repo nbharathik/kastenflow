@@ -11,12 +11,10 @@ import { $prose, $view } from "@milkdown/kit/utils";
 import katex from "katex";
 
 import { el } from "../ui/dom";
+import { KATEX } from "./katex-limits";
 import { mathBlockSchema, mathInlineSchema } from "./math";
 
-/** KaTeX's limits for TeX from a page, which anyone may have written: no
- * links or pictures (`trust`), and sizes and macro expansion capped, so a
- * formula can neither cover the page nor hang it. */
-export const KATEX = { trust: false, strict: "ignore", maxSize: 20, maxExpand: 500 } as const;
+export { KATEX };
 
 /** Draws `tex` into `host`; says so, gently, when the TeX does not parse. */
 function draw(host: HTMLElement, tex: string, displayMode: boolean): void {

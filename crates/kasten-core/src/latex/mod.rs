@@ -6,26 +6,36 @@
 //! text saved through `Kasten::save_source`. Builds are made in
 //! `.kasten/cache/latex/<hash>/` and never committed.
 
+mod advice;
 mod append;
 mod cite;
 mod config;
 mod docs;
+mod excerpt;
 mod export;
 mod figure;
 mod from_markdown;
 mod last_build;
 mod log;
+#[cfg(test)]
+mod log_tests;
 mod log_text;
+mod map;
 mod save;
 mod sent;
 mod template;
 mod text;
 
+pub use advice::engine_advice;
 pub use append::{Appended, appended};
 pub use cite::{Cited, bib_entry, bib_has_key, citation_text, cite_into};
 pub use config::{BIBLIOGRAPHIES, DEFAULT_BIBLIOGRAPHY, DEFAULT_ENGINE, ENGINES, LatexConfig};
 pub use docs::{LatexDoc, doc_containing};
 pub(crate) use docs::{LatexFacts, dir_of, facts_of, find_docs, read_facts};
+pub use excerpt::{
+    RADIUS as EXCERPT_RADIUS, around as excerpt_around, line_count, numbered as numbered_lines,
+    parse_range as parse_line_range,
+};
 pub use export::{MAX_PDF_BYTES, pdf_path};
 pub(crate) use export::{cached_pdf, check_pdf};
 pub use figure::{FigureKind, base64_decode, figure_name, is_program, sniff};
@@ -33,6 +43,7 @@ pub use from_markdown::{Converted, Mode, escape_text, markdown_to_latex, page_to
 pub use last_build::{LastBuild, MAX_LOG_BYTES};
 pub(crate) use last_build::{is_link, read as read_last_build};
 pub use log::{Diagnostic, Severity, parse_log, parse_log_bytes};
+pub use map::{DocumentMap, document_map, render as render_map};
 pub(crate) use save::{Plan, conflict_path, plan};
 pub use save::{SourceFile, SourceSaved};
 pub use sent::{Material, Sent};

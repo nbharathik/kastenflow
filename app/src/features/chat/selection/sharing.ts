@@ -49,6 +49,7 @@ export function useSelectionShare(): void {
       .then((watching) => {
         if (watching && !gone) void on();
       })
+      // Only asks whether a client is already reading; without an answer the next watch event says so.
       .catch(() => {});
     return () => {
       gone = true;

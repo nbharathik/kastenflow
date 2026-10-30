@@ -2,6 +2,7 @@
 // colour, the interface size and the text size) in one card, then motion.
 
 import type { MotionPref } from "../../../../lib/motion";
+import { said } from "../../../../lib/said";
 import { CHOICES, chooseZoom, stepZoom, useZoom, zoomBy, type ZoomChoice } from "../../../../lib/zoom";
 import { Button, IconButton } from "../../../../ui/Button";
 import type { IconName } from "../../../../ui/Icon";
@@ -32,8 +33,8 @@ const SIZES: { id: string; label: string }[] = [{ id: "auto", label: "Auto" }, .
 /** How large everything draws in this window, for the display it is on. */
 function InterfaceSize() {
   const { choice, level, auto } = useZoom();
-  const set = (next: ZoomChoice) => void chooseZoom(next).catch(() => {});
-  const step = (direction: -1 | 1) => void zoomBy(direction).catch(() => {});
+  const set = (next: ZoomChoice) => void chooseZoom(next).catch(said("Could not change the interface size"));
+  const step = (direction: -1 | 1) => void zoomBy(direction).catch(said("Could not change the interface size"));
   const picked = choice === "auto" ? "auto" : String(choice);
   const pick = (id: string) => set(id === "auto" ? "auto" : Number(id));
   return (
@@ -75,7 +76,7 @@ export function ResetAppearance() {
       onClick={() => {
         prefs.setTheme("system");
         prefs.set({ accent: "blue", motion: "system", textSize: "normal" });
-        void chooseZoom("auto").catch(() => {});
+        void chooseZoom("auto").catch(said("Could not reset the interface size"));
       }}
     >
       Reset all appearance

@@ -96,13 +96,35 @@
   flex: 1;
 }
 
+.latex-problems-advice {
+  margin: 0;
+  padding: 2px 12px 4px;
+  color: var(--color-warning);
+  font-size: var(--text-12);
+}
+
 .latex-problems-list {
   max-height: 148px;
   overflow: auto;
 }
 
+/* A row: the problem (a button that jumps to it) and, when the chat is there, "Fix this one" and "Explain" beside it. */
+.latex-problem-row {
+  display: flex;
+  align-items: center;
+}
+
+.latex-problem-ask {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding-right: 8px;
+}
+
 .latex-problem {
   display: flex;
+  flex: 1;
+  min-width: 0;
   width: 100%;
   align-items: baseline;
   gap: 8px;

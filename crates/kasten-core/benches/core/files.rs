@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use criterion::Criterion;
+use criterion::{BatchSize, Criterion};
 use kasten_core::index::Index;
 use kasten_core::{Instant, Kasten};
 
@@ -85,8 +85,26 @@ pub fn facts(c: &mut Criterion) {
     c.bench_function("project summaries, 50 projects, 10k notes", |b| {
         b.iter(|| k.project_summaries("2026-10-06").unwrap())
     });
-    // The first read after a note changed pays the index's queries again, on
-    // top of the walk: this is that, taken apart.
+    // The first read after a note changed: only the project the note is in is
+    // asked of the index again (the setup, which indexes the same unchanged
+    // file once more, is not timed).
+    c.bench_function(
+        "project summaries, first read after a change, 50 projects, 10k notes",
+        |b| {
+            b.iter_batched(
+                || {
+                    k.outside_changes(
+                        &["projects/p3/pages/n3.md".to_owned()],
+                        Instant::now().millis,
+                    )
+                },
+                |()| k.project_summaries("2026-10-06").unwrap(),
+                BatchSize::PerIteration,
+            )
+        },
+    );
+    // Before that was incremental, the first read after a change paid all of
+    // the index's queries again, on top of the walk: this is that, taken apart.
     let index = Index::open(&extras_vault().join(".kasten/cache/index.sqlite")).unwrap();
     c.bench_function("project summaries part: index queries", |b| {
         b.iter(|| index.project_rows("2026-10-06").unwrap())

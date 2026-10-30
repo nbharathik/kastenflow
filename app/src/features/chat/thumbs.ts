@@ -4,15 +4,17 @@
 
 import { useEffect, useState } from "react";
 
+import { setCapped, touch } from "../../lib/lru";
 import { useChat } from "./store";
 
 const made = new Map<string, Promise<string>>();
+const MOST = 300;
 
 const mimeOf = (name: string) => (/\.jpe?g$/i.test(name) ? "image/jpeg" : /\.gif$/i.test(name) ? "image/gif" : /\.webp$/i.test(name) ? "image/webp" : "image/png");
 
 /** The picture of attachment `id` as an address a page can show. */
 export function pictureOf(id: string, name: string): Promise<string> {
-  let held = made.get(id);
+  let held = touch(made, id);
   if (!held) {
     held = useChat
       .getState()
@@ -20,7 +22,8 @@ export function pictureOf(id: string, name: string): Promise<string> {
       .attachment(id)
       .then((bytes) => URL.createObjectURL(new Blob([bytes.slice()], { type: mimeOf(name) })));
     held.catch(() => made.delete(id));
-    made.set(id, held);
+    // The least recently shown pictures give their address back past the cap.
+    setCapped(made, id, held, MOST, (url) => void url.then((address) => URL.revokeObjectURL(address), () => {}));
   }
   return held;
 }

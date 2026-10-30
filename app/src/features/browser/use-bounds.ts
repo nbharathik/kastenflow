@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { usePrefs } from "../workspace/prefs";
 import { useWorkspace } from "../workspace/store";
 import { useShell } from "../../lib/store";
+import { startInterval } from "../../lib/use-interval";
 import { boxOf, isEmpty, sameBounds, toPhysical, type Box } from "./bounds";
 import type { Bounds } from "./types";
 
@@ -126,8 +127,7 @@ export function useBounds(placeholder: RefObject<HTMLElement | null>, onBounds: 
     stops.push(usePrefs.subscribe((s, p) => s.sidebarWidth !== p.sidebarWidth && poke()));
     stops.push(useShell.subscribe((s, p) => (s.sidebarOpen !== p.sidebarOpen || s.focusMode !== p.focusMode || s.panels !== p.panels) && poke()));
     // And a slow look for whatever else moved it.
-    const timer = setInterval(poke, SLOW_MS);
-    stops.push(() => clearInterval(timer));
+    stops.push(startInterval(poke, SLOW_MS));
     poke();
     return () => {
       sync.stop();

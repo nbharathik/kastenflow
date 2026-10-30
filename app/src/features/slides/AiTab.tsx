@@ -166,7 +166,7 @@ export function AiTab(props: AiPanelProps) {
         <div className="kasten-chat-foot">
           <WaitingNotice thread={active} />
           <ChangeSetBar thread={active} />
-          <Composer key={active.id} ref={composer} thread={active} page={null} ask="Ask for a change to the deck…" showFollow={false} />
+          <Composer key={active.id} ref={composer} id={active.id} page={null} ask="Ask for a change to the deck…" showFollow={false} />
         </div>
       </section>
     </LinksContext.Provider>

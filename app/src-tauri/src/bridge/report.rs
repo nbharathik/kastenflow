@@ -15,6 +15,8 @@ use crate::plugins::latex::service::{Ended, Outcome};
 const MOST_ERRORS: usize = 100;
 const MOST_WARNINGS: usize = 100;
 const MOST_NOTES: usize = 10;
+/// How many errors carry the context TeX printed after them.
+const MOST_CONTEXTS: usize = 10;
 /// The longest message passed on.
 const MAX_MESSAGE: usize = 500;
 
@@ -48,6 +50,27 @@ pub fn pdf_facts(kasten: &Kasten, doc: &LatexDoc) -> (Option<u64>, Option<u32>) 
 
 /// The answer to a build request that ran to its end.
 pub fn built(kasten: &Kasten, doc: &LatexDoc, outcome: &Outcome) -> Value {
+    describe(kasten, doc, outcome, None)
+}
+
+/// The answer to a preview build: the same count of errors and warnings, said
+/// to be of the text in `files` (waiting for review), not of the saved files.
+/// There is no PDF to tell of: the preview keeps none.
+pub fn built_preview(
+    kasten: &Kasten,
+    doc: &LatexDoc,
+    outcome: &Outcome,
+    files: &[String],
+) -> Value {
+    describe(kasten, doc, outcome, Some(files))
+}
+
+fn describe(
+    kasten: &Kasten,
+    doc: &LatexDoc,
+    outcome: &Outcome,
+    preview: Option<&[String]>,
+) -> Value {
     let of = |severity: Severity| {
         outcome
             .diagnostics
@@ -60,11 +83,25 @@ pub fn built(kasten: &Kasten, doc: &LatexDoc, outcome: &Outcome) -> Value {
         of(Severity::Info).count(),
     );
     let mut shown: Vec<Value> = Vec::new();
-    shown.extend(of(Severity::Error).take(MOST_ERRORS).map(listed));
+    shown.extend(
+        of(Severity::Error)
+            .take(MOST_ERRORS)
+            .enumerate()
+            .map(|(at, d)| {
+                let mut one = listed(d);
+                // What TeX printed where it stopped, for the first few: enough to see the cause.
+                if at < MOST_CONTEXTS
+                    && let Some(context) = &d.context
+                {
+                    one["context"] = json!(context);
+                }
+                one
+            }),
+    );
     shown.extend(of(Severity::Warning).take(MOST_WARNINGS).map(listed));
     shown.extend(of(Severity::Info).take(MOST_NOTES).map(listed));
     let succeeded = outcome.ended == Ended::Done;
-    let (size, pages) = if succeeded {
+    let (size, pages) = if succeeded && preview.is_none() {
         pdf_facts(kasten, doc)
     } else {
         (None, None)
@@ -98,6 +135,20 @@ pub fn built(kasten: &Kasten, doc: &LatexDoc, outcome: &Outcome) -> Value {
     });
     if let Some(err) = &outcome.error {
         told["problem"] = json!(err.message);
+    }
+    if let Some(advice) = kasten.latex_engine_advice(doc, &outcome.diagnostics) {
+        told["engine_advice"] = json!(advice);
+    }
+    if let Some(files) = preview {
+        told["preview"] = json!(true);
+        told["proposed_files"] = json!(files);
+        told["summary"] = json!(format!(
+            "Preview of your changes that wait for review (nothing is saved): {}",
+            told["summary"].as_str().unwrap_or_default()
+        ));
+        told["note"] = json!(
+            "This built the text you proposed in a scratch folder. The saved files, and the PDF in the app, are unchanged until the user accepts the changes."
+        );
     }
     told
 }

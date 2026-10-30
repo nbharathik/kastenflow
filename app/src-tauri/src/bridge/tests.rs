@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use kasten_core::agent::Session;
+use kasten_core::agent::{AgentOp, Session};
 use kasten_core::bridge::{Answer, Call, Mailbox, Sharing, Snippet};
 use kasten_core::config_keys::{AgentMode, AgentsConfig};
 use kasten_core::history::Actor;
@@ -22,7 +22,9 @@ use super::window::Failed;
 use super::{Running, Side, start};
 use crate::plugins::latex::build::execute;
 use crate::plugins::latex::engines::Engine;
+use crate::plugins::latex::preview::{Previewed, run_in};
 use crate::plugins::latex::service::Outcome;
+use crate::plugins::latex::snapshot::Buffer;
 use crate::plugins::latex::tests::support::{Dir, FOLDER, job, vault, wrap};
 
 mod more;
@@ -45,6 +47,9 @@ struct StandIn {
     selected: Mutex<Vec<Snippet>>,
     /// The window is there and publishes at once when asked.
     window_publishes: AtomicBool,
+    /// Preview builds made, and the files the last one was given.
+    previews: AtomicUsize,
+    previewed: Mutex<Vec<(String, String)>>,
 }
 
 impl Side for StandIn {
@@ -116,6 +121,29 @@ impl Side for StandIn {
         let wrapped = wrap(mode, job.out(), "main", None);
         Ok(execute(&job, &AtomicBool::new(false), &|_| {}, &wrapped))
     }
+
+    fn build_preview(
+        &self,
+        _doc: &LatexDoc,
+        files: Vec<(String, String)>,
+        _wait: Duration,
+    ) -> Result<Previewed, String> {
+        self.previews.fetch_add(1, Ordering::SeqCst);
+        *self.previewed.lock().unwrap() = files.clone();
+        let mode = *self.mode.lock().unwrap();
+        let mut probe = job(self.kasten.root(), Engine::Tectonic);
+        probe.scratch = Some("bridge-preview".to_owned());
+        let wrapped = wrap(mode, probe.out(), "main", None);
+        let mut real = job(self.kasten.root(), Engine::Tectonic);
+        real.buffers = files
+            .into_iter()
+            .map(|(rel, text)| Buffer {
+                path: format!("{FOLDER}/{rel}"),
+                text,
+            })
+            .collect();
+        Ok(run_in(real, "bridge-preview", &wrapped))
+    }
 }
 
 struct Setup {
@@ -145,6 +173,8 @@ fn setup(mode: &'static str) -> Setup {
         sharing: Sharing::default(),
         selected: Mutex::new(Vec::new()),
         window_publishes: AtomicBool::new(true),
+        previews: AtomicUsize::new(0),
+        previewed: Mutex::new(Vec::new()),
     });
     let running = start(&kasten, side.clone()).unwrap();
     Setup {
@@ -175,6 +205,7 @@ fn build(doc: &str) -> Call {
     Call::LatexBuild {
         doc: doc.into(),
         wait_ms: 60_000,
+        preview: false,
     }
 }
 
@@ -250,6 +281,55 @@ fn the_loop_ends_with_the_vault_and_the_app_is_then_closed() {
     assert_eq!(closed, Answer::AppClosed);
     // Stopping twice is harmless.
     app.running.stop();
+}
+
+#[test]
+fn a_preview_build_is_of_the_waiting_changes_and_leaves_the_saved_files_alone() {
+    let app = setup("fail");
+    config_mode(&app.side.kasten, AgentMode::Review);
+    let asker = session();
+    let path = format!("{FOLDER}/main.tex");
+    let before = std::fs::read_to_string(app.root.join(&path)).unwrap();
+    let op = AgentOp::SaveSource {
+        path: path.clone(),
+        text: before.replace("\\input{sections/intro}", "Hi."),
+        base: before.clone(),
+        reason: None,
+    };
+    app.side
+        .kasten
+        .agent_run(&asker, &op, Instant::now())
+        .unwrap();
+    let call = Call::LatexBuild {
+        doc: FOLDER.into(),
+        wait_ms: 60_000,
+        preview: true,
+    };
+    let told = ask(&app.root, &call, Some(&asker)).unwrap();
+    assert_eq!(told["preview"], true, "{told}");
+    assert_eq!(told["proposed_files"][0], "main.tex");
+    assert_eq!(told["errors"], 1);
+    assert!(
+        told["summary"]
+            .as_str()
+            .unwrap()
+            .starts_with("Preview of your changes that wait for review"),
+        "{told}"
+    );
+    assert!(told["pdf_bytes"].is_null());
+    let given = app.side.previewed.lock().unwrap().clone();
+    assert_eq!(given.len(), 1);
+    assert!(given[0].1.contains("Hi.") && !given[0].1.contains("\\input"));
+    assert_eq!(app.side.previews.load(Ordering::SeqCst), 1);
+    assert_eq!(app.side.builds.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        std::fs::read_to_string(app.root.join(&path)).unwrap(),
+        before
+    );
+    // Someone with no waiting changes gets an ordinary build of the saved files.
+    let other = ask(&app.root, &call, Some(&session())).unwrap();
+    assert!(other.get("preview").is_none(), "{other}");
+    assert_eq!(app.side.builds.load(Ordering::SeqCst), 1);
 }
 
 #[test]

@@ -12,6 +12,7 @@ import { SessionsTab, type SessionFocus } from "./SessionsTab";
 import { message } from "./store";
 import { Callout } from "./ui";
 import { Icon } from "../../ui/Icon";
+import { Wait } from "../../ui/Wait";
 
 /** Commits read per batch; "Show more" past them reads another batch. */
 const HISTORY_BATCH = 300;
@@ -114,7 +115,7 @@ export function History() {
 
       <div role="tabpanel" id={`history-panel-${tab}`} aria-labelledby={`history-tab-${tab}`}>
         {commits === null || sessions === null ? (
-          <p className="py-10 text-center text-13 text-muted">Reading the history…</p>
+          <Wait className="py-10 text-center" label="Reading the history" />
         ) : tab === "changes" ? (
           <ChangesTab commits={commits} full={commits.length >= limit} onOlder={() => setLimit((l) => l + HISTORY_BATCH)} preset={preset} />
         ) : (

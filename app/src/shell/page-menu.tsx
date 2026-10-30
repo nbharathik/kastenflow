@@ -4,7 +4,7 @@
 // between the icon rows and Page. Every row has a palette command (PALETTE_IDS).
 
 import { findOrMakeMap } from "../features/boards/page-map";
-import { askAboutPage } from "../features/chat/actions";
+import { askAboutPage } from "../features/chat/ask-page";
 import { foldAllSections } from "../features/pages/editor/sections/registry";
 import { presentThisPage, sectionsToDeck, showSmartSide, toggleSmartLayout, toggleSmartPage } from "../features/pages/present/actions";
 import { homeItem, saveSetupItem, smartProjectItems, templateItems } from "../features/projects/home-menu";
@@ -72,6 +72,7 @@ export const PALETTE_IDS: Record<string, string> = {
   "Unfold all sections": "unfold-sections",
   "Fold properties": "fold-properties",
   "Unfold properties": "unfold-properties",
+  "Tint what agents wrote": "agent-tint",
   "Mind map from this page": "page-mind-map",
   "Open mind map": "page-mind-map",
   "Present this page": "present-page",
@@ -132,7 +133,7 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
   const own = movable(note);
   // Smart pages are on for this page's project (else the vault's plugin).
   const smartOn = smartAvailable(note.project);
-  const { propsFold, propsFolded: chosen } = usePrefs.getState();
+  const { propsFold, propsFolded: chosen, agentTint } = usePrefs.getState();
   const propsFolded = isFolded(propsFold, chosen[foldKey(note)], propertyCount(note));
 
   const view: MenuEntry[] = [
@@ -155,6 +156,8 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
         ]
       : []),
     { label: hasMap ? "Open mind map" : "Mind map from this page", icon: icon("board"), onSelect: () => void mapPage(note) },
+    // Off unless turned on: pages then tint what an agent wrote today, with Keep and Undo on hover.
+    { label: "Tint what agents wrote", icon: icon("agent"), checked: agentTint, onSelect: () => usePrefs.getState().set({ agentTint: !agentTint }) },
   ];
 
   const present: MenuEntry[] = [
@@ -194,7 +197,7 @@ export function pageMenuEntries(state: PageMenuState): MenuEntry[] {
     { label: "Present & export", icon: icon("present"), submenu: present },
     ...(note.kind === "project" ? [{ label: "Project", icon: icon("folder"), submenu: [homeItem(note), ...templateItems(note), ...smartProjectItems(note), saveSetupItem(note.project)] as MenuEntry[] }] : []),
     "divider",
-    { label: "Ask AI about this page", icon: icon("sparkle"), hint: keyHint("chat-dock"), onSelect: () => askAboutPage(note) },
+    { label: "Ask AI about this page", icon: icon("sparkle"), hint: keyHint("chat-dock"), onSelect: () => void askAboutPage(note) },
     "divider",
     { label: "Move to Trash", icon: icon("trash"), danger: true, onSelect: () => void ws().trash(note.path) },
   ];

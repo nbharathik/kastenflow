@@ -24,8 +24,10 @@ const WIDTH: f64 = 1180.0;
 const HEIGHT: f64 = 780.0;
 
 /// The kinds of message the two windows exchange: the presenter asking for the deck, the deck, a position, the talk being a rehearsal,
-/// the show's heartbeat, the presenter asking for the show to end, and a window closing.
-const KINDS: [&str; 7] = ["hello", "deck", "state", "rehearse", "beat", "end", "bye"];
+/// the show's heartbeat, the presenter asking for the show to end, the presenter asking for the show to change screens, and a window closing.
+const KINDS: [&str; 8] = [
+    "hello", "deck", "state", "rehearse", "beat", "end", "screen", "bye",
+];
 
 /// The most one message may weigh: a deck with its pictures' addresses, and nothing like a picture itself.
 const MAX_BYTES: usize = 32 << 20;
@@ -322,7 +324,7 @@ mod tests {
 
     #[test]
     fn the_windows_keep_in_touch_and_the_presenter_can_end_the_show() {
-        for kind in ["beat", "end"] {
+        for kind in ["beat", "end", "screen"] {
             assert!(KINDS.contains(&kind), "{kind}");
         }
     }

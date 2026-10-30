@@ -13,6 +13,7 @@ use common::{NOW, dev_vault};
 use kasten_core::history::Actor;
 use kasten_core::{Kasten, ProjectState, ProjectSummary};
 
+mod incremental;
 mod kept;
 
 const TODAY: &str = "2026-10-06";

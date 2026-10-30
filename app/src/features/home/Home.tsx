@@ -6,6 +6,7 @@
 
 import "../dashboard/dashboard.css";
 import "./home.css";
+import "./cards.css";
 
 import { Button } from "../../ui/Button";
 import { BackupCard } from "../backup/told-up-front";
@@ -16,6 +17,7 @@ import { useDecks } from "../slides/store";
 import { ReviewBanner } from "../review-screens/ReviewBanner";
 import { usePrefs } from "../workspace/prefs";
 import { useWorkspace } from "../workspace/store";
+import { AgentStrip } from "./AgentStrip";
 import { HomeBar } from "./HomeBar";
 import { HomeSectionView } from "./HomeSections";
 import { homeSections, inZone, type HomeSection } from "./sections";
@@ -40,6 +42,8 @@ export function Home() {
     <div className="kasten-home">
       <div className="kasten-home-page">
         <HomeBar sections={sections} />
+        {/* One line when agents changed something today (the card says it in full). */}
+        {!welcome && !sections.includes("agents") && <AgentStrip />}
         {/* Only when the weekly reminder is on and its day has come. */}
         <ReviewBanner />
         {/* While backup is off; put away, it returns after 7 days. */}

@@ -1,0 +1,158 @@
+/* Motion: the keyframes things enter and leave with, and what the motion
+   setting does to them. The lengths and the easing are tokens in
+   styles.css (--motion-fast, --motion-base, --motion-slow, --ease-standard).
+
+   Entrances: what opens fades in and rises a little; toasts and side peeks
+   come in a little from the side. Menus take the base step, dialogs and
+   panels the slow one. Exits are shorter (menus the fast step, dialogs the
+   base one). Distances are variables, so reduced motion can set them to
+   nothing and leave the fade. */
+
+@keyframes kasten-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes kasten-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-nudge)) scale(var(--motion-enter-scale));
+  }
+}
+
+@keyframes kasten-enter-side {
+  from {
+    opacity: 0;
+    transform: translateX(var(--motion-side));
+  }
+}
+
+/* Dialogs, the palette and peeks: a fade and a rise. `translate` and
+   `scale` are their own properties, so they never undo a panel's own
+   `transform`. */
+@keyframes kasten-rise {
+  from {
+    opacity: 0;
+    translate: 0 var(--motion-rise);
+  }
+}
+
+/* Menus and popups grow from the button that opened them (never from
+   nothing: the scale starts at 0.96). */
+@keyframes kasten-pop-in {
+  from {
+    opacity: 0;
+    scale: var(--motion-pop-from);
+  }
+}
+
+/* Exits: a fade; a side peek also slips back out. */
+@keyframes kasten-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes kasten-leave-side {
+  to {
+    opacity: 0;
+    translate: var(--motion-side) 0;
+  }
+}
+
+/* How far things move. Under reduced motion they stay put and only fade. */
+:root {
+  --motion-nudge: 4px;
+  --motion-enter-scale: 0.99;
+  --motion-side: 12px;
+  --motion-rise: 8px;
+  --motion-pop-from: 0.96;
+}
+
+/* A copy left behind by a panel that has closed (lib/presence.ts) plays
+   its own exit only: nothing inside it moves again. */
+[data-ghost] * {
+  animation: none !important;
+}
+
+/* The setting is Off: the tokens take no time, and neither does anything
+   else that moves, but for spinners and progress bars, which show that
+   work goes on. Until the setting is read, the computer's own choice
+   holds. */
+:root[data-motion="off"] {
+  --motion-fast: 0ms;
+  --motion-base: 0ms;
+  --motion-slow: 0ms;
+}
+
+:root[data-motion="off"]:not([data-motion-reduced]) *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress),
+:root[data-motion="off"]:not([data-motion-reduced]) *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress)::before,
+:root[data-motion="off"]:not([data-motion-reduced]) *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress)::after {
+  animation-duration: 0.01ms !important;
+  /* One pass, so a looping animation rests on its last frame instead of flickering. */
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* The computer asks for less motion: short fades take the place of
+   movement. Nothing slides, rises or grows, every length is one fast fade,
+   decorative loops stop, and spinners and progress bars keep going. */
+:root[data-motion="off"][data-motion-reduced] {
+  --motion-fast: 90ms;
+  --motion-base: 90ms;
+  --motion-slow: 90ms;
+  --motion-nudge: 0px;
+  --motion-enter-scale: 1;
+  --motion-side: 0px;
+  --motion-rise: 0px;
+  --motion-pop-from: 1;
+}
+
+:root[data-motion="off"][data-motion-reduced] *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress),
+:root[data-motion="off"][data-motion-reduced] *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress)::before,
+:root[data-motion="off"][data-motion-reduced] *:not(.ui-spinner, .kasten-chat-spinner, .kasten-browser-loading, .latex-progress, .latex-progress > span, progress)::after {
+  animation-iteration-count: 1 !important;
+  transition-duration: var(--motion-fast) !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) *,
+  :root:not([data-motion]) *::before,
+  :root:not([data-motion]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* View transitions (lib/view-transition.ts): a tab switch cross-fades. With
+   motion off none is started; this keeps one that is already running quiet. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--ease-standard);
+}
+
+:root[data-motion="off"]:not([data-motion-reduced])::view-transition-group(root),
+:root[data-motion="off"]:not([data-motion-reduced])::view-transition-old(root),
+:root[data-motion="off"]:not([data-motion-reduced])::view-transition-new(root) {
+  animation: none;
+}
+
+/* A window nobody sees (lib/motion.ts watchHidden): spinners, progress and
+   every loop hold still until it is shown again. */
+:root[data-window="hidden"] *,
+:root[data-window="hidden"] *::before,
+:root[data-window="hidden"] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Press feedback: a button gives a little under the finger. `scale` is its
+   own property, so it never undoes a button's `transform`. */
+.ui-btn:not(:disabled):active,
+.ui-icon-btn:not(:disabled):active {
+  scale: 0.98;
+}

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { openUrl } from "../../../lib/api";
+import { copyOrSay, said } from "../../../lib/said";
 import { githubAccount, githubSignInCancel, githubSignInStart, onSignIn, type SignInCode } from "../api";
 import { sentence } from "./api";
 import { useBackupWizard } from "./state";
@@ -37,8 +38,9 @@ export function useSignIn(): { view: SignInView; again: () => void } {
       const code = await githubSignInStart();
       if (turn !== asked.current) return;
       setView({ state: "waiting", code });
-      void navigator.clipboard?.writeText(code.userCode).catch(() => {});
-      void openUrl(code.verificationUri).catch(() => {});
+      // The step says the code is already copied, so a refused clipboard is told.
+      void copyOrSay(code.userCode, "the code");
+      void openUrl(code.verificationUri).catch(said("Could not open the sign-in page. Open it from the link in this window"));
     } catch (err) {
       if (turn === asked.current) setView({ state: "failed", message: sentence(err) });
     }
@@ -54,6 +56,7 @@ export function useSignIn(): { view: SignInView; again: () => void } {
     return () => {
       asked.current++;
       stop();
+      // Leaving the step: if the cancel does not reach the backend the code simply expires.
       void githubSignInCancel().catch(() => {});
     };
   }, [start]);

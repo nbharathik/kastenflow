@@ -47,6 +47,7 @@ export function startChildFocus(): () => void {
   // Focus that went into a frame of the window's own page is the page's, not a native view's.
   const lost = () => {
     if (document.activeElement instanceof HTMLIFrameElement) return;
+    // Focus hints to the native view: if one is lost the next focus change sends it again.
     void backend.childFocus(true).catch(() => {});
   };
   const back = () => void backend.childFocus(false).catch(() => {});
@@ -60,6 +61,7 @@ export function startChildFocus(): () => void {
       if (stopped) stop();
       else hearing = stop;
     })
+    // Without the key feed the native view just keeps its own keys.
     .catch(() => {});
   stopping = () => {
     stopped = true;

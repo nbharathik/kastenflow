@@ -1,0 +1,138 @@
+/* Review inside the chat: proposal cards after the conversation, the hunks of
+   a text change with Keep and Undo, the stale notice, and the small label the
+   chat's "…" menu shows when writes are not "Ask first". Colours and sizes
+   come from the theme's tokens; motion only from the motion tokens. */
+
+.kc-proposals {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.kc-proposal {
+  /* The card is the Review view's own; here it sits in a narrow column. */
+  min-width: 0;
+}
+
+.kc-hunks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kc-hunk {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+  transition: opacity var(--motion-base) var(--ease-standard);
+
+  &[data-undone] {
+    opacity: 0.55;
+  }
+}
+
+.kc-hunk-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 8px 5px 10px;
+  background: var(--notion-hover);
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+}
+
+.kc-hunk-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.kc-hunk-choice {
+  display: inline-flex;
+  gap: 2px;
+
+  & button {
+    height: 24px;
+    padding: 0 9px;
+    border: 1px solid var(--notion-line);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--notion-text);
+    font: 500 var(--text-12) var(--notion-font);
+    cursor: pointer;
+    transition: background-color var(--motion-fast) var(--ease-standard);
+
+    &:hover:not(:disabled) {
+      background: var(--notion-hover);
+    }
+
+    &[aria-pressed="true"] {
+      border-color: transparent;
+      background: var(--kasten-agent-bg);
+      color: var(--kasten-agent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--kasten-agent);
+      outline-offset: 1px;
+    }
+
+    &:disabled {
+      opacity: 0.55;
+    }
+  }
+}
+
+.kc-hunk-diff {
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.kc-stale {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--color-warning);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+
+.kc-open-review {
+  margin-left: auto;
+}
+
+.kc-elsewhere {
+  margin: 0 0 8px;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+
+  & button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+/* The chat's "…" menu and, only when writes are not "Ask first", what they are. */
+.kasten-chat-write {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kasten-chat-write-label {
+  padding: 1px 7px;
+  border-radius: var(--radius-xl);
+  background: var(--kasten-agent-bg);
+  color: var(--kasten-agent);
+  font-size: var(--text-12);
+  font-weight: 500;
+  white-space: nowrap;
+}

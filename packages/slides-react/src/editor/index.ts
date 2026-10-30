@@ -4,7 +4,7 @@ export type { DeckInfo, DecksHost } from "./decks-host.ts";
 export { focusHome } from "./focus/home.ts";
 export { useOrphanKeys } from "./focus/orphan-keys.ts";
 export type { PreviewMode, PreviewPlace, PreviewRect, WebPreviewEvent, WebPreviewHandle, WebPreviewHost, WebPreviewState } from "./web-preview-host.ts";
-export type { AiPanelProps, AiStatus, AiStatusSource, DeckFavourite, DeliveredFile, DiagramPicture, HostImage, HostPage, HostPageSection, HostPageText, ImageEdit, ImageUse, OpenPageWay, PagePanelProps, PresentScreens, SaveOutcome, SlidesHost } from "./host.ts";
+export type { AiPanelProps, AiStatus, AiStatusSource, DeckFavourite, DeliveredFile, DiagramPicture, HostImage, HostPage, HostPageSection, HostPageText, ImageEdit, ImageUse, OpenPageWay, PagePanelProps, PresentScreens, SaveOutcome, ScreenInfo, SlidesHost } from "./host.ts";
 export { LayoutPicker } from "./layouts/LayoutPicker.tsx";
 export type { LayoutPickerProps } from "./layouts/LayoutPicker.tsx";
 export { LayoutThumb } from "./layouts/LayoutThumb.tsx";

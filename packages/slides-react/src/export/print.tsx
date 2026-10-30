@@ -8,6 +8,8 @@ import { createRoot } from "react-dom/client";
 
 import type { ImageUrl } from "../render/index.ts";
 import { SlideView } from "../render/index.ts";
+// Formulas must be drawn when the pages are, so KaTeX is loaded with this file.
+import "../render/math.ts";
 
 export interface PrintOptions {
   /** `final`: each slide once, as it ends. `each`: a page for every step of a slide that has steps. */

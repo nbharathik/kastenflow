@@ -41,7 +41,7 @@ export function Progress({ s }: { s: ProjectSummary }) {
   return (
     <span className="kasten-hub-progress">
       <span className="kasten-hub-track" role="progressbar" aria-label="To-dos done" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-        <span style={{ width: `${percent}%` }} />
+        <span style={{ transform: `scaleX(${percent / 100})` }} />
       </span>
       <span className="kasten-hub-progress-text">{total === 0 ? "No to-dos" : `${done} of ${total} done`}</span>
     </span>

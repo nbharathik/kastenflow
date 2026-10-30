@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   back: vi.fn(),
   scale: [] as (() => void)[],
   stopScale: vi.fn(),
-  fullscreen: vi.fn(() => Promise.resolve()),
+  fullscreen: vi.fn((_on?: boolean) => Promise.resolve()),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => mocks.invoke(...args) }));
@@ -67,6 +67,43 @@ describe("Present on", () => {
     expect(mocks.invoke).toHaveBeenCalledWith("present_displays");
     mocks.invoke.mockRejectedValueOnce(new Error("no"));
     await expect(presentScreens.displays()).resolves.toEqual([]);
+  });
+});
+
+describe("moving a running show", () => {
+  it("swaps, moves to a display by name, lists and identifies through the app, without touching the kept choice", async () => {
+    writePresentOn("here");
+    await presentScreens.swap?.();
+    expect(mocks.invoke).toHaveBeenLastCalledWith("present_move", { target: "swap" });
+    await presentScreens.moveTo?.("Projector");
+    expect(mocks.invoke).toHaveBeenLastCalledWith("present_move", { target: "name:Projector" });
+    mocks.invoke.mockResolvedValueOnce([{ label: "Built-in", primary: true, current: true }]);
+    await expect(presentScreens.list?.()).resolves.toEqual([{ label: "Built-in", primary: true, current: true }]);
+    await presentScreens.identify?.();
+    expect(mocks.invoke).toHaveBeenLastCalledWith("present_identify");
+    expect(readPresentOn()).toBe("here");
+  });
+
+  it("does not throw when the app cannot", async () => {
+    mocks.invoke.mockRejectedValue(new Error("no"));
+    await expect(presentScreens.swap?.()).resolves.toBeUndefined();
+    await expect(presentScreens.list?.()).resolves.toEqual([]);
+  });
+
+  it("asks the app to look again when the window's display changes, before it fills the display it is on", async () => {
+    const order: string[] = [];
+    mocks.invoke.mockImplementation((name: string) => {
+      order.push(name);
+      return Promise.resolve();
+    });
+    mocks.fullscreen.mockImplementation((on?: boolean) => {
+      order.push(`full:${on}`);
+      return Promise.resolve();
+    });
+    await fillShowScreen(() => {});
+    order.length = 0;
+    mocks.scale[0]!();
+    await vi.waitFor(() => expect(order).toEqual(["present_check", "full:false", "full:true"]));
   });
 });
 

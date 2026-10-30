@@ -70,6 +70,8 @@ export interface Diagnostic {
   line: number | null;
   severity: Severity;
   message: string;
+  /** What TeX printed where an error stopped (`l.12 \sectoin`), for an error that has it. */
+  context?: string | null;
 }
 
 /** Why a build could not run, in a sentence, with what to do about it. */

@@ -5,6 +5,7 @@
 import { create } from "zustand";
 
 import { openUrl } from "../../lib/api";
+import { said } from "../../lib/said";
 import { useWorkspace } from "../workspace/store";
 import { browserBackend } from "./backend";
 import { startChildFocus } from "./child-focus";
@@ -60,7 +61,7 @@ export function webTabIds(): Set<string> {
 
 /** Says a download was refused, with a way to get the file in the system's browser. */
 function refuseDownload(url: string | null | undefined): void {
-  useWorkspace.getState().toast("KastenFlow's browser does not download files.", url ? { label: "Open in your browser", run: () => void openUrl(url).catch(() => {}) } : undefined);
+  useWorkspace.getState().toast("KastenFlow's browser does not download files.", url ? { label: "Open in your browser", run: () => void openUrl(url).catch(said("Could not open the system browser")) } : undefined);
 }
 
 /** How a page's events change the window. The deck preview's are no tab's: they go to whoever listens for it. */
@@ -104,6 +105,7 @@ let started = false;
 export function startBrowserEvents(): void {
   if (started || !browserBackend().available) return;
   started = true;
+  // Without the feed the tabs show no titles or progress, but the pages still load.
   void browserBackend().onEvent(handleEvent).catch(() => {});
   // A page in a native view that has the keyboard still gets Ctrl+T, Ctrl+W and Ctrl+L.
   startChildFocus();
@@ -114,6 +116,7 @@ export function startBrowserEvents(): void {
     for (const id of before) {
       if (now.has(id)) continue;
       useWebTabs.getState().forget(id);
+      // The tab is already closed here; the native view is freed when the app closes if this fails.
       void browserBackend().close(id).catch(() => {});
     }
     before = now;

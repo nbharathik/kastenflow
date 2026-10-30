@@ -14,6 +14,7 @@ import { useWorkspace, type WorkspaceState } from "../features/workspace/store";
 import { nestNote } from "../features/workspace/placing";
 import { holders, movable, treeOf } from "../features/workspace/tree";
 import { useShell } from "../lib/store";
+import { viewTransition } from "../lib/view-transition";
 import type { NoteMeta } from "../lib/vault/types";
 import { ProjectBoards } from "./BoardRows";
 import { ProjectDecks } from "./DeckRows";
@@ -172,7 +173,8 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
   };
 
   return (
-    <li {...extras?.item}>
+    // Out of view, a row is not laid out or painted (it keeps the height it last had).
+    <li {...extras?.item} className={`[contain-intrinsic-block-size:auto_28px] [content-visibility:auto] ${extras?.item?.className ?? ""}`}>
       <div
         draggable={!renaming}
         onDragStart={(e) => {
@@ -193,6 +195,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
         data-drop-into={nestDrop.over ? "" : undefined}
         data-drop-edge={nestDrop.edge ?? undefined}
         data-row-path={note.path}
+        data-flip={note.path}
         onContextMenu={renaming ? undefined : openRowMenu}
         className={`group flex h-7 items-center gap-1 rounded-md pr-1 text-13 transition-colors ${picked ? "bg-soft" : active ? "bg-selected font-medium" : "hover:bg-hover"} ${nestDrop.over ? DROP_INTO : ""} ${nestDrop.edge ? DROP_EDGE[nestDrop.edge] : ""}`}
         style={{ paddingLeft: `${4 + depth * 14}px` }}
@@ -226,7 +229,11 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
             type="button"
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
             onClick={(e) => {
-              if (!picking) return openPath(note.path, howFromPage(e));
+              if (!picking) {
+                // Opening in this pane fades from the old view to the new.
+                const how = howFromPage(e);
+                return how === "here" ? viewTransition(() => openPath(note.path, how)) : openPath(note.path, how);
+              }
               const pick = useSidebarSelection.getState();
               if (e.shiftKey) pick.range(note.path, rowOrder());
               else pick.toggle(note.path);

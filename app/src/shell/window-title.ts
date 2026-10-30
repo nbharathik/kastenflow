@@ -48,6 +48,7 @@ export function useWindowTitle(): void {
   const title = titleFor(place, notes, boards);
   useEffect(() => {
     document.title = title;
+    // The title bar only; the page itself shows the same name.
     if (inTauri()) void getCurrentWindow().setTitle(title).catch(() => {});
   }, [title]);
 }

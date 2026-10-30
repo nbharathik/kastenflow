@@ -19,6 +19,8 @@ export type PresentMessage =
   | { type: "beat" }
   /** The presenter's window asks for the show to end. */
   | { type: "end" }
+  /** The presenter's window asks for the show to change screens: `swap`, or the label of the display to go to. */
+  | { type: "screen"; target: string }
   | { type: "bye" };
 
 export interface PresentSync {
@@ -41,6 +43,8 @@ export function readMessage(data: unknown): PresentMessage | null {
     case "end":
     case "bye":
       return { type: message.type };
+    case "screen":
+      return typeof message.target === "string" && message.target !== "" ? { type: "screen", target: message.target } : null;
     case "state": {
       const state = readState(message.state);
       return state ? { type: "state", state } : null;

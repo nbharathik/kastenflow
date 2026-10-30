@@ -18,7 +18,7 @@ import { noteAt } from "../../workspace/tree";
 import { useAttachments } from "../attach-store";
 import { useSharing } from "../selection/sharing";
 import { useChat } from "../store";
-import { chipKey, originOf, type Chip, type Thread } from "../thread";
+import { chipKey, originOf, type Chip, type ComposerThread } from "../thread";
 import { AddContext } from "./AddContext";
 import { AttachmentChips } from "./AttachmentChips";
 
@@ -38,7 +38,7 @@ function parts(chip: Chip, notes: readonly NoteMeta[]): string[] {
   return [];
 }
 
-export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta | null }) {
+export function ContextChips({ thread, page }: { thread: ComposerThread; page: NoteMeta | null }) {
   const notes = useWorkspace((s) => s.notes);
   // The chip that is open to list what it stands for.
   const [open, setOpen] = useState<string | null>(null);

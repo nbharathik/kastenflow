@@ -15,7 +15,12 @@
   box-shadow: var(--notion-shadow, var(--shadow-lift));
   color: var(--color-ink);
   font-size: var(--text-13);
-  animation: kasten-enter var(--motion-fast) var(--ease-standard);
+  transform-origin: top left;
+  animation: kasten-pop-in var(--motion-base) var(--ease-standard);
+}
+
+.kasten-table-pop[data-state="closing"] {
+  animation: kasten-leave var(--motion-fast) var(--ease-standard) forwards;
 }
 
 .kasten-table-pop-search {

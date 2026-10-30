@@ -85,11 +85,16 @@ describe("asking again", () => {
     expect(screen.queryByRole("button", { name: "Edit and resend" })).toBeNull();
   });
 
-  it("does not offer to edit a question that is not the newest", async () => {
+  it("offers to edit any question that has its answer, but not while an answer is streaming", async () => {
     const { id, box } = await show();
     await ask(id, box, "One", 1, "First.");
     await ask(id, box, "Two", 2, "Second.");
-    expect(screen.getAllByRole("button", { name: "Edit and resend" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Edit and resend" })).toHaveLength(2);
+    fireEvent.change(box, { target: { value: "Three" } });
+    await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+    expect(screen.queryByRole("button", { name: "Edit and resend" })).toBeNull();
+    act(() => chat.emit({ chat: id, turn: "turn-3", kind: "done" }));
+    expect(screen.getAllByRole("button", { name: "Edit and resend" })).toHaveLength(3);
   });
 });
 

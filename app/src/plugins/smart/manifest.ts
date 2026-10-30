@@ -12,7 +12,7 @@ export const SMART_MANIFEST: PluginManifest = {
   name: "Smart pages",
   summary: "Pages with a small app of their own, such as a tracker or a dashboard, that work with your notes.",
   icon: "code",
-  version: "1.2.2",
+  version: "1.2.3",
   defaultOn: false,
   scope: "vault",
 };

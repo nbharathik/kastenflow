@@ -59,6 +59,7 @@ export async function answerJob(job: DrawJob, draw: Draw = canvas): Promise<void
     await invoke("diagram_png_answer", { id: job.id, png: base64Of(bytes) });
   } catch (err) {
     const why = err instanceof Error ? err.message : "This window could not draw the picture";
+    // Telling the agent why a picture failed; if even that fails the job times out on its side.
     await invoke("diagram_png_answer", { id: job.id, error: why }).catch(() => {});
   }
 }

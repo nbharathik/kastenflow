@@ -44,6 +44,8 @@ export default defineConfig({
     // Assets load from disk inside the app, not over a network; the editor
     // chunk (Milkdown, CodeMirror, KaTeX) is large but lazy.
     chunkSizeWarningLimit: 2500,
+    // dist/.vite/manifest.json lists each entry's chunks, for the first-page size gate.
+    manifest: true,
     // The main window, the quick capture window's small page, and the presenter's window's page (the view alone, not the app).
     rollupOptions: { input: { main: "index.html", capture: "capture.html", presenter: "presenter.html" } },
     minify: process.env.TAURI_ENV_DEBUG ? false : undefined,

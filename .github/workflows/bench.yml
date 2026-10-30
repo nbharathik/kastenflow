@@ -1,0 +1,68 @@
+name: Bench
+
+# Runs the core's Criterion benches against a saved baseline and fails when
+# one is more than 20% slower. Nightly, and by hand (Actions → Bench → Run
+# workflow). Tick "save" to replace the baseline with this run's numbers,
+# after a change that is meant to move them.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      save:
+        description: "Save this run as the new baseline instead of comparing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: "24"
+
+jobs:
+  bench:
+    name: Bench against the baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+      - name: Install the pinned Rust toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Restore the saved baseline
+        id: baseline
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: target/criterion
+          key: bench-baseline-none
+          restore-keys: bench-baseline-
+      - name: Bench and save the baseline
+        if: steps.baseline.outputs.cache-matched-key == '' || inputs.save
+        run: cargo bench -p kasten-core --locked -- --save-baseline main
+      - name: Bench against the baseline
+        if: steps.baseline.outputs.cache-matched-key != '' && !inputs.save
+        run: cargo bench -p kasten-core --locked -- --baseline main
+      - name: Compare with the baseline
+        if: steps.baseline.outputs.cache-matched-key != '' && !inputs.save
+        run: node scripts/compare-bench.mjs target/criterion --baseline main --current new --limit 20
+      - name: Keep the baseline
+        if: steps.baseline.outputs.cache-matched-key == '' || inputs.save
+        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: target/criterion
+          key: bench-baseline-${{ github.run_id }}

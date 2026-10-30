@@ -3,7 +3,8 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { dayFrom, isDay, shortDay } from "../../lib/dates";
+import { isDay, shortDay } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
 import type { TaskRow } from "../../lib/vault/types";
 import { howFromView, useWorkspace } from "../workspace/store";
 import { DashEmpty, MoreToggle } from "./DashCard";
@@ -30,7 +31,7 @@ export function TodoList({ filter, addTo = null, home, limit = 7, empty, onMore 
   const rows = useTaskList();
   const [showDone, setShowDone] = useState(false);
   const [all, setAll] = useState(false);
-  const today = dayFrom(0);
+  const today = useToday();
   const mine = useMemo(() => (rows ?? []).filter(filter).sort(byUrgency), [rows, filter]);
   const open = mine.filter((r) => !r.done);
   const done = mine.filter((r) => r.done);
@@ -100,7 +101,7 @@ export function TodoRow({ row, today, showPage, timed = false }: TodoRowProps) {
   const late = !row.done && row.due !== null && row.due < today;
   return (
     <li className={`kasten-todo${row.done ? " is-done" : ""}`}>
-      <input type="checkbox" checked={row.done} aria-label={row.text} onChange={() => void tickTask(row)} />
+      <input type="checkbox" data-rove="" checked={row.done} aria-label={row.text} onChange={() => void tickTask(row)} />
       {timed && row.at && <span className="kasten-todo-time">{row.at}</span>}
       <span className="kasten-todo-text" title={showPage ? `${row.text} · ${isDay(row.title) ? shortDay(row.title) : row.title}` : row.text}>
         {row.text}

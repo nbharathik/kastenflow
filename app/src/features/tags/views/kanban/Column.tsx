@@ -4,8 +4,9 @@
 // list (a card written elsewhere) gets a column too, which cards can leave
 // but not join, since the core writes only the select's options.
 
-import { memo, useState, type CSSProperties } from "react";
+import { memo, useRef, useState, type CSSProperties } from "react";
 
+import { useFlip } from "../../../../lib/flip";
 import type { PropDef } from "../../../../lib/vault/types";
 import { optionSwatch } from "../../../panel/properties/schemas";
 import type { Column } from "../../model";
@@ -28,6 +29,10 @@ interface ColumnProps {
 
 export const BoardColumn = memo(function BoardColumn({ column, def, defs, colorBy, today }: ColumnProps) {
   const [adding, setAdding] = useState(false);
+  const cards = useRef<HTMLUListElement>(null);
+  // Cards slide to their place when one is added, moved or dropped; a very
+  // long column is left alone (the long-column layout is cheap on purpose).
+  useFlip(cards, column.notes.length > LONG ? "" : column.notes.map((n) => n.path).join("\n"));
   const takes = takesCards(column.value, def);
   const tone = column.value === null ? null : optionSwatch(column.value, def.options);
   const count = column.notes.length;
@@ -46,7 +51,7 @@ export const BoardColumn = memo(function BoardColumn({ column, def, defs, colorB
           {count.toLocaleString()}
         </span>
       </header>
-      <ul className={`kasten-kanban-cards${count > LONG ? " is-long" : ""}`} data-cards aria-label={`Cards in ${column.label}`}>
+      <ul ref={cards} className={`kasten-kanban-cards${count > LONG ? " is-long" : ""}`} data-cards aria-label={`Cards in ${column.label}`}>
         {column.notes.map((note) => (
           <Card key={note.path} note={note} defs={defs} colorBy={colorBy} today={today} />
         ))}

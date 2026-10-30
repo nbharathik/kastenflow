@@ -30,6 +30,8 @@ export interface MarkedBlock<M> {
   /** The mark whose first unedited block this is, for the badge; the
    * newest if several start here. */
   badge: M | null;
+  /** When the newest mark over the block was written. */
+  time: number;
 }
 
 const newlines = (text: string) => {
@@ -77,7 +79,7 @@ export function markedBlocks<N, M extends LineMark>(
     const starting = over.filter((m) => !badged.has(m));
     for (const m of starting) badged.add(m);
     const badge = starting.reduce<M | null>((a, m) => (a === null || m.time >= a.time ? m : a), null);
-    out.push({ from: first, to: first + block.nodes.length, badge });
+    out.push({ from: first, to: first + block.nodes.length, badge, time: over.reduce((t, m) => Math.max(t, m.time), 0) });
   }
   return out;
 }

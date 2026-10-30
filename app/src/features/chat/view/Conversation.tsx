@@ -5,6 +5,7 @@ import "../../pages/editor/styles/tokens.css";
 import "../chat.css";
 import "../threads.css";
 import "../messages.css";
+import "../flow.css";
 import "../composer.css";
 import "../chips.css";
 import "../menus.css";
@@ -16,6 +17,7 @@ import { Icon } from "../../../ui/Icon";
 import { useBoards } from "../../boards/store";
 import { useWorkspace } from "../../workspace/store";
 import { saveChat } from "../actions";
+import { useStopWithEscape } from "../keys";
 import { migrateDeckBindings } from "../binding/migrate";
 import { useChat } from "../store";
 import { ChangeSetBar } from "../changes/ChangeSetBar";
@@ -30,6 +32,7 @@ import { BindChip } from "./BindChip";
 import { ThreadMenu, newChat } from "./ThreadList";
 import { ArchiveButton, ThreadModel, ThreadTitle } from "./ThreadHead";
 import { WaitingNotice } from "./WaitingNotice";
+import { WriteMenu } from "./WriteMenu";
 
 /** Connects the chat, reads the providers, the saved chats and the boards (for names) once. */
 export function useChatSetup(): void {
@@ -62,13 +65,16 @@ export function Conversation({ id, variant, page, autoFocus = false, onClose, he
   const failed = useChat((s) => (s.failedOpen && !s.threads[s.failedOpen] ? s.failedOpen : null));
   const links = useMemo(() => linksFor(variant), [variant]);
   const composer = useRef<ComposerHandle>(null);
+  const section = useRef<HTMLElement>(null);
   // While this shows the thread, what it finished or stopped for is seen.
   useViewing(id);
+  // Esc stops the answer that is running here.
+  useStopWithEscape(id, section);
   if (!thread) return null;
   const none = providers !== null && providers.length === 0;
   return (
     <LinksContext.Provider value={links}>
-      <section className="kasten-chat" data-variant={variant} aria-label="Chat">
+      <section ref={section} className="kasten-chat" data-variant={variant} aria-label="Chat">
         {onClose ? <DockHead thread={thread} onClose={onClose} extra={headExtra} /> : <Head thread={thread} />}
         {/* A chat that could not be read back is said so, never shown as an empty one. */}
         {failed ? (
@@ -79,7 +85,7 @@ export function Conversation({ id, variant, page, autoFocus = false, onClose, he
             <div className="kasten-chat-foot">
               <WaitingNotice thread={thread} />
               <ChangeSetBar thread={thread} />
-              <Composer key={thread.id} ref={composer} thread={thread} page={page} autoFocus={autoFocus} />
+              <Composer key={thread.id} ref={composer} id={thread.id} page={page} autoFocus={autoFocus} />
             </div>
           </>
         )}
@@ -107,6 +113,7 @@ function Head({ thread }: { thread: Thread }) {
         {saving ? "Saving…" : "Save chat"}
       </button>
       <ArchiveButton thread={thread} />
+      <WriteMenu thread={thread} />
     </header>
   );
 }
@@ -145,6 +152,7 @@ function DockHead({ thread, onClose, extra }: { thread: Thread; onClose: () => v
         <Icon name="download" className="size-4" />
       </button>
       <ArchiveButton thread={thread} compact />
+      <WriteMenu thread={thread} />
       <button
         type="button"
         className="kasten-chat-icon-button"

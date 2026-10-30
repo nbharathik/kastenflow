@@ -133,6 +133,25 @@ describe("highlights on a page kept from the web", () => {
     expect(within(panel).queryByRole("region", { name: "Highlights" })).toBeNull();
   }, 60_000);
 
+  it("are offered in the editor's own selection bar, not a second floating one", async () => {
+    const editor = await openPage(CARD);
+    const page = () => editor.closest<HTMLElement>(".kasten-page")!;
+    await waitFor(() => expect(page().dataset.captured).toBe(""));
+    // Selecting words raises the editor's toolbar only: no bar of the page's own.
+    const text = editor.querySelector(".ProseMirror p")!.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, 5);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    act(() => void document.dispatchEvent(new Event("selectionchange")));
+    expect(document.querySelector(".kasten-sel-bar")).toBeNull();
+    expect(document.querySelector(".kasten-text-hl-host")).toBeNull();
+    cleanup();
+    const plain = await openPage("library/plain.md");
+    expect(plain.closest<HTMLElement>(".kasten-page")!.dataset.captured).toBeUndefined();
+  }, 60_000);
+
   it("can be made from the palette, which says what is missing", async () => {
     await openWithPanel(vault, CARD, "details");
     await act(async () => void (await run("highlight-selection")));

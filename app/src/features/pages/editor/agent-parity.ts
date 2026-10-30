@@ -84,6 +84,7 @@ export const PAGE_MENU: Readonly<Record<string, Parity>> = {
   "Unfold all sections": "UI only: the way the page is shown",
   "Fold properties": "UI only: the way the page is shown",
   "Unfold properties": "UI only: the way the page is shown",
+  "Tint what agents wrote": "UI only: the way the page is shown",
   "Mind map from this page": "tool exists: create_board, board_edit, connect; the map is built by hand",
   "Open mind map": "tool exists: read_board",
   "Present this page": "UI only: starts the show",
@@ -139,6 +140,7 @@ export const PAGE_COMMANDS: Readonly<Record<string, Parity>> = {
   "fold-properties": "UI only: the way the page is shown",
   "unfold-properties": "UI only: the way the page is shown",
   "fold-properties-all": "UI only: the way the page is shown",
+  "agent-tint": "UI only: the way the page is shown",
   "page-comments": "tool exists: add_comment, list_comments, resolve_comment",
   "highlight-selection": "UI only: a person's own reading mark on a page kept from the web; add_comment with a quote points at words",
 };

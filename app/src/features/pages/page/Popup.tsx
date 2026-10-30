@@ -1,7 +1,11 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
+import { originFor, useLeaveGhost } from "../../../lib/presence";
 import { keepTabInside } from "../../../ui/focus-trap";
 import { useOccludesElement } from "../../browser/occlusion";
+
+/** A popup fades out in this long (the fast step). */
+const EXIT_MS = 90;
 
 interface PopupProps {
   label: string;
@@ -22,6 +26,20 @@ export function Popup({ label, role = "dialog", className = "", anchor, onClose,
   const close = useRef(onClose);
   // A browser tab's page beside the popup steps aside while it is open.
   useOccludesElement(ref);
+  // It fades out as its parent takes it away.
+  useLeaveGhost(ref, EXIT_MS, true);
+  // It grows out of its button, on the side the button is on. Placed again a
+  // frame later, for menus that are put in place after their first layout.
+  useLayoutEffect(() => {
+    const grow = () => {
+      const box = ref.current;
+      const at = anchor?.current;
+      if (box && at) box.style.transformOrigin = originFor(at.getBoundingClientRect(), box.getBoundingClientRect());
+    };
+    grow();
+    const frame = requestAnimationFrame(grow);
+    return () => cancelAnimationFrame(frame);
+  }, [anchor]);
   useEffect(() => {
     close.current = onClose;
   }, [onClose]);

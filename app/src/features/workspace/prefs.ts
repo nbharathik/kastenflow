@@ -6,6 +6,7 @@ import { create } from "zustand";
 
 import { applyMotion, MOTION_PREFS, type MotionPref } from "../../lib/motion";
 import { clampKeep, KEEP_DEFAULT } from "../../shell/keep-alive";
+import { applyAgentTint } from "./agent-tint";
 import { isOpens, type Opens } from "./opens";
 import { readSets, type TabSet } from "./tab-sets";
 import { ACCENTS, applyAccent, applyTheme, loadTheme, type Accent, type ThemePref } from "./theme";
@@ -81,6 +82,8 @@ interface Stored {
   keepTabs: number;
   /** The rows a table view shows open with their sub-items, by view (`tag|view`), as row ids. */
   subItemsOpen: Record<string, string[]>;
+  /** Pages tint what an agent wrote today, with Keep and Undo on hover. Off unless turned on in the page menu. */
+  agentTint: boolean;
 }
 
 export type PropsFold = "shown" | "folded" | "auto";
@@ -144,7 +147,7 @@ interface PrefsState extends Stored {
 }
 
 const KEY = "kasten.prefs";
-const DEFAULTS: Stored = { font: "default", textSize: "normal", pageWidth: "normal", spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list", tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [], pageLinksOpen: "here", rightReplaces: true, plusOpensRight: false, sidebarShowCards: false, pinnedPages: [], navPinned: null, moreViews: false, propsFold: "auto", propsFolded: {}, keepTabs: KEEP_DEFAULT, subItemsOpen: {} };
+const DEFAULTS: Stored = { font: "default", textSize: "normal", pageWidth: "normal", spellcheck: true, accent: "blue", favourites: [], projectOrder: [], pinnedProjects: [], journalDays: true, peekMode: "center", newTabs: false, homeSections: null, homeFilter: "all", homeProject: null, homeLayout: "list", tabSets: [], calendarShow: CALENDAR_SHOW, weekStart: 1, sidebarWidth: SIDEBAR_WIDTH.initial, motion: "system", foldedSections: [], pageLinksOpen: "here", rightReplaces: true, plusOpensRight: false, sidebarShowCards: false, pinnedPages: [], navPinned: null, moreViews: false, propsFold: "auto", propsFolded: {}, keepTabs: KEEP_DEFAULT, subItemsOpen: {}, agentTint: false };
 
 const names = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
 
@@ -191,6 +194,7 @@ function load(): Stored {
       propsFold: PROPS_FOLDS.includes(saved.propsFold as PropsFold) ? (saved.propsFold as PropsFold) : "auto",
       propsFolded: foldChoices(saved.propsFolded),
       subItemsOpen: openRows(saved.subItemsOpen),
+      agentTint: saved.agentTint === true,
     };
   } catch {
     return DEFAULTS;
@@ -198,9 +202,9 @@ function load(): Stored {
 }
 
 function save(state: Stored): void {
-  const { font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen } = state;
+  const { font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen, agentTint } = state;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen }));
+    localStorage.setItem(KEY, JSON.stringify({ font, textSize, pageWidth, spellcheck, accent, favourites, projectOrder, pinnedProjects, journalDays, peekMode, newTabs, homeSections, homeFilter, homeProject, homeLayout, tabSets, calendarShow, weekStart, sidebarWidth, motion, foldedSections, pageLinksOpen, rightReplaces, plusOpensRight, sidebarShowCards, pinnedPages, navPinned, moreViews, propsFold, propsFolded, keepTabs, subItemsOpen, agentTint }));
   } catch {
     // Preferences fall back to their defaults next time.
   }
@@ -212,10 +216,13 @@ export const usePrefs = create<PrefsState>()((set, get) => {
     if (patch.accent) applyAccent(patch.accent);
     if (patch.motion) applyMotion(patch.motion);
     if (patch.keepTabs !== undefined) set({ keepTabs: clampKeep(patch.keepTabs) });
+    if (patch.agentTint !== undefined) applyAgentTint(patch.agentTint);
     save(get());
   };
+  const stored = load();
+  applyAgentTint(stored.agentTint);
   return {
-    ...load(),
+    ...stored,
     theme: loadTheme(),
     setTheme(theme) {
       applyTheme(theme);

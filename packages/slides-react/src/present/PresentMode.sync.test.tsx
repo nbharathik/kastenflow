@@ -82,6 +82,23 @@ describe("the show keeps the presenter's window in touch", () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
+  it("moves to another screen when the presenter's window asks, and keeps the slide it was on", async () => {
+    const bus = echoBus();
+    const presenter = bus.end("presenter");
+    const screens = { list: async () => [], swap: vi.fn(), moveTo: vi.fn() };
+    const onExit = await show(deckOf(slide("a"), slide("b")), { sync: bus.end("show"), screens });
+    presenter.post({ type: "state", state: { indexh: 1, indexv: 0 } });
+    await wait();
+    presenter.post({ type: "screen", target: "swap" });
+    await wait();
+    expect(screens.swap).toHaveBeenCalledTimes(1);
+    presenter.post({ type: "screen", target: "Projector" });
+    await wait();
+    expect(screens.moveTo).toHaveBeenCalledWith("Projector");
+    expect(present()).toBe("b");
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
   it("does not jump back to its own old position when the link gives it its own words", async () => {
     const bus = echoBus();
     // The core's old way: every window hears every word, its own among them.

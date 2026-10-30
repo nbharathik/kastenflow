@@ -47,6 +47,7 @@ export function copySelection(board: BoardController): number {
   if (picked.nodes.length === 0) return 0;
   copied = picked;
   const words = wordsOf(picked.nodes);
+  // The words are a courtesy for other apps: pasting on the board uses `copied`, so a refused clipboard costs nothing here.
   if (words) void navigator.clipboard?.writeText(words).catch(() => {});
   return picked.nodes.length;
 }

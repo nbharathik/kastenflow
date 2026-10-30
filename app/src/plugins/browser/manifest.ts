@@ -10,7 +10,7 @@ export const BROWSER_MANIFEST: PluginManifest = {
   name: "Browser",
   summary: "Open web pages in a tab of their own, and show a web page beside a slide.",
   icon: "globe",
-  version: "1.2.2",
+  version: "1.2.3",
   defaultOn: false,
   scope: "computer",
 };

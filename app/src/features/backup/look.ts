@@ -8,6 +8,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { useShell } from "../../lib/store";
+import { startInterval } from "../../lib/use-interval";
 import type { AutoPull, LookDue } from "../../lib/vault/backup-types";
 import { useVaultStatus } from "../workspace/status";
 import { useWorkspace } from "../workspace/store";
@@ -82,14 +83,13 @@ export function startBackupLook(): () => void {
   const told = { available: false };
   const failed = { failing: false };
   const tick = () => {
-    if (document.hidden) return;
     void lookOnce(told);
     tellFailing(useVaultStatus.getState().status?.backup.state === "failing", failed);
   };
-  const first = setTimeout(tick, FIRST_MS);
-  const every = setInterval(tick, TICK_MS);
+  const first = setTimeout(() => !document.hidden && tick(), FIRST_MS);
+  const stopEvery = startInterval(tick, TICK_MS);
   return () => {
     clearTimeout(first);
-    clearInterval(every);
+    stopEvery();
   };
 }

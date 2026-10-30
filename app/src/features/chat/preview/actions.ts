@@ -1,6 +1,6 @@
 // The AI actions the app ships with, as the browser preview and the tests
 // have them. The app reads its own from the backend (`ai_actions`), where they
-// are files; this is the same fourteen, so the editor's and the reader's menus can
+// are files; this is the same twenty-three, so the editor's and the reader's menus can
 // be tried without it.
 
 import type { ActionCatalog, AiAction } from "../types";
@@ -138,7 +138,115 @@ export const BUILT_IN_ACTIONS: AiAction[] = [
     writes: "propose",
     where: ["latex"],
     instruction:
-      "Fix the errors in the attached LaTeX file. The last build's errors are listed with it, each with its file and line. If what is attached is not enough, read the build with latex_build and the file with latex_read. Start with the first error, because later ones often come from it. Fix each error with the smallest change, using latex_edit: search is the exact text to replace, and base_hash is the hash latex_read gave. Read the build again when you are done. If a selection is attached, fix only the errors inside it. Leave the wording, the packages and the class as they are unless an error needs them changed, and never take text out just to make an error go away. Then say in a few sentences what was wrong and what you changed. If an error needs a decision from me, say what you would suggest instead of guessing. If the build has no errors, say so and change nothing.",
+      "Fix the errors of the attached LaTeX document, in the attached file and in any other file the build names. The attached text shows the lines near each problem, with its file and line and what TeX printed where it stopped. If that is not enough, read more with latex_read (around_line or lines gives numbered lines) and the build with latex_build. Start with the first error, because later ones often come from it. Fix each with the smallest change, using latex_edit: search is the exact text to replace, without the line numbers, and base_hash is the hash latex_read gave. Then check your work: call latex_build with wait set to true and compare the error counts. If errors remain that your changes did not cause, try once more, then stop. If there is no engine to build with, say so plainly and stop. Leave the wording, the packages and the class as they are unless an error needs them changed, and never take text out just to make an error go away. If a selection is attached, fix only the errors inside it. End with one line such as “3 errors → 0” (before and after; say it is a preview if my changes still wait for review), then a few sentences on what was wrong and what you changed. These are suggestions and may be wrong, for example with macros I wrote myself; if an error needs a decision from me, say what you would suggest. If the build has no errors, say so and change nothing.",
+  },
+  {
+    ...base,
+    slug: "fix-latex-error",
+    title: "Fix this problem",
+    icon: "wand",
+    needs: ["sources"],
+    optional: [],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Fix only the one problem quoted after these words, in the attached LaTeX file or the file it names. The attached text shows the lines near it and what TeX printed where it stopped; if that is not enough, read more with latex_read (around_line gives numbered lines). Find the cause and fix it with the smallest change, using latex_edit: search is the exact text to replace, without the line numbers, and base_hash is the hash latex_read gave. Leave everything else as it is. Then call latex_build with wait set to true, and tell me whether this problem is gone and how many errors the build has now, such as “3 errors → 2”. If there is no engine to build with, say so plainly. Say in two sentences what was wrong and what you changed. This is a suggestion and may be wrong, for example when the problem comes from a macro I wrote myself; if you are not sure, say what you would try instead of guessing.",
+  },
+  {
+    ...base,
+    slug: "explain-latex-error",
+    title: "Explain this problem",
+    icon: "bulb",
+    needs: ["sources"],
+    optional: [],
+    writes: "none",
+    where: ["latex"],
+    instruction:
+      "Explain the one problem quoted after these words in plain language: what TeX is complaining about, why it happens at that line, and how it is usually put right. Use the attached lines near it, and read more with latex_read (around_line gives numbered lines) if you need to. Point at the exact line, and give one suggested fix as a line of LaTeX. Do not change any file. Keep it to a short paragraph. This is an explanation and may be wrong: if the cause may be a macro or package I wrote myself, or the lines shown do not make it clear, say so.",
+  },
+  {
+    ...base,
+    slug: "fix-overfull-boxes",
+    title: "Fix overfull boxes",
+    icon: "wand",
+    needs: ["sources"],
+    optional: ["selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Fix the overfull boxes of the attached LaTeX document: lines that stick out into the margin. The last build lists them (read it with latex_build if it is not attached), each with its file and the lines of its paragraph. For each one read those lines with latex_read (around_line gives numbered lines) and choose the gentlest cure: let a long word or web address break (\\url, \\allowbreak, a hyphenation hint such as \\-), reword a few words only if the meaning stays the same, or for a wide table or equation use a smaller font, a narrower column or a split. Make each change with latex_edit: search is the exact text, without the line numbers, and base_hash is the hash latex_read gave. Do not change the margins, the class or the packages to hide them. Then call latex_build with wait set to true and finish with the count, such as “7 overfull boxes → 2”. Say what you left and why. These are suggestions and may be wrong.",
+  },
+  {
+    ...base,
+    slug: "check-latex-refs",
+    title: "Check references and labels",
+    icon: "circle-check",
+    needs: ["sources"],
+    optional: [],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Check that every \\ref, \\eqref, \\cref and \\cite of the attached LaTeX document has something to point at, and say which labels are never used. The attached text ends with a map of the document: its files, labels, bibliography keys, and the references and citations that point at nothing. If the map is missing or cut, read the files with latex_read. For a reference that points at nothing, look for a label that is nearly the same (a typo, or a prefix such as fig: or eq:) and fix the reference with latex_edit when one match is clear: search is the exact text, base_hash is the hash latex_read gave. If there is no match, tell me instead of inventing a label. Do not add or remove labels, and do not change a citation key unless one entry in the bibliography is clearly the one meant. Finish with a short list: what you fixed, what is left for me, and the labels never used.",
+  },
+  {
+    ...base,
+    slug: "find-missing-citations",
+    title: "Find missing citations",
+    icon: "book",
+    needs: ["sources"],
+    optional: ["selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Find the claims in the attached LaTeX document that need a citation, and the citations that have no entry. Start from the map at the end of the attached text: the keys cited and the keys in the bibliography. Then look through my References with list_references for entries that fit a claim. For a reference that fits, add it with latex_cite (it writes the \\cite and keeps the entry in the bibliography once). Never invent a reference, an author or a key. If nothing in my References fits a claim, say which claim it is and what kind of source it needs. Do not change the text around a citation. If a selection is attached, look only there. Finish with a short list: what you cited, what is still missing, and cited keys that have no entry.",
+  },
+  {
+    ...base,
+    slug: "draft-latex-section",
+    title: "Draft a section from a page",
+    icon: "layout",
+    needs: ["sources"],
+    optional: ["page", "selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Draft a section of the attached LaTeX document from a page of my notes. If I have not named or attached the page, ask which one. Read the page with read_note, and the document's file with latex_read to see its class, packages, labels and the way its sections are written. Write the section in LaTeX that matches the document: the same heading level and style, a \\label on the section and on each figure and table, and \\cite only for a reference whose key is in my References (list_references). Keep my meaning and my numbers, and add no claim the page does not make. Put it in the right place with latex_append (after is the text it should follow), then call latex_build with wait set to true to check it. Say what you drafted and anything you left out. This is a draft and may be wrong.",
+  },
+  {
+    ...base,
+    slug: "table-to-booktabs",
+    title: "Page table to booktabs",
+    icon: "list",
+    needs: ["sources"],
+    optional: ["page", "selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Turn a table of a page of my notes into a LaTeX table in the attached document. If I have not named or attached the page and the table, ask. Read the page with read_note. Write a table environment with \\centering, a \\caption and a \\label, and a tabular that uses the booktabs rules (\\toprule, \\midrule, \\bottomrule) and no vertical lines; align numbers to the right and text to the left; escape the special characters (& % $ # _ { } ~ ^). Make sure the document loads the booktabs package, and add \\usepackage{booktabs} with latex_edit if it does not (search is the exact text, base_hash the hash latex_read gave). Put the table in with latex_append (after is the text it should follow), then call latex_build with wait set to true. Do not change the table's values. Say what you added.",
+  },
+  {
+    ...base,
+    slug: "figure-from-diagram",
+    title: "Figure from a diagram",
+    icon: "diagram",
+    needs: ["sources"],
+    optional: ["selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Put a diagram of mine into the attached LaTeX document as a figure. The words quoted after these, if any, name the diagram; if they do not, or the name matches several, look with list_diagrams and ask me which one. Make the figure with diagram_to_latex_figure: the app draws the diagram as a PNG, keeps it in the document's figures folder and gives back the \\includegraphics line, with the width you ask for (use \\linewidth or a fraction of it). Wrap it in a figure environment with \\centering, a short \\caption taken from what the diagram shows and a \\label, and put it where the text refers to it, or at the cursor line if a selection is attached, using latex_edit (search is the exact text, base_hash the hash latex_read gave). Never write the picture's bytes yourself. Then call latex_build with wait set to true to check it. Say what you added. This may be wrong: check the caption.",
+  },
+  {
+    ...base,
+    slug: "latex-inline",
+    title: "Write LaTeX in place",
+    icon: "wand",
+    needs: [],
+    optional: ["selection", "nearby", "sources"],
+    writes: "insert",
+    where: ["latex"],
+    instruction:
+      "Write LaTeX for the request that comes after these words. If a selection is attached, your answer replaces it; if not, your answer is put at the cursor, so write only what belongs there. Use the text around it to match the document's style, macros and packages. The attached file lists its labels and citation keys: use them, and invent none. Escape special characters and close every environment you open. Add no \\documentclass, no \\begin{document} and no package unless the request needs one; if it does, put the \\usepackage line in a % comment on its own line above the code. Answer with the LaTeX only: no greeting, no explanation and no code fence.",
   },
   {
     ...base,

@@ -147,3 +147,6 @@ jobs:
         run: node --test "scripts/*.test.mjs"
       - name: Build
         run: pnpm -C app exec vite build
+      - name: First-page bundle size
+        if: runner.os == 'Linux'
+        run: node scripts/check-bundle.mjs app/dist

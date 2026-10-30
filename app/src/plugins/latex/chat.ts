@@ -15,6 +15,8 @@ import type { Chip } from "../../features/chat/thread";
 import { inFocusedPane } from "../../lib/keys";
 import { isShown } from "../../shell/visible-dom";
 import { scanOutline } from "./completion/scan";
+import { problemPassage } from "./fixable";
+import type { Diagnostic } from "./types";
 
 const nameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 
@@ -57,9 +59,20 @@ export function addSelectionReader(read: SelectionReader): () => void {
   };
 }
 
-/** A chat about the file at `path`, asked to fix the errors of the last build; the selected passage goes with it. What it changes waits in the chat for the person to look at. */
-export function fixWithAi(path: string, selection: SelectionSnapshot | null): Promise<boolean> {
+/** A chat about the file at `path`, asked to fix what the last build complained about (`slug` says how: errors, references, boxes); the selected passage goes with it. What it changes waits in the chat for the person to look at. */
+export function fixWithAi(path: string, selection: SelectionSnapshot | null, slug: string = "fix-latex-errors"): Promise<boolean> {
   const chips: Chip[] = [latexChip({ path, title: nameOf(path) })];
   if (selection && selection.text.trim().length >= MIN_SELECTION) chips.push(selectionChip(selection, true));
-  return runInChat("fix-latex-errors", chips);
+  return runInChat(slug, chips);
+}
+
+/** A chat about one problem of the last build: "Fix this one" or "Explain". The file the problem is in is the chat's context, and the problem is quoted in the message. The answer is a suggestion: the action says so. */
+export function askAboutProblem(kind: "fix" | "explain", problem: Diagnostic, folder: string, main: string): Promise<boolean> {
+  const path = `${folder}/${problem.file ?? main}`;
+  return runInChat(kind === "fix" ? "fix-latex-error" : "explain-latex-error", [latexChip({ path, title: nameOf(path) })], problemPassage(problem, main));
+}
+
+/** A chat that runs one of the LaTeX actions (draft a section, check references, …) on the file at `path`. */
+export function runLatexAction(slug: string, path: string, selection: SelectionSnapshot | null): Promise<boolean> {
+  return fixWithAi(path, selection, slug);
 }

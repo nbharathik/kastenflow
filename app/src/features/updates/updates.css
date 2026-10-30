@@ -8,7 +8,7 @@
   overflow: hidden;
   border-radius: var(--radius-2xl);
   outline: none;
-  animation: kasten-enter var(--motion-base) var(--ease-standard);
+  animation: kasten-rise var(--motion-slow) var(--ease-standard);
   background: var(--notion-menu-bg);
   box-shadow: var(--shadow-modal);
   color: var(--notion-text);

@@ -129,9 +129,35 @@ describe("workspace", () => {
     state().openPath("library/gone.canvas", "tab");
     expect(state().place).toEqual({ view: "boards", path: "library/gone.canvas" });
     await state().connect({ client: vault });
-    const open = state().layout.panes.flatMap((pane) => pane.tabs.map((tab) => tab.place.path));
-    expect(open).toContain("library/plan.canvas");
-    expect(open).not.toContain("library/gone.canvas");
+    const open = () => state().layout.panes.flatMap((pane) => pane.tabs.map((tab) => tab.place.path));
+    // The lists of boards, decks and diagrams arrive after the window is ready.
+    await expect.poll(open).not.toContain("library/gone.canvas");
+    expect(open()).toContain("library/plan.canvas");
+  });
+
+  it("is ready before the boards, decks and diagrams are listed, and each list stands alone", async () => {
+    const slow = new MemoryVault(SEED);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    slow.boards = async () => {
+      await gate;
+      return [];
+    };
+    slow.decks = async () => {
+      throw new Error("decks are unreadable");
+    };
+    useWorkspace.setState({ ...derive(initialLayout()), notes: [], stack: [], stackOpen: false, recent: [], toasts: [] });
+    state().openPath("library/gone.canvas", "tab");
+    state().openPath("library/gone.deck", "tab");
+    await state().connect({ client: slow });
+    const open = () => state().layout.panes.flatMap((pane) => pane.tabs.map((tab) => tab.place.path));
+    expect(state().ready).toBe(true);
+    // Nothing is judged until the lists are in.
+    expect(open()).toContain("library/gone.canvas");
+    release();
+    await expect.poll(open).not.toContain("library/gone.canvas");
+    // The deck list failed: its tab stays.
+    expect(open()).toContain("library/gone.deck");
   });
 });
 

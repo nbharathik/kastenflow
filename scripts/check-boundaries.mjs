@@ -9,8 +9,8 @@
 //     outside its own folder, and lists no such dependency;
 //   - a Rust crate named slides-* has no kasten-* dependency;
 //   - each of them is licensed Apache-2.0 and carries its LICENSE file;
-//   - app/src reaches a Slides package by its name only, never by a path
-//     inside it.
+//   - app/src reaches a Slides package by its name, or by a further entry
+//   point the package lists in its "exports", never by a path inside it.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -79,12 +79,26 @@ function checkCrates(root, metadata) {
   return problems;
 }
 
+/** Every "name/sub" entry point the packages under packages/ export besides their main one. */
+function exportedEntries(packages, names) {
+  const entries = new Set();
+  for (const name of names) {
+    const manifestPath = join(packages, name, "package.json");
+    if (!existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const exports = manifest.exports;
+    if (!manifest.name || !exports || typeof exports !== "object") continue;
+    for (const key of Object.keys(exports)) if (key.startsWith("./")) entries.add(`${manifest.name}/${key.slice(2)}`);
+  }
+  return entries;
+}
+
 /** Problems in the app: a deep import into a Slides package. */
-function checkApp(root) {
+function checkApp(root, entries) {
   const problems = [];
   for (const file of files(join(root, "app/src"), (n) => SOURCE.test(n))) {
     for (const { spec, line } of imports(readFileSync(file, "utf8"))) {
-      if (/^@kasten-slides\/[^/]+\/./.test(spec)) problems.push(`${relative(root, file)}:${line}: imports ${spec}; use the package's own entry point`);
+      if (/^@kasten-slides\/[^/]+\/./.test(spec) && !entries.has(spec)) problems.push(`${relative(root, file)}:${line}: imports ${spec}; use the package's own entry point`);
     }
   }
   return problems;
@@ -104,7 +118,7 @@ export function checkBoundaries(root, metadata) {
     if (existsSync(join(packages, name, "package.json"))) problems.push(...checkPackage(root, join(packages, name)));
   }
   problems.push(...checkCrates(root, metadata));
-  problems.push(...checkApp(root));
+  problems.push(...checkApp(root, exportedEntries(packages, names)));
   return problems;
 }
 

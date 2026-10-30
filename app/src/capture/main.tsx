@@ -22,6 +22,7 @@ watchSystemMotion(() => usePrefs.getState().motion);
 
 const host: CaptureHost = {
   client: tauriVault("Quick capture"),
+  // The capture window's notices to the app: if the app is gone there is no one to tell.
   hide: () => void invoke("capture_hide").catch(() => {}),
   done: (captured) => void invoke("capture_done", { captured }).catch(() => {}),
   resize: (height) => void invoke("capture_resize", { height }).catch(() => {}),

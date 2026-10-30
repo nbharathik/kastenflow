@@ -107,6 +107,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       // and the tabs follow each to its page.
       const client = vault ? withDrafts(vault, { onMade: (draft, note) => void get().renamed(draft, { note, relinked: [] }) }) : null;
       set({ client, problem: problem ?? null, choosing: Boolean(choose), ready: false });
+      // Choosing another vault starts again: marks of an earlier connection are not this start's time.
+      performance.clearMarks?.("kasten:connected");
+      performance.clearMarks?.("kasten:listed");
       performance.mark?.("kasten:connected");
       if (client) await get().refresh();
       performance.mark?.("kasten:listed");
@@ -114,25 +117,31 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       // Tabs and stack cards for notes that are gone (deleted meanwhile) close.
       if (client) {
         const known = new Set(get().notes.map((n) => n.path));
-        // Boards stay open while their file does; if the list cannot be
-        // read, they stay open.
-        const boards = await attempt((c) => c.boards());
-        const decks = await attempt((c) => c.decks());
-        const diagrams = await attempt((c) => c.diagrams());
-        // A tag's database (`#tag`) stays open too.
-        // So does a journal day, written in or not.
-        const kept = (path: string) =>
-          known.has(path) ||
-          path.startsWith("#") ||
-          JOURNAL_DAY.test(path) ||
-          (path.endsWith(".canvas") && (!boards || boards.some((b) => b.path === path))) ||
-          (path.endsWith(".deck") && (!decks || decks.some((d) => d.path === path))) ||
-          (path.endsWith(".drawio") && (!diagrams || diagrams.some((d) => d.path === path)));
-        let layout = get().layout;
-        for (const path of tabs.openPaths(layout)) if (!kept(path)) layout = tabs.forgetPath(layout, path);
-        if (layout !== get().layout) apply(layout);
+        const openAtStart = new Set(tabs.openPaths(get().layout));
         const stack = get().stack.filter((p) => known.has(p));
         if (stack.length !== get().stack.length) set({ stack, stackOpen: get().stackOpen && stack.length > 0 });
+        // Boards, decks and diagrams are listed together, and after the window is ready: their tabs close
+        // when their file is gone, and while the lists are on their way they stay open. A list that cannot
+        // be read leaves its tabs open.
+        void Promise.all([attempt((c) => c.boards()), attempt((c) => c.decks()), attempt((c) => c.diagrams())]).then(([boards, decks, diagrams]) => {
+          if (get().client !== client) return;
+          // A tag's database (`#tag`) stays open too.
+          // So does a journal day, written in or not.
+          // Only what was open when the window began is judged: a page made meanwhile is not in these lists yet.
+          const current = new Set(get().notes.map((n) => n.path));
+          const kept = (path: string) =>
+            !openAtStart.has(path) ||
+            known.has(path) ||
+            current.has(path) ||
+            path.startsWith("#") ||
+            JOURNAL_DAY.test(path) ||
+            (path.endsWith(".canvas") && (!boards || boards.some((b) => b.path === path))) ||
+            (path.endsWith(".deck") && (!decks || decks.some((d) => d.path === path))) ||
+            (path.endsWith(".drawio") && (!diagrams || diagrams.some((d) => d.path === path)));
+          let layout = get().layout;
+          for (const path of tabs.openPaths(layout)) if (!kept(path)) layout = tabs.forgetPath(layout, path);
+          if (layout !== get().layout) apply(layout);
+        });
       }
       set({ ready: true });
       // The very first time, open the guide when the vault has one, unless

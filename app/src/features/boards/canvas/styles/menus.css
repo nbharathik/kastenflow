@@ -13,12 +13,15 @@
   padding: 4px;
   border-radius: var(--radius-xl);
   transform: translateX(-50%);
-  animation: kasten-fade var(--motion-base) var(--ease-standard);
+  /* Grows out of its button: from the bottom edge when it opens upwards. */
+  transform-origin: 50% 100%;
+  animation: kasten-pop-in var(--motion-base) var(--ease-standard);
 }
 
 .kasten-pop.is-below {
   top: calc(100% + 8px);
   bottom: auto;
+  transform-origin: 50% 0;
 }
 
 /* Beside a button on the strip, level with its top. */
@@ -30,6 +33,7 @@
   left: calc(100% + 10px);
   z-index: 41;
   transform: none;
+  transform-origin: 0 0;
 }
 
 .kasten-pop.kasten-above-start {

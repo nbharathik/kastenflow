@@ -4,6 +4,7 @@
 
 import { isShown } from "../../shell/visible-dom";
 import { useWorkspace } from "../workspace/store";
+import type { Words } from "./anchor";
 
 /** A page that can be highlighted, open in the window. */
 export interface Highlighter {
@@ -11,6 +12,16 @@ export interface Highlighter {
   dom: HTMLElement;
   /** Highlights the words selected in the page in the colour last used; false when none are. */
   highlight(): Promise<boolean>;
+  /** The words selected in the page now; null when none are. */
+  words(): Words | null;
+  /** Highlights words in a colour, with a comment if given; false when refused. */
+  add(words: Words, color: string, comment?: string | null): Promise<boolean>;
+}
+
+/** The page that holds `node` (the selection bar's items are drawn inside it). */
+export function highlighterAt(node: Node | null): Highlighter | null {
+  for (const page of open) if (node && page.dom.contains(node)) return page;
+  return null;
 }
 
 const open = new Set<Highlighter>();

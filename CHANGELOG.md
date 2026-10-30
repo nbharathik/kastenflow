@@ -4,6 +4,110 @@ Every release of KastenFlow (called Kasten before 1.1.0), newest first.
 Versions follow [Semantic Versioning](https://semver.org); the vault format
 has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 
+## 1.2.3
+
+### Chat
+
+- **Reading while it writes.** Scroll up during an answer and a **Jump to latest**
+  button appears ("New below" once it has finished); sending always brings you back
+  to the bottom. Long answers stream with far less work for the window.
+- **Maths and code in answers.** `$…$` and `$$…$$` show as formulas, and JavaScript,
+  TypeScript, JSON, HTML and CSS blocks are coloured.
+- **Versions.** Regenerate an answer, or edit any earlier question, and the old
+  answers stay behind a **‹ 2 / 3 ›** switcher.
+- **Changes in the chat.** What the agent proposes shows as cards in the
+  conversation, with Keep or Undo for each part, Keep all and Undo all. A card for
+  a page you edited since the agent read it says so and offers **Ask the agent to
+  redo**; it is never applied over your edit.
+- **Ask first, Apply directly or Auto**, per chat, in the chat's "…" menu. Auto
+  applies only small edits to the pages the chat is about; Review mode and locked
+  notes still win.
+- **Tint what agents wrote** (page menu → View, off by default) marks text an agent
+  wrote today, with Keep and Undo on hover. An agent writing to the page you are
+  typing in never moves your cursor or scroll.
+- Copy and Copy as Markdown on answers, Copy on questions; **Esc** stops an answer,
+  **↑** edits your last question, **Ctrl+Shift+C** copies the last answer and
+  **Ctrl+L** goes to the message box.
+- Many tool steps in a row fold into one line; an empty reply offers Retry; offline,
+  a message waits and sends when you are back; a rate limit counts down and retries
+  once; "Working · 0:42" shows how long an answer has run.
+
+### LaTeX and AI
+
+- **Fix with AI** now builds after its edits, compares the error count and tries once
+  more, ending with "N errors → M". Under Ask first it builds the proposed text in a
+  scratch folder first, so the count is honest and your last good PDF stays.
+- **Fix this one** and **Explain** on each problem and gutter mark; undefined
+  references, citations and overfull boxes can be fixed too.
+- **Ctrl+K in the LaTeX editor** asks inline: an equation, a table from CSV, turn into
+  align, tighten a paragraph, explain this, a figure from a diagram, or your own words.
+  The answer shows as a change you keep with Enter or undo with Esc.
+- The AI sees the lines around each error and a map of the document (its files,
+  labels, bibliography keys and references that point at nothing).
+- New actions: fix overfull boxes, check references, find missing citations, draft a
+  section, table to booktabs and figure from a diagram.
+- Plainer engine help: a document that needs XeLaTeX is told so, the very first build
+  waits longer while TeX packages download, and with no TeX installed the AI says so
+  instead of trying again.
+
+### Home
+
+- **Today on a full day.** Events and to-dos are separate groups; past events fold
+  away; the day rolls over at midnight, even when the window stays open.
+- An **agents strip** under the bar says what agents did today; the Agents card stays
+  optional. A calendar that could not be reached says so, with Retry.
+
+### Presenting and slides
+
+- **Present on** picks the screen in the Slideshow menu, and **Swap** in the presenter
+  view trades the two screens while you present. **Identify** shows which screen is
+  which. If a screen is unplugged, the show moves to one that is left.
+- A small toolbar at the bottom left while you present (turn it off in Settings); the
+  hint pill is gone.
+
+### Feel
+
+- Dialogs, menus, the palette and peeks fade out as well as in; menus grow from the
+  button that opened them; rows slide into place when lists change; switching tabs
+  cross-fades. Buttons press in slightly.
+- With reduced motion turned on in your computer's settings, movement becomes a short
+  fade instead of stopping dead, and spinners keep turning. The Motion setting can
+  still turn everything off.
+- Views that take a moment show nothing for the first second, then a placeholder,
+  instead of flashing "Opening…".
+
+### Smaller things
+
+- **One selection bar** on captured pages: highlight colours and comments are part of
+  it, instead of a second floating bar.
+- **Tables:** click picks a cell, double-click, Enter or F2 edits it; a title renames
+  in place; link cells get an open arrow.
+- The vault health page lines up on wide windows.
+- After the computer sleeps, polls restart, the day is checked again and open pages
+  re-read their files.
+- A 1 MB paste into a page goes in without freezing the window.
+- Failures that used to be silent (opening a link, copying the sign-in code, stopping a
+  build, a plugin that will not load) now say what went wrong.
+- An update check that failed offline tries again when you are back online.
+
+### Speed
+
+- The window loads less code before it shows: the palette, shortcut help, vault
+  chooser, side stack, page peek and the chat load on first use, and the presenter
+  window loads far less (151 kB instead of 664 kB compressed).
+- The app's background threads wake when there is work instead of 24 times a minute,
+  and project summaries are refreshed for what changed rather than all at once.
+- Polls pause while the window is hidden, and caches of pictures and files have limits.
+
+### Known limits
+
+- Messages waiting while offline are lost if you close the app before you are back
+  online.
+- The Apply directly / Auto choice applies to the chat only, not to a page's own Ask
+  AI, and there is no default for new chats in Settings yet.
+- Undo on tinted agent text takes back that agent's whole session (it asks first).
+- Undoing a very large paste may take more than one Undo.
+
 ## 1.2.2
 
 ### Back up to your own private GitHub repository

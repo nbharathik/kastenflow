@@ -9,9 +9,9 @@
 use serde::Serialize;
 
 use super::log_text::{
-    MAX_MESSAGE, clean_file, context_number, continuation, file_token, is_box_message, is_chatter,
-    is_context_line, is_diag_start, is_tex_banner, number_after, skip_to, split_file_line,
-    split_head, strip_head, tidy,
+    MAX_MESSAGE, clean_file, context_number, context_text, continuation, file_token,
+    is_box_message, is_chatter, is_context_line, is_diag_start, is_tex_banner, number_after,
+    skip_to, split_file_line, split_head, strip_head, tidy,
 };
 
 /// How far TeX prints before it breaks a line.
@@ -39,6 +39,17 @@ pub struct Diagnostic {
     pub line: Option<u32>,
     pub severity: Severity,
     pub message: String,
+    /// The lines TeX printed after an error to show where it stopped
+    /// (`l.12 \sectoin` and the rest of that line); none for the rest.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+}
+
+/// What follows an error: its line, the context text, and where reading goes on.
+struct Context {
+    line: Option<u32>,
+    text: Option<String>,
+    next: usize,
 }
 
 struct Entry {
@@ -169,15 +180,18 @@ impl Reader<'_> {
             // an info line or the context of a message: nothing to report,
             // and no files in it (its parentheses are the document's)
         } else if let Some((file, number, message)) = split_file_line(line) {
-            self.push(
+            let pushed = self.push(
                 Severity::Error,
                 Some(clean_file(file)),
                 Some(number),
                 message,
                 true,
             );
-            let (_, next) = self.context(self.at);
-            self.at = next;
+            let after = self.context(self.at);
+            self.at = after.next;
+            if pushed {
+                self.attach(after.text);
+            }
         } else {
             self.scan(line);
         }
@@ -201,19 +215,24 @@ impl Reader<'_> {
             self.at += 1;
         }
         let message = message.as_str();
-        let (line, next) = self.context(self.at);
-        self.at = next;
+        let after = self.context(self.at);
+        self.at = after.next;
         let file = self.here();
         // "! Emergency stop." follows the error that caused it, and is the
         // one that names the line when the first could not.
-        if message.starts_with("Emergency stop") && self.merge_into_last_error(line) {
+        if message.starts_with("Emergency stop")
+            && self.merge_into_last_error(after.line, after.text.as_deref())
+        {
             return;
         }
-        self.push(Severity::Error, file, line, message, true);
+        if self.push(Severity::Error, file, after.line, message, true) {
+            self.attach(after.text);
+        }
     }
 
-    /// Gives `line` to the error just before, when it is the same problem.
-    fn merge_into_last_error(&mut self, line: Option<u32>) -> bool {
+    /// Gives `line` and the context to the error just before, when it is the
+    /// same problem.
+    fn merge_into_last_error(&mut self, line: Option<u32>, context: Option<&str>) -> bool {
         let Some(last) = self.out.last_mut() else {
             return false;
         };
@@ -223,7 +242,19 @@ impl Reader<'_> {
             return false;
         }
         d.line = d.line.or(line);
+        if d.context.is_none() {
+            d.context = context.map(str::to_owned);
+        }
         true
+    }
+
+    /// Keeps `text` as the context of the entry just pushed.
+    fn attach(&mut self, text: Option<String>) {
+        if let Some(last) = self.out.last_mut()
+            && last.diagnostic.severity == Severity::Error
+        {
+            last.diagnostic.context = text;
+        }
     }
 
     /// `error: file:line: message` and `warning: ...` of Tectonic.
@@ -231,13 +262,17 @@ impl Reader<'_> {
         if rest.starts_with("warnings were issued by the TeX engine") {
             return;
         }
-        let (line, next) = if severity == Severity::Error {
+        let after = if severity == Severity::Error {
             self.context(self.at)
         } else {
-            (None, self.at)
+            Context {
+                line: None,
+                text: None,
+                next: self.at,
+            }
         };
-        self.at = next;
-        match split_file_line(rest) {
+        self.at = after.next;
+        let pushed = match split_file_line(rest) {
             Some((file, number, message)) => {
                 let severity = if is_box_message(message) {
                     Severity::Info
@@ -250,9 +285,12 @@ impl Reader<'_> {
                     Some(number),
                     message,
                     true,
-                );
+                )
             }
-            None => self.push(severity, None, line, rest, true),
+            None => self.push(severity, None, after.line, rest, true),
+        };
+        if pushed {
+            self.attach(after.text);
         }
     }
 
@@ -272,9 +310,9 @@ impl Reader<'_> {
         }
     }
 
-    /// The line number of the `l.<n>` context line after an error that starts
-    /// at `start`, and where reading goes on (after the context).
-    fn context(&self, start: usize) -> (Option<u32>, usize) {
+    /// The `l.<n>` context line after an error that starts at `start`: its
+    /// number, the context text, and where reading goes on (after it).
+    fn context(&self, start: usize) -> Context {
         let end = (start + CONTEXT_REACH).min(self.lines.len());
         for (j, line) in self.lines.iter().enumerate().take(end).skip(start) {
             let line = line.as_str();
@@ -283,10 +321,19 @@ impl Reader<'_> {
             }
             if let Some(number) = context_number(line) {
                 let more = self.lines.get(j + 1).is_some_and(|l| l.starts_with(' '));
-                return (Some(number), j + 1 + usize::from(more));
+                let next = j + 1 + usize::from(more);
+                return Context {
+                    line: Some(number),
+                    text: context_text(&self.lines[start..next]),
+                    next,
+                };
             }
         }
-        (None, start)
+        Context {
+            line: None,
+            text: None,
+            next: start,
+        }
     }
 
     /// Follows the parentheses of an ordinary line through the file stack.
@@ -324,12 +371,12 @@ impl Reader<'_> {
         line: Option<u32>,
         message: &str,
         from_tex: bool,
-    ) {
+    ) -> bool {
         // each kind has its own room: thousands of box complaints must not
         // push the one error after them out
         let slot = severity as usize;
         if self.counts[slot] >= MAX_DIAGNOSTICS {
-            return;
+            return false;
         }
         self.counts[slot] += 1;
         self.tex_entries += usize::from(from_tex);
@@ -343,9 +390,11 @@ impl Reader<'_> {
                 line,
                 severity,
                 message,
+                context: None,
             },
             from_tex,
         });
+        true
     }
 
     /// Forgets the diagnostics of the TeX run before a new one.

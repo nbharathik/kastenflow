@@ -78,6 +78,53 @@ mark. If there is no PDF yet, the error is shown with a **Build again** button.
 Marks in the margin and wavy underlines show where the problems are, and they
 move with your text until the next build.
 
+A build that was made with pdfLaTeX and needs Unicode text or `fontspec` shows a
+note above the list: switch the document's engine to XeLaTeX (or LuaLaTeX), or use
+Tectonic. The same sentence is given to the assistant, so it suggests the switch
+instead of chasing each character.
+
+## Fix problems with the assistant
+
+The assistant's answers are suggestions and can be wrong, most of all when your
+document defines its own macros. You always look at what it changes first.
+
+- **Fix with AI** (in the problem list, and *LaTeX: fix the problems with AI* in the
+  palette) fixes errors first. With no errors it handles warnings it can put right:
+  a reference or citation with nothing behind it, and overfull boxes. It sends the
+  numbered lines around each problem in every file that has one, what TeX printed
+  where it stopped, and a short map of the document (its files, labels and
+  bibliography keys), not the whole paper.
+- **Fix this one** and **Explain** sit on each row of the problem list and in the
+  tooltip of each mark in the text, so you can deal with one problem at a time.
+  Explain changes nothing.
+- **It checks its work.** After editing, the assistant builds again and compares the
+  counts, tries once more if errors are left, and ends with a line such as
+  "3 errors → 0". When your agent mode makes it ask first, the build is of the
+  changes that wait for your review, made in a scratch folder: your files and the
+  last good PDF are not touched, and the scratch folder is removed afterwards.
+- **No TeX installed:** the assistant is told so plainly and stops trying to build.
+  The very first build also downloads TeX packages, so the assistant waits longer
+  for it and is told when a slow line is the reason.
+
+## Ask AI in the editor
+
+Press **Ctrl+K** (Cmd+K on a Mac) in the text, or use **Ask AI** in the toolbar. A
+small panel opens at the cursor with a box for free text and a few presets:
+
+- **Equation from words**
+- **Table from CSV or a page table** (select the text first)
+- **Figure from a diagram** (opens a chat that uses your diagram)
+- **Turn into align** (select the equation first)
+- **Tighten paragraph**
+- **Explain this**
+
+The answer replaces the selection, or goes at the cursor, and is shown as a diff in
+the text: new text in green, the text it replaces in red above it. **Keep** (Enter)
+leaves it, **Undo** or **Esc** puts the old text back. Nothing is saved until you
+keep it. More actions for a LaTeX document are in the palette: draft a section from
+a page, find missing citations in your References, check `\ref` and `\label` pairs,
+fix overfull boxes, and turn a page table into `booktabs`.
+
 ## Jump between the text and the PDF
 
 - **Text to PDF:** Ctrl+click (Cmd+click) a place in the text, press
@@ -178,5 +225,7 @@ Every change follows your agent mode: a new document, a citation, a sent page an
 PDF wait for your review in **Review everything**; taking out a document's root file, or
 much of a file, waits unless agents work on their own. A document with `locked: true` is
 read-only to agents. One undo takes a whole session back. In the chat panel, **Fix LaTeX
-errors** asks the assistant to fix what the last build reported. See [Agent modes](agents.md)
-and [MCP tools](mcp-tools.md#latex).
+errors** asks the assistant to fix what the last build reported (see
+[Fix problems with the assistant](#fix-problems-with-the-assistant)). An agent can also read
+just the lines it needs: `latex_read` takes `around_line` (15 numbered lines each side) or
+`lines` such as `40-80`. See [Agent modes](agents.md) and [MCP tools](mcp-tools.md#latex).

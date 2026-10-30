@@ -1,12 +1,15 @@
-// Home's "Agents today": for each agent session that changed something today,
-// who it is (a routine's own name), how many changes and notes, what waits
-// for you, and Undo. Your own edits are never in it. Off until asked for in
-// Customize, and loaded only then; the History view has the same changes
-// under "Today by agents".
+// Home's "Agents today": a line of totals, then the agent sessions that changed
+// something today, the ones waiting on you first. Three show in full (who it
+// is, a routine's own name, how many changes and notes, what waits for you,
+// and Undo); the rest open in place, a line each. Your own edits are never in
+// it. Off until asked for in Customize, and loaded only then; the History view
+// has the same changes under "Today by agents".
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import "./cards.css";
 
-import type { Digest, DigestSession } from "../../lib/vault/types";
+import { useState } from "react";
+
+import type { DigestSession } from "../../lib/vault/types";
 import { Button } from "../../ui/Button";
 import { DashCard, DashEmpty } from "../dashboard/DashCard";
 import { SeeAll } from "../dashboard/Minis";
@@ -17,58 +20,73 @@ import { TODAY_BY_AGENTS } from "../review/today-by-agents";
 import { ClientBadge, Pill } from "../review/ui";
 import { count } from "../review/words";
 import { useWorkspace } from "../workspace/store";
-import { changeLine, notesLine, startOfToday, waitingLine } from "./agents-today";
+import { useAgentDigest } from "./agents-digest";
+import { changeLine, notesLine, SESSION_LIMIT, summaryLine, waitingFirst, waitingLine } from "./agents-today";
+import { Fold, FoldToggle } from "./Fold";
+import { roveKeys } from "./roving";
 
 export function AgentsToday() {
-  const client = useWorkspace((s) => s.client);
-  const notes = useWorkspace((s) => s.notes);
-  const [digest, setDigest] = useState<Digest | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const reads = useRef(0);
-
-  const load = useCallback(async () => {
-    if (!client) return;
-    const read = ++reads.current;
-    try {
-      const found = await client.activityDigest(startOfToday());
-      if (read !== reads.current) return;
-      setDigest(found);
-      setError(null);
-    } catch (err) {
-      if (read !== reads.current) return;
-      setError(message(err));
-    }
-  }, [client]);
-
-  // Agents write while Home is open: read again when the notes change.
-  useEffect(() => {
-    void load();
-  }, [load, notes]);
-  useEffect(() => () => void (reads.current += 1), []);
-
+  const { digest, error, reload } = useAgentDigest();
+  const [more, setMore] = useState(false);
   const seeAll = <SeeAll label="History" run={() => useWorkspace.getState().go({ view: "history", path: TODAY_BY_AGENTS })} />;
-  const sessions = digest?.sessions ?? [];
+  const sessions = waitingFirst(digest?.sessions ?? []);
+  const rest = sessions.slice(SESSION_LIMIT);
   return (
     <DashCard title="Agents today" icon="agent" count={sessions.length} actions={seeAll}>
       {error ? (
         <DashEmpty>
           Could not read what agents did: {error}{" "}
-          <button type="button" className="kasten-dash-link" onClick={() => void load()}>
+          <button type="button" className="kasten-dash-link" onClick={() => void reload()}>
             Try again
           </button>
         </DashEmpty>
       ) : digest === null ? (
-        <DashEmpty>Looking at today's changes…</DashEmpty>
+        <div className="kasten-todo-skeleton" aria-hidden="true">
+          <span className="kasten-todo-bone" />
+          <span className="kasten-todo-bone" />
+          <span className="kasten-todo-bone" />
+        </div>
       ) : sessions.length === 0 ? (
         <DashEmpty>No agent changes today</DashEmpty>
       ) : (
-        <ul className="kasten-agent-list">
-          {sessions.map((session) => (
-            <AgentRow key={session.id} session={session} onChanged={load} />
-          ))}
-        </ul>
+        <div onKeyDown={roveKeys}>
+          <p className="kasten-agent-summary">{summaryLine(digest)}</p>
+          <ul className="kasten-agent-list">
+            {sessions.slice(0, SESSION_LIMIT).map((session) => (
+              <AgentRow key={session.id} session={session} onChanged={reload} />
+            ))}
+          </ul>
+          {rest.length > 0 && (
+            <>
+              <Fold open={more} id="agents-more">
+                <ul className="kasten-agent-list is-compact">
+                  {rest.map((session) => (
+                    <AgentLine key={session.id} session={session} />
+                  ))}
+                </ul>
+              </Fold>
+              <FoldToggle open={more} label={`and ${rest.length} more`} controls="agents-more" onToggle={() => setMore((o) => !o)} />
+            </>
+          )}
+        </div>
       )}
     </DashCard>
+  );
+}
+
+/** A session past the first three: one line, a click for the rest in History. */
+function AgentLine({ session }: { session: DigestSession }) {
+  const waiting = waitingLine(session);
+  return (
+    <li className="kasten-agent-row is-line">
+      <button type="button" data-rove="" className="kasten-agent-oneline" title={`${session.client} · ${changeLine(session)}`} aria-label={`See ${session.client} in History`} onClick={() => showSession(session.id)}>
+        <ClientBadge client={session.client} />
+        <span className="kasten-agent-oneline-text">
+          {changeLine(session)}
+          {waiting && ` · ${waiting}`}
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -96,8 +114,9 @@ function AgentRow({ session, onChanged }: { session: DigestSession; onChanged():
     void useReview.getState().refresh();
   };
 
+  const waits = session.proposalsWaiting > 0;
   return (
-    <li className="kasten-agent-row">
+    <li className={`kasten-agent-row${waits ? " is-waiting" : ""}`}>
       <div className="kasten-agent-head">
         <ClientBadge client={session.client} />
         <span className="kasten-agent-time">since {clock(session.started)}</span>
@@ -119,12 +138,12 @@ function AgentRow({ session, onChanged }: { session: DigestSession; onChanged():
         </p>
       )}
       <div className="kasten-agent-actions">
-        {session.proposalsWaiting > 0 && (
-          <Button size="sm" icon="review" aria-label={`Review what ${session.client} is waiting on`} onClick={() => useWorkspace.getState().go({ view: "review" })}>
+        {waits && (
+          <Button size="sm" icon="review" data-rove="" aria-label={`Review what ${session.client} is waiting on`} onClick={() => useWorkspace.getState().go({ view: "review" })}>
             Review
           </Button>
         )}
-        <Button size="sm" icon="history" aria-label={`See ${session.client} in History`} onClick={() => showSession(session.id)}>
+        <Button size="sm" icon="history" data-rove={waits ? undefined : ""} aria-label={`See ${session.client} in History`} onClick={() => showSession(session.id)}>
           See in History
         </Button>
         {session.canUndo && (

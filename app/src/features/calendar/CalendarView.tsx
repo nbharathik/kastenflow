@@ -10,6 +10,7 @@ import "./external/hours.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { dayFrom } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
 import { freeKey, inFocusedPane } from "../../lib/keys";
 import type { NoteMeta, TaskRow } from "../../lib/vault/types";
 import { useNoteHome } from "../tags/home";
@@ -97,7 +98,8 @@ export function CalendarView({ scope }: { scope?: CalendarScope }) {
   const journals = show.journal ? allJournals : NO_JOURNALS;
   const moves = useMoves();
   const home = useNoteHome();
-  const today = dayFrom(0);
+  // Moves on at midnight, and after a sleep or a clock change.
+  const today = useToday();
 
   const [chosenMode, setMode] = useState<Mode>(loadMode);
   // A tag database's calendar has no agenda of its own.

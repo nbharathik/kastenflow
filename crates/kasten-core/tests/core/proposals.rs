@@ -80,6 +80,86 @@ fn accepting_a_section_change_merges_with_edits_elsewhere() {
     assert!(!text.contains("Line 3 of"), "{text}");
 }
 
+/// A full rewrite with two separate changes: its text, and the body it was written against.
+fn rewrite_with_two_changes(k: &Kasten, s: &Session) -> (String, String) {
+    let body = split(&k.read(PLAN).unwrap().text).body.to_owned();
+    let whole = body.replace("Short.", "Short, rewritten.").replace(
+        "Line 29 of the plan with some words.",
+        "Line 29, rewritten.",
+    );
+    let rewrite = AgentOp::Edit {
+        path: PLAN.into(),
+        body: whole,
+        base: body.clone(),
+        reason: None,
+    };
+    (proposed(k, s, &rewrite), body)
+}
+
+#[test]
+fn some_of_a_rewrites_changes_can_be_kept_and_the_rest_left_out() {
+    let (_t, k, s) = open();
+    let (id, body) = rewrite_with_two_changes(&k, &s);
+    // The person keeps the first change and undoes the second.
+    let kept = body.replace("Short.", "Short, rewritten.");
+    k.accept_proposal_hunks(&id, "me", &kept, NOW).unwrap();
+    let text = k.read(PLAN).unwrap().text;
+    assert!(text.contains("Short, rewritten."), "{text}");
+    assert!(
+        text.contains("Line 29 of the plan with some words."),
+        "{text}"
+    );
+    assert!(!text.contains("Line 29, rewritten."), "{text}");
+    assert!(k.proposals().unwrap().is_empty());
+}
+
+#[test]
+fn keeping_part_of_a_change_still_stops_at_a_locked_note() {
+    let (t, k, s) = open();
+    let (id, body) = rewrite_with_two_changes(&k, &s);
+    let path = t.vault.path_of(PLAN).unwrap();
+    let text =
+        fs::read_to_string(&path)
+            .unwrap()
+            .replacen("title: Plan", "title: Plan\nlocked: true", 1);
+    fs::write(&path, text).unwrap();
+    k.reindex().unwrap();
+    let kept = body.replace("Short.", "Short, rewritten.");
+    let err = k.accept_proposal_hunks(&id, "me", &kept, NOW).unwrap_err();
+    assert!(err.to_string().contains("locked"), "{err}");
+    assert!(!fs::read_to_string(&path).unwrap().contains("rewritten"));
+    assert_eq!(k.proposals().unwrap().len(), 1);
+}
+
+#[test]
+fn keeping_part_of_a_change_never_overwrites_what_was_written_on_the_same_lines_since() {
+    let (_t, k, s) = open();
+    let (id, body) = rewrite_with_two_changes(&k, &s);
+    edit(&k, |b| b.replace("Short.", "Short, and mine."));
+    let kept = body.replace("Short.", "Short, rewritten.");
+    let err = k.accept_proposal_hunks(&id, "me", &kept, NOW).unwrap_err();
+    assert!(err.to_string().contains("same lines"), "{err}");
+    let text = k.read(PLAN).unwrap().text;
+    assert!(text.contains("Short, and mine."), "{text}");
+    assert_eq!(k.proposals().unwrap().len(), 1, "it still waits");
+}
+
+#[test]
+fn only_a_change_to_a_pages_text_can_be_kept_in_part() {
+    let (_t, k, s) = open();
+    // A schema always waits for review, and is not text of a page.
+    let schema = AgentOp::TagSchema {
+        tag: "trip".into(),
+        schema: serde_json::json!({"properties": [{"key": "stage", "type": "select", "options": ["Idea"]}]}),
+    };
+    let id = proposed(&k, &s, &schema);
+    let err = k
+        .accept_proposal_hunks(&id, "me", "anything", NOW)
+        .unwrap_err();
+    assert!(err.to_string().contains("text of a page"), "{err}");
+    assert_eq!(k.proposals().unwrap().len(), 1);
+}
+
 #[test]
 fn a_proposal_accepted_twice_at_once_is_applied_once() {
     let (_t, k, s) = open();

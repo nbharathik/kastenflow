@@ -395,7 +395,7 @@ pub fn call_with(
         "latex_list" => latex_list(k),
         "latex_read" => latex_read(k, parse(args)?),
         "latex_edit" => latex_edit(k, s, writes, parse(args)?),
-        "latex_build" => latex_build(k, Some(s), parse(args)?),
+        "latex_build" => latex_build(k, Some(s), writes, parse(args)?),
         "latex_export_pdf" => latex_export_pdf(k, s, writes, parse(args)?),
         "latex_create_document" => latex_create_document(k, s, writes, parse(args)?),
         "latex_write_file" => latex_write_file(k, s, writes, parse(args)?),

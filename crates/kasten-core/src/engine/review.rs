@@ -402,7 +402,7 @@ impl Kasten {
         self.archive(&Actor::Human, proposal, by, "reject", now)
     }
 
-    fn archive(
+    pub(super) fn archive(
         &self,
         actor: &Actor,
         mut proposal: Proposal,

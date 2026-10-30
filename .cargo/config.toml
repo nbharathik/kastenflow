@@ -4,3 +4,8 @@
 [env]
 TS_RS_EXPORT_DIR = { value = "packages/slides-wasm/ts/generated", relative = true }
 TS_RS_LARGE_INT = "number"
+
+# Incremental caches grew target/ past 100 GB on a small drive. Off by default;
+# CARGO_INCREMENTAL=1 turns them back on for one run.
+[build]
+incremental = false

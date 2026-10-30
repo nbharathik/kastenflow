@@ -36,6 +36,9 @@ export const DEFAULT_KEYS: Keymap = {
   "chat-dock": ["Mod+Shift+A"],
   // Ctrl+Shift+L is the theme's; the selection goes with Alt.
   "chat-add-selection": ["Mod+Alt+L"],
+  // Ctrl+L is the browser tab's address box and a code editor's "select line"; both see the key first.
+  "chat-focus": ["Mod+L"],
+  "chat-copy-answer": ["Mod+Shift+C"],
   "zoom-in": ["Mod+=", "Mod+Shift+="],
   "zoom-out": ["Mod+-"],
   "zoom-reset": ["Mod+0"],

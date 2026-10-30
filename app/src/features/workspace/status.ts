@@ -15,7 +15,10 @@ import { sourceFilesChanged } from "../sources/events";
 import { useBoards } from "../boards/store";
 import { forgetSchemas } from "../panel/properties/schemas";
 import { useTags } from "../tags/store";
-import { filesChanged } from "./page/open-page";
+import { checkOpenPages, filesChanged } from "./page/open-page";
+import { startInterval } from "../../lib/use-interval";
+import { onWake } from "../../lib/wake";
+import { reloadLists } from "./reload";
 import { applyRevision, loadRevision } from "./revision";
 import { useWorkspace } from "./store";
 
@@ -138,10 +141,18 @@ export function startLive(client: VaultClient): () => void {
     revised: applyRevision,
   });
   loadRevision(client);
-  const every = setInterval(() => void useVaultStatus.getState().refresh(), 60_000);
+  const stopEvery = startInterval(() => void useVaultStatus.getState().refresh(), 60_000);
+  // After a sleep the watcher may not have reported what changed meanwhile (a sync, another computer): read the lists and look at the open pages again.
+  const stopWake = onWake(() => {
+    void reloadLists();
+    void useDecks.getState().load();
+    void useDiagrams.getState().load();
+    checkOpenPages();
+  });
   return () => {
     stop?.();
-    clearInterval(every);
+    stopEvery();
+    stopWake();
     if (timer) clearTimeout(timer);
   };
 }

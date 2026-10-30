@@ -1,9 +1,8 @@
 // Below a thread whose session changed the vault: undo everything the chat
 // did (after asking), or look at it in History. Undo reverts the session's
 // commits newest first as new commits, as the History view's "Undo
-// session" does, and shows what it did the same way. Under every thread, the
-// switch for how its writes reach the vault: held back as staged changes to
-// review (the default), or made at once ("Apply directly").
+// session" does, and shows what it did the same way. (How a thread's writes
+// reach the vault is chosen in the chat's "…" menu: view/WriteMenu.tsx.)
 
 import "../../review/review.css";
 import "../changes/changes.css";
@@ -16,7 +15,6 @@ import { UndoOutcome, type Outcome } from "../../review/SessionsTab";
 import { ASK_OVER, changesInSession, undoTheUndo } from "../../review/session-undo";
 import { useReview } from "../../review/store";
 import { ConfirmBar } from "../../review/ui";
-import { useAgentMode } from "../../agents/store";
 import { deckFilesChanged } from "../../slides/events";
 import { useWorkspace } from "../../workspace/store";
 import { useChat } from "../store";
@@ -30,38 +28,8 @@ const decksOf = (thread: Thread): string[] => [
   ...new Set(thread.messages.flatMap((m) => (m.role === "assistant" ? m.parts.flatMap((p) => (p.kind === "tool" && p.result?.ok ? p.result.paths : [])) : [])).filter((p) => p.endsWith(".deck"))),
 ];
 
-/** How the thread's writes reach the vault. */
-function WriteSwitch({ thread }: { thread: Thread }) {
-  // How much agents may do decides first: Review everything always holds the chat's changes,
-  // Autonomous never does, and between them the thread's own switch applies.
-  const mode = useAgentMode((s) => s.view?.active);
-  const direct = mode === "autonomous" ? true : mode === "review" ? false : Boolean(thread.direct);
-  const saying =
-    mode === "review"
-      ? "Review everything is on, so changes wait for you to review and apply them."
-      : mode === "autonomous"
-        ? "Autonomous agents are on, so changes are saved as the chat makes them."
-        : direct
-          ? "Changes are saved as the chat makes them."
-          : "Changes wait for you to review and apply them.";
-  return (
-    <div className="kasten-chat-direct">
-      <label>
-        <input type="checkbox" checked={direct} disabled={thread.streaming || mode === "review" || mode === "autonomous"} onChange={(event) => useChat.getState().setDirect(thread.id, event.target.checked)} />
-        Apply directly
-      </label>
-      <span>{saying}</span>
-    </div>
-  );
-}
-
 export function SessionBar({ thread }: { thread: Thread }) {
-  return (
-    <>
-      <Undo thread={thread} />
-      <WriteSwitch thread={thread} />
-    </>
-  );
+  return <Undo thread={thread} />;
 }
 
 function Undo({ thread }: { thread: Thread }) {

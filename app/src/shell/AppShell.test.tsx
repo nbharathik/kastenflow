@@ -30,7 +30,10 @@ let vault: MemoryVault;
 beforeAll(async () => {
   await loadNotePage();
   await import("../features/workspace/overlays/MovePicker");
-}, 60_000);
+  await import("../features/workspace/overlays/Palette");
+  await import("../features/workspace/overlays/ShortcutsHelp");
+  await import("../features/stack/SideStack");
+}, 120_000);
 
 async function renderShell() {
   render(<AppShell connect={async () => ({ client: vault })} />);
@@ -67,11 +70,12 @@ describe("AppShell", () => {
 
   it("offers to create or open a vault when none is chosen yet", async () => {
     render(<AppShell connect={async () => ({ client: null, choose: true })} />);
-    expect(await screen.findByRole("heading", { name: "Welcome to KastenFlow" })).toBeTruthy();
+    // The chooser's code loads on first use.
+    expect(await screen.findByRole("heading", { name: "Welcome to KastenFlow" }, { timeout: 20_000 })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Create a new vault" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Open a folder" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Sidebar" })).toBeNull();
-  });
+  }, 30_000);
 
   it("lists the pinned views in their order, and the rest under More views", async () => {
     const sidebar = await renderShell();
@@ -135,7 +139,8 @@ describe("AppShell", () => {
     const sidebar = await renderShell();
     await within(sidebar).findByText("Demo project");
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    const search = screen.getByRole("textbox", { name: "Search" });
+    // The palette's code loads on first use.
+    const search = await screen.findByRole("textbox", { name: "Search" }, { timeout: 20_000 });
     fireEvent.change(search, { target: { value: "road" } });
     const results = screen.getByRole("listbox", { name: "Results" });
     expect(results.querySelector('[aria-selected="true"]')?.textContent).toContain("Roadmap");
@@ -144,8 +149,8 @@ describe("AppShell", () => {
     fireEvent.keyDown(search, { key: "Enter" });
     expect(screen.queryByRole("dialog", { name: "Search and commands" })).toBeNull();
     // The Trash view loads its code when first opened.
-    expect((await screen.findByRole("heading", { level: 1 })).textContent).toContain("Trash");
-  });
+    expect((await screen.findByRole("heading", { level: 1 }, { timeout: 20_000 })).textContent).toContain("Trash");
+  }, 60_000);
 
   it("captures a quick note into the Inbox", async () => {
     await renderShell();
@@ -359,7 +364,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("region", { name: "Pane" })).toHaveLength(2);
     // Shift+click opens a page in the side stack.
     fireEvent.click(within(pages).getByRole("button", { name: "Welcome" }), { shiftKey: true });
-    const stack = await screen.findByRole("complementary", { name: "Side stack" });
+    const stack = await screen.findByRole("complementary", { name: "Side stack" }, { timeout: 20_000 });
     expect(within(stack).getByRole("article", { name: "Welcome" })).toBeTruthy();
     // Closing the last card closes the stack.
     fireEvent.click(within(stack).getByRole("button", { name: "Close card" }));

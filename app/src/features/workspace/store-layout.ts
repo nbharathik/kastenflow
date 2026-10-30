@@ -1,6 +1,7 @@
 // The store's tabs, panes and side stack: actions over `tabs.ts`, the
 // layout kept in this browser so the window reopens as it was left.
 
+import { viewTransition } from "../../lib/view-transition";
 import { rekeyBoard } from "../boards/canvas/state/registry";
 import { usePeek } from "../peek/store";
 import { openKind, opensBesideStack } from "./open-kind";
@@ -154,7 +155,8 @@ export function layoutSlice(set: Set, get: Get) {
         apply(tabs.reopenTab(get().layout));
       },
       selectTab(paneId: string, tabId: string) {
-        apply(tabs.selectTab(get().layout, paneId, tabId));
+        // The old tab's view fades into the new one's.
+        viewTransition(() => apply(tabs.selectTab(get().layout, paneId, tabId)));
       },
       focusPane(paneId: string) {
         if (get().layout.focus !== paneId) apply(tabs.focusPane(get().layout, paneId));
@@ -175,7 +177,7 @@ export function layoutSlice(set: Set, get: Get) {
         apply(tabs.closePane(get().layout, paneId));
       },
       cycleTab(step: 1 | -1) {
-        apply(tabs.cycleTab(get().layout, step));
+        viewTransition(() => apply(tabs.cycleTab(get().layout, step)));
       },
       togglePin(paneId: string, tabId: string) {
         apply(tabs.togglePin(get().layout, paneId, tabId));

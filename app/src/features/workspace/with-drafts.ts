@@ -115,6 +115,7 @@ const RULES = {
   restoreDiagram: "pass",
   proposals: "pass",
   acceptProposal: "pass",
+  acceptProposalHunks: "pass",
   rejectProposal: "pass",
   sessions: "pass",
   activityDigest: "pass",

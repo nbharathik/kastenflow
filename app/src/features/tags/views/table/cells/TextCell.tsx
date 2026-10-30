@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { openUrl } from "../../../../../lib/api";
+import { Icon } from "../../../../../ui/Icon";
 import { asText, openableUrl } from "../../../../panel/properties/values";
 import { useWorkspace } from "../../../../workspace/store";
 import { useLatest, type Move } from "../context";
@@ -28,26 +29,45 @@ export function TextCell({ value, def, editing, seed, label, save, finish }: Typ
   }
   if (!text) return null;
   if (def.type === "url" && openableUrl(text)) {
+    const open = () => openUrl(text.trim()).catch((err: unknown) => useWorkspace.getState().toast(err instanceof Error ? err.message : String(err)));
     return (
-      <a
-        className="kasten-table-link"
-        href={text.trim()}
-        target="_blank"
-        rel="noopener noreferrer"
-        tabIndex={-1}
-        title={text}
-        // The link opens; the cell does not start editing. The click stops
-        // here, so it opens the link itself rather than leave it to the
-        // app's handler for links, which never sees it.
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          openUrl(text.trim()).catch((err: unknown) => useWorkspace.getState().toast(err instanceof Error ? err.message : String(err)));
-        }}
-      >
-        {urlLabel(text)}
-      </a>
+      <>
+        <a
+          className="kasten-table-link"
+          href={text.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          tabIndex={-1}
+          title={`${text} (Ctrl+click opens it)`}
+          // A plain click only picks the cell (and a double-click edits it).
+          // Ctrl or Cmd+click opens the address itself, here rather than
+          // through the app's handler for links, which never sees it.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.stopPropagation();
+            void open();
+          }}
+        >
+          {urlLabel(text)}
+        </a>
+        <button
+          type="button"
+          tabIndex={-1}
+          className="kasten-table-open-link"
+          aria-label={`Open link of ${label.replace(/^.*? of /, "")}`}
+          title="Open the address"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void open();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <Icon name="external" className="size-3" />
+        </button>
+      </>
     );
   }
   return (

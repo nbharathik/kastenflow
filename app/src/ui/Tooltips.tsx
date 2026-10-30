@@ -8,6 +8,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
+import { usePresence } from "../lib/presence";
+
+/** A tooltip fades out in this long (the fast step). */
+const TIP_EXIT_MS = 90;
+
 /** How long the pointer rests on a control before its tooltip shows. */
 export const TIP_DELAY_MS = 400;
 /** Moving on to the next control this soon shows its tooltip at once. */
@@ -129,11 +134,16 @@ export function Tooltips() {
     if (tip && box.current) setStyle(placeTip(tip.at, box.current.getBoundingClientRect()));
   }, [tip]);
 
-  if (!tip) return null;
+  // The last tooltip stays, fading, for a moment after it is hidden.
+  const { present, state } = usePresence(Boolean(tip), TIP_EXIT_MS);
+  const last = useRef<{ tip: Tip; style: CSSProperties } | null>(null);
+  if (tip && style) last.current = { tip, style };
+  const view = tip ? { tip, style } : last.current;
+  if (!present || !view) return null;
   return createPortal(
-    <div ref={box} role="tooltip" className="kasten-tip" style={style ?? { left: 0, top: 0, visibility: "hidden" }}>
-      <span>{tip.text}</span>
-      {tip.keys && <kbd>{tip.keys}</kbd>}
+    <div ref={box} role="tooltip" data-state={state} className="kasten-tip" style={view.style ?? { left: 0, top: 0, visibility: "hidden" }}>
+      <span>{view.tip.text}</span>
+      {view.tip.keys && <kbd>{view.tip.keys}</kbd>}
     </div>,
     document.body,
   );

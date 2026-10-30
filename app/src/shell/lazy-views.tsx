@@ -72,6 +72,7 @@ export function preloadViews(views: readonly (() => Promise<unknown>)[] = PRELOA
   const queue = [...views];
   const next = () => {
     const view = queue.shift();
+    // Loading ahead of need: the view loads the same code itself when it is opened.
     if (view) void view().catch(() => {}).finally(() => whenIdle(next));
   };
   whenIdle(next);

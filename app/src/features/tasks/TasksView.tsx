@@ -6,7 +6,7 @@ import "../dashboard/dashboard.css";
 
 import { useMemo, useState } from "react";
 
-import { dayFrom } from "../../lib/dates";
+import { useToday } from "../../lib/use-today";
 import { Segmented } from "../../ui/Segmented";
 import { projectTitle } from "../boards/store";
 import { useTaskList } from "../dashboard/task-rows";
@@ -60,7 +60,7 @@ export function Tasks() {
     });
   const rows = useTaskList();
   const notes = useWorkspace((s) => s.notes);
-  const today = dayFrom(0);
+  const today = useToday();
   const places = useMemo(() => placesOf(projects(notes).filter((p) => p.project).map((p) => ({ folder: p.project!, title: titleOf(p) }))), [notes]);
   // A place saved and since gone (a project deleted or renamed) shows
   // everything, as its menu does; the saved choice comes back with it.

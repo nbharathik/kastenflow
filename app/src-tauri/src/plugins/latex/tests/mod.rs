@@ -8,6 +8,7 @@ mod log;
 mod log_edge;
 mod out_dirs;
 mod paths;
+mod preview;
 mod proc;
 mod scheduler;
 mod service;

@@ -171,6 +171,79 @@ fn a_very_long_file_goes_in_part_and_says_so() {
     );
 }
 
+fn leave_log(v: &Vault, text: &str) {
+    let out = v
+        .dir
+        .join(kasten_core::latex::build_dir(FOLDER))
+        .join("out");
+    fs::create_dir_all(&out).unwrap();
+    fs::write(out.join("main.log"), text).unwrap();
+}
+
+#[test]
+fn problems_in_other_files_come_with_numbered_lines_and_the_document_map() {
+    let (v, s) = with_article();
+    let main = "\\documentclass{article}\n\\begin{document}\n\\input{sections/extra}\n\\label{a}\\cite{ghost}\\ref{nowhere}\n\\bibliography{refs}\n\\end{document}\n";
+    fs::write(v.dir.join(MAIN), main).unwrap();
+    let extra: String = (1..=60).map(|i| format!("extra line {i}\n")).collect();
+    fs::create_dir_all(v.dir.join(FOLDER).join("sections")).unwrap();
+    fs::write(v.dir.join(FOLDER).join("sections/extra.tex"), &extra).unwrap();
+    fs::write(v.dir.join(FOLDER).join("refs.bib"), "@article{real,\n}\n").unwrap();
+    leave_log(
+        &v,
+        "(./main.tex\n(./sections/extra.tex\n! Undefined control sequence.\nl.30 extra line 30\n\n?\n))\n",
+    );
+    let text = context::expand(&v.kasten, &s, &[chip(&[MAIN])]);
+    for part in [
+        "== sections/extra.tex: lines near the problems",
+        "30 | extra line 30",
+        "15 | extra line 15",
+        "45 | extra line 45",
+        "- error (sections/extra.tex line 30): Undefined control sequence.",
+        "    | l.30 extra line 30",
+        "main.tex pulls in sections/extra.tex",
+        "Cited but defined nowhere: ghost [main.tex]",
+        "Referred to but no \\label: nowhere [main.tex]",
+    ] {
+        assert!(text.contains(part), "missing {part:?} in\n{text}");
+    }
+    assert!(
+        !text.contains("14 | extra line 14") && !text.contains("46 | extra line 46"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_long_file_shows_the_lines_around_its_error_before_its_start() {
+    let (v, s) = with_article();
+    let long: String = std::iter::once("\\documentclass{article}\n".to_owned())
+        .chain((2..=2_000).map(|i| format!("line number {i} of the long file\n")))
+        .collect();
+    fs::write(v.dir.join(MAIN), &long).unwrap();
+    leave_log(
+        &v,
+        "(./main.tex\n! Undefined control sequence.\nl.1500 line number 1500\n\n?\n)\n",
+    );
+    let text = context::expand(&v.kasten, &s, &[chip(&[MAIN])]);
+    assert!(
+        text.contains("1500 | line number 1500 of the long file"),
+        "{text}"
+    );
+    assert!(text.contains("1485 | line number 1485") && text.contains("1515 | line number 1515"));
+    assert!(!text.contains("1484 | line number 1484") && !text.contains("1516 | line number 1516"));
+    // The start of the file still goes, in what the excerpt left.
+    assert!(
+        text.contains("The file goes on; this is its first part."),
+        "{text}"
+    );
+    assert!(text.contains("\\documentclass{article}"));
+    assert!(
+        text.chars().count() < 40_000,
+        "{} characters",
+        text.chars().count()
+    );
+}
+
 #[test]
 fn the_latex_tools_read_in_words_in_the_chat() {
     let (v, _s) = with_article();

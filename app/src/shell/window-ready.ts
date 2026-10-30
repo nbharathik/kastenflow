@@ -11,6 +11,7 @@ import { inTauri } from "../lib/api";
 export function useShowWhenDrawn(): void {
   useEffect(() => {
     if (!inTauri()) return;
+    // Tells the shell to show the window; if it cannot, the shell's own timeout shows it.
     const timer = setTimeout(() => void invoke("app_ready").catch(() => {}), 0);
     return () => clearTimeout(timer);
   }, []);

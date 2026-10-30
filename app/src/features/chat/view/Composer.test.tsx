@@ -66,7 +66,7 @@ describe("a steady message box", () => {
     await useWorkspace.getState().connect({ client: new MemoryVault({}) });
     await useChat.getState().loadProviders();
     const id = useChat.getState().start({ open: true });
-    render(<Composer thread={useChat.getState().threads[id]!} page={null} showFollow={false} />);
+    render(<Composer id={id} page={null} showFollow={false} />);
     expect(screen.queryByRole("switch", { name: "Follow active page" })).toBeNull();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeTruthy();
   });

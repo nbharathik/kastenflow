@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { appInfo } from "../../../../lib/api";
+import { startupDetail, startupLine, startupMarks } from "../../../../lib/startup-timing";
 import { Button } from "../../../../ui/Button";
 import { Group, Row } from "./parts";
 import { Updates } from "./Updates";
@@ -17,6 +18,9 @@ export function About() {
   const [core, setCore] = useState<string | null>(null);
   const [notices, setNotices] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Marks set while the window started: they do not change, so read once.
+  const [marks] = useState(startupMarks);
+  const startup = startupLine(marks);
 
   useEffect(() => {
     appInfo().then(
@@ -44,7 +48,15 @@ export function About() {
   return (
     <Group title="About">
       <Row id="about.version">
-        <span className="text-13 text-muted">{version ? `Version ${version}${core ? ` · core ${core}` : ""} · MIT licence` : "MIT licence"}</span>
+        <span className="text-13 text-muted">
+          {version ? `Version ${version}${core ? ` · core ${core}` : ""} · MIT licence` : "MIT licence"}
+          {startup && (
+            <span title={startupDetail(marks)}>
+              {" · "}
+              {startup}
+            </span>
+          )}
+        </span>
       </Row>
       <Updates />
       <Row id="about.licences">
