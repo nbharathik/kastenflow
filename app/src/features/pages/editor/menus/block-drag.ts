@@ -10,6 +10,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { nudge, scrollerOf, SLOP, swallowClick } from "../../../../ui/pointer-drag";
 import { carryFolds } from "../blocks/toggle-view";
+import { columnProbe } from "../columns/probe";
 import { el } from "../ui/dom";
 import { blocksIn, type BlocksAt } from "./block-range";
 import { keepBlockSelected } from "./block-nav";
@@ -53,10 +54,12 @@ const clamp = (value: number, low: number, high: number) => Math.min(Math.max(va
  * The innermost block at height `y` in the editor. It looks across the
  * middle of the text column, where blocks inside toggles, callouts and lists
  * are, rather than at the pointer, which sits in the margin by the handle.
+ * Over columns side by side, `x` (the pointer's) picks the column to look in.
  */
-export function unitAt(view: EditorView, y: number): (BlockAt & { el: HTMLElement }) | null {
+export function unitAt(view: EditorView, y: number, x?: number): (BlockAt & { el: HTMLElement }) | null {
   const box = view.dom.getBoundingClientRect();
-  const hit = view.posAtCoords({ left: (box.left + box.right) / 2, top: clamp(y, box.top + 1, box.bottom - 1) });
+  const column = x === undefined ? null : columnProbe(view, x, y);
+  const hit = view.posAtCoords(column ? { left: column.x, top: column.y } : { left: (box.left + box.right) / 2, top: clamp(y, box.top + 1, box.bottom - 1) });
   const found = hit && blockNear(view.state.doc, hit);
   const dom = found && view.nodeDOM(found.pos);
   return found && dom instanceof HTMLElement ? { ...found, el: dom } : null;
@@ -100,7 +103,7 @@ export function pressBlock({ view, root, source, range, event, onLift, onEnd }: 
 
   /** The gap under the pointer and where its line goes, or null where the block cannot land. */
   const gapAt = () => {
-    const unit = unitAt(view, y);
+    const unit = unitAt(view, y, x);
     if (!unit) return null;
     // Over the blocks themselves, or inside them: they stay where they are.
     if (unit.pos >= start && unit.pos < end) return null;
@@ -112,7 +115,9 @@ export function pressBlock({ view, root, source, range, event, onLift, onEnd }: 
     const beside = view.nodeDOM(gap.at.pos);
     if (!(beside instanceof HTMLElement) || !moveTo(view.state, gap.pos)) return null;
     const edge = beside.getBoundingClientRect();
-    return { pos: gap.pos, left: levelOf(view, gap.at), right: Math.max(edge.right, box.right), y: gap.after ? edge.bottom : edge.top };
+    // In a column the line is as wide as the column, not the page.
+    const right = beside.closest(".kasten-column") ? edge.right : Math.max(edge.right, box.right);
+    return { pos: gap.pos, left: levelOf(view, gap.at), right, y: gap.after ? edge.bottom : edge.top };
   };
 
   const draw = () => {

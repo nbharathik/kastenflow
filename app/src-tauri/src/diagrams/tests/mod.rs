@@ -6,4 +6,4 @@
 mod extract;
 mod install;
 mod protocol;
-mod support;
+pub(crate) mod support;

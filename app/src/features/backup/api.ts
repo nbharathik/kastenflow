@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
 
 /** What Get latest did. */
@@ -61,8 +62,8 @@ export interface Repo {
   updatedAt: string | null;
 }
 
-/** Whether this window can back up beyond the vault: the desktop app. */
-export const canBackUp = () => inTauri();
+/** Whether this window can back up beyond the vault: the desktop app, or the browser preview in demo mode. */
+export const canBackUp = () => inTauri() || inDemo();
 
 export const githubAccount = () => invoke<GitHubAccount>("github_account");
 export const githubSignInStart = () => invoke<SignInCode>("github_sign_in_start");

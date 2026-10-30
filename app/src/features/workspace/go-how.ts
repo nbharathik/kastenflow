@@ -3,6 +3,7 @@
 
 import type { PeekSide } from "../peek/store";
 import type { PeekMode } from "./prefs";
+import { isStandaloneView } from "./open-kind";
 import type { OpenHow } from "./store-layout";
 import { focusedPane, opensOwnTab, samePlace, type Layout, type Place } from "./tabs";
 
@@ -22,8 +23,8 @@ export interface Situation {
   peekOpen: PeekSide | null;
 }
 
-/** A deck and a diagram have no peek: they open as a full tab. */
-const fullTabOnly = (place: Place): boolean => Boolean(place.path) && (place.view === "slides" || place.view === "diagrams");
+/** A deck, a diagram and a plugin's view have no peek: they open as a full tab. */
+const fullTabOnly = (place: Place): boolean => Boolean(place.path) && isStandaloneView(place.view);
 
 /** A peek shows a page, a whiteboard or a PDF: not a deck, a diagram, a view or a tag database. */
 const peekable = (place: Place): boolean => Boolean(place.path) && !fullTabOnly(place) && !place.path!.startsWith("#");

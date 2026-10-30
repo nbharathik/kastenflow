@@ -75,6 +75,8 @@ export interface Health {
   backupFolder?: string | null;
   meaning?: MeaningHealth | null;
   appVersion?: string;
+  /** Why the vault's settings file is not in force (it does not parse, or a newer version wrote it); the settings from before stay. */
+  configProblem?: string | null;
 }
 
 export interface HealthOps {

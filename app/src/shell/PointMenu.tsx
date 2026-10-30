@@ -7,7 +7,7 @@ import { boxOf } from "../features/browser/bounds";
 import { useOccludes } from "../features/browser/occlusion";
 import { Popup } from "../features/pages/page/Popup";
 import { moveInMenu } from "../ui/menu-keys";
-import { MenuItems, type MenuItem } from "./Menu";
+import { MenuItems, type MenuEntry } from "./Menu";
 
 /** Room kept between the menu and the window's edges. */
 const EDGE = 8;
@@ -17,7 +17,7 @@ interface Props {
   x: number;
   y: number;
   label: string;
-  items: (MenuItem | "divider")[];
+  items: MenuEntry[];
   onClose: () => void;
   /** The button that opened it, whose clicks are left to it. */
   anchor?: RefObject<HTMLElement | null>;
@@ -73,7 +73,7 @@ export function PointMenu({ x, y, label, items, onClose, anchor }: Props) {
       }}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <Popup label={label} role="menu" anchor={anchor} onClose={onClose} className="kasten-shell-menu min-w-56 p-1 outline-none">
+      <Popup label={label} role="menu" anchor={anchor} onClose={onClose} className="kasten-shell-menu min-w-56 max-h-[calc(100vh-2rem)] overflow-auto p-1 outline-none">
         <MenuItems items={items} onPick={onClose} />
       </Popup>
     </div>

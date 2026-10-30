@@ -73,7 +73,6 @@ export function ActivityStatus() {
         <span aria-hidden="true" className={`size-2 rounded-full ${DOT[activity.state]}`} />
         <span>{activity.label}</span>
         {count ? <span>· {count}</span> : null}
-        {backup && <span>· {backup.label}</span>}
         {activity.also.length > 0 && <span aria-hidden="true">+{activity.also.length}</span>}
         {status && status.pending > 0 && <span>· {status.pending} edited</span>}
       </button>

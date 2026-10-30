@@ -6,7 +6,7 @@
 //! action is a `task` note, kept by its id (the note is given one in the same
 //! commit if it has none).
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 use super::{Change, Kasten};
@@ -35,23 +35,43 @@ fn present<'de, D: Deserializer<'de>>(
 
 /// A change to a project page's state. A field left `None` stays as it is;
 /// `Some(None)` takes the key away; `Some(Some(value))` sets it.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectState {
     /// Active, Paused or Done.
-    #[serde(default, deserialize_with = "present")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub status: Option<Option<String>>,
     /// On track, At risk or Blocked.
-    #[serde(default, deserialize_with = "present")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub health: Option<Option<String>>,
     /// The `task` note the project does next: its path, id or title.
-    #[serde(default, deserialize_with = "present")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub next_action: Option<Option<String>>,
     /// The day of the last review, `YYYY-MM-DD`.
-    #[serde(default, deserialize_with = "present")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub reviewed: Option<Option<String>>,
     /// The day the next review is due, `YYYY-MM-DD`.
-    #[serde(default, deserialize_with = "present")]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub review_after: Option<Option<String>>,
 }
 
@@ -123,7 +143,26 @@ struct Task {
     title: String,
 }
 
+/// A change that passed every check: what it will set, what its commit will
+/// say, and the task note a next action names.
+struct Checked {
+    changes: Map<String, Value>,
+    said: Vec<String>,
+    task: Option<Task>,
+}
+
 impl Kasten {
+    /// Whether `set_project_state` would take this change from an agent,
+    /// without writing anything: the checks it makes before it writes, for a
+    /// request that is refused (or kept for review) before it runs.
+    pub(super) fn check_project_state(&self, page: &str, state: &ProjectState) -> Result<()> {
+        let agent = Actor::Agent {
+            client: String::new(),
+            session: String::new(),
+        };
+        self.checked_state(&agent, page, state).map(|_| ())
+    }
+
     /// Changes a project page's state in one commit, `project: <title> —
     /// Active, At risk`. Every value is checked first: the status and health
     /// are from their lists, days are real days, the next action is a note
@@ -137,6 +176,58 @@ impl Kasten {
         state: &ProjectState,
         now: Instant,
     ) -> Result<NoteFile> {
+        let Checked {
+            changes,
+            said,
+            task,
+        } = self.checked_state(actor, page, state)?;
+        let title = self.vault.read(page)?.meta.title;
+        self.apply(actor, "set_project_state", false, now.millis, |vault| {
+            let mut changes = changes;
+            let mut paths = vec![page.to_owned()];
+            if let Some(task) = &task {
+                let had = vault.read(&task.path)?.meta.id.is_some();
+                let id = ensure_id(vault, &task.path, now)?;
+                if !had {
+                    paths.push(task.path.clone());
+                }
+                changes.insert("next_action".to_owned(), Value::String(id));
+            }
+            let current = vault.read(page)?;
+            let parts = split(&current.text);
+            let existing = props_of(parts.prefix);
+            let same = changes.iter().all(|(key, value)| {
+                if value.is_null() {
+                    !existing.contains_key(key)
+                } else {
+                    existing.get(key) == Some(value)
+                }
+            });
+            if same && paths.len() == 1 {
+                return Ok(Change {
+                    message: String::new(),
+                    paths: vec![],
+                    value: current,
+                });
+            }
+            let eol = eol_of(&current.text);
+            let prefix = set_props(parts.prefix, &changes, eol)?;
+            let prefix = set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
+            still_readable(parts.prefix, &prefix)?;
+            write_atomic(
+                &vault.path_of(page)?,
+                join(&prefix, parts.body, eol).as_bytes(),
+            )?;
+            Ok(Change {
+                message: format!("project: {title} — {}", said.join(", ")),
+                paths,
+                value: vault.read(page)?,
+            })
+        })
+    }
+
+    /// The checks of `set_project_state`, before anything is written.
+    fn checked_state(&self, actor: &Actor, page: &str, state: &ProjectState) -> Result<Checked> {
         if !is_project_page(page) {
             return Err(Error::Invalid(format!(
                 "Only a project page (projects/<name>/_project.md) has a status, a health and a next action, not {page}"
@@ -223,48 +314,10 @@ impl Kasten {
             }
         }
 
-        let title = current.meta.title.clone();
-        self.apply(actor, "set_project_state", false, now.millis, |vault| {
-            let mut changes = changes;
-            let mut paths = vec![page.to_owned()];
-            if let Some(task) = &task {
-                let had = vault.read(&task.path)?.meta.id.is_some();
-                let id = ensure_id(vault, &task.path, now)?;
-                if !had {
-                    paths.push(task.path.clone());
-                }
-                changes.insert("next_action".to_owned(), Value::String(id));
-            }
-            let current = vault.read(page)?;
-            let parts = split(&current.text);
-            let existing = props_of(parts.prefix);
-            let same = changes.iter().all(|(key, value)| {
-                if value.is_null() {
-                    !existing.contains_key(key)
-                } else {
-                    existing.get(key) == Some(value)
-                }
-            });
-            if same && paths.len() == 1 {
-                return Ok(Change {
-                    message: String::new(),
-                    paths: vec![],
-                    value: current,
-                });
-            }
-            let eol = eol_of(&current.text);
-            let prefix = set_props(parts.prefix, &changes, eol)?;
-            let prefix = set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
-            still_readable(parts.prefix, &prefix)?;
-            write_atomic(
-                &vault.path_of(page)?,
-                join(&prefix, parts.body, eol).as_bytes(),
-            )?;
-            Ok(Change {
-                message: format!("project: {title} — {}", said.join(", ")),
-                paths,
-                value: vault.read(page)?,
-            })
+        Ok(Checked {
+            changes,
+            said,
+            task,
         })
     }
 

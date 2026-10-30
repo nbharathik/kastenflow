@@ -49,7 +49,7 @@ fn random_bytes() -> io::Result<[u8; 32]> {
     Ok(bytes)
 }
 
-fn random_hex() -> io::Result<String> {
+pub(crate) fn random_hex() -> io::Result<String> {
     Ok(random_bytes()?.iter().map(|b| format!("{b:02x}")).collect())
 }
 
@@ -60,7 +60,7 @@ fn trusted(path: &Path, token: &str) -> bool {
     formed && private_file(path)
 }
 
-fn private_file(path: &Path) -> bool {
+pub(crate) fn private_file(path: &Path) -> bool {
     if kasten_core::local_paths::check(path).is_err() {
         return false;
     }
@@ -79,6 +79,11 @@ fn private_file(path: &Path) -> bool {
 /// Writes `text` to a new file only its owner can read, then moves it into
 /// place, so the token is never readable by others, even for a moment.
 fn write_private(path: &Path, text: &str) -> io::Result<()> {
+    write_private_bytes(path, text.as_bytes())
+}
+
+/// `write_private`, for bytes (the app's mailbox uses it too).
+pub(crate) fn write_private_bytes(path: &Path, bytes: &[u8]) -> io::Result<()> {
     kasten_core::local_paths::check(path)?;
     let temp = path.with_extension(format!("{}.new", random_hex()?));
     let mut options = OpenOptions::new();
@@ -93,7 +98,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
     let mut file = options.open(&temp)?;
     #[cfg(windows)]
     windows::protect(&mut file)?;
-    file.write_all(text.as_bytes())?;
+    file.write_all(bytes)?;
     file.sync_all()?;
     drop(file);
     fs::rename(&temp, path)

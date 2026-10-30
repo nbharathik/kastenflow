@@ -4,6 +4,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { usePlugins } from "../../../plugins/registry";
 import { TopBar } from "../../../shell/TopBar";
 import { COMMANDS } from "../../workspace/overlays/commands";
 import { MemoryVault } from "../../workspace/preview/memory-vault";
@@ -16,11 +17,16 @@ const run = (id: string) => COMMANDS.find((c) => c.id === id)!.run();
 
 beforeEach(async () => {
   localStorage.clear();
+  // The smart layout row is offered once smart pages are on (they start off).
+  usePlugins.setState({ on: { smart: true } });
   await useWorkspace.getState().connect({ client: new MemoryVault({ [PATH]: "---\ntitle: Talk\n---\nOne.\n\n---\n\nTwo.\n" }) });
   useWorkspace.getState().openPath(PATH);
   useWorkspace.setState({ toasts: [] });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePlugins.setState({ on: {} });
+});
 
 describe("the page menu", () => {
   const menu = () => {
@@ -29,20 +35,32 @@ describe("the page menu", () => {
     return screen.getByRole("menu", { name: "Page options" });
   };
 
-  it("offers to present the page, to draw it in the smart layout, and to make a deck of its sections", () => {
-    const options = menu();
-    expect(within(options).getByRole("menuitem", { name: "Present this page" })).toBeTruthy();
-    const layout = within(options).getByRole("menuitemcheckbox", { name: "Smart layout" });
+  /** Opens the submenu `name` of the page menu. */
+  const sub = (name: string) => {
+    menu();
+    fireEvent.click(screen.getByRole("menuitem", { name }));
+    return screen.getByRole("menu", { name });
+  };
+
+  it("offers to present the page and make a deck of its sections under Present & export, and the smart layout under View", () => {
+    const present = sub("Present & export");
+    expect(within(present).getByRole("menuitem", { name: "Present this page" })).toBeTruthy();
+    expect(within(present).getByRole("menuitem", { name: "Turn sections into a deck" })).toBeTruthy();
+    cleanup();
+    const view = sub("View");
+    const layout = within(view).getByRole("menuitemcheckbox", { name: "Sections layout" });
     expect(layout.getAttribute("aria-checked")).toBe("false");
-    expect(within(options).getByRole("menuitem", { name: "Turn sections into a deck" })).toBeTruthy();
+    // A smart page has its own row, with the same words nowhere else.
+    expect(within(view).getByRole("menuitemcheckbox", { name: "Smart layout" }).getAttribute("aria-checked")).toBe("false");
     // They sit with the folding of sections.
-    const labels = [...options.querySelectorAll('[role^="menuitem"]')].map((item) => item.textContent ?? "");
+    const labels = [...view.querySelectorAll('[role^="menuitem"]')].map((item) => item.textContent ?? "");
     const at = (label: string) => labels.findIndex((text) => text.includes(label));
-    expect(at("Present this page")).toBeLessThan(at("Fold all sections"));
+    expect(at("Sections layout")).toBeLessThan(at("Fold all sections"));
+    expect(at("Smart layout")).toBeLessThan(at("Fold all sections"));
   });
 
   it("says how to make slides when the page is not open to present (nothing to show)", () => {
-    const options = menu();
+    const options = sub("Present & export");
     fireEvent.click(within(options).getByRole("menuitem", { name: "Present this page" }));
     expect(said()).toContain("Nothing to present yet");
   });
@@ -50,7 +68,7 @@ describe("the page menu", () => {
 
 describe("the palette", () => {
   it("has a command for each, listed with the other page commands for keys", () => {
-    for (const id of ["present-page", "smart-layout", "sections-deck", "fold-sections", "unfold-sections"]) {
+    for (const id of ["present-page", "smart-layout", "smart-page-layout", "smart-page-flip", "smart-page-history", "sections-deck", "fold-sections", "unfold-sections"]) {
       expect(COMMANDS.some((c) => c.id === id), id).toBe(true);
       expect(KEY_SECTIONS.flatMap((s) => s.ids), id).toContain(id);
     }

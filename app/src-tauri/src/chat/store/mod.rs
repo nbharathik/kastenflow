@@ -40,6 +40,17 @@ pub struct Usage {
     pub bytes: u64,
 }
 
+/// Why a saved thread cannot be given back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unloaded {
+    /// There is no file of that name.
+    Missing,
+    /// The file does not read (it has been set aside as `.bad`).
+    Damaged,
+    /// It was written by a newer KastenFlow and is left alone.
+    Newer,
+}
+
 /// The saved threads of one vault.
 pub struct Store {
     dir: PathBuf,
@@ -103,12 +114,19 @@ impl Store {
     /// The saved thread, if there is one that reads and is of a version this
     /// program knows. A file that does not read is set aside as `.bad`.
     pub fn load(&self, id: &str) -> Option<Record> {
+        self.load_checked(id).ok()
+    }
+
+    /// `load`, saying why there is no thread to give.
+    pub fn load_checked(&self, id: &str) -> Result<Record, Unloaded> {
         if !valid_id(id) {
-            return None;
+            return Err(Unloaded::Missing);
         }
         match read_json::<Record>(&self.record_path(id)) {
-            Ok(record) if record.version <= VERSION && record.id == id => Some(record),
-            Ok(_) | Err(Unread::Missing | Unread::Damaged) => None,
+            Ok(record) if record.version > VERSION => Err(Unloaded::Newer),
+            Ok(record) if record.id == id => Ok(record),
+            Ok(_) | Err(Unread::Damaged) => Err(Unloaded::Damaged),
+            Err(Unread::Missing) => Err(Unloaded::Missing),
         }
     }
 
@@ -175,7 +193,7 @@ impl Store {
     /// is working now. Run once when the vault opens.
     pub fn interrupt_the_working(&self) {
         for head in self.heads() {
-            if head.summary.status != Status::Running {
+            if !head.summary.status.was_working() {
                 continue;
             }
             if let Some(mut record) = self.load(&head.summary.id) {

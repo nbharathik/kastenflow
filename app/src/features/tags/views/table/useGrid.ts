@@ -13,7 +13,7 @@ import type { NoteMeta } from "../../../../lib/vault/types";
 import { useWorkspace } from "../../../workspace/store";
 import { setValue } from "../../actions";
 import type { Column } from "./columns";
-import { HEAD_HEIGHT, ROW_HEIGHT, useLatest, type CellHandle, type TableCtx } from "./context";
+import { HEAD_HEIGHT, ROW_HEIGHT, useLatest, type CellHandle, type SubApi, type TableCtx } from "./context";
 import { locate, moveFor, reveal, type Active, type Bounds, type CellAt } from "./grid";
 
 export interface Editing {
@@ -38,9 +38,21 @@ export interface Grid {
   stopEditing(): void;
 }
 
-function boundsOf(el: HTMLElement | null, rows: number, cols: number): Bounds {
+/** How the rows are laid out: their height, and where each note's row sits
+ * among the rows drawn when some of them are group headers (else the same). */
+export interface GridLayout {
+  rowHeight: number;
+  /** Per note row, its place in the drawn rows. */
+  itemOf?: readonly number[] | null;
+  /** Height of what sticks to the bottom (the calculations). */
+  footHeight?: number;
+}
+
+const PLAIN: GridLayout = { rowHeight: ROW_HEIGHT };
+
+function boundsOf(el: HTMLElement | null, rows: number, cols: number, rowHeight: number): Bounds {
   const height = el?.clientHeight ?? 0;
-  return { rows, cols, page: height > 0 ? Math.max(1, Math.floor((height - HEAD_HEIGHT) / ROW_HEIGHT) - 1) : 10 };
+  return { rows, cols, page: height > 0 ? Math.max(1, Math.floor((height - HEAD_HEIGHT) / rowHeight) - 1) : 10 };
 }
 
 /** `foot` holds what Tab reaches after the last cell (the table's New). */
@@ -50,14 +62,16 @@ export function useGrid(
   notes: readonly NoteMeta[],
   columns: readonly Column[],
   widths: readonly number[],
+  layout: GridLayout = PLAIN,
 ): Grid {
   const [active, setActive] = useState<Active | null>(null);
   const [editing, setEditingState] = useState<Editing | null>(null);
   // Read by callbacks at once, before the next render.
   const editingRef = useRef<Editing | null>(null);
   const handle = useRef<CellHandle | null>(null);
+  const sub = useRef<SubApi | null>(null);
   const at = useMemo(() => locate(active, notes, columns), [active, notes, columns]);
-  const latest = useLatest({ at, notes, columns, widths });
+  const latest = useLatest({ at, notes, columns, widths, layout });
 
   const setEditing = useCallback((next: Editing | null) => {
     editingRef.current = next;
@@ -71,7 +85,9 @@ export function useGrid(
     const revealCell = ({ row, col }: CellAt) => {
       const el = scroller.current;
       if (!el || el.clientHeight === 0) return;
-      const top = reveal(el.scrollTop, el.clientHeight, HEAD_HEIGHT + row * ROW_HEIGHT, ROW_HEIGHT, HEAD_HEIGHT);
+      const { rowHeight, itemOf, footHeight = 0 } = latest.current.layout;
+      const place = itemOf?.[row] ?? row;
+      const top = reveal(el.scrollTop, el.clientHeight - footHeight, HEAD_HEIGHT + place * rowHeight, rowHeight, HEAD_HEIGHT);
       if (top !== el.scrollTop) el.scrollTop = top;
       if (col === 0 || el.clientWidth === 0) return;
       const { widths } = latest.current;
@@ -106,6 +122,7 @@ export function useGrid(
 
     const ctx: TableCtx = {
       handle,
+      sub,
       activate(row, col) {
         point({ row, col });
         const el = scroller.current;
@@ -119,7 +136,7 @@ export function useGrid(
         if (!current || current.path !== path || current.key !== key) return;
         setEditing(null);
         const { at, notes, columns } = latest.current;
-        const next = move && at ? moveFor("Tab", move === "prev", at, boundsOf(scroller.current, notes.length, columns.length)) : null;
+        const next = move && at ? moveFor("Tab", move === "prev", at, boundsOf(scroller.current, notes.length, columns.length, latest.current.layout.rowHeight)) : null;
         if (next) select(next);
         if (refocus) focusGrid();
       },
@@ -131,20 +148,25 @@ export function useGrid(
       },
     };
     return { ctx, select, stopEditing, reveal: (row: number) => revealCell({ row, col: 0 }) };
-  }, [scroller, latest, setEditing]);
+  }, [scroller, latest, setEditing, sub]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // Editors and menus handle their own keys.
     if (event.target !== event.currentTarget || event.nativeEvent.isComposing || editingRef.current) return;
     const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
     if (NAV.has(event.key) && plain) {
+      // A title cell with sub-items takes ← → Tab for opening, shutting and indenting.
+      if (at && handle.current?.onNav?.(event)) {
+        event.preventDefault();
+        return;
+      }
       if (!at) {
         if (event.key === "Tab" || notes.length === 0) return;
         event.preventDefault();
         tools.select({ row: 0, col: 0 });
         return;
       }
-      const next = moveFor(event.key, event.shiftKey, at, boundsOf(scroller.current, notes.length, columns.length));
+      const next = moveFor(event.key, event.shiftKey, at, boundsOf(scroller.current, notes.length, columns.length, layout.rowHeight));
       if (!next) {
         // Tab past the last cell goes on to the table's foot, not to the
         // header's buttons that come next in the page; Shift+Tab past the

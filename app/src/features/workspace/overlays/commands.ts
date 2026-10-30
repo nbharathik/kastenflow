@@ -7,12 +7,15 @@ import { addDays, isoDay } from "../../../lib/dates";
 import { zoomBy } from "../../../lib/zoom";
 import { dayOfPath } from "../../journal/feed";
 import { pickDay } from "../../journal/JournalBar";
+import { commands as pluginCommands } from "../../../plugins/contributions";
+import { pluginManageCommands } from "../../../plugins/manage-commands";
+import { AGENT_MODE_COMMANDS } from "../../agents/commands";
 import { BOARD_COMMANDS } from "../../boards/commands";
 import { startNewBoard } from "../../boards/store";
 import { useSlideNumbers } from "../../slides/slide-numbers-state";
+import { goToSlides } from "../../slides/return-to-slides";
 import { startNewDeck } from "../../slides/store";
-import { browserOn, onBrowserTab, openWebTab, runBrowserCommand } from "../../browser/commands";
-import { newDiagram } from "../../diagrams/actions";
+import { onBrowserTab, openWebTab } from "../../browser/commands";
 import { chatShortcut } from "../../chat/focus";
 import { newCollection } from "../../collections/requests";
 import { capturesPlace } from "../../extension/captures";
@@ -25,14 +28,22 @@ import { openHistory } from "../../panel/panel-store";
 import { flipTheme } from "../theme";
 import { usePrefs } from "../prefs";
 import { flushOpenPage } from "../page/open-page";
+import { moveStep } from "../reorder";
 import { useWorkspace } from "../store";
 import type { Place } from "../tabs";
 import { movable, noteAt } from "../tree";
 import { foldAllSections } from "../../pages/editor/sections/registry";
 import { exportCurrentProject } from "../../projects/export/request";
 import { openCurrentOverview } from "../../projects/overview/open";
+import { saveCurrentProjectAsSetup } from "../../projects/setups/request";
 import { openSettingsAt } from "../views/settings/jump";
+import { openBackupWizard } from "../../backup/wizard";
+import { useVaultStatus } from "../status";
+import { SMART_AUTHOR_COMMANDS } from "../../smart/author/commands";
+import { databaseCommands } from "../../tags/commands";
 import { PAGE_COMMANDS } from "./page-commands";
+import { useRunningChats } from "../../../shell/running-chats";
+import { firstVisible } from "../../../shell/visible-dom";
 
 export interface Command {
   id: string;
@@ -68,11 +79,9 @@ export const COMMANDS: Command[] = [
   { id: "calendar", label: "Go to Calendar", words: "month week dates due schedule", run: () => workspace().go({ view: "calendar" }) },
   { id: "boards", label: "Go to Whiteboards", words: "board canvas map spatial heptabase", run: () => workspace().go({ view: "boards" }) },
   { id: "new-board", label: "New whiteboard", words: "board canvas map brainstorm create", run: () => startNewBoard() },
-  { id: "slides", label: "Go to Slides", words: "decks presentation talk powerpoint", run: () => workspace().go({ view: "slides" }) },
+  { id: "slides", label: "Go to Slides", words: "decks presentation talk powerpoint continue back return", run: () => goToSlides() },
   { id: "new-deck", label: "New deck", words: "slides presentation talk powerpoint create", run: () => startNewDeck() },
   { id: "slide-numbers-off", label: "Turn off slide numbers in every deck…", words: "slides decks presentation page numbers footer remove hide all", run: () => useSlideNumbers.getState().show() },
-  { id: "diagrams", label: "Go to Diagrams", words: "draw drawio flowchart architecture sketch uml", run: () => workspace().go({ view: "diagrams" }) },
-  { id: "new-diagram", label: "New diagram", words: "draw drawio flowchart architecture sketch uml create", run: () => void newDiagram() },
   { id: "highlights", label: "Go to Highlights", words: "pdf reader sources papers annotations quotes", run: () => workspace().go({ view: "highlights" }) },
   { id: "references", label: "Go to References", words: "bibliography citations bibtex papers zotero doi arxiv cite sources library", run: () => workspace().go({ view: "references" }) },
   { id: "add-paper", label: "Add a paper…", words: "reference bibtex doi arxiv citation cite paste bibliography new", run: () => openAddPaper() },
@@ -80,11 +89,7 @@ export const COMMANDS: Command[] = [
   { id: "compare-papers", label: "Compare papers…", words: "comparison table synthesis literature review sources outline evidence", run: () => openCompare() },
   { id: "graph", label: "Open graph", words: "go to links network map connections backlinks orphans ghosts missing pages", run: () => workspace().go({ view: "graph" }) },
   { id: "graph-page", label: "Graph around this page", words: "local links neighbours network connections", run: () => onOpenPlace((place) => workspace().openRight({ view: "graph", path: place.path })) },
-  { id: "browser", label: "Open browser", words: "web internet site page search google capture clip", when: browserOn, run: () => workspace().go({ view: "web" }) },
-  { id: "browser-address", label: "Browser: go to the address box", words: "web url search location bar", when: onBrowserTab, run: () => runBrowserCommand("address") },
-  { id: "browser-capture-page", label: "Browser: capture the page", words: "web clip save keep bookmark", when: onBrowserTab, run: () => runBrowserCommand("capture-page") },
-  { id: "browser-capture-selection", label: "Browser: capture the selection", words: "web clip save keep quote highlight", when: onBrowserTab, run: () => runBrowserCommand("capture-selection") },
-  { id: "browser-save-paper", label: "Browser: save the page as a paper", words: "web reference bibliography citation article doi arxiv journal cite", when: onBrowserTab, run: () => runBrowserCommand("save-paper") },
+  // The browser's own commands ("Open browser", capture the page…) come from the browser plugin (plugins/browser).
   { id: "extension-pair", label: "Browser extension: pair with Chrome or Edge…", words: "connect code settings capture clip web send", run: () => openSettingsAt({ group: "extension", row: "extension.pair" }) },
   { id: "projects", label: "Go to Projects", words: "all projects gallery hub status health overdue stale review archive pin organise", run: () => workspace().go({ view: "projects" }) },
   { id: "triage", label: "Triage captures", words: "inbox captures clip sort process keys later archive defer reading one at a time", run: () => workspace().go({ view: "inbox", path: "triage" }) },
@@ -94,12 +99,20 @@ export const COMMANDS: Command[] = [
   { id: "project-overview", label: "Open project overview", words: "project expand full screen tabs tables captures tasks board dashboard", run: () => openCurrentOverview() },
   { id: "import-pdf", label: "Import a PDF…", words: "open file paper source reader highlight", run: () => pickPdfs() },
   { id: "import-notes", label: "Import notes…", words: "obsidian notion heptabase markdown vault export migrate move bring", run: () => workspace().go({ view: "import" }) },
+  { id: "save-project-setup", label: "Save project as a setup…", words: "template kit start new project copy structure pages tags reuse save as setup", run: () => saveCurrentProjectAsSetup() },
   { id: "export-project", label: "Export a project…", words: "bundle share copy folder send give project export backup package", run: () => exportCurrentProject() },
   { id: "chat-dock", label: "Chat about the pages open", words: "ai ask assistant chat dock side panel claude message box focus", run: () => chatShortcut() },
+  { id: "chat-add-selection", label: "Add selection to chat", words: "ai snippet quote context selected text keep ask", run: () => void import("../../chat/selection/add").then((m) => m.addSelectionToChat()) },
+  { id: "running-chats", label: "Show running chats", words: "agents working background paused progress chats busy", run: () => useRunningChats.getState().show(true) },
   { id: "chat", label: "Go to Chat", words: "ai assistant ask claude model llm conversation", run: () => workspace().go({ view: "chat" }) },
   { id: "trash", label: "Go to Trash", words: "deleted restore", run: () => workspace().go({ view: "trash" }) },
   { id: "history", label: "Go to History", words: "changes versions agents sessions undo", run: () => workspace().go({ view: "history" }) },
+  { id: "agents-today", label: "What agents did today", words: "agents routines digest changes today claude codex undo history", run: () => workspace().go({ view: "history", path: "today-by-agents" }) },
   { id: "review", label: "Go to Review", words: "agents proposals accept reject", run: () => workspace().go({ view: "review" }) },
+  { id: "backup-setup", label: "Set up backup", words: "keep notes safe github git folder drive sync copy protect restore", run: () => openBackupWizard() },
+  { id: "backup-now", label: "Back up now", words: "backup push save copy github sync send", run: () => void import("../../backup/back-up-now").then((m) => m.runBackUpNow()) },
+  { id: "backup-latest", label: "Get latest", words: "backup pull fetch sync another computer bring in changes", run: () => void import("../../backup/latest").then((m) => m.runGetLatest()) },
+  { id: "backup-github", label: "Open backup on GitHub", words: "backup repository web page browser", run: () => void import("../../backup/back-up-now").then((m) => m.openBackupOnGitHub(useVaultStatus.getState().status?.remote ?? null)) },
   { id: "settings", label: "Settings", words: "preferences options search", run: () => openSettingsAt({ focusSearch: true }) },
   { id: "theme", label: "Switch light / dark", words: "theme dark mode night", run: () => toggleTheme() },
   { id: "sidebar", label: "Show or hide the sidebar", run: () => shell().toggleSidebar() },
@@ -111,7 +124,10 @@ export const COMMANDS: Command[] = [
   { id: "unfold-sections", label: "Unfold all sections", words: "expand open divider show ---", run: () => foldSectionsOfPage(false) },
   { id: "move", label: "Move this page to…", words: "project relocate file", run: () => moveOpenPage() },
   { id: "duplicate", label: "Duplicate this page", words: "copy clone", run: () => onOpenPage((path) => void workspace().duplicate(path)) },
-  { id: "full-width", label: "Full width pages", words: "wide", run: () => usePrefs.getState().set({ fullWidth: !usePrefs.getState().fullWidth }) },
+  { id: "move-up", label: "Move this page up", words: "order sub-page earlier higher reorder sidebar", run: () => onOpenPage((path) => void moveStep(path, -1)) },
+  { id: "move-down", label: "Move this page down", words: "order sub-page later lower reorder sidebar", run: () => onOpenPage((path) => void moveStep(path, 1)) },
+  { id: "full-width", label: "Full width pages", words: "wide", run: () => usePrefs.getState().set({ pageWidth: usePrefs.getState().pageWidth === "full" ? "normal" : "full" }) },
+  { id: "wide-pages", label: "Wide pages", words: "width column mid", run: () => usePrefs.getState().set({ pageWidth: usePrefs.getState().pageWidth === "wide" ? "normal" : "wide" }) },
   { id: "print", label: "Print or save as PDF", words: "export pdf paper", run: () => window.print() },
   { id: "save", label: "Save now", run: () => void flushOpenPage() },
   { id: "new-tab", label: "New tab", words: "open", run: () => newTab() },
@@ -125,11 +141,16 @@ export const COMMANDS: Command[] = [
   { id: "stack-page", label: "Open this page in the side stack", words: "beside heptabase", run: () => onOpenPage((path) => workspace().openInStack(path)) },
   { id: "shortcuts", label: "Keyboard shortcuts", words: "help keys", run: () => shell().setShortcuts(true) },
   ...PAGE_COMMANDS,
+  ...SMART_AUTHOR_COMMANDS,
   ...BOARD_COMMANDS,
+  ...AGENT_MODE_COMMANDS,
   { id: "zoom-in", label: "Zoom in", words: "bigger larger scale magnify", run: () => void zoomBy(1).then(sayZoom) },
   { id: "zoom-out", label: "Zoom out", words: "smaller scale", run: () => void zoomBy(-1).then(sayZoom) },
   { id: "zoom-reset", label: "Actual size", words: "zoom reset 100", run: () => void zoomBy(0).then(sayZoom) },
 ];
+
+/** The app's own commands, then those of the plugins that are on. */
+export const allCommands = (): Command[] => [...COMMANDS, ...databaseCommands(), ...pluginManageCommands(), ...pluginCommands()];
 
 const sayZoom = (level: number) => workspace().toast(`Zoom ${Math.round(level * 100)}%`);
 
@@ -184,7 +205,7 @@ export function newPageHere(): void {
  * pane's first), else a new card as a draft, which makes no file until
  * written in. */
 export function captureCard(): void {
-  const box = document.querySelector<HTMLTextAreaElement>(".kasten-pane.is-focused [data-capture-box]") ?? document.querySelector<HTMLTextAreaElement>("[data-capture-box]");
+  const box = firstVisible<HTMLTextAreaElement>(".kasten-pane.is-focused [data-capture-box]") ?? firstVisible<HTMLTextAreaElement>("[data-capture-box]");
   if (box && !box.disabled) return box.focus();
   const { place, notes, newPage } = workspace();
   const here = place.view === "page" ? notes.find((n) => n.path === place.path) : undefined;

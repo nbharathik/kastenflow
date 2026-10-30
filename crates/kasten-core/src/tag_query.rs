@@ -93,8 +93,26 @@ pub fn passes(note: &NoteMeta, filter: &Value, def: Option<&PropDef>) -> bool {
         "contains" => text_of(&value).contains(&text_of(wanted)),
         "before" => matches!((day_of(&value), day_of(wanted)), (Some(a), Some(b)) if a < b),
         "after" => matches!((day_of(&value), day_of(wanted)), (Some(a), Some(b)) if a > b),
+        // Numbers, for number properties and formulas that give numbers.
+        op @ ("gt" | "gte" | "lt" | "lte") => match (as_number(&value), as_number(wanted)) {
+            (Some(a), Some(b)) => match op {
+                "gt" => a > b,
+                "gte" => a >= b,
+                "lt" => a < b,
+                _ => a <= b,
+            },
+            _ => false,
+        },
         _ => true,
     }
+}
+
+/// A number, or text that is one; `None` for anything else.
+fn as_number(value: &Value) -> Option<f64> {
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(|s| s.trim().parse().ok()))
+        .filter(|n| n.is_finite())
 }
 
 fn number(value: &Value) -> f64 {
@@ -123,6 +141,8 @@ fn compare(a: &Value, b: &Value, def: Option<&PropDef>, key: &str) -> Ordering {
         // A total order, so values that are not numbers can never upset a sort.
         ("number", _) => number(a).total_cmp(&number(b)),
         ("checkbox", _) => truthy(a).cmp(&truthy(b)),
+        // A formula gives numbers or text; two numbers sort as numbers.
+        ("formula", _) if a.is_number() && b.is_number() => number(a).total_cmp(&number(b)),
         ("select", Some(def)) => {
             let at = |v: &Value| {
                 let text = text_of(v);
@@ -158,12 +178,17 @@ pub fn apply_view(notes: Vec<NoteMeta>, view: &Value, schema: Option<&TagSchema>
             ))
         })
         .collect();
+    // `filter_mode: any` keeps a note that passes at least one filter.
+    let any = view.get("filter_mode").and_then(Value::as_str) == Some("any");
     let mut rows: Vec<NoteMeta> = notes
         .into_iter()
         .filter(|n| {
-            filters
-                .iter()
-                .all(|f| passes(n, f, f.get("key").and_then(Value::as_str).and_then(def)))
+            let ok = |f: &Value| passes(n, f, f.get("key").and_then(Value::as_str).and_then(def));
+            if any && !filters.is_empty() {
+                filters.iter().any(ok)
+            } else {
+                filters.iter().all(ok)
+            }
         })
         .collect();
     rows.sort_by(|a, b| {

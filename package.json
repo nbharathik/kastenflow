@@ -1,7 +1,7 @@
 {
   "name": "kasten-workspace",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "The Kasten repository's JavaScript workspace: the desktop app and the Slides packages",
   "license": "MIT",
   "type": "module",

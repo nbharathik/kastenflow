@@ -4,6 +4,7 @@
 
 import { useState, type MouseEvent, type ReactNode } from "react";
 
+import { goToSlides } from "../features/slides/return-to-slides";
 import { howFrom, useWorkspace, type OpenHow } from "../features/workspace/store";
 import { Icon } from "../ui/Icon";
 import { placeOfNav, showsNav, type NavItem } from "./nav";
@@ -25,6 +26,8 @@ export function useActive(id: string): boolean {
 
 /** Opens a view the way asked. */
 export function openView(id: string, how: OpenHow = "here"): void {
+  // With a deck open in a tab, Slides brings that tab forward rather than replacing it with the list of decks.
+  if (id === "slides") return goToSlides(how);
   useWorkspace.getState().go(placeOfNav(id), how);
 }
 

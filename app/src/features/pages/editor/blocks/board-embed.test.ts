@@ -140,6 +140,52 @@ describe("whiteboard embeds", () => {
     localStorage.removeItem("kasten.embedHeights");
   });
 
+  it("focuses the board when it is activated, so Ctrl+Z goes to the board", async () => {
+    const { links } = provider();
+    links.mountBoard = vi.fn((host: HTMLElement) => {
+      const canvas = document.createElement("div");
+      canvas.className = "kasten-board";
+      canvas.tabIndex = 0;
+      host.append(canvas);
+      return () => canvas.remove();
+    });
+    await open("![[projects/trip/boards/map.canvas]]\n", links);
+    await settle();
+    const embed = root!.querySelector<HTMLElement>(".kasten-board-embed")!;
+    embed.querySelector<HTMLElement>(".kasten-board-embed-cover")!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(embed.querySelector(".kasten-board"));
+  });
+
+  it("has named undo and redo buttons in the head that ask the board", async () => {
+    const { links } = provider();
+    await open("![[projects/trip/boards/map.canvas]]\n", links);
+    await settle();
+    const embed = root!.querySelector<HTMLElement>(".kasten-board-embed")!;
+    const undo = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-undo")!;
+    const redo = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-redo")!;
+    expect([undo.getAttribute("aria-label"), redo.getAttribute("aria-label")]).toEqual(["Undo whiteboard edit", "Redo whiteboard edit"]);
+    expect(undo.tabIndex).toBe(0);
+    const asked: string[] = [];
+    embed.addEventListener("kasten:undo", () => asked.push("undo"));
+    embed.addEventListener("kasten:redo", () => asked.push("redo"));
+    undo.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    redo.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+    expect(asked).toEqual(["undo", "redo"]);
+  });
+
+  it("greys out undo and redo while the board says it has nothing to undo or redo", async () => {
+    const { links } = provider();
+    await open("![[projects/trip/boards/map.canvas]]\n", links);
+    await settle();
+    const embed = root!.querySelector<HTMLElement>(".kasten-board-embed")!;
+    const undo = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-undo")!;
+    const redo = embed.querySelector<HTMLButtonElement>(".kasten-board-embed-redo")!;
+    embed.dispatchEvent(new CustomEvent("kasten:history", { detail: { canUndo: false, canRedo: false } }));
+    expect([undo.disabled, redo.disabled]).toEqual([true, true]);
+    embed.dispatchEvent(new CustomEvent("kasten:history", { detail: { canUndo: true, canRedo: false } }));
+    expect([undo.disabled, redo.disabled]).toEqual([false, true]);
+  });
+
   it("gives each board its own element, so React unmounts it cleanly when it goes", async () => {
     const { links } = provider();
     let boards = BOARDS;

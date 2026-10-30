@@ -1,0 +1,3 @@
+[
+  { "op": "insert", "after": { "block": "b1" }, "markdown": "- c" }
+]

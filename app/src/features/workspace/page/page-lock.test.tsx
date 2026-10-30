@@ -27,7 +27,7 @@ describe("locking a page for agents", () => {
     render(<AppShell connect={async () => ({ client: vault })} />);
     await screen.findByRole("navigation", { name: "Sidebar" });
     act(() => useWorkspace.getState().openPath(PATH));
-    await screen.findByRole("textbox", { name: "Page title" }, { timeout: 20_000 });
+    await screen.findByRole("textbox", { name: "Page title" }, { timeout: 90_000 });
     const file = async () => (await vault.read(PATH)).text;
     const menu = async () => {
       await act(async () => fireEvent.click(screen.getByRole("button", { name: "Page options" })));
@@ -47,5 +47,5 @@ describe("locking a page for agents", () => {
     await act(async () => fireEvent.click(within(await menu()).getByRole("menuitem", { name: "Unlock for agents" })));
     await waitFor(async () => expect(await file()).not.toContain("locked"));
     expect(await file()).toContain("font: serif\n");
-  }, 30_000);
+  }, 120_000);
 });

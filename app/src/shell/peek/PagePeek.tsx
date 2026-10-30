@@ -12,6 +12,7 @@ import { usePeek, type Peek } from "../../features/peek/store";
 import { useDecks } from "../../features/slides/store";
 import { useSources } from "../../features/sources/store";
 import { LazyNotePage } from "../../features/workspace/page/LazyNotePage";
+import { openKind, isStandaloneView } from "../../features/workspace/open-kind";
 import { useWorkspace } from "../../features/workspace/store";
 import type { Place } from "../../features/workspace/tabs";
 import { IconButton } from "../../ui/Button";
@@ -22,7 +23,7 @@ import { IconOrEmoji } from "../../ui/IconOrEmoji";
 import { lineIcon } from "../../ui/glyph";
 import { noteAt } from "../../features/workspace/tree";
 
-const placeOf = (path: string): Place => ({ view: path.endsWith(".canvas") ? "boards" : path.endsWith(".deck") ? "slides" : path.endsWith(".drawio") ? "diagrams" : /\.pdf$/i.test(path) ? "highlights" : "page", path });
+const placeOf = (path: string): Place => ({ view: openKind(path), path });
 
 /** A page shown over the view it was picked in (Notion's peeks): in the
  * center as a modal, or at the side. Escape or a click outside closes it;
@@ -31,7 +32,7 @@ export function PagePeek() {
   const peek = usePeek((s) => s.peek);
   if (!peek) return null;
   // A deck or a diagram is not shown in a peek: it opens as a tab of its own.
-  if (peek.path.endsWith(".deck") || peek.path.endsWith(".drawio")) return <DeckInstead path={peek.path} />;
+  if (isStandaloneView(openKind(peek.path))) return <DeckInstead path={peek.path} />;
   return peek.mode === "center" ? <CenterPeek peek={peek} /> : <SidePeek peek={peek} />;
 }
 

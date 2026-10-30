@@ -53,13 +53,13 @@ export function useScrollEdges(scroller: RefObject<HTMLElement | null>): void {
 }
 
 /** The rows to draw in `scroller`, which holds the sticky header and then the rows. */
-export function useWindow(scroller: RefObject<HTMLElement | null>, count: number): Span {
-  const [span, setSpan] = useState(() => windowOf(0, 0, ROW_HEIGHT, count, OVERSCAN));
+export function useWindow(scroller: RefObject<HTMLElement | null>, count: number, rowHeight: number = ROW_HEIGHT): Span {
+  const [span, setSpan] = useState(() => windowOf(0, 0, rowHeight, count, OVERSCAN));
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
     const update = () => {
-      const next = windowOf(el.scrollTop, el.clientHeight - HEAD_HEIGHT, ROW_HEIGHT, count, OVERSCAN);
+      const next = windowOf(el.scrollTop, el.clientHeight - HEAD_HEIGHT, rowHeight, count, OVERSCAN);
       setSpan((current) => (same(current, next) ? current : next));
     };
     update();
@@ -70,6 +70,6 @@ export function useWindow(scroller: RefObject<HTMLElement | null>, count: number
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [scroller, count]);
+  }, [scroller, count, rowHeight]);
   return span;
 }

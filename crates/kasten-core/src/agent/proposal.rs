@@ -69,6 +69,9 @@ impl Proposal {
 
     /// One line for lists and commit messages.
     pub fn summary(&self) -> String {
+        if let AgentOp::Batch { ops, .. } = &self.op {
+            return format!("batch of {} changes", ops.len());
+        }
         let what = self.op.name().replace('_', " ");
         match &self.target {
             Some(t) => format!("{what} {}", t.title),

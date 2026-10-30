@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useTestEditor } from "../../../../test/editor";
 import type { DiagramLink, LinkProvider } from "../links";
-import { matchChoices, SLASH_CHOICES } from "./catalog";
+import { usePlugins } from "../../../../plugins/registry";
+import { matchChoices, slashChoices } from "./catalog";
 import { embedTarget, matchDiagrams, startDiagramPick } from "./diagram-pick";
 
 const DIAGRAMS: DiagramLink[] = [
@@ -43,15 +44,19 @@ function openAtEnd(body: string): number {
 }
 
 afterEach(() => {
+  usePlugins.getState().disable("diagrams");
   press("Escape");
   document.querySelector(".kasten-menu")?.remove();
   vi.clearAllMocks();
 });
 
 describe("/diagram", () => {
-  it("is offered among the blocks, and found by what it is called elsewhere", () => {
-    expect(SLASH_CHOICES.find((c) => c.key === "diagram")).toMatchObject({ label: "Diagram", icon: "icon:diagram", action: { type: "diagram" } });
-    for (const word of ["diagram", "drawio", "flowchart", "architecture"]) expect(matchChoices(SLASH_CHOICES, word)[0]!.key, word).toBe("diagram");
+  it("is offered among the blocks, and found by what it is called elsewhere", async () => {
+    // The choice comes from the diagrams plugin, ahead of the whiteboard.
+    await usePlugins.getState().enable("diagrams");
+    const choices = slashChoices();
+    expect(choices.find((c) => c.key === "diagram")).toMatchObject({ label: "Diagram", icon: "icon:diagram", action: { type: "plugin" } });
+    for (const word of ["diagram", "drawio", "flowchart", "architecture"]) expect(matchChoices(choices, word)[0]!.key, word).toBe("diagram");
   });
 
   it("matches diagrams by title, those starting with the words first", () => {

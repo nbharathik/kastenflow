@@ -34,4 +34,13 @@
   & .kasten-embed-tool:focus-visible {
     opacity: 1;
   }
+
+  /* Nothing to do (an empty undo history): shown, but dimmed. */
+  &:hover .kasten-embed-tool:disabled,
+  &:focus-within .kasten-embed-tool:disabled,
+  &[data-active="true"] .kasten-embed-tool:disabled {
+    background: transparent;
+    cursor: default;
+    opacity: 0.35;
+  }
 }

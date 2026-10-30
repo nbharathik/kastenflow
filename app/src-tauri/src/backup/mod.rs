@@ -5,8 +5,12 @@
 //! Kasten is desktop-first: backup keeps notes safe and moves them to a
 //! new computer. It is not live sync.
 
+pub mod contract;
+pub mod github_cmds;
+pub mod now_cmds;
 pub mod restore;
 mod schedule;
+pub mod status_cmds;
 
 use std::fs;
 use std::path::{Path, PathBuf};

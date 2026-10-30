@@ -296,6 +296,33 @@ fn a_layout_a_person_made_is_listed_used_and_checked_like_the_built_in_ones() {
 }
 
 #[test]
+fn an_operation_that_is_not_on_the_list_is_not_callable_by_its_name() {
+    let mut kit = Kit::new();
+    let name = kit.make(OUTLINE);
+    let before = kit.store.decks[&name].clone();
+    // The list leaves these out; called by name they are not tools, as in any other client.
+    for hidden in [
+        "apply_template",
+        "save_layout",
+        "add_slides",
+        "replace_deck",
+        "reset_slides",
+    ] {
+        let message = kit.err(hidden, json!({ "deck": name }));
+        assert!(
+            message.contains(&format!("There is no tool called `{hidden}`")),
+            "{message}"
+        );
+    }
+    assert_eq!(kit.store.decks[&name], before);
+    // The person's own still says whose it is.
+    assert!(
+        kit.err("accept_marks", json!({ "deck": name }))
+            .contains("the person's")
+    );
+}
+
+#[test]
 fn an_unknown_tool_lists_the_tools() {
     let mut kit = Kit::new();
     let message = kit.err("make_it_pretty", json!({}));

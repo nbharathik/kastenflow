@@ -4,7 +4,7 @@
 
 import { chosen, type SectionDef } from "../dashboard/sections";
 
-export type HomeSection = "favourites" | "projects" | "recent" | "pages" | "schedule" | "todo" | "inbox" | "week" | "journal" | "boards" | "decks";
+export type HomeSection = "favourites" | "projects" | "recent" | "pages" | "schedule" | "todo" | "inbox" | "week" | "journal" | "boards" | "decks" | "agents";
 
 /** `main` sections stack in the wide column, `side` ones in the slim column beside it. */
 export const HOME_SECTIONS: readonly SectionDef<HomeSection>[] = [
@@ -19,6 +19,7 @@ export const HOME_SECTIONS: readonly SectionDef<HomeSection>[] = [
   { id: "journal", label: "Journal", icon: "journal", hint: "Today's page and the days before", zone: "side" },
   { id: "boards", label: "Whiteboards", icon: "board", hint: "Your latest whiteboards", zone: "side" },
   { id: "decks", label: "Decks", icon: "present", hint: "Your latest slide decks", zone: "side" },
+  { id: "agents", label: "Agents today", icon: "agent", hint: "What agents and routines changed today, with Undo", zone: "side" },
 ];
 
 /** The simple layout: a list of recent work and a slim column of today, to-dos and the Inbox. */

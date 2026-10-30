@@ -24,18 +24,16 @@ pub struct ToolSpec {
 const HIDDEN: &[&str] = &[
     "accept_marks",
     "set_layout",
-    "move_slides",
     "duplicate_slides",
-    "set_slide_steps",
     "set_step_states",
     "build_steps",
     "paste_elements",
-    "set_rich_text",
     "collapse_slides",
     "add_slides",
     "replace_deck",
-    // The layouts and templates a person keeps are the editor's: an assistant reads them with
-    // `list_layouts` and uses them with `add_slide`.
+    // The layouts a person keeps are the editor's: an assistant reads them with `list_layouts` and
+    // uses them with `add_slide`. A template is put on a deck with `apply_deck_template`, which names a
+    // deck to take the look from; the operation takes a theme as data, which an assistant has no way to write.
     "add_layout",
     "save_layout",
     "edit_layout",
@@ -55,6 +53,12 @@ const HIDDEN: &[&str] = &[
     "acknowledge_source",
 ];
 
+/// Whether `name` is an operation that is not a tool of its own (see `HIDDEN`): it works inside
+/// `update_elements`, and called by name it is not offered.
+pub(super) fn is_hidden(name: &str) -> bool {
+    HIDDEN.contains(&name)
+}
+
 /// The order tools are listed in: look, make, change slides, change elements, steps, files.
 const ORDER: &[&str] = &[
     "list_decks",
@@ -70,8 +74,10 @@ const ORDER: &[&str] = &[
     "duplicate_slide",
     "delete_slides",
     "reorder_slides",
+    "move_slides",
     "apply_layout",
     "apply_theme",
+    "apply_deck_template",
     "edit_theme",
     "set_title",
     "set_present",
@@ -80,6 +86,7 @@ const ORDER: &[&str] = &[
     "set_background",
     "set_slide_flags",
     "set_text",
+    "set_rich_text",
     "format_paragraphs",
     "set_cells",
     "clear_cells",
@@ -107,6 +114,7 @@ const ORDER: &[&str] = &[
     "replace_all",
     "set_logo",
     "set_steps",
+    "set_slide_steps",
     "set_transition",
     "set_morph",
     "add_asset",
@@ -145,11 +153,11 @@ pub(super) fn object(properties: Value, required: &[&str]) -> Value {
 }
 
 pub(super) fn deck_property() -> Value {
-    json!({ "type": "string", "description": "The deck: its file name, such as talk.deck (the .deck may be left out). May be left out when there is only one deck." })
+    json!({ "type": "string", "description": "The deck's file name, such as talk.deck. Optional when there is only one deck." })
 }
 
 pub(super) fn slide_property() -> Value {
-    json!({ "type": "string", "description": "The slide: its id (s-…) or its number counting from 1." })
+    json!({ "type": "string", "description": "The slide: its id (s-…) or its number from 1." })
 }
 
 /// How the words of a text box, a shape or a table cell are written, in few words.
@@ -169,7 +177,7 @@ fn compact_text() -> Value {
 fn compact_element() -> Value {
     json!({
         "type": "object",
-        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb.",
+        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb. An image may have `crop` {left, top, right, bottom: fractions cut from each edge} and `mask` (rect, roundRect, ellipse); any element may be `locked` or have a `morphId`.",
         "required": ["type"],
         "properties": {
             "type": { "type": "string", "enum": ELEMENT_KINDS },
@@ -184,8 +192,7 @@ fn compact_element() -> Value {
             "text": { "type": "object", "description": format!("For text and shape: {TEXT_SHAPE}.") },
             "markdown": { "type": "string", "description": "For text and shape: the words as Markdown instead of `text`: **bold**, *italic*, `code`, [link](url), - bullets, 1. numbers, one paragraph per line." },
             "shape": { "type": "string", "description": "For a shape: rect, roundRect, ellipse, triangle, diamond, chevron, rightArrow ..." },
-            "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },
-            "from": { "type": "object", "description": "For a connector: {el: id, side: left, right, top or bottom}. `to` is the same." },
+            "src": { "type": "string", "description": "For an image or video: a path in the store, such as assets/figure.png." },            "from": { "type": "object", "description": "For a connector: {el: id, side: left, right, top or bottom}. `to` is the same." },
             "to": { "type": "object" },
             "route": { "type": "string", "enum": ["straight", "elbow", "curved"] },
             "children": { "type": "array", "description": "For a group: its elements.", "items": { "type": "object" } }
@@ -226,6 +233,8 @@ fn schema_for(input: &Value) -> Value {
     if let Some(map) = schema.as_object_mut() {
         map.remove("$schema");
         map.remove("title");
+        // The tool's own description says it; the doc comment of the type would say it twice.
+        map.remove("description");
         if let Some(Value::Object(defs)) = map.get_mut("$defs") {
             for (name, def) in defs.iter_mut() {
                 if name == "Element" {
@@ -258,6 +267,23 @@ fn schema_for(input: &Value) -> Value {
     schema
 }
 
+/// What an operation says of itself, with what an assistant needs to choose between it and the tool next to it.
+fn described(name: &str, about: &str) -> String {
+    let more = match name {
+        "move_slides" => {
+            " Name slides by id (get_deck shows them); reorder_slides orders all at once."
+        }
+        "set_rich_text" => {
+            " It replaces all the words, so say all of them. Use set_text for Markdown; format_paragraphs changes lists and alignment without rewriting."
+        }
+        "set_slide_steps" => {
+            " Only the count changes; set_steps does this too and also builds up a slide."
+        }
+        _ => "",
+    };
+    format!("{about}{more}")
+}
+
 /// Every tool, in the order an agent should read them.
 pub fn tools() -> Vec<ToolSpec> {
     let mut all = catalog::custom();
@@ -266,8 +292,8 @@ pub fn tools() -> Vec<ToolSpec> {
             continue;
         }
         all.push(ToolSpec {
+            description: described(&spec.name, &spec.about),
             name: spec.name,
-            description: spec.about,
             input_schema: schema_for(&spec.input),
             read_only: false,
         });
@@ -319,6 +345,16 @@ mod tests {
             "update_elements",
         ] {
             assert!(names.iter().any(|n| n == wanted), "{wanted}");
+        }
+    }
+
+    #[test]
+    fn the_words_for_an_element_name_what_the_editor_lets_a_person_set_on_a_picture() {
+        let all = tools();
+        let add = all.iter().find(|t| t.name == "add_elements").unwrap();
+        let schema = add.input_schema.to_string();
+        for field in ["crop", "mask", "locked", "morphId"] {
+            assert!(schema.contains(field), "{field} is not in the words");
         }
     }
 

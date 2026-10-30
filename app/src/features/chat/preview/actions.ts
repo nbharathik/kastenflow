@@ -1,6 +1,6 @@
 // The AI actions the app ships with, as the browser preview and the tests
 // have them. The app reads its own from the backend (`ai_actions`), where they
-// are files; this is the same nine, so the editor's and the reader's menus can
+// are files; this is the same fourteen, so the editor's and the reader's menus can
 // be tried without it.
 
 import type { ActionCatalog, AiAction } from "../types";
@@ -115,6 +115,66 @@ export const BUILT_IN_ACTIONS: AiAction[] = [
     where: ["chat"],
     instruction:
       "Check the attached diagram with diagram_lint. List what is wrong, most important first, each with the box or arrow it is about. Fix the problems that have one obvious fix (an arrow that ends nowhere, a box with no label, boxes lying on top of each other) with diagram_edit, and leave anything that needs a judgement to me: say what you would suggest instead. Do not remove a box or an arrow the diagram needs.",
+  },
+  {
+    ...base,
+    slug: "layout-page",
+    title: "Lay out this page",
+    icon: "layout",
+    needs: ["page"],
+    optional: [],
+    writes: "propose",
+    where: ["editor", "chat"],
+    instruction:
+      "Lay out the attached page so it is easier to scan, without changing its words. Read it first with read_page_blocks, then make one edit_page call that holds all your steps. Use the steps that fit: wrap_columns to set short neighbouring blocks, or two embedded views, side by side; callout for a summary or a warning; toggle to fold long details the reader does not need first; embed to show a live view; move to bring the most important block to the top. Leave headings, code, tables and every block you do not name as they are. Do not change the page's words, only how it is arranged. If a step is refused as changed since you read it, read the page again and redo it with the new ids. Then say in two sentences what you arranged. If the page is already well laid out, say so and change nothing. If no page is attached, ask which one.",
+  },
+  {
+    ...base,
+    slug: "fix-latex-errors",
+    title: "Fix LaTeX errors",
+    icon: "wand",
+    needs: ["sources"],
+    optional: ["selection"],
+    writes: "propose",
+    where: ["latex"],
+    instruction:
+      "Fix the errors in the attached LaTeX file. The last build's errors are listed with it, each with its file and line. If what is attached is not enough, read the build with latex_build and the file with latex_read. Start with the first error, because later ones often come from it. Fix each error with the smallest change, using latex_edit: search is the exact text to replace, and base_hash is the hash latex_read gave. Read the build again when you are done. If a selection is attached, fix only the errors inside it. Leave the wording, the packages and the class as they are unless an error needs them changed, and never take text out just to make an error go away. Then say in a few sentences what was wrong and what you changed. If an error needs a decision from me, say what you would suggest instead of guessing. If the build has no errors, say so and change nothing.",
+  },
+  {
+    ...base,
+    slug: "make-smart-page",
+    title: "Make a smart page from this",
+    icon: "layout",
+    needs: ["page"],
+    optional: ["selection"],
+    writes: "propose",
+    where: ["editor", "chat"],
+    instruction:
+      "Make a smart page from the attached page or selection: a live page that reads the user's notes and shows them as a dashboard, tracker, map, timeline, calendar, board or gallery. First decide what it should show and which tag of notes it reads, and look at those notes with query_tag so you use the properties they really have. If what is attached is prose rather than data to show, say that a normal page fits better and change nothing. Read the kit reference in the resource kasten://smart/kit, start from its nearest example, and make the page in one smart_create call. Never write the data into the page: dates, places and statuses come from notes, and the page has no network. Then run smart_check and fix every error with smart_edit. Finish with two sentences: what the page shows and which tag and properties it reads, and that you could not run it yourself. If nothing is attached, ask what the page should show.",
+  },
+  {
+    ...base,
+    slug: "improve-smart-layout",
+    title: "Improve this smart page's layout",
+    icon: "layout",
+    needs: ["page"],
+    optional: [],
+    writes: "propose",
+    where: ["smart"],
+    instruction:
+      "Improve the layout of the attached smart page without changing what data it shows. If the attached page is not a smart page, say so and change nothing. Read it first with smart_read, which gives each file and its hash. Change only how things are arranged, in index.html and in app.js, using smart_edit: put the most important section first, group related components, give every component a label and every section a heading, use the kit's components instead of hand-made markup, show a plain message when there are no notes, and set a size that fits so nothing scrolls inside the page. Never write data into the code and never add network use. Run smart_check when you are done and fix what it reports. Then say in two sentences what you moved. If the layout is already good, say so and change nothing.",
+  },
+  {
+    ...base,
+    slug: "fix-smart-errors",
+    title: "Fix its errors",
+    icon: "wand",
+    needs: ["page"],
+    optional: [],
+    writes: "propose",
+    where: ["smart"],
+    instruction:
+      "Fix the errors of the attached smart page. If the attached page is not a smart page, say so and change nothing. Call smart_read: it lists the problems with the page and the errors the page reported when the app ran it, each with its file and line, and gives each file's hash. Run smart_check as well. Start with the first error, because later ones often come from it. Fix each error with the smallest change, using smart_edit: the text to replace must be in the file once, and base_hash is the hash smart_read gave. Run smart_check again when you are done. Never take a component or its data out just to make an error go away, and never write data into the code or add network use. If an error needs a decision from me, say what you would suggest instead of guessing. Then say in a few sentences what was wrong and what you changed. If there are no errors, say so and change nothing.",
   },
 ];
 

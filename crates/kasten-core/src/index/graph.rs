@@ -68,6 +68,7 @@ impl Index {
                 words: 0,
                 props: serde_json::Value::Null,
                 locked: false,
+                children_order: Vec::new(),
             });
         }
 

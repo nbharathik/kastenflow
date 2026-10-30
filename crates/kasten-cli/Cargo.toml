@@ -23,5 +23,10 @@ path = "src/main.rs"
 kasten-core.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+# Only to make a local bare repository to back up to in the tests; the same
+# git library kasten-core uses.
+git2 = { version = "0.21.0", features = ["https", "ssh", "vendored-libgit2"] }
+
 [lints]
 workspace = true

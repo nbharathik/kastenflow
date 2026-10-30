@@ -1,0 +1,8 @@
+main: src/paper.tex
+engine: latexmk-xe
+bibliography: vault
+locked: true
+shelf:
+  place: left
+  tags: [draft, 2026]
+future_flag: 3

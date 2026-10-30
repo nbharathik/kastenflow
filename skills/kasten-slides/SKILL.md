@@ -83,9 +83,14 @@ Look:
 
 Make and arrange:
 - `create_deck`, `add_slide` (layout plus `content` by slot role, in Markdown),
-  `duplicate_slide`, `delete_slides`, `reorder_slides`, `apply_layout`,
+  `duplicate_slide`, `delete_slides`, `reorder_slides` (every slide's new order),
+  `move_slides` (a few slides, by id, to a position: `to` counts among the slides
+  that stay, 0 is the start), `apply_layout`,
   `apply_theme` (Light, Dark, Serif, Lecture, Minimal, Bold, Modern, Academic,
-  Pitch, Dark Studio, Warm Paper), `edit_theme`, `set_title`, `set_present` (slide
+  Pitch, Dark Studio, Warm Paper), `apply_deck_template` (the look of another
+  deck, such as one of the person's templates, named in `template`; every slide
+  keeps its words and elements; `resize` also takes its page size),
+  `edit_theme`, `set_title`, `set_present` (slide
   numbers on or off, a new deck has them off; `transition` is how every slide
   arrives that names none), `set_page_size` (`16:9`, `16:10`, `4:3`, `1:1` or a `w`
   and `h` in units of 1/96 inch: refits every slide and the theme), `set_notes`,
@@ -93,6 +98,9 @@ Make and arrange:
 
 Fill a slide:
 - `set_text` (Markdown: `**bold**`, `` `code` ``, `$latex$`, `- bullets`),
+  `set_rich_text` (all the words of a text box as paragraphs of runs, for marks
+  Markdown cannot say: a colour, a size, a highlight, a font, a link; it replaces
+  every word, so say all of them),
   `format_paragraphs` (change the list, marker style, number to start at, marker
   size and colour, alignment, spacing and indents of some or all paragraphs of a
   box without rewriting its words), `add_diagram`,
@@ -107,7 +115,9 @@ Fill a slide:
 
 Time and motion:
 - `set_steps` with a `recipe`: `reveal` (things appear one by one), `walkthrough`
-  (each highlighted in turn), `spotlight`; or explicit `states`. `set_transition`,
+  (each highlighted in turn), `spotlight`; or explicit `states`. `set_slide_steps`
+  only sets how many clicks a slide has (0 to 50) and leaves the elements as
+  they are. `set_transition`,
   and `set_morph` after `duplicate_slide` for a slide that glides from the last.
 
 Batches and files:

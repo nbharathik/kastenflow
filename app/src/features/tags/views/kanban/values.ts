@@ -6,10 +6,11 @@
 import { daysBetween, longDay } from "../../../../lib/dates";
 import type { NoteMeta, PropDef } from "../../../../lib/vault/types";
 import { asDay } from "../../../calendar/dates";
+import { formulaText } from "../../formula/rows";
 import { optionSwatch, type Swatch } from "../../../panel/properties/schemas";
 import { propOf } from "../../../panel/properties/values";
 
-export type ChipKind = "select" | "date" | "check" | "number" | "text" | "url" | "relation" | "more";
+export type ChipKind = "select" | "date" | "check" | "number" | "formula" | "text" | "url" | "relation" | "more";
 
 export interface CardChip {
   /** Unique on the card: the property's key, with the item's place for lists. */
@@ -85,6 +86,10 @@ function chipsOf(note: NoteMeta, def: PropDef, today: string): CardChip[] {
       return value === true || value === "true" ? one("check", `✓ ${def.key}`, "yes") : [];
     case "number":
       return one("number", `${def.key} ${typeof value === "number" ? NUMBER.format(value) : String(value)}`, String(value));
+    case "formula": {
+      const text = formulaText(value);
+      return text ? one("formula", `${def.key} ${short(text)}`, `${text} (calculated)`) : [];
+    }
     case "url":
       return one("url", host(String(value)), String(value));
     case "relation": {

@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useOcclusion } from "../../browser/occlusion";
+import { SHOW_HOLD, holdForShow, useShowing } from "../../browser/show";
 import { useWorkspace } from "../store";
 import { TOAST_MS, Toasts } from "./Toasts";
 
@@ -39,6 +41,20 @@ describe("Toasts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(run).toHaveBeenCalledOnce();
     expect(texts()).toEqual([]);
+  });
+
+  it("shows nothing over a slide show, takes no part of the window from a native view, and shows what waited once it ends", () => {
+    useOcclusion.setState({ holds: {}, areas: {} });
+    useShowing.setState({ count: 0 });
+    render(<Toasts />);
+    let done = () => {};
+    act(() => void (done = holdForShow()));
+    act(() => useWorkspace.getState().toast("Saved a copy"));
+    expect(screen.queryByText("Saved a copy")).toBeNull();
+    // Only the show's own hold is on the window: the toasts add none.
+    expect(Object.keys(useOcclusion.getState().holds)).toEqual([SHOW_HOLD]);
+    act(() => done());
+    expect(screen.getByText("Saved a copy")).toBeTruthy();
   });
 
   it("closes with its button, and the store keeps at most three", () => {

@@ -26,6 +26,9 @@ pub struct CommitInfo {
     pub op: Option<String>,
     /// Who accepted the agent's proposal, from `Approved-by`.
     pub approved_by: Option<String>,
+    /// The agent mode the commit was made in, from `Kasten-Mode` (only
+    /// `autonomous` is written; balanced commits carry none).
+    pub mode: Option<String>,
     /// The commit this one undoes, from `Kasten-Undo`.
     pub undoes: Option<String>,
     /// It joins two lines of history, as getting the latest does.
@@ -65,6 +68,7 @@ pub(super) fn info(commit: &git2::Commit) -> CommitInfo {
         session: trailer(&message, "Kasten-Session:"),
         op: trailer(&message, "Kasten-Op:"),
         approved_by: trailer(&message, "Approved-by:"),
+        mode: trailer(&message, "Kasten-Mode:"),
         undoes: trailer(&message, "Kasten-Undo:"),
         merge: commit.parent_count() > 1,
         message,
@@ -74,6 +78,19 @@ pub(super) fn info(commit: &git2::Commit) -> CommitInfo {
             .saturating_mul(1000),
     }
 }
+
+/// The trailer a copy of a note carries: the path of the note it was copied from.
+pub(crate) const COPY_OF: &str = "Kasten-Copy-Of";
+
+impl CommitInfo {
+    /// The note this commit copied (a duplicate), from its `Kasten-Copy-Of` trailer.
+    pub fn copy_of(&self) -> Option<String> {
+        trailer(&self.message, "Kasten-Copy-Of:").filter(|path| !path.is_empty())
+    }
+}
+
+/// The most commits (and changes to the file) `first_change` walks back.
+const MAKING_WALK: usize = 50_000;
 
 fn entry_id(tree: &git2::Tree, path: &str) -> Option<Oid> {
     tree.get_path(Path::new(path)).ok().map(|e| e.id())
@@ -110,6 +127,55 @@ impl History {
         Ok(out)
     }
 
+    /// The commit that made the file or folder at `path` as it is now: its
+    /// making, whatever was done to it since and wherever it was before a
+    /// rename or move (a page a person renamed was still made by whoever made
+    /// it). A path a person once used and left, and that someone made again,
+    /// is the new making. None if it never was there.
+    ///
+    /// A file is followed back through renames. When that cannot say (the
+    /// making came in with a merge, the walk was cut short, or `path` is a
+    /// folder or not there now), the oldest commit that brought `path` in is
+    /// the answer.
+    pub fn first_change(&self, path: &str) -> Result<Option<CommitInfo>> {
+        let want = [super::trail::Want { path, known: None }];
+        if let Some(walk) = self.trails(&want, MAKING_WALK, MAKING_WALK)?
+            && let Some(trail) = walk.trails.first()
+            && trail.end == super::trail::End::Created
+            && let Some(step) = trail.steps.last()
+            && step.before.is_none()
+            && !step.commit.merge
+        {
+            return Ok(Some(step.commit.clone()));
+        }
+        self.oldest_change(path)
+    }
+
+    /// The oldest commit that brought `path` into the vault (a file, or a
+    /// folder), or None if it never was there.
+    fn oldest_change(&self, path: &str) -> Result<Option<CommitInfo>> {
+        let repo = self.repo();
+        let mut walk = repo.revwalk()?;
+        if walk.push_head().is_err() {
+            return Ok(None);
+        }
+        walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME | Sort::REVERSE)?;
+        for id in walk {
+            let commit = repo.find_commit(id?)?;
+            let Some(now) = entry_id(&commit.tree()?, path) else {
+                continue;
+            };
+            let before = match commit.parent(0) {
+                Ok(parent) => entry_id(&parent.tree()?, path),
+                Err(_) => None,
+            };
+            if Some(now) != before {
+                return Ok(Some(info(&commit)));
+            }
+        }
+        Ok(None)
+    }
+
     /// A file's text at a commit (any revision git understands), or None if
     /// it did not exist there.
     pub fn file_at(&self, rev: &str, path: &str) -> Result<Option<String>> {
@@ -120,6 +186,18 @@ impl History {
         };
         let blob = repo.find_blob(entry.id())?;
         Ok(Some(String::from_utf8_lossy(blob.content()).into_owned()))
+    }
+
+    /// How many bytes a file held at a commit, read from the object's header
+    /// without loading it; None if it did not exist there.
+    pub fn blob_len_at(&self, rev: &str, path: &str) -> Result<Option<u64>> {
+        let repo = self.repo();
+        let commit = repo.revparse_single(rev)?.peel_to_commit()?;
+        let Ok(entry) = commit.tree()?.get_path(Path::new(path)) else {
+            return Ok(None);
+        };
+        let (len, _) = repo.odb()?.read_header(entry.id())?;
+        Ok(Some(len as u64))
     }
 
     /// A file's bytes at a commit, or None if it did not exist there.

@@ -1,0 +1,26 @@
+% A paper of about thirty pages, assembled from section files. The filler text
+% comes from the lipsum package so that the source stays small.
+\documentclass[11pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{lipsum}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\title{A Paper of About Thirty Pages}
+\author{Ada Example}
+\date{2026-10-01}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/method}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\end{document}

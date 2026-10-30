@@ -33,6 +33,7 @@ export function parseSchema(path: string, yaml: string): TagSchema {
       key: String(p.key),
       type: p.type == null ? "text" : String(p.type),
       options: Array.isArray(p.options) ? p.options.map(String) : [],
+      ...(typeof p.formula === "string" ? { formula: p.formula } : {}),
     }));
   const name = top("name");
   const color = top("color");

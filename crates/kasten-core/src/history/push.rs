@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use super::auth::{GitToken, credentials};
 use super::{History, check_remote};
+use crate::backup::{BackupNotice, LargeFile, SkippedFile};
 use crate::error::{Error, Result};
 
 /// How the backup stands, for the status bar dot.
@@ -18,7 +19,8 @@ pub enum BackupState {
     Ok,
     /// Last push over 24 hours ago.
     Stale,
-    /// Over 72 hours, or pushes keep failing.
+    /// Over 72 hours without a push, or the backup has failed for 6 hours or
+    /// refused three pushes (`BackupStatus::notice`).
     Failing,
     /// The config names a remote that no one confirmed on this computer,
     /// so nothing is pushed yet.
@@ -36,6 +38,27 @@ pub struct BackupStatus {
     /// The last push was refused because the backup has changes this
     /// computer lacks: Get latest first.
     pub behind: bool,
+    /// Local commits the backup lacks.
+    pub unpushed: u32,
+    /// Changes are waiting to go to the backup.
+    pub waiting: bool,
+    /// The backup no longer holds history this computer sent it (it was
+    /// rewritten): pushes have stopped.
+    pub lost_history: bool,
+    /// The safety branch this computer's full history was last saved to.
+    pub recovered_branch: Option<String>,
+    /// Files left out of history for their size (over 100 MiB).
+    pub skipped: Vec<SkippedFile>,
+    /// Files in history at 50 MiB or more.
+    pub warn: Vec<LargeFile>,
+    /// Bytes the history takes on this computer, when known.
+    pub repo_size: Option<u64>,
+    /// When the weekly check last found the backup whole (milliseconds since
+    /// the Unix epoch).
+    pub verified_at: Option<u64>,
+    /// Something the person should hear now: the backup has failed for 6
+    /// hours, or a push was refused three times.
+    pub notice: Option<BackupNotice>,
 }
 
 const DAY: u64 = 24 * 60 * 60 * 1000;
@@ -71,6 +94,15 @@ impl BackupStatus {
             failures,
             last_error,
             behind: false,
+            unpushed: 0,
+            waiting: false,
+            lost_history: false,
+            recovered_branch: None,
+            skipped: Vec::new(),
+            warn: Vec::new(),
+            repo_size: None,
+            verified_at: None,
+            notice: None,
         }
     }
 }
@@ -117,11 +149,24 @@ impl History {
 
     /// `push`, signing in with `token` where it is for that server.
     pub fn push_as(&self, url: &str, token: Option<&GitToken>) -> Result<Option<String>> {
-        check_remote(url)?;
         let branch = self.branch()?;
+        self.push_branch_to(url, token, &branch, &branch)
+    }
+
+    /// Pushes the local branch `local` to the branch `remote` on `url`. Never
+    /// forced: a branch that holds other history is left alone and the push
+    /// fails.
+    pub(crate) fn push_branch_to(
+        &self,
+        url: &str,
+        token: Option<&GitToken>,
+        local: &str,
+        remote: &str,
+    ) -> Result<Option<String>> {
+        check_remote(url)?;
         let repo = self.own_repo()?;
         let config = repo.config()?;
-        let mut remote = repo.remote_anonymous(url)?;
+        let mut connection = repo.remote_anonymous(url)?;
         let mut attempts = 0;
         let mut rejected: Option<String> = None;
         // The commit that went, which a commit made during the upload is not.
@@ -147,8 +192,8 @@ impl History {
             let mut options = PushOptions::new();
             options.remote_callbacks(callbacks);
             // No leading `+`: a non-fast-forward push is refused, never forced.
-            let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
-            match remote.push(&[refspec.as_str()], Some(&mut options)) {
+            let refspec = format!("refs/heads/{local}:refs/heads/{remote}");
+            match connection.push(&[refspec.as_str()], Some(&mut options)) {
                 Err(err) if err.code() == git2::ErrorCode::NotFastForward => {
                     return Err(Error::Git(BEHIND.into()));
                 }

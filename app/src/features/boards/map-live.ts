@@ -1,9 +1,9 @@
 // An open page map following its page: it reads the page, works out what
 // would change on the board, brings the board in step when it opens, and
-// tells the bar above it (a "Sync with page" chip) what it found. One sync
-// is one step to undo. Nothing here writes on every keystroke: the page is
+// tells the bar above it (a "Sync with page" chip) what it found. Nothing here writes on every keystroke: the page is
 // read again when its note changes, and the board is written only when
-// opened or asked.
+// opened or asked. A sync is saved but is not an undo step: undo stays
+// the person's own edits.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { create, useStore } from "zustand";
@@ -109,7 +109,7 @@ export function useMapSync(board: BoardController, active = true): void {
           return;
         }
         const group = `sync:${Date.now()}`;
-        const result = await applySync(board.doc, now, async (batch) => (await board.commit(batch, { group }))?.made ?? null);
+        const result = await applySync(board.doc, now, async (batch) => (await board.commit(batch, { group, record: false }))?.made ?? null);
         if (!result) return;
         const moved = result.added + result.updated + result.stale + result.revived;
         if (moved > 0) toast(`Mind map updated from “${note.title}”: ${describe(result)}`);

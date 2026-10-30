@@ -11,6 +11,9 @@ export interface ViewProps {
   view: TagView;
   /** The notes it shows: the tag's, filtered and sorted by the view. */
   notes: NoteMeta[];
+  /** All the tag's notes in the view's sort order, filters aside: what a table
+   * with sub-items finds the parents of matching rows in. Without it, `notes`. */
+  pool?: readonly NoteMeta[];
   /** Saves a change to this view (its group, its columns...) into the tag's YAML. */
   onChange(next: TagView): void;
   /** Where "+ New" makes a note: this project folder, else the library. */

@@ -189,7 +189,7 @@ impl Kasten {
                 };
                 for step in &set.steps {
                     if let Some(op) = &step.op {
-                        gone(self.staged_refusals(set, op))?;
+                        gone(self.applying_refusals(set, op))?;
                     }
                 }
                 for path in set.files.keys() {

@@ -12,6 +12,7 @@ import { sectionOf } from "../../markdown/sections";
 import { isFileTarget, linksOf, parseWikiTarget, type EmbeddedPage } from "../links";
 import { el, withGlyph } from "../ui/dom";
 import { embedTool } from "./embed-tools";
+import { SmartEmbed } from "./smart-embed";
 
 /** Blocks drawn at most; a longer page shows its start. */
 const MAX_BLOCKS = 60;
@@ -48,6 +49,7 @@ export class EmbedCard {
    * fetched again when the page around it saves. */
   private drawn: string | null = null;
   private ticket = 0;
+  private smart: SmartEmbed | null = null;
 
   constructor(
     private readonly dom: HTMLElement,
@@ -63,6 +65,7 @@ export class EmbedCard {
     const ticket = ++this.ticket;
     const label = target.heading ? `${target.alias || target.title} › ${target.heading}` : target.alias || target.title;
     if (!source) {
+      this.smart?.unmount();
       // A file is never a page to make: its name says what it is.
       const note = isFileTarget(target.title) ? `No file called “${target.title}”.` : `No page called “${target.title}” yet. Click to create it.`;
       this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: note }));
@@ -70,8 +73,13 @@ export class EmbedCard {
     }
     if (!this.dom.querySelector(".kasten-embed-body")) this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: "Loading…" }));
     source.load().then(
-      (page) => ticket === this.ticket && this.draw(label, page.icon, embedContent(this.ctx, page, target.heading)),
-      () => ticket === this.ticket && this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: `“${target.title}” could not be read.` })),
+      (page) => ticket === this.ticket && this.show(label, page, target.heading),
+      () => {
+        if (ticket !== this.ticket) return;
+        // A live smart view that is replaced by this line stops with it.
+        this.smart?.unmount();
+        this.draw(label, undefined, el("p", "kasten-embed-note", { textContent: `“${target.title}” could not be read.` }));
+      },
     );
   }
 
@@ -79,6 +87,24 @@ export class EmbedCard {
   reset(): void {
     this.drawn = null;
     this.ticket++;
+    this.smart?.unmount();
+  }
+
+  /** Whether an event belongs to a smart page's live view in this embed, so the page around it leaves it alone. */
+  owns(target: EventTarget | null): boolean {
+    return this.smart?.owns(target) ?? false;
+  }
+
+  /** A page's content: a smart page as its live view (its `#view` named), any other as its Markdown. */
+  private show(label: string, page: EmbeddedPage, heading: string): void {
+    this.smart?.unmount();
+    if (page.smart) {
+      const body = el("div", "kasten-smart-embed-body");
+      this.draw(label, page.icon, body);
+      this.smart ??= new SmartEmbed(this.ctx);
+      if (this.smart.mount(body, page, heading)) return;
+    }
+    this.draw(label, page.icon, embedContent(this.ctx, page, heading));
   }
 
   private draw(label: string, icon: string | undefined, content: Node): void {

@@ -4,8 +4,10 @@
 
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 
+import type { NoteMeta } from "../../../../lib/vault/types";
 import type { OpenHow } from "../../../workspace/store";
 import { sameValue } from "./format";
+import type { SubDrop } from "./sub-drop";
 
 /** Row and header heights, in px; rows are all one height so they can be
  * windowed. They match --row-h and --head-h in table.css. */
@@ -19,9 +21,32 @@ export type Move = "next" | "prev" | null;
 export interface CellHandle {
   /** A key pressed while the cell is active and not editing; true when it used the key. */
   onKey(event: KeyboardEvent): boolean;
+  /** Asked first about a key that would move the active cell (arrows, Tab...);
+   * true when the cell used it instead. */
+  onNav?(event: KeyboardEvent): boolean;
+}
+
+/** What the table's sub-items do, for the title cells; set by the table. */
+export interface SubApi {
+  /** Sub-items are on for this view. */
+  enabled: boolean;
+  /** Opens or shuts a row's sub-items (`want` to say which; else flips). */
+  toggle(note: NoteMeta, want?: boolean): void;
+  /** Asks for the title of a new sub-item of the row, and opens the row. */
+  addUnder(note: NoteMeta): void;
+  indent(note: NoteMeta): void;
+  outdent(note: NoteMeta): void;
+  /** The row's menu, at a point on the screen. */
+  menu(note: NoteMeta, x: number, y: number): void;
+  /** What dropping the dragged rows on `over` would do, `fraction` of the way down it. */
+  plan(dragged: readonly string[] | null, over: NoteMeta, fraction: number): SubDrop | null;
+  /** Does what a plan says. */
+  drop(plan: SubDrop, dragged: readonly string[], over: NoteMeta): void;
 }
 
 export interface TableCtx {
+  /** The table's sub-items, once it has set them. */
+  sub: RefObject<SubApi | null>;
   /** The active cell's handle, while it is drawn. */
   handle: RefObject<CellHandle | null>;
   /** Makes a cell the active one; keys go to the grid. */
@@ -46,16 +71,17 @@ export function useLatest<T>(value: T): RefObject<T> {
 }
 
 /** Makes this cell's key handler the grid's while the cell is active. */
-export function useCellHandle(ctx: TableCtx, active: boolean, onKey: (event: KeyboardEvent) => boolean): void {
+export function useCellHandle(ctx: TableCtx, active: boolean, onKey: (event: KeyboardEvent) => boolean, onNav?: (event: KeyboardEvent) => boolean): void {
   const latest = useLatest(onKey);
+  const nav = useLatest(onNav);
   useLayoutEffect(() => {
     if (!active) return;
-    const handle: CellHandle = { onKey: (event) => latest.current(event) };
+    const handle: CellHandle = { onKey: (event) => latest.current(event), onNav: (event) => nav.current?.(event) ?? false };
     ctx.handle.current = handle;
     return () => {
       if (ctx.handle.current === handle) ctx.handle.current = null;
     };
-  }, [active, ctx, latest]);
+  }, [active, ctx, latest, nav]);
 }
 
 interface Pending {

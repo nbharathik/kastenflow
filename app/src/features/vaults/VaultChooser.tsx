@@ -8,6 +8,7 @@ import { BrandMark } from "../../ui/BrandMark";
 import { writeEverything } from "../workspace/page/before-exit";
 import { Icon } from "../../ui/Icon";
 import { FolderPicker } from "./FolderPicker";
+import { askToKeepSafe } from "../backup/told-up-front";
 import { openOnFirstRun } from "./first-page";
 import { FolderNote, useSurvey } from "./FolderNote";
 import { KitChoice } from "./KitChoice";
@@ -65,6 +66,7 @@ export function VaultChooser({ problem, onCancel }: { problem?: string | null; o
       await writeEverything();
       const starter = create ? kits.find((k) => k.id === kit) : undefined;
       if (starter) openOnFirstRun(starter.home);
+      if (create) askToKeepSafe();
       await openVault(path, create, create ? name : undefined, starter?.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

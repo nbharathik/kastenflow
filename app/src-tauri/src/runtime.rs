@@ -93,6 +93,8 @@ pub fn start(app: &AppHandle, kasten: Arc<Kasten>) -> Option<VaultWatcher> {
             loop {
                 std::thread::sleep(Duration::from_secs(5));
                 tick = tick.wrapping_add(1);
+                // Who can see the backup repository: at the start, then daily.
+                crate::git_host::visibility::tick(&backup, &pushing, tick);
                 // The daily backup file, looked at once a minute.
                 if tick.is_multiple_of(12)
                     && let Some(dir) = &settings

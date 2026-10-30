@@ -94,6 +94,19 @@ impl Kasten {
         now: Instant,
     ) -> Result<ReferenceSaved> {
         person_only(actor, "Adding a reference")?;
+        self.add_reference_as(actor, reference, base_hash, now)
+    }
+
+    /// `add_reference` for any actor: an agent's goes through the modes
+    /// (`parity_refusals`, which always holds it for review unless the
+    /// session is autonomous) before it gets here.
+    pub(in crate::engine) fn add_reference_as(
+        &self,
+        actor: &Actor,
+        reference: &NewReference,
+        base_hash: &str,
+        now: Instant,
+    ) -> Result<ReferenceSaved> {
         let kind = style::check_type(&reference.kind)?;
         let key = style::check_key(&reference.key)?;
         let fields = clean_fields(&reference.fields)?;

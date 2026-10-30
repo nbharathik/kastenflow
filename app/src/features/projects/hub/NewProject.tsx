@@ -5,13 +5,14 @@
 
 import "./new-project.css";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import type { SetupInfo, SetupPlan } from "../../../lib/vault/project-types";
 import { Button } from "../../../ui/Button";
 import { Modal } from "../../../ui/Modal";
 import { useWorkspace } from "../../workspace/store";
 import { createProject } from "./create-project";
+import { SavedChoice } from "./SavedChoice";
 import { describePlan } from "./setup-preview";
 
 /** What the preview is showing for the choice and the name. */
@@ -32,19 +33,29 @@ export function NewProject({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const ask = useRef(0);
 
+  // A client that cannot list setups still offers a blank project.
+  const reload = useCallback(
+    (live: () => boolean = () => true) =>
+      Promise.resolve()
+        .then(() => client?.listSetups())
+        .then(
+          (list) => {
+            if (!live()) return;
+            setSetups(list ?? []);
+            // A setup that is gone (deleted here) is no longer the choice.
+            setChosen((was) => (was === BLANK.id || list?.some((s) => s.id === was) ? was : BLANK.id));
+          },
+          () => {},
+        ),
+    [client],
+  );
   useEffect(() => {
     let live = true;
-    // A client that cannot list setups still offers a blank project.
-    void Promise.resolve()
-      .then(() => client?.listSetups())
-      .then(
-        (list) => live && setSetups(list ?? []),
-        () => {},
-      );
+    void reload(() => live);
     return () => {
       live = false;
     };
-  }, [client]);
+  }, [reload]);
 
   const setup = setups.find((s) => s.id === chosen);
   const words = name.trim();
@@ -76,7 +87,10 @@ export function NewProject({ onClose }: { onClose: () => void }) {
     if (made) onClose();
   };
 
-  const choices: { id: string; icon: string; name: string; summary: string }[] = [BLANK, ...setups];
+  const builtIn = setups.filter((s) => !s.saved);
+  const mine = setups.filter((s) => s.saved);
+  // The arrow keys go through all of them, the blank one first and "Your setups" last.
+  const choices: { id: string; icon: string; name: string; summary: string }[] = [BLANK, ...builtIn, ...mine];
   const onRadioKey = (event: KeyboardEvent<HTMLElement>) => {
     const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
     if (step === 0) return;
@@ -107,16 +121,30 @@ export function NewProject({ onClose }: { onClose: () => void }) {
 
         <div className="kasten-hub-new-field">
           <span id={`${title}-start`}>Start from</span>
-          <div role="radiogroup" aria-labelledby={`${title}-start`} className="kasten-hub-setups" onKeyDown={onRadioKey}>
-            {choices.map((choice) => (
-              <button key={choice.id} type="button" role="radio" aria-checked={choice.id === chosen} data-choice={choice.id} tabIndex={choice.id === chosen ? 0 : -1} className="kasten-hub-setup" onClick={() => setChosen(choice.id)}>
-                <span className="kasten-hub-setup-icon" aria-hidden="true">
-                  {choice.icon}
-                </span>
-                <span className="kasten-hub-setup-name">{choice.name}</span>
-                <span className="kasten-hub-setup-summary">{choice.summary}</span>
-              </button>
-            ))}
+          <div role="radiogroup" aria-labelledby={`${title}-start`} className="kasten-hub-choices" onKeyDown={onRadioKey}>
+            <div role="presentation" className="kasten-hub-setups">
+              {[BLANK, ...builtIn].map((choice) => (
+                <button key={choice.id} type="button" role="radio" aria-checked={choice.id === chosen} data-choice={choice.id} tabIndex={choice.id === chosen ? 0 : -1} className="kasten-hub-setup" onClick={() => setChosen(choice.id)}>
+                  <span className="kasten-hub-setup-icon" aria-hidden="true">
+                    {choice.icon}
+                  </span>
+                  <span className="kasten-hub-setup-name">{choice.name}</span>
+                  <span className="kasten-hub-setup-summary">{choice.summary}</span>
+                </button>
+              ))}
+            </div>
+            {mine.length > 0 && (
+              <>
+                <p role="presentation" className="kasten-hub-mine-heading">
+                  Your setups
+                </p>
+                <div role="presentation" className="kasten-hub-setups">
+                  {mine.map((item) => (
+                    <SavedChoice key={item.id} setup={item} chosen={item.id === chosen} onChoose={() => setChosen(item.id)} onChanged={() => void reload()} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

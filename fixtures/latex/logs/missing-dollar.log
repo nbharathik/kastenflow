@@ -1,0 +1,32 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:15
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo))
+(./main.aux)
+! Missing $ inserted.
+<inserted text>
+                $
+l.14 The value x_
+                 1 is small (below 0.5).
+?
+! Missing $ inserted.
+<inserted text>
+                $
+l.14 The value x_1 is small (below 0.5)
+                                       .
+?
+! Extra }, or forgotten $.
+l.22 ...ere $a + b} = c$ holds (see section~
+                                                  \ref{sec:intro}).
+?
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.aux) )
+(see the transcript file for additional information)
+Output written on main.pdf (1 page, 23456 bytes).
+Transcript written on main.log.

@@ -32,6 +32,17 @@ impl Rollback {
         Ok(())
     }
 
+    /// Notes a file the op made by other means, so that putting back removes it.
+    pub(crate) fn made(&mut self, file: &Path) {
+        self.steps.push(Step::Made(file.to_owned()));
+    }
+
+    /// Notes a file the op changed by other means: putting back writes
+    /// `before` into it again.
+    pub(crate) fn replaced(&mut self, file: &Path, before: Vec<u8>) {
+        self.steps.push(Step::Replaced(file.to_owned(), before));
+    }
+
     /// Writes `file` as `write_atomic` does; `before` is what it held, if
     /// it was there.
     pub(crate) fn write(

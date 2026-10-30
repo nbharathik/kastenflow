@@ -138,6 +138,10 @@ impl Kasten {
         props: &Map<String, Value>,
         now: Instant,
     ) -> Result<NoteFile> {
+        // A project's status, health, next action and review days have their own checking op.
+        if actor.is_agent() {
+            super::structure_agent::state_keys_refused(path, props)?;
+        }
         let schemas = self.tag_schemas()?;
         // The note a relation names, when not by id.
         let resolve = |item: &str| -> Result<String> {

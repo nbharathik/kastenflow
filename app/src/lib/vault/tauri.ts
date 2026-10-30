@@ -4,8 +4,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+import { tauriAgentModes } from "./agent-mode-tauri";
 import { tauriAnnotations } from "./annotations-tauri";
 import type { AddedAsset, AssetInfo, AssetUsage } from "./asset-types";
+import { tauriBatch } from "./batch-tauri";
 import { tauriBundles } from "./bundles-tauri";
 import type { ClipOutcome } from "./collection-types";
 import { tauriCollections } from "./collections-tauri";
@@ -16,6 +18,8 @@ import { tauriReferences } from "./references-tauri";
 import { tauriRevisions } from "./revisions-tauri";
 import type {
   AddedKit,
+  FormulaFill,
+  FormulaIssue,
   KitInfo,
   AgentMark,
   Backlink,
@@ -35,6 +39,7 @@ import type {
   DeckInfo,
   DeckSaved,
   DecksSaved,
+  Digest,
   Highlight,
   Hit,
   NewNote,
@@ -96,6 +101,7 @@ export function tauriVault(label: string): VaultClient {
     move: (path, project) => invoke<Placed>("move_note", { path, project }),
     moveToInbox: (path) => invoke<Placed>("move_to_inbox", { path }),
     nest: (path, parent) => invoke<Placed>("nest_note", { path, parent }),
+    reorderChildren: (parent, ids) => invoke<NoteFile>("reorder_children", { parent, ids }),
     convert: (path, kind) => invoke<Placed>("convert_note", { path, kind }),
     duplicate: (path) => invoke<NoteFile>("duplicate_note", { path }),
     trash: (path) => invoke<string>("trash_note", { path }),
@@ -129,6 +135,9 @@ export function tauriVault(label: string): VaultClient {
     tagSchemas: () => invoke<TagSchema[]>("tag_schemas"),
     setTagViews: (tag, views) => invoke<TagSchema>("set_tag_views", { tag, views }),
     setTagProperties: (tag, properties) => invoke<TagSchema>("set_tag_properties", { tag, properties }),
+    tagFormulas: (tag, today) => invoke<FormulaFill>("tag_formulas", { tag, today }),
+    checkFormula: (formula, key, properties) =>
+      invoke<FormulaIssue | null>("check_formula", { formula, key, properties: properties.map((p) => ({ key: p.key, type: p.type })) }),
     // The bytes go as the request's body; header values are ASCII, hence the escaping.
     saveAsset: (name, bytes) => invoke<string>("save_asset", bytes, { headers: { "x-name": encodeURIComponent(name) } }),
     saveDownload: (name, bytes) => invoke<string>("save_download", bytes, { headers: { "x-name": encodeURIComponent(name) } }),
@@ -178,6 +187,7 @@ export function tauriVault(label: string): VaultClient {
     acceptProposal: (id) => invoke<unknown>("accept_proposal", { id }),
     rejectProposal: (id) => invoke<void>("reject_proposal", { id }),
     sessions: (limit) => invoke<SessionInfo[]>("list_sessions", { limit }),
+    activityDigest: (since) => invoke<Digest>("activity_digest", { since }),
     undoSession: (session) => invoke<Undone>("undo_session", { session }),
     planImport: (source, options) => invoke<ImportSummary>("plan_import", { source, options }),
     importNotes: (source, options) => invoke<Imported>("import_notes", { source, options }),
@@ -203,6 +213,8 @@ export function tauriVault(label: string): VaultClient {
     ...tauriReferences,
     ...tauriBundles,
     ...tauriHealth,
+    ...tauriAgentModes,
+    ...tauriBatch,
     ...tauriRevisions,
     watch: watchVault,
   };

@@ -120,6 +120,19 @@ pub(super) fn custom() -> Vec<ToolSpec> {
             ),
         ),
         tool(
+            "apply_deck_template",
+            false,
+            "Puts the look of another deck, such as a template, on this deck: colours, fonts, text styles, layouts and what every slide shows behind it. Every slide keeps its words and elements; the template is only read. apply_theme is for the built-in themes.",
+            object(
+                json!({
+                    "deck": deck_property(),
+                    "template": { "type": "string", "description": "The deck to take the look from, named like `deck`." },
+                    "resize": { "type": "boolean", "description": "Also take its page size and refit the slides." }
+                }),
+                &["template"],
+            ),
+        ),
+        tool(
             "duplicate_slide",
             false,
             "Copies a slide right after itself, `count` times (1 to 10). A copy keeps its elements' ids, so a copy changed a little is ready for a Morph transition (set_morph).",

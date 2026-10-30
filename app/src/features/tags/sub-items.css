@@ -1,0 +1,17 @@
+/* The "↳ Parent" chip on a sub-item in the board, list, gallery and timeline. */
+
+.kasten-parent-chip {
+  display: inline-block;
+  flex: none;
+  max-width: 14rem;
+  overflow: hidden;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-hover);
+  color: var(--color-muted);
+  font-size: var(--text-11);
+  font-weight: 400;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

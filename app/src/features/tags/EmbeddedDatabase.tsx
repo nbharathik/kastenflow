@@ -13,10 +13,12 @@ import { schemaOf } from "../panel/properties/schemas";
 import { useWorkspace } from "../workspace/store";
 import { AddExistingPages } from "./AddExistingPages";
 import { DatabaseTools } from "./DatabaseTools";
+import { FormulaProblems, useFormulaRows } from "./formula/use-formula-rows";
 import { NoteHomeContext } from "./home";
 import { applyView, notesWith, projectFolderOf, scoped, viewsOf } from "./model";
 import { SchemaEditor } from "./SchemaEditor";
 import { useTags } from "./store";
+import { ParentTitlesProvider, useSubItems } from "./sub-items";
 import { NewNote, ViewBody } from "./TagDatabase";
 import { TagDropZone } from "./TagDropZone";
 import { RevealedLine, useTagMembership, withRevealed } from "./use-membership";
@@ -55,10 +57,13 @@ export function EmbeddedDatabase({
   // A view saved with `scope: project` (a tag's "This project") shows only what is
   // filed in the project this page is in, and nothing in a page with none.
   const folder = projectFolderOf(parent);
-  const tagged = useMemo(
+  const carrying = useMemo(
     () => scoped(notesWith(notes, name), view, folder),
     [notes, name, view, folder],
   );
+  // Calculated cells are worked out by the core and laid over the rows.
+  const calculated = useFormulaRows(name, schema, carrying);
+  const tagged = calculated.notes;
   const shown = useMemo(
     () => applyView(tagged, view, schema),
     [tagged, view, schema],
@@ -69,6 +74,7 @@ export function EmbeddedDatabase({
   // Pages dropped on the list, or picked with "Add existing pages", gain the tag.
   const membership = useTagMembership(name, view, schema, folder);
   const listed = useMemo(() => withRevealed(shown, tagged, membership.revealed), [shown, tagged, membership.revealed]);
+  const sub = useSubItems(name, view, schema, tagged, listed);
   const saveViews = (next: TagView[]) =>
     void useTags.getState().saveViews(name, next);
   const change = (next: TagView) => {
@@ -97,6 +103,7 @@ export function EmbeddedDatabase({
             shown={shown.length}
             total={tagged.length}
             onChange={change}
+            subItems={{ menu: sub.menu, present: sub.chips !== null }}
           />
           <DatabaseTools
             properties={schema?.properties.length ?? 0}
@@ -111,13 +118,18 @@ export function EmbeddedDatabase({
             count={listed.length - shown.length}
             onHide={membership.hideRevealed}
           />
-          <ViewBody
-            tag={name}
-            schema={schema}
-            view={view}
-            notes={listed}
-            onChange={change}
-          />
+          <FormulaProblems value={calculated.problems}>
+            <ParentTitlesProvider value={sub.chips}>
+              <ViewBody
+                tag={name}
+                schema={schema}
+                view={view}
+                notes={sub.notes}
+                pool={sub.pool}
+                onChange={change}
+              />
+            </ParentTitlesProvider>
+          </FormulaProblems>
         </TagDropZone>
         {membership.picking && (
           <AddExistingPages

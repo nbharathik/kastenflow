@@ -30,7 +30,12 @@ fn frontmatter_value(prefix: &str, key: &str) -> Option<String> {
 
 pub(crate) fn list_templates(k: &Kasten) -> Result<Value> {
     let mut out = Vec::new();
-    for meta in k.list()?.into_iter().filter(|n| n.kind == "template") {
+    // The pages inside a saved project setup are parts of it, not templates to start a page from.
+    for meta in k
+        .list()?
+        .into_iter()
+        .filter(|n| n.kind == "template" && !n.path.starts_with("templates/setups/"))
+    {
         let slug = meta
             .path
             .trim_start_matches("templates/")

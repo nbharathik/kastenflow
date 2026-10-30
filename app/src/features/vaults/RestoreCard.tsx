@@ -5,7 +5,9 @@
 
 import { useEffect, useState } from "react";
 
-import { canBackUp, githubAccount, githubBackups, githubSignInCancel, githubSignInStart, onSignIn, restoreFromFile, restoreFromGit, type GitHubAccount, type Repo, type SignInCode } from "../backup/api";
+import { canBackUp, githubAccount, githubSignInCancel, githubSignInStart, onSignIn, restoreFromFile, restoreFromGit, type GitHubAccount, type SignInCode } from "../backup/api";
+import type { RepoRow } from "../../lib/vault/backup-types";
+import { GitHubBackups } from "./GitHubBackups";
 import { httpsOrigin } from "../backup/parts";
 import { signInProblem } from "../backup/GitHubRow";
 import { SignInDialog } from "../backup/SignInDialog";
@@ -22,8 +24,7 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 export function RestoreCard({ location, onLocation }: { location: string; onLocation: (path: string) => void }) {
   const [from, setFrom] = useState<From>("file");
   const [account, setAccount] = useState<GitHubAccount | null>(null);
-  const [repos, setRepos] = useState<Repo[] | null>(null);
-  const [repo, setRepo] = useState<Repo | null>(null);
+  const [repo, setRepo] = useState<RepoRow | null>(null);
   const [code, setCode] = useState<SignInCode | null>(null);
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -34,11 +35,7 @@ export function RestoreCard({ location, onLocation }: { location: string; onLoca
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAccount = () =>
-    githubAccount().then((found) => {
-      setAccount(found);
-      if (found.signedIn) githubBackups().then(setRepos, (err: unknown) => setError(message(err)));
-    }, () => {});
+  const loadAccount = () => githubAccount().then(setAccount, () => {});
   useEffect(() => {
     if (!canBackUp()) return;
     void loadAccount();
@@ -55,7 +52,7 @@ export function RestoreCard({ location, onLocation }: { location: string; onLoca
   if (!canBackUp()) return null;
 
   const github = account?.canSignIn || account?.signedIn;
-  const pickRepo = (chosen: Repo) => {
+  const pickRepo = (chosen: RepoRow) => {
     setRepo(chosen);
     setName(chosen.name);
   };
@@ -100,19 +97,10 @@ export function RestoreCard({ location, onLocation }: { location: string; onLoca
         {from === "file" && <Field label="Backup file" value={file} onChange={setFile} placeholder="~/Dropbox/Kasten backup - Notes/….bundle" mono browse={() => setPicking("file")} />}
         {from === "github" &&
           (account?.signedIn ? (
-            <ul aria-label="Your private repositories" className="max-h-40 overflow-auto rounded-lg border border-line">
-              {repos?.length === 0 && <li className="px-3 py-2 text-13 text-muted">No private repositories yet</li>}
-              {repos?.map((r) => (
-                <li key={r.fullName}>
-                  <button type="button" aria-pressed={repo?.fullName === r.fullName} onClick={() => pickRepo(r)} className="w-full truncate px-3 py-1.5 text-left text-13 hover:bg-hover aria-pressed:bg-selected">
-                    {r.fullName}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <GitHubBackups chosen={repo?.fullName ?? null} onChoose={pickRepo} />
           ) : (
             <button type="button" className="h-9 rounded-lg text-13 ring-1 ring-line hover:bg-hover" onClick={() => void githubSignInStart().then(setCode, (err: unknown) => setError(message(err)))}>
-              Sign in with GitHub
+              Sign in to open my backup from GitHub
             </button>
           ))}
         {from === "git" && (

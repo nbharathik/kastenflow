@@ -85,6 +85,10 @@ pub enum Place {
     Editor,
     Chat,
     Pdf,
+    /// The LaTeX editor (its problem list and its menu), where a document's own actions are.
+    Latex,
+    /// A smart page's own view (its header and palette), where a page's actions are; not the chat's slash list.
+    Smart,
 }
 
 /// One AI action, built in or from the vault.
@@ -194,9 +198,11 @@ pub fn parse(slug: &str, text: &str) -> Result<Action, String> {
             "editor" => Place::Editor,
             "chat" => Place::Chat,
             "pdf" => Place::Pdf,
+            "latex" => Place::Latex,
+            "smart" => Place::Smart,
             other => {
                 return Err(format!(
-                    "“where” has an unknown place “{other}”; the places are editor, chat, pdf"
+                    "“where” has an unknown place “{other}”; the places are editor, chat, pdf, latex, smart"
                 ));
             }
         };

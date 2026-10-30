@@ -83,7 +83,7 @@ describe("a thread's status", () => {
   });
 
   it("has words for the list", () => {
-    expect(STATUS_WORDS).toEqual({ working: "Working", paused: "Paused", interrupted: "Interrupted", done: "Done", failed: "Failed", idle: "" });
+    expect(STATUS_WORDS).toEqual({ working: "Working", waiting: "Waiting", paused: "Paused", interrupted: "Interrupted", done: "Done", failed: "Failed", idle: "" });
   });
 });
 

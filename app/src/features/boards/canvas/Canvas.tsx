@@ -99,13 +99,33 @@ export function Canvas({ embedded = false }: { embedded?: boolean }) {
     if (!embedded && document.activeElement === document.body) wrapper.current?.focus({ preventScroll: true });
   }, [embedded]);
 
-  // The embed's header asks the board to present its sections.
+  // The embed's header asks the board to present its sections, or to undo and redo.
   useEffect(() => {
     if (!embedded) return;
     const frame = wrapper.current?.closest(".kasten-board-embed");
     const run = () => present(board);
+    const undo = () => void board.undo();
+    const redo = () => void board.redo();
     frame?.addEventListener("kasten:present", run);
-    return () => frame?.removeEventListener("kasten:present", run);
+    frame?.addEventListener("kasten:undo", undo);
+    frame?.addEventListener("kasten:redo", redo);
+    // The header's buttons grey out while there is nothing to undo or redo.
+    let told = "";
+    const tell = () => {
+      const { canUndo, canRedo } = board.store.getState();
+      const now = `${canUndo}/${canRedo}`;
+      if (now === told) return;
+      told = now;
+      frame?.dispatchEvent(new CustomEvent("kasten:history", { detail: { canUndo, canRedo } }));
+    };
+    tell();
+    const stop = board.store.subscribe(tell);
+    return () => {
+      stop();
+      frame?.removeEventListener("kasten:present", run);
+      frame?.removeEventListener("kasten:undo", undo);
+      frame?.removeEventListener("kasten:redo", redo);
+    };
   }, [embedded, board]);
 
   /** The middle of what is in view, on the board. */

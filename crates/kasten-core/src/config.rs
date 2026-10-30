@@ -36,6 +36,15 @@ pub struct Config {
     /// `journal`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journal_template: Option<String>,
+    /// Which plugins are on; left out of the file until set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugins: Option<crate::config_keys::PluginsConfig>,
+    /// How much agents may change without asking; left out until set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents: Option<crate::config_keys::AgentsConfig>,
+    /// How the backup brings in other computers' changes; left out until set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup: Option<crate::backup::BackupConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -113,6 +122,9 @@ impl Default for Config {
             guardrails: Guardrails::default(),
             ai: AiConfig::default(),
             journal_template: None,
+            plugins: None,
+            agents: None,
+            backup: None,
         }
     }
 }
@@ -157,13 +169,19 @@ impl Config {
         }
     }
 
-    /// Writes the config. Comments in the old file are not kept.
+    /// Writes the config. The old file's comments, the keys this version does
+    /// not know and the order of the keys stay wherever the value is the same
+    /// (`config_merge`).
     pub fn save(&self, root: &Path) -> Result<()> {
         let yaml = serde_saphyr::to_string(self).map_err(|e| Error::Invalid(e.to_string()))?;
         let path = root.join(CONFIG_PATH);
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
+        let yaml = match fs::read_to_string(&path) {
+            Ok(old) => crate::config_merge::merge(&old, &yaml),
+            Err(_) => yaml,
+        };
         write_atomic(&path, yaml.as_bytes())?;
         Ok(())
     }
@@ -187,6 +205,35 @@ mod tests {
         assert_eq!(partial.guardrails.max_trash_per_session, 2);
         assert_eq!(partial.guardrails.max_write_bytes, 204_800);
         assert_eq!(partial.git.push_delay_seconds, 120);
+    }
+
+    #[test]
+    fn save_keeps_comments_and_unknown_top_level_keys() {
+        let dir = std::env::temp_dir().join(format!("kasten-config-keep-{}", std::process::id()));
+        fs::create_dir_all(dir.join(".kasten")).unwrap();
+        let old = "# my notes\nname: Notes # the title\nfuture:\n  deep: [1, 2]\nplugins:\n  latex: true\n  new_one: yes\n";
+        fs::write(dir.join(CONFIG_PATH), old).unwrap();
+        let mut config = Config::load(&dir).unwrap();
+        config.save(&dir).unwrap();
+        let first = fs::read_to_string(dir.join(CONFIG_PATH)).unwrap();
+        assert!(
+            first.starts_with(
+                "# my notes\nname: Notes # the title\nfuture:\n  deep: [1, 2]\nplugins:\n"
+            ),
+            "{first}"
+        );
+        config.journal_template = Some("daily".into());
+        config.save(&dir).unwrap();
+        let second = fs::read_to_string(dir.join(CONFIG_PATH)).unwrap();
+        assert!(
+            second.contains("# the title") && second.contains("deep: [1, 2]"),
+            "{second}"
+        );
+        assert!(second.contains("journal_template: daily"), "{second}");
+        assert_eq!(Config::load(&dir).unwrap(), config);
+        config.save(&dir).unwrap();
+        assert_eq!(fs::read_to_string(dir.join(CONFIG_PATH)).unwrap(), second);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

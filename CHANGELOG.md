@@ -4,6 +4,205 @@ Every release of KastenFlow (called Kasten before 1.1.0), newest first.
 Versions follow [Semantic Versioning](https://semver.org); the vault format
 has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 
+## 1.2.2
+
+### Back up to your own private GitHub repository
+
+- **A guided backup.** One panel takes you from "no backup" to "backed up": sign in
+  with GitHub (a code you confirm in the browser; or a token, or the GitHub command
+  line if it is already signed in), create a private repository or pick one you
+  have, and the first backup runs with a progress bar. It starts from the status
+  bar, a notice after you create a vault, a card on Home, History, Settings →
+  Backup and the command palette.
+- **Always visible.** The status bar says "Backed up 2 minutes ago" or "Backed up ·
+  3 waiting"; click it to back up now, get the latest, open the repository on
+  GitHub or see what needs a look.
+- **Other computers.** Open your backup from the vault chooser (your repositories,
+  KastenFlow's first), and **Get latest** brings changes across by itself when that
+  is safe, or asks you. Nothing is ever overwritten: a page both computers changed
+  keeps the other version as a copy.
+- **Safe by default.** Nothing is ever force-pushed. A repository that turns out to be
+  public pauses the backup until you make it private (one click). If the copy on
+  GitHub no longer holds your history, backup stops and offers to save your full
+  history to a safety branch. Files over 100 MB are left out and listed, never lost
+  silently. Saved chats and app settings stay on your computer and are not backed up.
+- Choose when to back up (as you work, every hour, or on close), how to bring in
+  changes, and how many backup files to keep, in Settings → Backup.
+
+### Plugins
+
+- **Settings → Plugins** switches the official plugins on and off: **draw.io**
+  (diagrams), **LaTeX**, **Smart pages** and **Browser**. A plugin that needs a program
+  downloads it once, with progress and Cancel, checks it and keeps it outside your vault.
+- Turning a plugin off never hides or deletes your files: a diagram still opens to
+  a one-click "Turn on draw.io", embedded diagrams still show their picture, and
+  agents are simply not offered that plugin's tools.
+
+### LaTeX
+
+- **Write LaTeX in your vault.** New documents from an article, report or Beamer
+  template; an editor with completion for commands, environments, labels and
+  citations, folding, search, an outline and a list of problems; a PDF preview that
+  follows your typing and keeps its place; **Export PDF** into the document folder.
+- Jump from a place in the text to the PDF and back. Build errors point to the file
+  and line, and the last good PDF stays on screen.
+- **Send to LaTeX** turns a page or a selection into a new document, or adds a page
+  to an existing one, citations included. **Cite** inserts a reference from your References.
+- Builds use Tectonic (downloaded on request) or your own TeX (latexmk). The first
+  build downloads the TeX packages it needs.
+- Agents can write whole papers: see "Agents" below.
+
+### The chat panel
+
+- **Selected text** in a page, PDF, slide or LaTeX document is added to the chat as
+  you select it; **Add to chat** (Ctrl+Alt+L, the selection bar, right-click) keeps
+  up to five snippets.
+- **History and archive.** A new chat never replaces the old one. Older chats go to
+  an Archived list that you can search and reopen; only you delete them, with a
+  count to confirm. A chat that cannot be reopened offers Retry or a new one.
+- **When I switch pages**: keep the chat, use the page's own chat, or start a new
+  one. Choose how many chats work at once; the others wait and say so.
+- In a deck, the assistant keeps working while you are elsewhere, shows a status dot,
+  and links it gives you open beside the deck, in a tab or in place, as you choose.
+
+### Agents
+
+- **Three modes:** Review everything, Balanced (the default) and Autonomous, for the
+  whole vault or per project. Autonomous has a time box (1 hour, 8 hours or until
+  you turn it off), shows a small mark in the top bar with a one-click Turn off, and
+  notes a restore point so you can go back to before a session.
+- **Undo this chat's changes** from the chat header. **Batch**: an agent can make up
+  to 100 changes as one, all or none, with one undo.
+- **Agents can write whole LaTeX papers.** They can start a document from a template,
+  write or replace a whole file (`.tex`, `.bib`, `.sty`, `.cls`, `.bst`), add text at
+  the end of a file or after a piece of it, and move a file to the trash, all under the
+  same modes as other changes: a new document waits for you in Review mode, and taking
+  out a document's root file waits for you unless agents work on their own. Locked
+  documents stay read-only.
+- **Figures, citations and pages for LaTeX papers.** Agents can put a PNG, JPG or PDF
+  picture in a document's figures folder (the same picture twice is one file), cite a
+  reference from your References (the entry is kept once in the document's
+  `references.bib`, and the reference itself is never changed), and send a page, or
+  one section of it, to a document as Send to LaTeX does. KastenFlow never runs Python
+  or any program to draw a chart: the assistant makes the PNG and sends it.
+- **Agents can build a paper and keep its PDF.** With the app open, an assistant can ask
+  KastenFlow to build a LaTeX document now and gets the errors and warnings (with file
+  and line), the page count and the PDF's size, or is told plainly that the app is closed
+  or the build did not finish in time. It can then keep the PDF in the document's folder
+  as one change you can undo; that follows the same modes as other changes (it waits for
+  you in Review mode) and a locked document is refused. The assistant never sends the
+  PDF itself: it is the app's own build.
+- **Agents can put a diagram in a paper.** With the app open, an assistant can ask
+  KastenFlow to draw a diagram as a PNG and keep it as a figure of a LaTeX document in
+  one step, getting back the path and a ready `\includegraphics` line. The app draws
+  the picture in its window from the diagram's own picture, with no network; the
+  figure follows the same rules as any picture an agent adds (a locked document is
+  refused, one undo takes it back). Exporting a diagram as a PNG works the same way.
+  Both need the app open and say so plainly if it is closed.
+- **Agents can read what you have selected.** An assistant in Claude Desktop, Claude
+  Code or another client can ask what you have selected in KastenFlow: up to five
+  pieces of text from a page, a PDF, a slide or a LaTeX file, with the file, the
+  heading and the place, and for a slide the selected elements. The app shares your
+  selection only for two minutes after a client asks, shows "Shared with a connected
+  client" in the chat panel while it does, keeps it on this computer only (never in
+  your notes' history, a backup or git), and deletes it when you close the app.
+- **When an agent needs the app.** Building a paper, keeping its PDF, drawing a diagram
+  as a picture and reading your selection all ask the open app through a private folder
+  in the vault's cache that only you can read and that history, backup and git never
+  take in. The app answers a short, fixed list of requests, none of which can name a
+  program, an internet address or a file outside the vault; what it keeps in your vault
+  goes through the same checks and agent mode as any other change, in the agent's
+  session. With the app closed, every one of these tools says so in a sentence and
+  changes nothing.
+- **A whole visit, tested.** A test now runs one assistant visit from start to end on a
+  copy of the sample vault (a LaTeX paper with a diagram figure, a chart, two citations, a
+  build, the PDF, the selection and the same chart on a slide) and checks that one undo
+  gives the vault back exactly as it was.
+- **More tools for agents** (99 for notes, boards, diagrams, LaTeX and smart pages,
+  plus the slide tools): put pages inside others and order them, start
+  projects and save them as setups, set a project's status and a database's views and
+  row order, edit a page by its blocks without touching the rest, duplicate and
+  restore notes, comments, tasks, saved searches, references and the activity digest.
+- **Agents can do more on a whiteboard.** Besides stickies, moving and colours, an
+  assistant can now add web link cards, sections and shapes, reword a sticky, a section
+  or a link, give a shape another outline, show a note's card as its title or in full,
+  fold a section and take arrows away. Taking many cards or arrows off at once still
+  waits for your review, and one undo takes the whole session back.
+- **A picture's crop and outline, a locked element and Morph pairs** are now named in
+  the words the slide tools give to assistants, so an assistant can set what you set in
+  the editor.
+- **The editor and the agent tools are checked against each other.** Tests now fail when
+  a slash menu entry, a page menu row, a whiteboard action or a slide operation is added
+  without saying whether an assistant can do it too.
+- **Page columns, page width and folded properties:** `/columns` puts blocks side by
+  side (stored as plain comments, so the file stays readable anywhere); a page can be
+  Normal, Wide or Full width; a page's properties fold into one line. Sub-pages can be
+  put in your own order by dragging, Alt+arrows or the palette.
+- **Smart pages**: a page that draws itself from your notes as a dashboard, tracker,
+  gallery, map or timeline, built from ready-made parts and run in a closed box (no
+  network, only your notes through the same rules as agents). Start from a starter or
+  ask the chat; edit the code in the app; see and restore earlier versions; show one
+  inside another page; present, print or save it as one HTML file. A page an agent made
+  while you review everything waits for your **Allow to run**. Smart pages are a plugin
+  that is **off until you turn it on** (Settings → Plugins), and a project can turn
+  them on or off for its own pages. While they are off, an agent can only ask you to
+  turn them on, and nothing turns on until you accept; turning them off deletes
+  nothing.
+- **Routines.** Home → Agents today (optional) and History → Today by agents show
+  what agents did while you were away, with Undo. `kasten-mcp --setup codex` prints
+  the settings for Codex.
+
+### Tables and databases
+
+- **Sub-items**, **group by** with folding and a calculations row (sum, average,
+  count, earliest and more), **multi-sort**, "match any" filters, wrapped cells,
+  compact rows and a frozen title column.
+- **Pick rows** and change many at once (property, tags, move, add to a board,
+  duplicate, trash) as one step you can undo; **drag rows into your own order**;
+  **paste from a spreadsheet** with every value read by its column's type.
+- **Formula properties** (`days_until`, `days_since`, `count`, `count_backlinks`,
+  `sum`, `min`, `max`, `if_empty`) with a live check and a function list.
+- A **timeline view** with draggable bars, lanes, and week, month and quarter scales.
+- **Turn a table in a page into a database** from its menu; tables in pages gain
+  Add row, Add column, Align column and Copy as CSV without rewriting the rest.
+
+### Presenting
+
+- **F5** presents from the start, **Shift+F5** from this slide and **Alt+F5** with the
+  presenter view. The show fills the screen, keeps notices and the chat out of the
+  way, and with two displays can go to the other one (**Present on**).
+- A web link opens over the slide with Back, Forward, Reload, Preview here / beside /
+  full screen and Open in my browser; right-click any link for the same choices.
+- The presenter view no longer gets stuck: it follows the show, rejoins after a
+  pause, and keys work from either window.
+
+### Smaller things
+
+- The page menu is grouped, with View and Present & export submenus; the vault health
+  page is laid out as a list of problems with a button for each; tabs stay ready when
+  you switch, so coming back to a page is instant; a board embedded in a page greys
+  out Undo and Redo when they cannot apply.
+- Build checks: changes that only touch notes or docs skip the heavy checks, the
+  frontend tests also run on Windows, and a release reuses a passing manual run of the
+  checks on the same commit instead of running them twice.
+
+### Known limits
+
+- The one-click Tectonic download is offered only in builds that carry its
+  checksums; otherwise LaTeX uses a TeX you have installed.
+- The world map in smart pages is a simplified outline.
+- An agent can check a smart page's files and read the errors it reported, but cannot
+  see a picture of it.
+- Figures an agent adds to a paper are pictures (PNG, JPG or PDF files); a diagram is
+  drawn as a PNG, not a PDF. An agent cannot attach other kinds of file to a page (a spreadsheet,
+  say), cannot make a new slide layout, and cannot draw freehand on a whiteboard.
+- Building a paper for an agent and reading the selection need the KastenFlow app open; the
+  installed app is not a background service.
+- Only pages inside another page can be put in your own order; top-level pages stay
+  alphabetical.
+- A database sub-item tree and a grouped table do not use manual row order.
+- Columns do not nest, and the number of columns is chosen when you make them.
+
 ## 1.2.1
 
 1.2.0 was tagged, but its release stopped before anything was published: 1.2.1 is

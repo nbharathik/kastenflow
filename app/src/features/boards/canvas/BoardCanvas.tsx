@@ -17,6 +17,7 @@ import { useWorkspace } from "../../workspace/store";
 import { Canvas } from "./Canvas";
 import { BoardContext } from "./context";
 import { BoardController, type BoardDeps } from "./state/controller";
+import { leaseBoard } from "./state/registry";
 import { entered } from "./trail";
 
 /** What the board at `path` uses from the rest of the app. */
@@ -56,12 +57,19 @@ export function BoardCanvas({ path, embedded = false }: { path: string; embedded
   useEffect(() => {
     if (!client) return;
     let live = true;
-    client.board(path).then(
-      (doc) => live && setBoard(new BoardController(path, doc, boardDeps(client, path))),
+    // The tab and every page that shows this board share one controller, so undo survives a remount.
+    const lease = leaseBoard(path, async () => new BoardController(path, await client.board(path), boardDeps(client, path)), client);
+    lease.board.then(
+      (shared) => {
+        if (!live) return;
+        setBoard(shared);
+        void shared.refresh();
+      },
       (err: unknown) => live && setProblem(err instanceof Error ? err.message : String(err)),
     );
     return () => {
       live = false;
+      lease.release();
     };
   }, [client, path]);
   if (problem) {

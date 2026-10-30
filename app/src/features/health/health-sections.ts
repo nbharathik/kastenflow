@@ -70,6 +70,10 @@ function saving({ health, saves, commitError }: HealthInput): Section {
   } else if (commitError) {
     level = "fail";
     summary = `History could not be updated: ${commitError}`;
+  } else if (health.configProblem) {
+    // The settings from before stay in force, so nothing is lost; the file needs a look.
+    level = "warn";
+    summary = `The vault's settings file could not be read, so the settings from before stay in force. ${health.configProblem}`;
   } else if (writing) {
     level = "info";
     summary = "Your latest edits are being written.";

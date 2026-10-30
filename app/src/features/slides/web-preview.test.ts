@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openUrl } from "../../lib/api";
 import { useOcclusion } from "../browser/occlusion";
+import { holdForShow } from "../browser/show";
 import { setPreviewBackend, type PreviewBackend } from "../browser/preview-backend";
 import { sendPreviewSignal } from "../browser/preview-events";
 import { resetBrowserPrefs, useBrowserPrefs } from "../browser/prefs";
@@ -138,6 +139,16 @@ describe("opening the preview", () => {
 });
 
 describe("placing the view", () => {
+  it("sends the physical rectangle again when only the screen's density changed (the box did not move), so the bounds are never stale", async () => {
+    const r = rig();
+    const { handle } = await opened(r);
+    // The window went to a screen with twice the density: the same CSS box is a larger physical one.
+    Object.defineProperty(window, "devicePixelRatio", { value: 2, configurable: true });
+    handle.place(place(100, 50, 400, 300));
+    await vi.waitFor(() => expect(r.of("bounds")).toEqual([["bounds", { x: 200, y: 100, width: 800, height: 600 }]]));
+    handle.close();
+  });
+
   it("sends the new rectangle only when it changed", async () => {
     const r = rig();
     const { handle } = await opened(r);
@@ -165,6 +176,21 @@ describe("placing the view", () => {
     useOcclusion.getState().release("dialog");
     await vi.waitFor(() => expect(r.of("show")).toHaveLength(1));
     expect(useOcclusion.getState().areas["web-preview"]).toBeDefined();
+    handle.close();
+  });
+
+  it("stays in view while a show holds the window, since the show is what it is the peek of, and still steps aside for a menu", async () => {
+    const r = rig();
+    const { handle } = await opened(r);
+    const done = holdForShow();
+    await sleep();
+    expect(r.of("hide")).toEqual([]);
+    expect(useOcclusion.getState().areas["web-preview"]).toBeDefined();
+    useOcclusion.getState().hold("menu", "all");
+    await vi.waitFor(() => expect(r.of("hide")).toHaveLength(1));
+    useOcclusion.getState().release("menu");
+    await vi.waitFor(() => expect(r.of("show")).toHaveLength(1));
+    done();
     handle.close();
   });
 

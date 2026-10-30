@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { dayFrom } from "../dates";
-import type { AppliedSetup, ProjectOps, ProjectSummary, SetupInfo, SetupPlan } from "./project-types";
+import type { AppliedSetup, ProjectOps, ProjectSummary, SavedSetup, SetupGone, SetupInfo, SetupPlan, SetupSource } from "./project-types";
 import type { NoteFile } from "./types";
 
 export const tauriProjects: ProjectOps = {
@@ -13,4 +13,8 @@ export const tauriProjects: ProjectOps = {
   listSetups: () => invoke<SetupInfo[]>("list_setups"),
   previewSetup: (id, target) => invoke<SetupPlan>("preview_setup", { id, target }),
   applySetup: (id, target) => invoke<AppliedSetup>("apply_setup", { id, target }),
+  previewProjectSetup: (project) => invoke<SetupSource>("preview_project_setup", { project }),
+  saveProjectSetup: (project, title, pages, slug = "") => invoke<SavedSetup>("save_project_setup", { project, slug, title, pages }),
+  renameSetup: (id, name) => invoke<SetupInfo>("rename_setup", { id, name }),
+  trashSetup: (id) => invoke<SetupGone>("trash_setup", { id }),
 };

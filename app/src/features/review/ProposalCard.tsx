@@ -116,7 +116,7 @@ export function ProposalCard({ proposal: p, state, mode, note, onDecide, onOpen,
 
 /** The note the proposal is about; its title opens it. */
 function Target({ proposal: p, note, onOpen }: { proposal: Proposal; note: NoteMeta | undefined; onOpen(path: string): void }) {
-  if (!p.target) return <span>{p.op.kind === "create_deck" ? "New deck" : "New note"}</span>;
+  if (!p.target) return <span>{p.op.kind === "create_deck" ? "New deck" : p.op.kind === "request_smart_pages" ? "Turn on smart pages?" : "New note"}</span>;
   if (p.target.path.endsWith(".deck")) {
     return (
       <button type="button" onClick={() => onOpen(p.target!.path)} title={`Open ${p.target.path}`} className="flex max-w-full items-center gap-2 rounded text-left hover:underline hover:decoration-line hover:underline-offset-4">

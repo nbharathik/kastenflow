@@ -1,0 +1,37 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:12
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+L3 programming layer <2024-01-22>
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)
+(./main.aux)
+\openout1 = `main.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+
+! Undefined control sequence.
+l.12 \sectoin
+             {Introduction}
+?
+! Undefined control sequence.
+<recently read> \textbff
+
+l.20 This is \textbff
+                     {bold} text.
+?
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.aux) )
+(see the transcript file for additional information)
+Output written on main.pdf (1 page, 12345 bytes).
+PDF statistics:
+ 12 PDF objects out of 1000 (max. 8388607)
+Transcript written on main.log.

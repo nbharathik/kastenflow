@@ -1,0 +1,3 @@
+[
+  { "op": "insert", "before": { "block": "b1" }, "after": { "block": "b2" }, "markdown": "x" }
+]

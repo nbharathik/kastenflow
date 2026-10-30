@@ -61,7 +61,7 @@ class WikiLinkView implements NodeView {
     this.dom = el("span", "kasten-mention", { contentEditable: "false" });
     this.dom.addEventListener("mousedown", (event) => {
       // An embedded whiteboard, database, deck or diagram takes its own clicks.
-      if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target)) return;
+      if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target) || this.card?.owns(event.target)) return;
       // The middle button opens a new tab, as in a browser.
       if (event.button !== 0 && event.button !== 1) return;
       // A page, deck or diagram shown in place acts on a click (below): pressing it to
@@ -111,6 +111,8 @@ class WikiLinkView implements NodeView {
     this.database?.destroy();
     this.deck?.destroy();
     this.diagram?.destroy();
+    // A smart page shown in place stops with its page.
+    this.card?.reset();
   }
 
   update(node: Node, decorations: readonly Decoration[]): boolean {
@@ -122,7 +124,7 @@ class WikiLinkView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
-    if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target)) return true;
+    if (this.board?.owns(event.target) || this.database?.owns(event.target) || this.deck?.owns(event.target) || this.diagram?.owns(event.target) || this.card?.owns(event.target)) return true;
     // A head's icon tool is a button the keyboard presses: the editor leaves its keys alone.
     if (event.type === "keydown" && event.target instanceof Element && event.target.closest(".kasten-embed-tool")) return true;
     return event.type === "mousedown" || event.type === "click";

@@ -15,7 +15,7 @@ describe("the registry of views", () => {
     const all = groupedNav(NAV).map((g) => [g.label, ids(g.items)]);
     expect(all).toEqual([
       ["Capture", ["inbox", "captures", "journal"]],
-      ["Think", ["boards", "diagrams", "slides", "graph"]],
+      ["Think", ["boards", "slides", "graph"]],
       ["Organise", ["projects", "library", "tags", "collections", "tasks", "calendar", "reviews", "highlights", "references"]],
       ["Tools", ["chat", "browser", "import", "history", "trash", "review"]],
     ]);
@@ -75,12 +75,10 @@ describe("the registry of views", () => {
     for (const later of ["browser", "captures"]) expect(here).not.toContain(later);
     // They are named, so a later phase needs only to say `available: () => true`.
     for (const later of ["browser", "captures"]) expect(ids(NAV)).toContain(later);
-    // The graph and the diagrams have arrived; diagrams is listed under Think, not pinned.
+    // The graph has arrived; diagrams is a plugin's row (see plugins/diagrams), listed under Think, not pinned.
     expect(here).toContain("graph");
     expect(findNav("graph")?.label).toBe("Graph");
-    expect(here).toContain("diagrams");
-    expect(findNav("diagrams")).toMatchObject({ label: "Diagrams", group: "think" });
-    expect(defaultPinned()).not.toContain("diagrams");
+    expect(defaultPinned()).not.toContain("plugin:diagrams");
     // Review shows only while proposals wait, and none do here.
     expect(here).not.toContain("review");
     expect(here).toContain("trash");

@@ -17,6 +17,7 @@ use crate::diff::unified;
 use crate::error::{Error, Result};
 use crate::history::Actor;
 use crate::note::content_hash;
+use crate::policy::OpClass;
 use crate::time::Instant;
 
 fn percent(fraction: f64) -> String {
@@ -55,18 +56,19 @@ impl Kasten {
 
     /// Why a diagram op must wait for review, if it must: a diagram for the
     /// trash whoever is trusted, and, for a session nobody trusted, a rewrite
-    /// that takes more of the drawing out than the guardrails allow.
+    /// that takes more of the drawing out than the guardrails allow (a soft limit).
     pub(super) fn diagram_review_reason(
         &self,
         session: &Session,
         op: &AgentOp,
         now: Instant,
-    ) -> Result<Option<String>> {
+    ) -> Result<OpClass> {
+        let soft = |reason: Option<String>| reason.map_or(OpClass::Ordinary, OpClass::Soft);
         Ok(match op {
             AgentOp::Trash { path, .. } if path.ends_with(diagrams::EXT) => {
-                Some("Trashing a diagram always waits for review".to_owned())
+                OpClass::Always("Trashing a diagram always waits for review".to_owned())
             }
-            AgentOp::EditDiagram { .. } => self.diagram_edit_review_reason(session, op, now)?,
+            AgentOp::EditDiagram { .. } => soft(self.diagram_edit_review_reason(session, op, now)?),
             AgentOp::UpdateDiagram { path, xml, .. } if !self.trusted(&session.id, now) => {
                 let current = diagrams::read_diagram(&self.vault, path)?;
                 let (gone, total) = removed_cells(&current.xml, xml);
@@ -76,15 +78,15 @@ impl Kasten {
                 } else {
                     gone as f64 / total as f64
                 };
-                (removed > limit).then(|| {
+                soft((removed > limit).then(|| {
                     format!(
                         "Takes {gone} of the diagram's {total} elements out ({}; the limit is {})",
                         percent(removed),
                         percent(limit)
                     )
-                })
+                }))
             }
-            _ => None,
+            _ => OpClass::Ordinary,
         })
     }
 

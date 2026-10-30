@@ -33,3 +33,8 @@ export function searchChip(query: string): Chip {
 export function diagramChip(diagram: { path: string; title: string }, page?: string): Chip {
   return { kind: "diagram", label: diagram.title, ref: page ? [diagram.path, page] : [diagram.path] };
 }
+
+/** A LaTeX file as the tools would read it: its text with the hash a change must bring back, and what the document's last build said (each error with its file and line). The selected passage rides along as a selection chip. */
+export function latexChip(file: { path: string; title: string }): Chip {
+  return { kind: "latex", label: file.title, ref: [file.path] };
+}

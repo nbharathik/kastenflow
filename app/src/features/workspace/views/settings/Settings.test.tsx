@@ -307,8 +307,8 @@ describe("opening Settings at a place", () => {
   it("takes a group's old name, and one that was asked for before it was drawn", () => {
     openSettingsAt("History and backup");
     render(<Settings />);
-    expect(title()).toBe("History and backup");
-    expect(item("History and backup").getAttribute("aria-current")).toBe("page");
+    expect(title()).toBe("History");
+    expect(item("History").getAttribute("aria-current")).toBe("page");
     act(() => openSettingsAt("settings/ai/ai.providers"));
     expect(title()).toBe("AI providers");
   });

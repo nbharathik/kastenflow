@@ -66,6 +66,54 @@
   font-size: var(--text-12);
   line-height: 1.35;
 }
+/* The choices: the built-in ones, then "Your setups". */
+.kasten-hub-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kasten-hub-mine-heading {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-weight: 500;
+}
+/* One of the person's setups, with its rename and delete in the corner while it is hovered or has focus. */
+.kasten-hub-mine {
+  position: relative;
+  display: grid;
+}
+.kasten-hub-mine > .kasten-hub-setup {
+  width: 100%;
+}
+.kasten-hub-mine-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.kasten-hub-mine:hover .kasten-hub-mine-actions,
+.kasten-hub-mine:focus-within .kasten-hub-mine-actions {
+  opacity: 1;
+}
+.kasten-hub-setup.is-editing {
+  grid-template-areas:
+    "icon name"
+    "icon summary";
+}
+.kasten-hub-setup-field {
+  grid-area: name;
+  min-width: 0;
+}
+@media (hover: none) {
+  .kasten-hub-mine-actions {
+    opacity: 1;
+  }
+}
+
 .kasten-hub-plan {
   min-height: 72px;
   padding: 10px 12px;

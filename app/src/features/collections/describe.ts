@@ -23,7 +23,7 @@ export function describeWhen(when: CollectionWhen | null): string {
   return parts.join(" and ");
 }
 
-const KINDS = { table: "a table", kanban: "a board", list: "a list", calendar: "a calendar", gallery: "a gallery" } as const;
+const KINDS = { table: "a table", kanban: "a board", list: "a list", calendar: "a calendar", gallery: "a gallery", timeline: "a timeline" } as const;
 
 /** "a table of up to 500 notes". */
 export function describeDisplay(collection: Pick<Collection, "display">): string {

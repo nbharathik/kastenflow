@@ -5,6 +5,7 @@
 import { useBrowserOn } from "../features/browser/prefs";
 import { isCapturesPlace, useCapturesShown } from "../features/extension/captures";
 import { usePendingCount } from "../features/review/store";
+import { usePluginsVersion } from "../plugins/registry";
 import { usePrefs } from "../features/workspace/prefs";
 import { useWorkspace } from "../features/workspace/store";
 import { inboxCards } from "../features/workspace/tree";
@@ -22,6 +23,8 @@ export function SidebarNav() {
   // Lists the Browser once it is turned on, and Captures once there are some or a way to make them is on.
   useBrowserOn();
   useCapturesShown();
+  // And the rows plugins add, while they are on.
+  usePluginsVersion();
   const pins = useNavPins();
   const { onMenu, menu } = useNavMenu(pins);
   const open = useWorkspace(openView);

@@ -12,7 +12,7 @@ const FILES = import.meta.glob<string>("../../../../../crates/kasten-core/defaul
 /** The order the core offers them in. */
 export const SETUP_ORDER = ["research", "writing", "presentation"];
 
-interface Manifest {
+export interface Manifest {
   icon: string;
   name: string;
   summary: string;
@@ -78,8 +78,14 @@ export interface Planned {
 /** Where a vault-level file of a setup goes in the vault, or the project folder's own. */
 const placed = (folder: string, rel: string) => (rel.startsWith(VAULT) ? rel.slice(VAULT.length) : `projects/${folder}/${rel}`);
 
-export function planSetup(id: string, target: SetupTarget, host: SetupHost, now: number, day: string): Planned {
-  const m = manifestOf(id);
+/** A setup the person saved: its manifest and its files by path relative to the project folder (`vault/…` goes to the vault). */
+export interface CustomSetup {
+  manifest: Manifest;
+  files: Record<string, string>;
+}
+
+export function planSetup(id: string, target: SetupTarget, host: SetupHost, now: number, day: string, custom?: CustomSetup): Planned {
+  const m = custom?.manifest ?? manifestOf(id);
   let folder: string;
   let title: string;
   let page: Record<string, unknown> | null = null;
@@ -107,7 +113,7 @@ export function planSetup(id: string, target: SetupTarget, host: SetupHost, now:
       .replace(/\{\{id8:([^}]+)\}\}/g, (_, name: string) => idOf(name).slice(-8).toLowerCase())
       .replace(/\{\{id:([^}]+)\}\}/g, (_, name: string) => idOf(name));
   };
-  const files = Object.entries(filesOf(id))
+  const files = Object.entries(custom?.files ?? filesOf(id))
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([rel, text]) => ({ path: placed(folder, rel), text: fill(text, /\.(deck|canvas)$/.test(rel)) }));
   const projectPath = `projects/${folder}/_project.md`;

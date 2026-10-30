@@ -1,18 +1,23 @@
 /* The health page (HealthCenter.tsx): sections of a sentence and what to look at. */
 
 .kasten-health {
+  /* One spacing unit and one dot size for the whole page, so every indent is
+     the dot plus one gap and nothing is nudged by hand. */
+  --health-gap: 0.5rem;
+  --health-dot: 0.5rem;
+
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-block: 4px;
+  gap: 0.25rem;
+  padding-block: 0.25rem;
 }
 
 .kasten-health-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 8px;
+  gap: var(--health-gap);
+  padding-bottom: var(--health-gap);
 }
 
 .kasten-health-note {
@@ -23,60 +28,104 @@
   font-size: var(--text-12);
 }
 
+/* A section is a grid of dot | content: the sentence and the issues sit in the
+   content column, so they line up under the title. */
 .kasten-health-section {
-  padding-block: 10px;
+  display: grid;
+  grid-template-columns: var(--health-dot) minmax(0, 1fr);
+  column-gap: var(--health-gap);
+  align-items: center;
+  padding-block: 0.625rem;
   border-top: 1px solid var(--color-line);
+
+  & > :not(.kasten-health-dot, .kasten-health-title) {
+    grid-column: 2;
+  }
 }
 
 .kasten-health-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin: 0;
-  font-size: var(--text-13);
+  font-size: var(--text-14);
   font-weight: 600;
 }
 
 .kasten-health-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
+  width: var(--health-dot);
+  height: var(--health-dot);
+  border-radius: 50%;
 }
 
 .kasten-health-summary {
-  margin: 2px 0 0 16px;
+  margin: 0.125rem 0 0;
   color: var(--color-muted);
-  font-size: var(--text-13);
+  font-size: var(--text-12);
 }
 
 .kasten-health-issues {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 6px 0 0 16px;
+  gap: 0.125rem;
+  /* Pulled back by one dot and gap, so each issue's dot sits under the
+     section's dot and its text lines up with the title and the sentence. */
+  margin: 0.375rem 0 0 calc(-1 * (var(--health-dot) + var(--health-gap)));
   padding: 0;
   list-style: none;
 }
 
+/* An issue is a grid of dot | text | actions. The preview lives in the text
+   column, so it is indented with the text; the buttons wrap inside their own
+   column. */
 .kasten-health-issue {
-  padding-block: 4px;
+  display: grid;
+  grid-template-areas: "dot text actions";
+  grid-template-columns: var(--health-dot) minmax(0, 1fr) auto;
+  column-gap: var(--health-gap);
+  align-items: start;
+  padding-block: 0.25rem;
   font-size: var(--text-13);
 }
 
-.kasten-health-issue-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
+.kasten-health-issue-dot {
+  grid-area: dot;
+  width: var(--health-dot);
+  height: var(--health-dot);
+  margin-top: 0.45rem;
+  border-radius: 50%;
+  background: var(--color-muted);
+
+  .kasten-health-issue[data-level="ok"] & {
+    background: var(--color-success);
+  }
+
+  .kasten-health-issue[data-level="warn"] & {
+    background: var(--color-warning);
+  }
+
+  .kasten-health-issue[data-level="fail"] & {
+    background: var(--color-danger);
+  }
 }
 
 .kasten-health-issue-text {
+  grid-area: text;
   display: flex;
-  flex: 1;
   flex-direction: column;
-  min-width: 12rem;
+  min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.kasten-health-issue-title {
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+
+.kasten-health-issue-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
 }
 
 .kasten-health-issue-detail {
@@ -85,19 +134,19 @@
 }
 
 .kasten-health-preview {
-  margin-top: 6px;
-  padding: 8px 12px;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--color-well);
 
   & ul {
-    margin: 0 0 4px;
+    margin: 0 0 0.25rem;
     padding-left: 1.1em;
   }
 
   & p {
-    margin: 2px 0;
+    margin: 0.125rem 0;
   }
 }
 
@@ -107,8 +156,23 @@
 
 .kasten-health-preview-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--health-gap);
+  margin-top: var(--health-gap);
+}
+
+/* Narrow: the actions drop under the text, still in the text column. */
+@media (max-width: 40rem) {
+  .kasten-health-issue {
+    grid-template-areas:
+      "dot text"
+      ". actions";
+    grid-template-columns: var(--health-dot) minmax(0, 1fr);
+    row-gap: 0.25rem;
+  }
+
+  .kasten-health-issue-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* The "Updated" badge on a linked board, deck or diagram in a page

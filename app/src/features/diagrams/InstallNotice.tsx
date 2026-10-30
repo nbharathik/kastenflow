@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -17,7 +18,7 @@ export function InstallNotice({ className = "" }: { className?: string }) {
     if (!info) void useDiagramEditor.getState().refresh();
   }, [info]);
   if (!info || info.installed) return null;
-  const desktop = inTauri();
+  const desktop = inTauri() || inDemo();
   const size = megabytes(info.bytes);
   const known = progress && progress.total > 0;
   const words = progress?.phase === "verifying" ? "Checking the download…" : progress?.phase === "extracting" ? "Unpacking the editor…" : known ? `Downloading ${Math.round(progress.done / 1_000_000)} MB of ${size}` : "Starting the download…";

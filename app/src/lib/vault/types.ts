@@ -2,7 +2,9 @@
 // (serde, camelCase) and the client every view talks to. The shapes live in
 // the `*-types.ts` files beside this one and are re-exported from here.
 
-import type { AgentMark, ChangedFile, Proposal, SessionInfo, Undone } from "./agent-types";
+import type { AgentModeOps } from "./agent-mode-types";
+import type { BatchOps } from "./batch-types";
+import type { AgentMark, ChangedFile, Digest, Proposal, SessionInfo, Undone } from "./agent-types";
 import type { AnnotationOps } from "./annotation-types";
 import type { AssetOps } from "./asset-types";
 import type { BoardAdded, BoardApplied, BoardChange, BoardInfo, BoardView } from "./board-types";
@@ -34,7 +36,7 @@ import type { ReplaceOps } from "./replace-types";
 import type { Revision, RevisionOps } from "./revision-types";
 import type { SourceOps } from "./source-types";
 import type { BackupStatus, CommitInfo, Emptied, VaultConfig, VaultRestore, VaultStatus, VerifyReport } from "./status-types";
-import type { AddedKit, KitInfo, NoteStats, PropDef, TagSchema, TagView } from "./tag-types";
+import type { AddedKit, FormulaFill, FormulaIssue, KitInfo, NoteStats, PropDef, TagSchema, TagView } from "./tag-types";
 
 // Notes: see note-types.ts.
 export type { Backlink, DayMention, Hit, MetaField, NewNote, NoteFile, NoteKind, NoteMeta, Placed, RelatedNote, Renamed, Saved, TaskRow, Trashed } from "./note-types";
@@ -43,7 +45,7 @@ export type { Backlink, DayMention, Hit, MetaField, NewNote, NoteFile, NoteKind,
 export type { BackupFileStatus, BackupState, BackupStatus, CommitInfo, Emptied, Problem, VaultConfig, VaultRestore, VaultStatus, VerifyReport } from "./status-types";
 
 // Tags, their schemas and views, starter kits: see tag-types.ts.
-export type { AddedKit, KitInfo, NoteStats, PropDef, TagSchema, TagView, TagViewKind, ViewFilter } from "./tag-types";
+export type { AddedKit, FormulaFill, FormulaIssue, KitInfo, NoteStats, PropDef, TagSchema, TagView, TagViewKind, ViewFilter } from "./tag-types";
 
 // Sources and highlights: see source-types.ts.
 export type { Highlight, HighlightColor, HighlightEdit, NewHighlight, PdfRect, SourceHighlights, SourceInfo, SourceOps } from "./source-types";
@@ -56,8 +58,15 @@ export { REPLACE_LIMITS, replaceWasStale } from "./replace-types";
 // The link graph: see graph-types.ts.
 export type { GraphEdge, GraphKind, GraphNode, GraphOps, GraphScope, VaultGraph } from "./graph-types";
 
-// Agents' proposals, sessions and marks: see agent-types.ts.
-export type { AgentMark, AgentOp, ChangedFile, Proposal, SessionInfo, Undone } from "./agent-types";
+// Agents' proposals, sessions and marks: see agent-types.ts. How much they may
+// do and where the vault can be put back to: see agent-mode-types.ts.
+export type { AgentMark, AgentOp, ChangedFile, Digest, DigestSession, Proposal, SessionInfo, Undone } from "./agent-types";
+export type { AgentMode, AgentModeOps, AgentPolicy, AgentPolicyView, Checkpoint } from "./agent-mode-types";
+export { AGENT_MODES } from "./agent-mode-types";
+
+// A batch the person runs, as one commit and one Undo: see batch-types.ts.
+export type { BatchAnswer, BatchChange, BatchOps, BatchRef, BatchRun, PageBlock, PageBlocks } from "./batch-types";
+export { BATCH_LIMITS } from "./batch-types";
 
 // Slide decks: see deck-types.ts.
 export type { DeckEdit, DeckFile, DeckInfo, DeckSaved, DecksSaved, SaveDecksRequest } from "./deck-types";
@@ -75,7 +84,7 @@ export type { BoardAdded, BoardApplied, BoardChange, BoardDrawing, BoardEdge, Bo
 // Projects, saved collections, annotations, references, bundles, the health
 // report and the vault's revision: see project-, collection-, annotation-,
 // reference-, bundle-, health- and revision-types.ts.
-export type { AppliedSetup, NextAction, ProjectHealth, ProjectOps, ProjectStateChange, ProjectStatus, ProjectSummary, SetupInfo, SetupPlan, SetupTarget, TaskCounts } from "./project-types";
+export type { AppliedSetup, NextAction, ProjectHealth, ProjectOps, ProjectStateChange, ProjectStatus, ProjectSummary, SavedSetup, SetupGone, SetupInfo, SetupPage, SetupPlan, SetupSource, SetupTarget, TaskCounts } from "./project-types";
 export type { CollectionOps } from "./collection-types";
 export type { AnnotationOps, CommentAnchor, CommentResolved, NewComment, NewTextHighlight, PageComment, TextAnchor, TextHighlight, TextHighlightColor, TextHighlightEdit } from "./annotation-types";
 export type { Adopted, BibEntry, BibFile, Bibliography, CitingDeck, CitingPage, Duplicate, EntryRef, KeyHints, KeyRenamePlan, KeyRenamed, KeyUses, MatchKind, NewReference, PlannedDeck, PlannedPage, ReferenceMatch, ReferenceOps, ReferenceSaved, SkippedKey } from "./reference-types";
@@ -110,6 +119,8 @@ export interface VaultClient
     ReferenceOps,
     BundleOps,
     HealthOps,
+    AgentModeOps,
+    BatchOps,
     RevisionOps {
   /** `vault` for a folder on disk through the core, `preview` in a plain browser. */
   readonly kind: "vault" | "preview";
@@ -147,6 +158,9 @@ export interface VaultClient
   /** Puts the page at `path` inside the page at `parent`, moving it to that
    * page's project or the library; with null, makes it a page of its own. */
   nest(path: string, parent: string | null): Promise<Placed>;
+  /** Stores the order the page at `parent` shows its sub-pages in (their ids,
+   * first to last); sub-pages left out follow alphabetically. */
+  reorderChildren(parent: string, ids: string[]): Promise<NoteFile>;
   /** Makes a card a page or a page a card, filed where that kind lives. */
   convert(path: string, kind: "card" | "page"): Promise<Placed>;
   /** Copies a page beside itself as "<title> (copy)" with a new id. */
@@ -200,6 +214,10 @@ export interface VaultClient
   setTagViews(tag: string, views: TagView[]): Promise<TagSchema>;
   /** Replaces a tag's properties in its YAML the same way. */
   setTagProperties(tag: string, properties: PropDef[]): Promise<TagSchema>;
+  /** The calculated cells of a tag's rows as of `today` (YYYY-MM-DD, this window's day). */
+  tagFormulas(tag: string, today: string): Promise<FormulaFill>;
+  /** What is wrong with one formula as typed, or null; `properties` are the tag's, as being edited. */
+  checkFormula(formula: string, key: string, properties: PropDef[]): Promise<FormulaIssue | null>;
   /** Sets properties (null removes one), checked against the tags' schemas. */
   updateProps(path: string, props: Record<string, unknown>): Promise<NoteFile>;
   setTags(path: string, add: string[], remove: string[]): Promise<NoteFile>;
@@ -246,6 +264,8 @@ export interface VaultClient
   acceptProposal(id: string): Promise<unknown>;
   rejectProposal(id: string): Promise<void>;
   sessions(limit?: number): Promise<SessionInfo[]>;
+  /** What agents did since `since` (milliseconds since the Unix epoch), session by session; your own edits are not in it. */
+  activityDigest(since: number): Promise<Digest>;
   undoSession(session: string): Promise<Undone>;
   /** Fetches a web page and keeps its article as an inbox card (the desktop app only). */
   clipUrl(url: string): Promise<NoteFile>;

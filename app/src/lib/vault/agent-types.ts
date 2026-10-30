@@ -33,6 +33,38 @@ export interface SessionInfo {
   undone: boolean;
 }
 
+/** One agent session's share of a day (the core's `activity_digest`). Only
+ * what agents did: a person's edits are never in it. */
+export interface DigestSession {
+  id: string;
+  /** The name the agent connected under, such as `routine: conference tracking`. */
+  client: string;
+  started: number;
+  last: number;
+  /** Changes made inside the window. */
+  changes: number;
+  /** Changes it asked you to decide on, inside the window. */
+  proposed: number;
+  notesTouched: number;
+  /** Paths of the first few notes it touched. */
+  notes: string[];
+  /** `autonomous` when it worked on its own. */
+  mode: string | null;
+  proposalsWaiting: number;
+  /** Something of the session can still be taken back. */
+  canUndo: boolean;
+  undone: boolean;
+}
+
+export interface Digest {
+  /** The window's start, in milliseconds since the Unix epoch. */
+  since: number;
+  /** Sessions that changed something in the window, newest first. */
+  sessions: DigestSession[];
+  changes: number;
+  waiting: number;
+}
+
 /** One file a commit changed. */
 export interface ChangedFile {
   path: string;

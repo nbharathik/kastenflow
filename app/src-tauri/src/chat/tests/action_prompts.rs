@@ -37,6 +37,7 @@ fn chip(kind: &str, refs: &[&str]) -> ContextChip {
         kind: kind.to_owned(),
         label: String::new(),
         refs: refs.iter().map(|r| r.to_string()).collect(),
+        ..Default::default()
     }
 }
 

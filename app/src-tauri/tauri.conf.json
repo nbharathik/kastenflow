@@ -31,7 +31,7 @@
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",
         "object-src": "'none'",
-        "frame-src": "http: https: http://diagrams.localhost diagrams://localhost",
+        "frame-src": "http: https: http://diagrams.localhost diagrams://localhost http://smart.localhost smart://localhost",
         "media-src": "'self' blob: asset: http://asset.localhost",
         "base-uri": "'none'",
         "form-action": "'none'"

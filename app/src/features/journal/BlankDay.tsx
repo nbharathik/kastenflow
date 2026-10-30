@@ -15,9 +15,9 @@ export const journalDayOf = (path: string) => /^journal\/\d{4}\/(\d{4}-\d{2}-\d{
 /** `onMade` hears where the page was made, once it is. */
 export function BlankDay({ day, onMade }: { day: string; onMade?: (path: string) => void }) {
   // Laid out like the page it will become: the width preference decides the column.
-  const full = usePrefs((s) => s.fullWidth);
+  const width = usePrefs((s) => s.pageWidth);
   return (
-    <div className={`kasten-journal-blank${full ? " is-full-width" : ""}`}>
+    <div className={`kasten-journal-blank${width === "full" ? " is-full-width" : width === "wide" ? " is-wide" : ""}`}>
       <div className="kasten-page-column">
         <h1>{longDay(day)}</h1>
         <p>Nothing was written on this day.</p>

@@ -12,7 +12,7 @@ use super::attach::AttachmentInfo;
 use super::budget::ChatBudgets;
 use super::state::ChatState;
 use super::store::ThreadSummary;
-use super::threads::{ChatUsage, Loaded, StateOf};
+use super::threads::{AdoptFailed, ChatUsage, Loaded, StateOf};
 use crate::commands::assets::percent_decode;
 use crate::commands::notes::OpenVault;
 
@@ -24,14 +24,26 @@ pub fn chat_threads(state: State<'_, ChatState>) -> Vec<ThreadSummary> {
 }
 
 /// A saved thread, brought back so it can be read, sent to and continued.
+/// When it cannot be, the error is an `AdoptFailed` object
+/// (`{kind: "adoptFailed", reason: "missing" | "damaged" | "newer", message}`),
+/// never an empty new thread; a vault that is not open is a plain sentence.
+/// `gap` says which events after the saved screen are gone from `chat_state`.
 #[tauri::command(async)]
 pub fn chat_load(
     vault: State<'_, OpenVault>,
     state: State<'_, ChatState>,
     id: String,
-) -> Result<Loaded, String> {
-    let kasten = vault.require()?;
-    state.chats.loaded(&id, &kasten)
+) -> Result<Loaded, LoadError> {
+    let kasten = vault.require().map_err(LoadError::Other)?;
+    state.chats.loaded(&id, &kasten).map_err(LoadError::Adopt)
+}
+
+/// What `chat_load` fails with: the typed `AdoptFailed`, or a sentence.
+#[derive(Debug, serde::Serialize)]
+#[serde(untagged)]
+pub enum LoadError {
+    Adopt(AdoptFailed),
+    Other(String),
 }
 
 /// Keeps the window's own picture of a thread (at most 5 MB).

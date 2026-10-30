@@ -6,6 +6,7 @@ use std::fs;
 use serde::{Deserialize, Serialize};
 
 use super::Kasten;
+use crate::backup::BackupNotice;
 use crate::error::{Error, Result};
 use crate::history::{BackupState, BackupStatus};
 
@@ -25,6 +26,62 @@ pub struct BackupRecord {
     /// computer lacks.
     #[serde(default)]
     pub behind: bool,
+    /// The remote the last push went to: what `pushed_head` is the tip of.
+    #[serde(default)]
+    pub pushed_to: Option<String>,
+    /// The remote no longer holds `pushed_head` (someone rewrote it), so
+    /// pushes have stopped.
+    #[serde(default)]
+    pub lost_history: bool,
+    /// The safety branch this computer's full history was last saved to.
+    #[serde(default)]
+    pub recovered_branch: Option<String>,
+    /// When the weekly check last found the backup whole.
+    #[serde(default)]
+    pub verified_at: Option<u64>,
+    /// When the current run of failed tries began.
+    #[serde(default)]
+    pub failing_since: Option<u64>,
+    /// How many pushes in a row the backup refused as behind.
+    #[serde(default)]
+    pub refused: u32,
+    /// The backup's newest commit when Get latest last looked, and the
+    /// remote it came from: commits it reaches are in the backup.
+    #[serde(default)]
+    pub fetched: Option<String>,
+    #[serde(default)]
+    pub fetched_from: Option<String>,
+    /// When the backup was last looked at for changes from other computers.
+    /// Not kept: a new run looks at once.
+    #[serde(skip)]
+    pub last_checked: Option<u64>,
+    /// When the backup was last read back, whether or not it was found whole;
+    /// a check that failed is not repeated at once. Not kept.
+    #[serde(skip)]
+    pub last_verify_try: Option<u64>,
+}
+
+impl BackupRecord {
+    /// The commit Get latest last fetched from the backup at `url`.
+    pub(super) fn fetched_at(&self, url: &str) -> Option<&str> {
+        self.fetched
+            .as_deref()
+            .filter(|_| self.fetched_from.as_deref() == Some(url))
+    }
+
+    /// Whether pushes to `url` have stopped for a rewritten backup.
+    pub(super) fn lost_for(&self, url: &str) -> bool {
+        self.lost_history && self.pushed_to.as_deref() == Some(url)
+    }
+
+    /// The commit the backup at `url` is known to hold from here: what was
+    /// last pushed, when it went to that remote (or to one not recorded, as
+    /// before this was kept).
+    pub(super) fn known_at(&self, url: &str) -> Option<&str> {
+        self.pushed_head
+            .as_deref()
+            .filter(|_| self.pushed_to.as_deref().is_none_or(|to| to == url))
+    }
 }
 
 /// How long to wait after the last try once pushes have failed `failures`
@@ -48,7 +105,7 @@ impl Kasten {
         self.state().last_commit = head_time;
     }
 
-    fn save_backup(&self, record: &BackupRecord) {
+    pub(super) fn save_backup(&self, record: &BackupRecord) {
         let path = self.vault.root().join(BACKUP_PATH);
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
@@ -95,12 +152,13 @@ impl Kasten {
         let Some(history) = self.history.get() else {
             return false;
         };
-        if self.confirmed_remote().is_none() {
+        let Some(url) = self.confirmed_remote() else {
             return false;
-        }
+        };
         let head = history.head();
         let state = self.state();
-        if head.is_none() || head == state.backup.pushed_head {
+        // A rewritten backup takes no pushes until it is dealt with.
+        if head.is_none() || head == state.backup.pushed_head || state.backup.lost_for(&url) {
             return false;
         }
         // After failures, each try waits longer, counted from the last
@@ -133,12 +191,16 @@ impl Kasten {
         let Some(history) = self.history.get() else {
             return false;
         };
-        if self.confirmed_remote().is_none() {
+        let Some(url) = self.confirmed_remote() else {
             return false;
-        }
+        };
         let head = history.head();
         let state = self.state();
-        if head.is_none() || head == state.backup.pushed_head || state.backup.behind {
+        if head.is_none()
+            || head == state.backup.pushed_head
+            || state.backup.behind
+            || state.backup.lost_for(&url)
+        {
             return false;
         }
         state.backup.failures == 0
@@ -162,23 +224,41 @@ impl Kasten {
             ));
         };
         let token = self.git_token();
+        // A backup someone rewrote takes no push: it would be refused, or
+        // bury what they did.
+        let lost = self.backup_lost(history, &url, token.as_ref());
+        // A check that could not be made (the backup cannot be reached, a Get
+        // latest is half done) does not lift a stop already recorded.
+        let stays_lost = lost.is_none() && self.state().backup.lost_for(&url);
+        if lost == Some(true) || stays_lost {
+            return Err(self.stop_for_lost_history(now));
+        }
         let result = history
             .push_as(&url, token.as_ref())
             .map_err(|err| crate::history::redacted(err, token.as_ref()));
         let mut record = self.state().backup.clone();
         record.last_attempt = Some(now);
+        if lost == Some(false) {
+            record.lost_history = false;
+        }
         match &result {
             Ok(sent) => {
                 record.last_push = Some(now);
                 record.pushed_head.clone_from(sent);
+                record.pushed_to = Some(url);
+                record.lost_history = false;
                 record.failures = 0;
                 record.last_error = None;
                 record.behind = false;
+                record.failing_since = None;
+                record.refused = 0;
             }
             Err(err) => {
                 record.failures += 1;
+                record.failing_since.get_or_insert(now);
                 record.last_error = Some(err.to_string());
                 record.behind = err.to_string().contains(crate::history::BEHIND);
+                record.refused = if record.behind { record.refused + 1 } else { 0 };
             }
         }
         self.save_backup(&record);
@@ -193,17 +273,31 @@ impl Kasten {
         };
         let remote = self.config().git.remote;
         let on = self.has_history() && remote.is_some();
+        // A run of failed tries is "failing" once it has gone on for hours
+        // (or pushes were refused again and again), not after a few quick
+        // tries: that is what the person is told.
+        let notice =
+            BackupNotice::judge(record.failing_since, record.failures, record.refused, now)
+                .filter(|_| on);
         let mut status = BackupStatus::judge(
             on,
             record.last_push,
-            record.failures,
-            record.last_error,
+            if notice.is_some() {
+                record.failures.max(3)
+            } else {
+                0
+            },
+            record.last_error.clone(),
             now,
         );
+        status.failures = record.failures;
+        status.notice = notice;
+        status.verified_at = record.verified_at;
         if on && confirmed != remote {
             status.state = BackupState::Unconfirmed;
         }
         status.behind = record.behind;
+        self.add_backup_facts(&mut status, &record, remote.as_deref());
         status
     }
 

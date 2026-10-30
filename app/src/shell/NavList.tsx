@@ -8,6 +8,7 @@ import { useBrowserOn } from "../features/browser/prefs";
 import { useCapturesShown } from "../features/extension/captures";
 import { useReview } from "../features/review/store";
 import { howFrom } from "../features/workspace/store";
+import { usePluginsVersion } from "../plugins/registry";
 import { Icon } from "../ui/Icon";
 import { availableNav, groupedNav, type NavItem } from "./nav";
 import { useNavPins, type NavPins } from "./nav-pins";
@@ -68,6 +69,7 @@ export function NavList({ arrange = false, className = "" }: { arrange?: boolean
   // So does the Browser, once it is turned on, and Captures.
   useBrowserOn();
   useCapturesShown();
+  usePluginsVersion();
   const groups = groupedNav(availableNav(), query);
 
   const rows = () => [...(list.current?.querySelectorAll<HTMLElement>("[data-nav-main]") ?? [])];

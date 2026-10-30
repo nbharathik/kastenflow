@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { usePlugins } from "../plugins/registry";
 import { useBoards } from "../features/boards/store";
 import { useDecks } from "../features/slides/store";
 import { usePrefs } from "../features/workspace/prefs";
@@ -17,13 +18,18 @@ const item = (label: string) => items().find((el) => el.querySelector("span.flex
 
 beforeEach(() => {
   localStorage.clear();
+  // "New smart page" is offered once smart pages are on (they start off).
+  usePlugins.setState({ on: { smart: true } });
   usePrefs.setState({ plusOpensRight: false, newTabs: false });
   useDecks.setState({ creating: false, draftProject: null });
   useBoards.setState({ creating: false, draftProject: null });
   useWorkspace.setState({ ...derive(initialLayout()), notes: [], recent: [], stack: [], stackOpen: false });
   render(<NewTabButton />);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePlugins.setState({ on: {} });
+});
 
 describe("the new tab button", () => {
   it("makes a Home tab on a plain click, here or to the right as the switch says", () => {
@@ -43,7 +49,7 @@ describe("the new tab button", () => {
     const menu = screen.getByRole("menu", { name: "New tab" });
     expect(menu).toBeTruthy();
     const labels = items().map((el) => el.querySelector("span.flex-1")?.textContent);
-    expect(labels).toEqual(["New page", "New page to the right", "Today's journal", "Journal to the right", "Slides", "New deck", "New whiteboard", "Graph", "New tabs open to the right"]);
+    expect(labels).toEqual(["New page", "New page to the right", "Today's journal", "Journal to the right", "Slides", "New deck", "New whiteboard", "New smart page", "Graph", "New tabs open to the right"]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
 

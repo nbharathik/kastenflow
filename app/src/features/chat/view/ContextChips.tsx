@@ -16,16 +16,19 @@ import { titleOf } from "../../workspace/names";
 import { useWorkspace } from "../../workspace/store";
 import { noteAt } from "../../workspace/tree";
 import { useAttachments } from "../attach-store";
+import { useSharing } from "../selection/sharing";
 import { useChat } from "../store";
 import { chipKey, originOf, type Chip, type Thread } from "../thread";
 import { AddContext } from "./AddContext";
 import { AttachmentChips } from "./AttachmentChips";
 
-const ICONS: Record<Chip["kind"], IconName> = { note: "page", cards: "cards", board: "board", tag: "tag", search: "search", deck: "present", slide: "present", diagram: "diagram", pdf: "book", attachment: "attach" };
+const ICONS: Record<Chip["kind"], IconName> = { note: "page", cards: "cards", board: "board", tag: "tag", search: "search", deck: "present", slide: "present", diagram: "diagram", latex: "sigma", pdf: "book", attachment: "attach", selection: "quote" };
 
 /** What a chip stands for, one line per thing, when it stands for several. */
 function parts(chip: Chip, notes: readonly NoteMeta[]): string[] {
   if (chip.kind === "cards") return chip.ref.map((path) => (noteAt(notes, path) ? titleOf(noteAt(notes, path)!) : path));
+  // A selection lists the words themselves, so what will be sent is in view.
+  if (chip.kind === "selection" && chip.selection) return [chip.selection.text];
   if (chip.kind === "pdf") {
     const named = (prefix: string) => chip.ref.find((r) => r.startsWith(prefix))?.slice(prefix.length);
     const pages = named("pages:");
@@ -43,6 +46,8 @@ export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta 
   // The row scrolls, so a file just attached is brought into view at its end, beside + Context.
   const row = useRef<HTMLDivElement>(null);
   const waiting = useAttachments((s) => s.byThread[thread.id]?.length ?? 0);
+  // A connected client may be reading the selection (see selection/share.ts).
+  const shared = useSharing((s) => s.shared);
   useEffect(() => {
     if (waiting > 0 && row.current) row.current.scrollLeft = row.current.scrollWidth;
   }, [waiting]);
@@ -77,7 +82,7 @@ export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta 
                 <span className="kasten-chat-chip-icon" aria-hidden="true">
                   <Icon name={ICONS[chip.kind]} className="size-3.5" />
                 </span>
-                {inside.length > 1 || (chip.kind === "pdf" && inside.length > 0) ? (
+                {inside.length > 1 || ((chip.kind === "pdf" || chip.kind === "selection") && inside.length > 0) ? (
                   <button type="button" className="kasten-chat-chip-toggle" aria-expanded={open === key} aria-label={`What ${chip.label} holds`} onClick={() => setOpen(open === key ? null : key)}>
                     {label}
                     <Icon name={open === key ? "chevron-up" : "chevron-down"} className="size-3" />
@@ -108,6 +113,11 @@ export function ContextChips({ thread, page }: { thread: Thread; page: NoteMeta 
         {/* Outside the scrolling chips, so it is always there to press. */}
         <AddContext thread={thread} page={page} />
       </div>
+      {shared && (
+        <p className="kasten-chat-shared" role="status">
+          Shared with a connected client
+        </p>
+      )}
       {listed && (
         <ul className="kasten-chat-chip-list" aria-label={`What ${listed.label} holds`}>
           {parts(listed, notes).map((line) => (

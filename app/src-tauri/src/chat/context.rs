@@ -1,6 +1,6 @@
 //! Context chips: what the person attached to a message
 //! (a note, cards, a board, a tag's view, search results, a slide deck or the
-//! slide they are looking at, a diagram, pages or highlights of a PDF), read through the core and put before their
+//! slide they are looking at, a diagram, a LaTeX file, pages or highlights of a PDF, or text they selected: selection.rs), read through the core and put before their
 //! words in one marked block of at most about 60,000 characters, with a line
 //! saying what was cut. Text the person attached as a file or by pasting
 //! (`attachment`) goes in the same block.
@@ -8,13 +8,14 @@
 use kasten_core::Kasten;
 use kasten_core::agent::Session;
 
-use super::ContextChip;
+use super::{ContextChip, selection};
 
 pub mod attachment;
 mod boards;
 mod decks;
 mod diagrams;
 mod frames;
+mod latex;
 mod notes;
 pub mod pdf;
 
@@ -82,7 +83,9 @@ fn parts(
         "deck" => vec![decks::deck(kasten, first)],
         "slide" => vec![decks::slide(kasten, &chip.refs)],
         "diagram" => vec![diagrams::diagram(kasten, session, &chip.refs)],
+        "latex" => vec![latex::latex(kasten, session, &chip.refs)],
         "pdf" => vec![pdf::pdf(kasten, &chip.refs, excerpts)],
+        "selection" => vec![selection::part(chip)],
         other => {
             let kind: String = other
                 .chars()
@@ -127,10 +130,16 @@ pub(crate) fn chip_parts(
     chips: &[ContextChip],
     excerpts: &[Excerpt],
 ) -> Vec<Part> {
-    chips
-        .iter()
+    // At most five pinned passages and one automatic one go; the rest are said to be left out.
+    let (kept, left_out) = selection::chosen(chips);
+    let mut all: Vec<Part> = kept
+        .into_iter()
         .flat_map(|c| parts(kasten, session, c, excerpts))
-        .collect()
+        .collect();
+    if left_out > 0 {
+        all.push(selection::left_out_part(left_out));
+    }
+    all
 }
 
 /// `all` in one `<context>` block within `LIMIT` characters, each part's

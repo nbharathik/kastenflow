@@ -85,7 +85,17 @@ fn offers_no_tool_that_deletes_or_rewrites_history() {
         "delete_rows",
         "delete_columns",
     ];
-    for name in tools.iter().filter(|n| !DECK_EDITS.contains(&n.as_str())) {
+    // Two parity tools carry words that sound like history rewrites and are not: `restore_note`
+    // brings a note back out of the trash (it only ever moves it back), and `undo_session` takes
+    // back the agent's own session as new commits, so history is only added to; a session of
+    // another agent waits for review (tests/parity_tools_more.rs checks both).
+    // `smart_delete_file` takes one file out of a smart page's folder: it goes to the trash and
+    // `undo` or a restore brings it back, like a note (tests/smart_tools.rs).
+    const TAKING_BACK: [&str; 3] = ["restore_note", "undo_session", "smart_delete_file"];
+    for name in tools
+        .iter()
+        .filter(|n| !DECK_EDITS.contains(&n.as_str()) && !TAKING_BACK.contains(&n.as_str()))
+    {
         for word in [
             "delete",
             "remove_note",

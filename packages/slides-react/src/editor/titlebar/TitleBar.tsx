@@ -7,6 +7,7 @@ import { MenuSearch } from "../menus/MenuSearch.tsx";
 import type { EditorSession } from "../session/session.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { IconButton } from "../ui/Button.tsx";
+import { useAiStatus } from "../panels/ai/useAiStatus.ts";
 import { useEditorValue } from "../useEditor.ts";
 import { useElementSize } from "../useElementSize.ts";
 import { useUiState } from "../useUi.ts";
@@ -15,6 +16,9 @@ import { FavouriteStar } from "./FavouriteStar.tsx";
 import { SaveStatus } from "./SaveStatus.tsx";
 import { SlideshowButton } from "./SlideshowButton.tsx";
 import "./titlebar.css";
+
+/** What the Assistant button says besides its name when the assistant is not at rest. */
+const AI_WORDS = { working: "working", paused: "paused", failed: "last request failed" } as const;
 
 /** Below this width the menus fold into one button: the name, the search and the buttons at the right would otherwise squeeze them. */
 const FOLD_MENUS_BELOW = 1060;
@@ -30,6 +34,8 @@ export function TitleBar({ session, ui }: { session: EditorSession; ui: EditorUi
   // A message that needs reading (saving paused, or failed) is too long to share the row with the menus.
   const stacked = conflict || status === "error";
   const { panel, fullScreen } = useUiState(ui);
+  // What the assistant is doing for this deck shows on its button, so it is seen with the panel closed.
+  const aiStatus = useAiStatus(session.host);
   const ctx = useMemo(() => ({ session, ui }), [session, ui]);
 
   // The host gives its actions to the editor after the first draw, and has no way to say when it changes them:
@@ -65,7 +71,13 @@ export function TitleBar({ session, ui }: { session: EditorSession; ui: EditorUi
       {folded ? <CollapsedMenu session={session} ui={ui} /> : <MenuBar session={session} ui={ui} />}
       <MenuSearch session={session} ui={ui} />
       <span className="ks-title-spacer" />
-      <IconButton icon="sparkles" label="Assistant" on={panel === "ai"} onClick={() => void runCommand("view.ai-panel", ctx)} />
+      <IconButton
+        icon="sparkles"
+        label={aiStatus === "idle" ? "Assistant" : `Assistant, ${AI_WORDS[aiStatus]}`}
+        on={panel === "ai"}
+        {...(aiStatus === "idle" ? {} : { dot: aiStatus })}
+        onClick={() => void runCommand("view.ai-panel", ctx)}
+      />
       {/* On, it says in words how to get out; the tooltip has the keys either way. */}
       <IconButton
         icon={fullScreen ? "minimize" : "maximize"}

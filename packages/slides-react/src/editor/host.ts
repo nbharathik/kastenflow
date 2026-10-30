@@ -132,8 +132,20 @@ export interface DeliveredFile {
   type: string;
 }
 
+/** What the assistant is doing for this deck: at rest, working on a request, stopped short and able to go on, or its last request failed. */
+export type AiStatus = "idle" | "working" | "paused" | "failed";
+
+/** Where the host says what its assistant is doing for the deck, so the editor can show it on its Assistant button while the panel is closed. */
+export interface AiStatusSource {
+  current(): AiStatus;
+  /** Calls `listener` when `current()` may have changed; answers the way to stop. */
+  subscribe(listener: () => void): () => void;
+}
+
 /** What the host's assistant panel is told: where the person is in the deck. It is given again when the slide, the selection or the marks change. */
 export interface AiPanelProps {
+  /** What the assistant is doing for this deck now (idle when the host does not say). */
+  status: AiStatus;
   /** Where the deck is kept, as the host names decks (a vault path in Kasten); none when the host keeps it nowhere. */
   deckPath: string | undefined;
   deckTitle: string;
@@ -229,6 +241,8 @@ export interface SlidesHost {
   synced?(text: string): void;
   /** Opens a web address outside the editor. */
   openUrl?(url: string): void;
+  /** Opens a web address in a tab of the host's own app (the right-click menu on a link offers it). Left out, the menu has no such row. */
+  openInTab?(url: string): void;
   /**
    * Lets the person choose a page of the host, and resolves to it, or to null when they did not. A host with no pages (the
    * standalone `slides dev`) leaves this out, and the editor does not offer Insert → Page.
@@ -259,8 +273,9 @@ export interface SlidesHost {
   readerPage?(address: string): Promise<{ title: string; markdown: string } | null>;
   /**
    * A web page shown next to a slide, or over a presentation, in a view the host draws (a native web view in the desktop app). With it a
-   * web link followed in a presentation, and Preview live on an embedded page in the editor, open the page in a peek at the side (or
-   * in the middle, or over the whole window) that the editor places and the host fills; the editor makes no frame of its own for it.
+   * web link followed in a presentation opens the page in a window over the slide (or at the side, or over the whole window), and Preview
+   * live on an embedded page in the editor opens it in a peek at the side, that the editor places and the host fills; the editor makes no
+   * frame of its own for it. The host must say how the page is doing (`loading`, then `ready`): its view is shown only once it is ready.
    * Without it a link opens outside, and a selected embed shows live in a frame in the page where the page allows it.
    */
   webPreview?: WebPreviewHost;
@@ -282,11 +297,18 @@ export interface SlidesHost {
    */
   fillScreen?(onLeft: () => void): Promise<() => void>;
   /**
+   * Which display a presentation fills, where the host has more than one to choose from. The slideshow options offer the choice
+   * ("Present on"); the host keeps it for this computer and uses it in `fillScreen`. Left out, the menu has no such row.
+   */
+  screens?: PresentScreens;
+  /**
    * The assistant tab of the side panel, drawn by the host: Kasten gives its chat, with the deck tools. It is a component that is given
    * where the person is in the deck (`AiPanelProps`) and drawn again as that changes. A host without one shows that the assistant is not
    * available here.
    */
   aiPanel?: ComponentType<AiPanelProps>;
+  /** What the assistant is doing for this deck: shown as a dot on the Assistant button (pulsing while it works), and given to the panel as `status`. */
+  aiStatus?: AiStatusSource;
   /**
    * The templates the host keeps, so that a deck's look can be saved as one and put on this deck or another. A host without them
    * (the standalone page) leaves this out, and the editor offers no templates.
@@ -304,6 +326,18 @@ export interface SlidesHost {
    * this out, and the title bar shows no star.
    */
   favourite?: DeckFavourite;
+}
+
+/**
+ * The displays a presentation may fill. A choice is `"auto"` (the external display when there is one, else this one), `"here"` (the
+ * display the window is on), or `"name:<display>"` for one of the names `displays()` gives.
+ */
+export interface PresentScreens {
+  /** The names of the displays attached now; the menu offers a choice only when there are two or more. */
+  displays(): Promise<string[]>;
+  /** The choice kept for this computer. */
+  chosen(): string;
+  choose(value: string): void;
 }
 
 /** The deck's star: read it, change it, and hear when it was changed somewhere else (the sidebar). */

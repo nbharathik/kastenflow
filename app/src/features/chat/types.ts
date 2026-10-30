@@ -82,7 +82,7 @@ export type ActionNeed = "selection" | "page" | "nearby" | "sources" | "pdf" | "
  * or becomes a change to review. */
 export type ActionWrites = "none" | "insert" | "propose";
 /** Where an action is offered. */
-export type ActionPlace = "editor" | "chat" | "pdf";
+export type ActionPlace = "editor" | "chat" | "pdf" | "latex" | "smart";
 
 /** An AI action, built in or from the vault's `templates/ai/`. */
 export interface AiAction {
@@ -153,7 +153,26 @@ export interface Written {
   note: string | null;
 }
 
-export type ChipKind = "note" | "board" | "cards" | "tag" | "search" | "deck" | "slide" | "diagram" | "pdf" | "attachment";
+export type ChipKind = "note" | "board" | "cards" | "tag" | "search" | "deck" | "slide" | "diagram" | "latex" | "pdf" | "attachment" | "selection";
+
+/** Where a selected text comes from. `id` names the slide element, for a slide's text box. */
+export interface SelectionSource {
+  kind: "page" | "pdf" | "latex" | "slide";
+  path: string;
+  id?: string;
+}
+
+/** Selected text that goes with a message (the backend fences it as data). */
+export interface SelectionPayload {
+  source: SelectionSource;
+  text: string;
+  /** The heading it sits under, when it sits under one. */
+  heading?: string;
+  /** Where it is in the source, in characters, when the source can say. */
+  range?: { from: number; to: number };
+  /** Kept with "Add to chat"; an automatic one is replaced by the next selection. */
+  pinned: boolean;
+}
 
 /** Something a chat is grounded in. `ref` names it: a note [path], a board
  * [board path], cards [note paths], a tag view [tag, view name?], search
@@ -167,6 +186,8 @@ export interface ContextChip {
   kind: ChipKind;
   label: string;
   ref: string[];
+  /** For a `selection` chip: the text and where it came from (its `ref` is empty on the wire). */
+  selection?: SelectionPayload;
 }
 
 export interface ChatRequest {
@@ -303,7 +324,7 @@ export interface Recalculated {
 export interface ChatEvent {
   chat: string;
   turn: string;
-  kind: "text" | "tool" | "toolResult" | "done" | "error" | "notice" | "changes" | "plan" | "paused" | "queued" | "round" | "thinking";
+  kind: "text" | "tool" | "toolResult" | "done" | "error" | "notice" | "changes" | "plan" | "paused" | "queued" | "round" | "thinking" | "waiting" | "started";
   /** Counts the chat's events, each more than the last, so a window that was
    * away can ask for what it missed. */
   seq?: number;

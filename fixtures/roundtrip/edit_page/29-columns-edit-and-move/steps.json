@@ -1,0 +1,4 @@
+[
+  { "op": "replace", "block": { "block": "b5" }, "markdown": "Left 2." },
+  { "op": "insert", "after": { "block": "b7" }, "markdown": "Right 2." }
+]

@@ -44,8 +44,8 @@ export default defineConfig({
     // Assets load from disk inside the app, not over a network; the editor
     // chunk (Milkdown, CodeMirror, KaTeX) is large but lazy.
     chunkSizeWarningLimit: 2500,
-    // The main window, and the quick capture window's small page.
-    rollupOptions: { input: { main: "index.html", capture: "capture.html" } },
+    // The main window, the quick capture window's small page, and the presenter's window's page (the view alone, not the app).
+    rollupOptions: { input: { main: "index.html", capture: "capture.html", presenter: "presenter.html" } },
     minify: process.env.TAURI_ENV_DEBUG ? false : undefined,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
   },

@@ -9,12 +9,14 @@ pub struct Args {
 }
 
 /// Flags that take no value.
-const SWITCHES: [&str; 7] = [
+const SWITCHES: [&str; 9] = [
     "--json",
     "--vault-wide",
     "--diff",
     "--dry-run",
     "--remote",
+    "--carry-on",
+    "--yes",
     "--help",
     "-h",
 ];

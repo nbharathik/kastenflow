@@ -31,8 +31,10 @@ export interface Finished {
 
 export interface Rehearsing {
   phase: RehearsalPhase;
-  /** What has been timed, up to now. */
+  /** What has been timed, up to when the view was last drawn. */
   timing: Timing;
+  /** What has been timed, up to this moment. */
+  timingNow(): Timing;
   start(): void;
   pause(): void;
   resume(): void;
@@ -154,5 +156,7 @@ export function useRehearsal(deck: Deck, spot: Spot | null, setup: RehearsalSetu
 
   if (!setup) return null;
   const timing = phase === "running" || phase === "paused" ? timer.current.summary(clock()) : NOTHING;
-  return { phase, timing, start, pause, resume, restart, finish, finished, save, discard };
+  // What has been timed, up to this moment: the bar that shows it asks again each second, so the view round it is not drawn again.
+  const timingNow = (): Timing => (phaseNow.current === "running" || phaseNow.current === "paused" ? timer.current.summary(latest.current.clock()) : NOTHING);
+  return { phase, timing, timingNow, start, pause, resume, restart, finish, finished, save, discard };
 }

@@ -176,6 +176,8 @@ export function attachChrome(reveal, host, options = {}) {
   });
   bind([76], () => laser());
   bind([70], fill);
+  // F5 starts a show elsewhere; inside one it must not reload the page the show is in.
+  bind([116], () => {});
   bind([83], () => options.onPresenter?.());
   // "/" alone is a clicker's black-screen button; with Shift it is "?".
   bind([63, 191], (event) => (event.keyCode === 191 && !event.shiftKey ? reveal.togglePause() : hints()));

@@ -20,7 +20,7 @@ const TASK: TagSchema = {
     { key: "points", type: "number", options: [] },
     { key: "urgent", type: "checkbox", options: [] },
   ],
-  views: [{ name: "Board", type: "kanban", group_by: "status" }, { name: "Odd", type: "timeline" }, { type: "table" }],
+  views: [{ name: "Board", type: "kanban", group_by: "status" }, { name: "Odd", type: "roadmap" }, { type: "table" }],
 };
 
 const notes = [
@@ -185,6 +185,15 @@ describe("keys for views that span tags and projects", () => {
     expect(readView({ name: "A", type: "table", scope: "vault" })!.scope).toBe("vault");
     expect("scope" in readView({ name: "A", type: "table", scope: "everywhere" })!).toBe(false);
     expect("scope" in readView({ name: "A", type: "table" })!).toBe(false);
+  });
+
+  it("read the sub-items switches as true or false, and leave out anything else", () => {
+    expect(readView({ name: "A", type: "table", sub_items: true })!.sub_items).toBe(true);
+    expect(readView({ name: "A", type: "list", hide_sub_items: true })!.hide_sub_items).toBe(true);
+    expect(readView({ name: "A", type: "table", sub_items: false })!.sub_items).toBe(false);
+    expect("sub_items" in readView({ name: "A", type: "table", sub_items: "yes" })!).toBe(false);
+    expect("hide_sub_items" in readView({ name: "A", type: "list", hide_sub_items: 1 })!).toBe(false);
+    expect("sub_items" in readView({ name: "A", type: "table" })!).toBe(false);
   });
 
   it("cover the notes of the project (not its own page), or every note", () => {

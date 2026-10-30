@@ -3,15 +3,18 @@
 
 import type { SaveOutcome, SlidesHost } from "@kasten-slides/react";
 
+import { inDemo } from "../../demo/flag";
 import { inTauri } from "../../lib/api";
-import { fillScreen } from "../../lib/fullscreen";
+import { fillShowScreen, presentScreens } from "../../lib/present-screen";
 import { fileUrl } from "../../lib/vault/file-url";
 import type { VaultClient } from "../../lib/vault/types";
 import { coverWindow } from "../browser/cover";
+import { holdForShow } from "../browser/show";
 import { diagramRevision, drawDiagramPicture, editDiagramPicture, pickDiagramPicture, watchDiagrams } from "../diagrams/slides";
 import { usePrefs } from "../workspace/prefs";
 import { contentHash } from "../workspace/preview/vault-text";
 import { AiTab } from "./AiTab";
+import { deckAiSource } from "./ai-status";
 import { galleryHost } from "./gallery-host";
 import { onBibFiles } from "./events";
 import { pageHost } from "./page-host";
@@ -32,6 +35,8 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     deckPath: path,
     // The assistant tab: Kasten's chat, told which slide and elements are selected.
     aiPanel: AiTab,
+    // What it is doing for this deck shows on the editor's Assistant button, panel open or not.
+    aiStatus: deckAiSource(path),
     // The images drawer: the vault's assets, their small copies, where each is used.
     ...galleryHost(client),
     // Templates: plain deck files in the vault's `templates/slides/`, saved from a deck and put on a deck from Slides' File menu.
@@ -107,24 +112,34 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     ...(inTauri()
       ? {
           openPresenter: () => openTauriPresenter(path),
-          fillScreen,
+          // The show fills the display chosen in "Present on", and the choice of displays is offered with the slideshow options.
+          fillScreen: fillShowScreen,
+          screens: presentScreens,
           webPreview: webPreviewHost(),
           // Rehearsals are a person's practice, kept on this computer in the app's data folder, not in the vault.
           rehearsals: rehearsalStore(),
           async willPresent(deck: unknown) {
             const uncover = coverWindow();
+            // A native web view (a browser tab, an editor's preview) is drawn above the window: the show holds all of it, and the
+            // toasts and the chat dock keep quiet, until it ends.
+            const release = holdForShow();
             try {
               await allowEmbeds(embeddedPages(deck));
             } catch (err) {
+              release();
               uncover();
               throw err;
             }
             return () => {
+              release();
               uncover();
               void allowEmbeds([]);
             };
           },
         }
-      : {}),
+      : // The promo demo's stand-in views serve the web preview in the browser preview too.
+        inDemo()
+        ? { webPreview: webPreviewHost() }
+        : {}),
   };
 }

@@ -46,8 +46,15 @@ export interface Paused {
   detail: string;
 }
 
-/** Where a thread is on the backend. */
-export type RunStatus = "idle" | "running" | "paused" | "interrupted" | "error";
+/** Where a thread is on the backend. `waiting`: it is in line for a free place (Settings → AI → Chat panel). */
+export type RunStatus = "idle" | "running" | "waiting" | "paused" | "interrupted" | "error";
+
+/** What a thread is tied to: a page, deck, diagram or LaTeX document. A note is found by its `id`, the rest by path. */
+export interface Binding {
+  kind: "page" | "deck" | "board" | "diagram" | "latex";
+  path: string;
+  id?: string;
+}
 
 /** One saved thread, for the list (`chat_threads`). */
 export interface ThreadSummary {
@@ -58,6 +65,10 @@ export interface ThreadSummary {
   status: RunStatus;
   provider: string;
   model: string;
+  /** Moved out of the list by its size; still saved and loadable. */
+  archived?: boolean;
+  /** The thing it is tied to, when it is. */
+  bound?: Binding | null;
 }
 
 /** A saved thread (`chat_load`): the window's own copy of it, and where the backend is. */
@@ -73,6 +84,50 @@ export interface LoadedThread {
   model: string;
   /** Messages still waiting for the turn's next step. */
   queued: string[];
+  archived?: boolean;
+  bound?: Binding | null;
+  /** Events after the saved screen that `chat_state` can no longer replay. */
+  gap?: { from: number; to: number } | null;
+}
+
+/** Why a saved chat could not be brought back (`chat_load` rejects with this). */
+export interface AdoptFailure {
+  kind: "adoptFailed";
+  reason: "missing" | "damaged" | "newer";
+  message: string;
+}
+
+/** The answer to `chat_delete_archived`. */
+export interface DeletedArchived {
+  deleted: string[];
+  count: number;
+  skipped: { id: string; reason: string }[];
+}
+
+/** How many chats the list keeps and how many may work at once (`chat_limits`). */
+export interface ChatLimits {
+  listSize: number;
+  maxConcurrent: number;
+}
+
+export const DEFAULT_CHAT_LIMITS: ChatLimits = { listSize: 30, maxConcurrent: 3 };
+
+/** The ranges `set_chat_limits` accepts. */
+export const CHAT_LIMIT_RANGES = { listSize: { min: 10, max: 200 }, maxConcurrent: { min: 1, max: 8 } } as const;
+
+/** What `chat_import_bindings` did. */
+export interface ImportedBindings {
+  bound: number;
+  missing: number;
+  kept: number;
+}
+
+/** Reads what `chat_load` rejected with: the typed failure, else none. */
+export function adoptFailureOf(error: unknown): AdoptFailure | null {
+  if (!error || typeof error !== "object") return null;
+  const { kind, reason, message } = error as Record<string, unknown>;
+  if (kind !== "adoptFailed" || typeof message !== "string") return null;
+  return { kind, reason: reason === "damaged" || reason === "newer" ? reason : "missing", message };
 }
 
 /** What a thread did since `sinceSeq` (`chat_state`). */

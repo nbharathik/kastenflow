@@ -1,0 +1,38 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:24
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(./main.aux)
+
+Overfull \hbox (23.55038pt too wide) in paragraph at lines 20--22
+[]\OT1/cmr/m/n/10 Supercalifragilisticexpialidocious_antidisestablish
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 31--33
+
+ []
+
+
+Overfull \vbox (12.0pt too high) has occurred while \output is active []
+
+
+Underfull \vbox (badness 1234) detected at line 40
+ []
+
+
+Overfull \hbox (4.3pt too wide) in alignment at lines 44--50
+[] []\OT1/cmr/m/n/10 Name (first) | Value[] []
+ []
+
+Missing character: There is no é in font cmr10!
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.aux) )
+Output written on main.pdf (2 pages, 4567 bytes).
+Transcript written on main.log.

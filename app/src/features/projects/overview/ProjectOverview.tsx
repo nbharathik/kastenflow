@@ -11,7 +11,9 @@ import "./overview.css";
 import { lazy, Suspense, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import type { GraphScope, TagView } from "../../../lib/vault/types";
-import type { MenuItem } from "../../../shell/Menu";
+import type { MenuEntry, MenuItem } from "../../../shell/Menu";
+import { useSmartAvailable } from "../../smart/availability";
+import { STARTERS } from "../../smart/author/starter-list";
 import { PointMenu } from "../../../shell/PointMenu";
 import { Button, IconButton } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
@@ -72,6 +74,7 @@ function Loaded({ path }: { path: string }) {
   const [overview, save] = useSavedOverview(project);
   const [prefs, patch] = useOverviewPrefs(folder);
   const full = useFullScreen();
+  const smartOn = useSmartAvailable(folder);
   const [menu, setMenu] = useState<{ x: number; y: number; kind: "new" | "table" } | null>(null);
   const newButton = useRef<HTMLButtonElement>(null);
   const tableButton = useRef<HTMLButtonElement>(null);
@@ -130,11 +133,21 @@ function Loaded({ path }: { path: string }) {
     useWorkspace.getState().toast(`Deleted the table “${name}”`, { label: "Undo", run: () => void save(before) });
   };
 
-  const newItems: (MenuItem | "divider")[] = [
+  const newItems: MenuEntry[] = [
     { label: "New page", icon: <Icon name="compose" className="size-4" />, onSelect: () => useWorkspace.getState().newPage({ project: folder }, "tab") },
     { label: "New card", icon: <Icon name="card" className="size-4" />, onSelect: () => useWorkspace.getState().newPage({ kind: "card", project: folder }, "tab") },
     { label: "New whiteboard", icon: <Icon name="board" className="size-4" />, onSelect: () => startNewBoard(folder, "tab") },
     { label: "New deck", icon: <Icon name="present" className="size-4" />, onSelect: () => startNewDeck(folder, "tab") },
+    // Only where smart pages are on: this project's own choice, else the vault's plugin.
+    ...(smartOn
+      ? [
+          {
+            label: "New smart page",
+            icon: <Icon name="code" className="size-4" />,
+            submenu: STARTERS.map((starter) => ({ label: starter.name, icon: <Icon name="code" className="size-4" />, onSelect: () => void import("../../smart/author/flows").then((m) => m.newSmartPage(starter.id, undefined, folder)) })),
+          },
+        ]
+      : []),
   ];
   const tableItems: (MenuItem | "divider")[] = PRESETS.map((preset) => ({ label: preset.label, icon: <Icon name="table" className="size-4" />, onSelect: () => startTable(preset) }));
   const scope: GraphScope = { kind: "project", path: folder };

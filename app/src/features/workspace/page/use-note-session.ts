@@ -11,6 +11,7 @@ import { useShell } from "../../../lib/store";
 import type { NoteFile, VaultClient } from "../../../lib/vault/types";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import { isDraft, nowAt } from "../drafts";
+import { settleStats } from "../note-stats";
 import { useWorkspace } from "../store";
 import { flushOpenPage, pageView, passTyping, registerPage, type PageView } from "./open-page";
 import { PageSession } from "./page-session";
@@ -42,6 +43,8 @@ export function useNoteSession(client: VaultClient, path: string) {
     (last: PageSession | null, leaving: boolean) => {
       if (!last) return;
       void last.close().then(() => {
+        // The lists (dashboard, calendar, cards) take in the new counts now, not up to 2 s after.
+        settleStats();
         if (leaving) void client.commitEdits().catch(() => {});
       });
     },
@@ -147,17 +150,37 @@ export function useNoteSession(client: VaultClient, path: string) {
     };
   }, [client, path, start]);
 
-  useEffect(
-    () => () => {
+  /** Set when the page is put away while kept ready (hidden): its editor is gone and its session closed. */
+  const away = useRef<{ session: PageSession; view: PageView | null } | null>(null);
+  useEffect(() => {
+    // Shown again after being kept ready: the session was closed and the
+    // editor rebuilt from the text the page was opened with, so read the note
+    // back (what was typed was written first) and start again where the reader was.
+    const back = away.current;
+    away.current = null;
+    if (back && session.current === back.session) {
+      const { session: old, view } = back;
+      setLoaded(null);
+      void old
+        .flush()
+        .then(() => client.read(old.path))
+        .then(
+          (fresh) => {
+            if (session.current === old) start(fresh, view);
+          },
+          (err: unknown) => setError(err instanceof Error ? err.message : String(err)),
+        );
+    }
+    return () => {
       // The page's own cleanups run after this one: its editor is still
       // there to hand over what was typed in its last moments.
       passTyping(session.current);
+      away.current =session.current ? { session: session.current, view: pageView(session.current) } : null;
       forget.current?.();
       forget.current = null;
       finish(session.current, true);
-    },
-    [finish],
-  );
+    };
+  }, [client, finish, start]);
 
   // Save when the window goes to the background; pick up changes made on
   // disk while it was there.
@@ -165,7 +188,7 @@ export function useNoteSession(client: VaultClient, path: string) {
     const onHide = () => {
       if (document.visibilityState !== "hidden") return;
       passTyping(session.current);
-      void session.current?.flush();
+      void session.current?.flush().then(() => settleStats());
       writeUnsavedNow();
     };
     const onFocus = () => {

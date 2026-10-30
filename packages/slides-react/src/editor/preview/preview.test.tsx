@@ -40,6 +40,8 @@ function fakePreview(options: { handle?: boolean } = {}) {
     close: vi.fn(),
     subscribe: vi.fn((listener: (event: WebPreviewEvent) => void) => {
       listeners.add(listener);
+      // As the app's host does: what is known now is told to a listener that comes. The page is up (its view is shown only then).
+      listener({ type: "state", state: { url: WEB, title: null, status: "ready" } });
       return () => listeners.delete(listener);
     }),
   } satisfies WebPreviewHandle;

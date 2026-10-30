@@ -8,34 +8,79 @@ use std::sync::{Arc, Mutex, OnceLock};
 use kasten_core::agent::{AgentOp, Session};
 use kasten_core::{Instant, Kasten};
 use rmcp::handler::server::router::tool::ToolRouter;
-use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
+use rmcp::model::{
+    CallToolResult, ContentBlock, ErrorData, Implementation, ListResourcesResult,
+    PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse, ServerCapabilities,
+    ServerConfig,
+};
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{ServerHandler, tool_handler};
 use serde::Serialize;
 
-pub const INSTRUCTIONS: &str = "KastenFlow is the user's notes vault: Markdown cards, pages, journal days, projects, whiteboards and slide decks. \
+use crate::plugins::{PluginTools, plugin_tools, routes_for};
+
+const LEAD: &str = "KastenFlow is the user's notes vault: Markdown cards, pages, journal days, projects, whiteboards and slide decks. \
 Capture quick thoughts to the inbox with `capture`. Link related notes by writing [[Their title]], or [[their/path|Their title]] when several notes share the title. \
 Change one section with `replace_section` or add with `append` instead of rewriting a note; `propose_edit` sends a full rewrite to the user for review. \
-Brainstorm on whiteboards. Nothing is ever deleted: `trash_note` moves notes to the trash. \
-Diagrams (flowcharts, architecture, sketches) are draw.io files you draw with typed steps, never with XML: make one with `diagram_new` (from a spec, a Mermaid flowchart or a template), \
+Brainstorm on whiteboards. Nothing is ever deleted: `trash_note` moves notes to the trash. ";
+
+/// Only while the Diagrams plugin is on: its tools are not listed otherwise.
+const DIAGRAMS: &str = "Diagrams (flowcharts, architecture, sketches) are draw.io files you draw with typed steps, never with XML: make one with `diagram_new` (from a spec, a Mermaid flowchart or a template), \
 read one with `diagram_describe`, change it with `diagram_edit` (add_node, add_edge, update, move, group, delete, layout…), check it with `diagram_lint` and `diagram_preview`, keep a picture with `diagram_export`, \
-and look shapes up by name with `diagram_find_shapes`. `get_diagram`, `create_diagram` and `update_diagram` read and write the raw XML; prefer the typed tools. `trash_diagram` always waits for the user. \
-Slide decks are built and changed with the deck tools (`create_deck`, or `deck_from_note` to start from a note): \
+and look shapes up by name with `diagram_find_shapes`. `get_diagram`, `create_diagram` and `update_diagram` read and write the raw XML; prefer the typed tools. `trash_diagram` always waits for the user. ";
+
+const REST: &str = "Slide decks are built and changed with the deck tools (`create_deck`, or `deck_from_note` to start from a note): \
 run `lint_deck` after every batch of changes and fix what it reports. What you make in a deck is marked for the user until they accept it. \
+What the user does with menus is a tool too: `set_parent` and `reorder_children` for sub-pages, `duplicate_note`, `restore_note` (see `list_trash`), `set_note_meta`, `apply_template`, `journal_day`, \
+`list_tasks` with `set_task`, `add_comment` for pointing something out without changing their text, `create_collection` for saved searches, `add_reference` (always waits), `board_edit` for whiteboards, \
+`list_projects` with `create_project` and `set_project_state`, `list_setups` with `save_project_setup` (always waits), and `undo_session` to take back your own session. \
+To lay out a page by its blocks (columns, toggles, callouts, tables, tasks, embeds), read it with `read_page_blocks` and change it with `edit_page`: each step names blocks by the id and hash you were given, the hash must match, and when you are told a block \"changed since\" you read it, nothing was written, so read the page again and redo the steps. \
 Some writes come back as `pending_review` with a proposal id; the user decides those. Locked notes are read-only.";
 
 /// What the server tells an agent on connecting: how to work in the vault,
-/// then in its slide decks, then how to draw diagrams (the text of the
-/// `kasten-diagrams` skill, written from the style catalogue).
-fn instructions() -> &'static str {
+/// then how to build a page by blocks, then in its slide decks, then how to
+/// draw diagrams (the text of the `kasten-diagrams` skill, written from the
+/// style catalogue).
+pub(crate) fn instructions() -> &'static str {
     static TEXT: OnceLock<String> = OnceLock::new();
-    TEXT.get_or_init(|| {
-        format!(
-            "{INSTRUCTIONS}\n\n{}\n\n{}",
-            crate::decks::instructions(),
-            kasten_core::diagrams::presets::instructions()
-        )
-    })
+    TEXT.get_or_init(|| build(true, true, true))
+}
+
+/// The same for a vault whose plugins are `config`: a plugin that is off has
+/// no tools listed, so it is not talked about either.
+pub(crate) fn instructions_for(config: &kasten_core::Config) -> String {
+    let (diagrams, latex, smart) = (
+        config.plugin_enabled("diagrams"),
+        config.plugin_enabled("latex"),
+        config.plugin_enabled(kasten_core::SMART_PLUGIN),
+    );
+    if diagrams && latex && smart {
+        return instructions().to_owned();
+    }
+    build(diagrams, latex, smart)
+}
+
+fn build(diagrams: bool, latex: bool, smart: bool) -> String {
+    let mut parts = vec![format!(
+        "{LEAD}{}{REST}",
+        if diagrams { DIAGRAMS } else { "" }
+    )];
+    parts.push(crate::agent_guide::GUIDE.to_owned());
+    parts.push(crate::page_instructions::RECIPE.to_owned());
+    if latex {
+        parts.push(crate::latex_instructions::LATEX.to_owned());
+    }
+    if latex && diagrams {
+        parts.push(crate::latex_instructions::FIGURE.to_owned());
+    }
+    if smart {
+        parts.push(crate::smart_instructions::SMART.to_owned());
+    }
+    parts.push(crate::decks::instructions());
+    if diagrams {
+        parts.push(kasten_core::diagrams::presets::instructions());
+    }
+    parts.join("\n\n")
 }
 
 /// Sessions for HTTP, where a request may come without a connection: a
@@ -57,16 +102,25 @@ enum Sessions {
 pub struct KastenServer {
     pub kasten: Arc<Kasten>,
     sessions: Sessions,
+    /// The tools every vault has; a plugin's are added while it is on.
     pub tool_router: ToolRouter<KastenServer>,
+    plugins: Arc<Vec<PluginTools>>,
 }
 
 /// The client's name, as the request gives it (protocol 2026-07-28 names
 /// the client in every request) or the handshake did.
+/// The name is the client's own word for itself (`initialize`'s
+/// `clientInfo`), its title when it gave no name; the session cleans it
+/// (`Session::named`). A name inside a tool call is never read as one.
 fn client_name(context: &RequestContext<RoleServer>) -> String {
     context
         .client_info()
-        .map(|info| info.name)
-        .filter(|name| !name.trim().is_empty())
+        .and_then(|info| {
+            [Some(info.name), info.title]
+                .into_iter()
+                .flatten()
+                .find(|name| !name.trim().is_empty())
+        })
         .unwrap_or_else(|| "agent".to_owned())
 }
 
@@ -86,18 +140,47 @@ impl KastenServer {
         KastenServer {
             kasten,
             sessions: Sessions::Own(Arc::new(Mutex::new(None))),
-            tool_router: Self::router(),
+            tool_router: Self::core_router(),
+            plugins: Arc::new(plugin_tools()),
         }
     }
 
-    /// Every tool, as `tools/list` shows them.
-    pub fn router() -> ToolRouter<KastenServer> {
+    /// The tools every vault has, whatever plugins are on.
+    pub fn core_router() -> ToolRouter<KastenServer> {
         Self::read_tools()
             + Self::write_tools()
             + Self::board_tools()
-            + Self::diagram_tools()
-            + Self::diagram_ai_tools()
+            + Self::page_tools()
+            + Self::structure_tools()
+            + Self::parity_tools()
             + Self::deck_tools()
+            + Self::selection_tools()
+    }
+
+    /// Every tool there is, plugins' included, and the one that stands in for
+    /// the smart page tools while they are off.
+    pub fn router() -> ToolRouter<KastenServer> {
+        plugin_tools()
+            .into_iter()
+            .fold(Self::core_router(), |all, (_, tools)| all + tools)
+            + Self::smart_request_tools()
+    }
+
+    /// The tools a client sees now: the core ones, and each plugin's while the
+    /// vault's config has it on (the engine keeps the config current with the
+    /// file, which the app changes). Smart pages count as on when the vault or
+    /// any project has them on; while they are off for the whole vault, the
+    /// one tool listed instead is `request_smart_pages`.
+    pub fn live_router(&self) -> ToolRouter<KastenServer> {
+        let mut config = self.kasten.config();
+        let smart = self.kasten.smart_enabled_anywhere();
+        config.set_plugin_enabled(kasten_core::SMART_PLUGIN, smart);
+        let listed = routes_for(&self.tool_router, &self.plugins, &config);
+        if smart {
+            listed
+        } else {
+            listed + Self::smart_request_tools()
+        }
     }
 
     /// A server for one HTTP session or request, sharing sessions by client.
@@ -116,7 +199,7 @@ impl KastenServer {
         match &self.sessions {
             Sessions::Own(slot) => {
                 let mut slot = slot.lock().unwrap_or_else(|p| p.into_inner());
-                slot.get_or_insert_with(|| Session::start(&client, now))
+                slot.get_or_insert_with(|| Session::named(&client, now))
                     .clone()
             }
             Sessions::Shared(all) => {
@@ -126,7 +209,7 @@ impl KastenServer {
                 all.retain(|_, (_, last)| now.millis.saturating_sub(*last) <= IDLE_MS);
                 let entry = all
                     .entry(key)
-                    .or_insert_with(|| (Session::start(&client, now), now.millis));
+                    .or_insert_with(|| (Session::named(&client, now), now.millis));
                 entry.1 = now.millis;
                 entry.0.clone()
             }
@@ -184,14 +267,48 @@ pub fn failed(message: impl std::fmt::Display) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(message.to_string())])
 }
 
-#[tool_handler(router = self.tool_router)]
+#[tool_handler(router = self.live_router())]
 impl ServerHandler for KastenServer {
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        // The smart kit is the Smart pages plugin's: not offered while they are off.
+        let smart = self.kasten.smart_enabled_anywhere();
+        Ok(ListResourcesResult::with_all_items(
+            crate::mcp_resources::listed(smart),
+        ))
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        crate::mcp_resources::read(&request.uri, self.kasten.smart_enabled_anywhere())
+    }
+
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(
-                Implementation::new("kasten", kasten_core::VERSION)
-                    .with_title(kasten_core::PRODUCT_NAME),
-            )
-            .with_instructions(instructions())
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_tool_list_changed()
+                .enable_resources()
+                .build(),
+        )
+        .with_server_info(
+            Implementation::new("kasten", kasten_core::VERSION)
+                .with_title(kasten_core::PRODUCT_NAME),
+        )
+        .with_instructions(instructions_for(&{
+            // Smart pages are talked about wherever any of the vault may use them.
+            let mut config = self.kasten.config();
+            config.set_plugin_enabled(
+                kasten_core::SMART_PLUGIN,
+                self.kasten.smart_enabled_anywhere(),
+            );
+            config
+        }))
     }
 }

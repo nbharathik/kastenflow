@@ -32,8 +32,10 @@ export function Popup({ label, role = "dialog", className = "", anchor, onClose,
       if (!ref.current?.contains(target) && !anchor?.current?.contains(target)) close.current();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close.current();
-      else if (role === "dialog" && ref.current?.contains(document.activeElement)) keepTabInside(event, ref.current);
+      // Escape in a submenu closes that submenu (its own handler), not the menu around it.
+      if (event.key === "Escape") {
+        if (!(document.activeElement as HTMLElement | null)?.closest?.("[data-menu-sub]")) close.current();
+      } else if (role === "dialog" && ref.current?.contains(document.activeElement)) keepTabInside(event, ref.current);
     };
     document.addEventListener("pointerdown", onDown, true);
     document.addEventListener("keydown", onKey, true);

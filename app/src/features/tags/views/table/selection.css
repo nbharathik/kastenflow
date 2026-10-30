@@ -1,0 +1,114 @@
+/* Picking rows, putting them in order by hand, and opening one beside the
+   table: the checkbox and grip in the title cell (they show on hover, with the
+   keyboard, or while rows are picked), the picked row's tint, the line where a
+   dragged row would land, and the bar that floats under the table. Tokens only,
+   so light and dark follow the theme. */
+
+.kasten-table-pick {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0 -2px 0 -2px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+
+  .kasten-table-row:hover &,
+  .kasten-table.has-picks &,
+  &:checked,
+  &:indeterminate,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
+
+.kasten-table-grip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 20px;
+  margin: 0 -6px 0 -2px;
+  border-radius: var(--radius-xs);
+  color: var(--color-muted);
+  cursor: grab;
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast),
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+
+  .kasten-table-row:hover &,
+  &:focus-visible {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: var(--color-hover);
+    color: var(--color-ink);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+/* A picked row. */
+.kasten-table-row.is-picked {
+  --row-bg: color-mix(in srgb, var(--color-accent) 8%, var(--color-canvas));
+}
+
+/* "Open" on hover: the row in the side peek. Beside the sub-item "+" when there is one. */
+.kasten-table-open {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-xs);
+  background: var(--cell-bg);
+  color: var(--color-muted);
+  font-size: var(--text-11);
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition:
+    opacity var(--motion-fast),
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+
+  .kasten-table-row:hover &,
+  .kasten-table-cell.is-active &,
+  &:focus-visible {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: var(--color-hover);
+    color: var(--color-ink);
+  }
+
+  .kasten-table-cell:has(.kasten-table-add-sub) & {
+    right: 34px;
+  }
+}
+
+/* The bar under the table takes no room of its own: it sticks to the bottom of
+   the window while rows are picked and opens its menus upward. */
+.kasten-table-bulk {
+  position: sticky;
+  bottom: 16px;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  height: 0;
+  pointer-events: none;
+
+  & > div {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+}

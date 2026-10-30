@@ -8,6 +8,7 @@ import "../dashboard/dashboard.css";
 import "./home.css";
 
 import { Button } from "../../ui/Button";
+import { BackupCard } from "../backup/told-up-front";
 import { useBoards } from "../boards/store";
 import { PinnedSlot } from "../collections/PinnedSlot";
 import { useDiagrams } from "../diagrams/store";
@@ -41,6 +42,8 @@ export function Home() {
         <HomeBar sections={sections} />
         {/* Only when the weekly reminder is on and its day has come. */}
         <ReviewBanner />
+        {/* While backup is off; put away, it returns after 7 days. */}
+        <BackupCard />
         <div className="kasten-home-body">
           <div className="kasten-home-main">
             {welcome ? <Welcome /> : main.map(cell)}

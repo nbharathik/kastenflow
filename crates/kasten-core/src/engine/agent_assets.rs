@@ -17,6 +17,7 @@ use crate::assets::{AssetSource, NewAsset};
 use crate::deck;
 use crate::error::{Error, Result};
 use crate::history::Actor;
+use crate::policy::Decision;
 use crate::rollback::Rollback;
 use crate::time::Instant;
 
@@ -141,12 +142,18 @@ impl Kasten {
             sent: import.sent,
             marked: None,
         };
-        self.refusals(&op)?;
-        if let Some(reason) = self.review_reason(session, &op, now)? {
-            return Err(Error::Invalid(format!(
-                "{reason}, so nothing was imported. Try again in a few minutes"
-            )));
-        }
+        // An import cannot wait as a proposal (it carries pictures), so one that
+        // would wait is not made; autonomous mode takes a checkpoint first.
+        let how = match self.decide(session, &op, now)? {
+            Decision::Refuse(err) => return Err(err),
+            Decision::Propose(reason) => {
+                return Err(Error::Invalid(format!(
+                    "{reason}, so nothing was imported. Try again in a few minutes"
+                )));
+            }
+            Decision::Commit(how) => how,
+        };
+        let _autonomous = self.autonomous_scope(session, how, now)?;
         let meta = NewAsset {
             source: Some(AssetSource::PptxImport),
             deck: Some(import.title.trim().to_owned()),

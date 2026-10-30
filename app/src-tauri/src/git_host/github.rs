@@ -1,19 +1,21 @@
 //! GitHub, for "Sign in with GitHub": the device flow (a code the person
-//! types at github.com/login/device), the account, and private repositories
-//! to back up into. Only github.com and api.github.com are ever asked, and
-//! the token goes nowhere else.
+//! types at github.com/login/device) and the account. Only the addresses in
+//! `Endpoints` are ever asked, and the token goes nowhere else. Repositories
+//! are in `repos.rs`.
 
 use std::time::Duration;
 
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use serde::Deserialize;
+use serde_json::Value;
 
-const DEVICE_CODE: &str = "https://github.com/login/device/code";
-const ACCESS_TOKEN: &str = "https://github.com/login/oauth/access_token";
+use super::api::{self, enc};
+use super::endpoints::Endpoints;
+use super::failure::offline;
+use crate::backup::contract::BackupError;
+
 /// The only page a sign-in code may be typed at.
 pub const VERIFY: &str = "https://github.com/login/device";
-const API: &str = "https://api.github.com";
 /// Private repositories, to create one and push to it.
 const SCOPE: &str = "repo";
 const WAIT: Duration = Duration::from_secs(30);
@@ -83,17 +85,6 @@ impl std::fmt::Debug for Poll {
     }
 }
 
-/// A private repository to back up into.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Repo {
-    pub name: String,
-    pub full_name: String,
-    pub clone_url: String,
-    pub html_url: String,
-    pub updated_at: Option<String>,
-}
-
 /// Reads the answer to asking for a code; the page to type it at must be
 /// GitHub's own.
 pub fn read_code(body: &str) -> Result<DeviceCode, String> {
@@ -153,19 +144,9 @@ pub fn repo_name(vault: &str) -> String {
 /// A form body, each value percent-encoded (the app's HTTP client has no
 /// form support of its own).
 fn form(pairs: &[(&str, &str)]) -> String {
-    let encode = |text: &str| {
-        text.bytes()
-            .map(|b| match b {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                    (b as char).to_string()
-                }
-                _ => format!("%{b:02X}"),
-            })
-            .collect::<String>()
-    };
     pairs
         .iter()
-        .map(|(key, value)| format!("{}={}", encode(key), encode(value)))
+        .map(|(key, value)| format!("{}={}", enc(key), enc(value)))
         .collect::<Vec<_>>()
         .join("&")
 }
@@ -178,40 +159,35 @@ fn post_form(http: &reqwest::Client, url: &str, pairs: &[(&str, &str)]) -> reqwe
         .timeout(WAIT)
 }
 
-async fn read_json(response: reqwest::Response, what: &str) -> Result<Value, String> {
-    let body = response.text().await.map_err(|e| failed(what, &e))?;
-    serde_json::from_str(&body)
-        .map_err(|_| format!("GitHub's answer could not be read when trying to {what}"))
-}
-
-fn failed(what: &str, err: &reqwest::Error) -> String {
-    if err.is_timeout() {
-        format!("GitHub took too long to {what}; try again")
-    } else {
-        format!("Could not reach GitHub to {what}. Check the connection and try again")
-    }
-}
-
-pub async fn request_code(http: &reqwest::Client, client_id: &str) -> Result<DeviceCode, String> {
+pub async fn request_code(
+    http: &reqwest::Client,
+    ep: &Endpoints,
+    client_id: &str,
+) -> Result<DeviceCode, String> {
     let response = post_form(
         http,
-        DEVICE_CODE,
+        &ep.device_code,
         &[("client_id", client_id), ("scope", SCOPE)],
     )
     .send()
     .await
-    .map_err(|e| failed("start signing in", &e))?;
+    .map_err(|e| offline("start signing in", &e).message())?;
     let body = response
         .text()
         .await
-        .map_err(|e| failed("start signing in", &e))?;
+        .map_err(|e| offline("start signing in", &e).message())?;
     read_code(&body)
 }
 
-pub async fn poll(http: &reqwest::Client, client_id: &str, device_code: &str) -> Poll {
+pub async fn poll(
+    http: &reqwest::Client,
+    ep: &Endpoints,
+    client_id: &str,
+    device_code: &str,
+) -> Poll {
     let sent = post_form(
         http,
-        ACCESS_TOKEN,
+        &ep.access_token,
         &[
             ("client_id", client_id),
             ("device_code", device_code),
@@ -223,145 +199,24 @@ pub async fn poll(http: &reqwest::Client, client_id: &str, device_code: &str) ->
     match sent {
         Ok(response) => match response.text().await {
             Ok(body) => read_poll(&body),
-            Err(err) => Poll::Failed(failed("finish signing in", &err)),
+            Err(err) => Poll::Failed(offline("finish signing in", &err).message()),
         },
-        Err(err) => Poll::Failed(failed("finish signing in", &err)),
+        Err(err) => Poll::Failed(offline("finish signing in", &err).message()),
     }
-}
-
-fn api(
-    http: &reqwest::Client,
-    method: reqwest::Method,
-    path: &str,
-    token: &str,
-) -> reqwest::RequestBuilder {
-    http.request(method, format!("{API}{path}"))
-        .header(AUTHORIZATION, format!("Bearer {token}"))
-        .header(ACCEPT, "application/vnd.github+json")
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .timeout(WAIT)
-}
-
-fn with_json(request: reqwest::RequestBuilder, body: &Value) -> reqwest::RequestBuilder {
-    request
-        .header(CONTENT_TYPE, "application/json")
-        .body(body.to_string())
 }
 
 /// The account the token signs in as.
-pub async fn whoami(http: &reqwest::Client, token: &str) -> Result<String, String> {
-    let response = api(http, reqwest::Method::GET, "/user", token)
-        .send()
-        .await
-        .map_err(|e| failed("read your account", &e))?;
-    if response.status().as_u16() == 401 {
-        return Err("GitHub no longer takes this sign-in; sign in again".into());
-    }
-    let value = read_json(response, "read your account").await?;
-    value["login"]
-        .as_str()
-        .map(str::to_owned)
-        .ok_or_else(|| "GitHub's answer named no account".into())
-}
-
-fn read_repo(value: &Value) -> Option<Repo> {
-    Some(Repo {
-        name: value["name"].as_str()?.to_owned(),
-        full_name: value["full_name"].as_str()?.to_owned(),
-        clone_url: value["clone_url"]
-            .as_str()
-            .filter(|u| u.starts_with("https://github.com/"))?
-            .to_owned(),
-        html_url: value["html_url"].as_str()?.to_owned(),
-        updated_at: value["updated_at"].as_str().map(str::to_owned),
-    })
-}
-
-/// Makes a private repository. A name in use answers `Ok(None)`, so the
-/// caller can offer another.
-pub async fn create_private_repo(
+pub async fn whoami(
     http: &reqwest::Client,
+    ep: &Endpoints,
     token: &str,
-    name: &str,
-) -> Result<Option<Repo>, String> {
-    let request = api(http, reqwest::Method::POST, "/user/repos", token);
-    let response = with_json(
-        request,
-        &json!({
-            "name": name,
-            "private": true,
-            "description": "KastenFlow vault backup",
-            "has_issues": false,
-            "has_projects": false,
-            "has_wiki": false,
-            "auto_init": false,
-        }),
-    )
-    .send()
-    .await
-    .map_err(|e| failed("make the repository", &e))?;
-    match response.status().as_u16() {
-        201 => {
-            let value = read_json(response, "make the repository").await?;
-            read_repo(&value)
-                .map(Some)
-                .ok_or_else(|| "GitHub's answer named no repository".into())
-        }
-        422 => Ok(None),
-        401 | 403 => Err("GitHub did not let this sign-in make a repository; sign in again".into()),
-        status => Err(format!(
-            "GitHub could not make the repository (it answered {status})"
-        )),
-    }
-}
-
-/// The account's private repositories, most recently changed first.
-pub async fn private_repos(http: &reqwest::Client, token: &str) -> Result<Vec<Repo>, String> {
-    let response = api(
-        http,
-        reqwest::Method::GET,
-        "/user/repos?visibility=private&affiliation=owner&sort=updated&per_page=100",
-        token,
-    )
-    .send()
-    .await
-    .map_err(|e| failed("list your repositories", &e))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "GitHub could not list your repositories (it answered {})",
-            response.status()
-        ));
-    }
-    let value = read_json(response, "list your repositories").await?;
-    Ok(value
-        .as_array()
-        .map(|list| list.iter().filter_map(read_repo).collect())
-        .unwrap_or_default())
-}
-
-/// Asks GitHub to refuse force pushes to, and deletion of, the backup's
-/// branch. Plans without rulesets for private repositories refuse this,
-/// which is fine: Kasten never forces anyway.
-pub async fn protect(http: &reqwest::Client, token: &str, full_name: &str) -> bool {
-    let request = api(
-        http,
-        reqwest::Method::POST,
-        &format!("/repos/{full_name}/rulesets"),
-        token,
-    );
-    with_json(
-        request,
-        &json!({
-            "name": "KastenFlow backup",
-            "target": "branch",
-            "enforcement": "active",
-            "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
-            "rules": [{ "type": "deletion" }, { "type": "non_fast_forward" }],
-        }),
-    )
-    .send()
-    .await
-    .is_ok_and(|r| r.status().is_success())
+) -> Result<String, BackupError> {
+    let reply = api::get(http, ep, "/user", Some(token), "read your account").await?;
+    reply.body["login"]
+        .as_str()
+        .filter(|login| api::valid_name(login))
+        .map(str::to_owned)
+        .ok_or_else(|| BackupError::other("GitHub's answer named no account"))
 }
 
 #[cfg(test)]
@@ -439,13 +294,5 @@ mod tests {
         assert_eq!(repo_name("Kasten"), "kasten-notes");
         assert_eq!(repo_name("Работа"), "kasten-notes");
         assert_eq!(repo_name("Dev vault"), "dev-vault-notes");
-    }
-
-    #[test]
-    fn takes_only_repositories_on_github() {
-        let repo = json!({"name":"n","full_name":"a/n","clone_url":"https://github.com/a/n.git","html_url":"https://github.com/a/n","updated_at":"2026-09-28T10:00:00Z"});
-        assert!(read_repo(&repo).is_some());
-        let elsewhere = json!({"name":"n","full_name":"a/n","clone_url":"https://evil.example/a/n.git","html_url":"x"});
-        assert!(read_repo(&elsewhere).is_none());
     }
 }

@@ -47,7 +47,7 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   const lint = badges ? service : null;
 
   // The width the person chose for the filmstrip decides how big the thumbnails are, and so how tall a row is.
-  const sized = useFilmstripWidth();
+  const sized = useFilmstripWidth(ui);
   const thumb = thumbWidth(sized.width);
   const layout = useMemo(() => layoutFilmstrip(deck, folded, thumb), [deck.slides, deck.sections, deck.size, folded, thumb]);
   const latest = useRef(layout);
@@ -105,6 +105,17 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   const shifts = useMemo(() => (drag?.spot ? gapShifts(layout, new Set(drag.ids), drag.spot.gap) : null), [layout, drag]);
   useGapShifts(list, shifts);
   useLanding(list, landing, drag !== null);
+
+  // ---- the place in the list, kept for the host (a deck put away and brought back is scrolled where it was)
+
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    if (ui.memory.filmstripScroll > 0) element.scrollTop = ui.memory.filmstripScroll;
+    const onScroll = () => ui.remember({ filmstripScroll: Math.round(element.scrollTop) });
+    element.addEventListener("scroll", onScroll, { passive: true });
+    return () => element.removeEventListener("scroll", onScroll);
+  }, [ui]);
 
   // ---- following the shown slide
 

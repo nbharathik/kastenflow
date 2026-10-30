@@ -1,0 +1,85 @@
+/* KastenFlow smart kit: styles for timeline, kanban, calendar and map. Load
+   after kit.css. Tokens only (var(--...)); no colour is written here. */
+
+/* ---- timeline ---- */
+.kit-tl { --kit-tl-name: 7rem; --kit-tl-pad: 4.5rem; position: relative; display: grid; gap: 0.25rem; padding-right: var(--kit-tl-pad); }
+.kit-tl-axis, .kit-tl-lane { display: grid; grid-template-columns: var(--kit-tl-name) 1fr; align-items: start; gap: 0.5rem; }
+.kit-tl-name { font-size: var(--text-12); font-weight: 500; color: var(--color-muted); padding-top: 0.3rem; overflow-wrap: anywhere; }
+.kit-tl-ticks { position: relative; height: 1.25rem; border-bottom: 1px solid var(--color-line-strong); }
+.kit-tl-tick { position: absolute; left: calc(var(--x) * 100%); font-size: var(--text-11); color: var(--color-faint); white-space: nowrap; padding-left: 0.25rem; border-left: 1px solid var(--color-line-strong); }
+.kit-tl-lane { border-bottom: 1px solid var(--color-line); }
+.kit-tl-track { position: relative; margin: 0; padding: 0; list-style: none; height: calc(var(--rows) * var(--row-h)); }
+.kit-tl-item { position: absolute; left: calc(var(--x) * 100%); top: calc(var(--row) * var(--row-h) + 0.2rem); width: calc(var(--w, 0) * 100%); display: flex; }
+.kit-tl-item[data-kind="point"] { width: auto; }
+.kit-tl-btn { display: inline-flex; align-items: center; gap: 0.35rem; font: inherit; font-size: var(--text-12); color: var(--color-ink); background: none; border: 0; padding: 0; white-space: nowrap; min-width: 0; }
+button.kit-tl-btn { cursor: pointer; }
+button.kit-tl-btn:hover .kit-tl-text { text-decoration: underline; }
+.kit-tl-item[data-kind="range"] .kit-tl-btn { position: relative; width: 100%; height: 1.4rem; background: var(--color-soft); border: 1px solid var(--kit-series-1); border-radius: var(--radius-sm); padding: 0 0.4rem; overflow: hidden; }
+.kit-tl-item[data-kind="range"] .kit-tl-bar { display: none; }
+.kit-tl-dot { width: 0.7rem; height: 0.7rem; flex: none; transform: rotate(45deg); background: var(--kit-series-1); border: 1px solid var(--color-canvas); }
+.kit-tl-item[data-state="est"] .kit-tl-dot { background: var(--color-canvas); border-color: var(--kit-series-1); box-shadow: 0 0 0 1px var(--kit-series-1); }
+.kit-tl-item[data-state="est"][data-kind="range"] .kit-tl-btn { border-style: dashed; background: transparent; }
+.kit-tl-item[data-when="past"] { opacity: 0.6; }
+.kit-tl-text { overflow: hidden; text-overflow: ellipsis; }
+.kit-tl-today { position: absolute; top: 0; bottom: 0; left: calc(var(--kit-tl-name) + 0.5rem + (100% - var(--kit-tl-pad) - var(--kit-tl-name) - 0.5rem) * var(--x)); width: 0; border-left: 1px solid var(--color-accent); pointer-events: none; }
+.kit-tl-today span { position: absolute; top: -0.1rem; left: 0.3rem; font-size: var(--text-11); font-weight: 500; color: var(--color-accent); background: var(--color-canvas); padding: 0 0.25rem; }
+.kit-tl-note { margin-top: 0.5rem; font-size: var(--text-12); }
+
+/* ---- kanban ---- */
+.kit-kb { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(12rem, 1fr); gap: var(--kit-gap); overflow-x: auto; align-items: start; }
+.kit-kb-col { background: var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-xl); padding: 0.625rem; display: grid; gap: 0.5rem; min-width: 0; }
+.kit-kb-head { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0 0.125rem; font-size: var(--text-13); font-weight: 600; color: var(--color-ink); }
+.kit-kb-head .kit-badge { background: var(--color-well); }
+.kit-kb-title .kit-link { color: var(--color-ink); text-decoration: none; }
+.kit-kb-title .kit-link:hover { color: var(--color-accent); }
+.kit-kb-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+.kit-kb-card { display: grid; gap: 0.3rem; padding: 0.6rem; }
+.kit-kb-card p { margin: 0; font-size: var(--text-13); }
+.kit-kb-title { font-weight: 600; }
+.kit-kb-move { font: inherit; font-size: var(--text-12); color: var(--color-ink); background: var(--color-canvas); border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); padding: 0.15em 0.4em; min-height: 0; }
+.kit-kb-none { font-size: var(--text-13); }
+
+/* ---- calendar ---- */
+.kit-cal { display: grid; gap: 0.5rem; }
+.kit-cal-nav { align-items: center; }
+.kit-cal-title { margin: 0; flex: 1; text-align: center; }
+.kit-cal-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.kit-cal-table th { font-size: var(--text-12); color: var(--color-muted); font-weight: 600; padding: 0.25rem; text-align: left; }
+.kit-cal-table td { vertical-align: top; height: 5.5rem; padding: 0.25rem; border: 1px solid var(--color-line); overflow: hidden; }
+.kit-cal-pad { background: var(--color-panel); }
+.kit-cal-num { font-size: var(--text-12); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.kit-cal-day-cell[data-today="true"] { background: var(--color-soft); }
+.kit-cal-day-cell[data-today="true"] .kit-cal-num { color: var(--color-accent); font-weight: 700; }
+.kit-cal-items { margin: 0.15rem 0 0; padding: 0; list-style: none; display: grid; gap: 0.1rem; font-size: var(--text-12); }
+.kit-cal-item { border-left: 3px solid var(--kit-series-1); padding-left: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kit-cal-item .kit-link { text-decoration: none; }
+.kit-cal-none { margin: 0; }
+
+/* ---- map ---- */
+.kit-map-wrap { display: grid; gap: var(--kit-gap); grid-template-columns: 1fr; align-items: start; }
+.kit-map-wrap[data-list="true"] { grid-template-columns: minmax(0, 3fr) minmax(10rem, 1fr); }
+@media (max-width: 40rem) { .kit-map-wrap[data-list="true"] { grid-template-columns: 1fr; } }
+.kit-map-svg { background: var(--color-panel); border: 1px solid var(--color-line); border-radius: var(--radius-xl); }
+.kit-region { fill: var(--color-well); stroke: var(--color-line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.kit-region[data-on="true"] { fill: var(--kit-series-1); fill-opacity: 0.45; stroke: var(--kit-series-1); stroke-width: 1.5; }
+.kit-map-blank { fill: var(--color-well); }
+.kit-pin { cursor: pointer; }
+.kit-pin-dot { fill: var(--color-accent); stroke: var(--color-canvas); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.kit-pin[data-active="true"] .kit-pin-dot { fill: var(--color-ink); }
+.kit-pin-label { fill: var(--color-ink); font-family: var(--font-sans); font-weight: 600; paint-order: stroke; stroke: var(--color-canvas); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.kit-map-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; align-content: start; }
+.kit-map-list li { border-radius: var(--radius-md); }
+.kit-map-list li[data-active="true"] { background: var(--color-soft); }
+.kit-map-item { display: grid; width: 100%; font: inherit; font-size: var(--text-13); color: inherit; text-align: left; background: none; border: 0; padding: 0.35rem 0.5rem; }
+button.kit-map-item { cursor: pointer; }
+.kit-map-note { grid-column: 1 / -1; margin: 0; font-size: var(--text-12); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .kit-pin-dot, .kit-region, .kit-map-list li { transition: fill var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard); }
+  .kit-tl-btn, .kit-kb-card { transition: opacity var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
+}
+
+@media print {
+  .kit-kb { overflow: visible; }
+  .kit-tl-today span { background: none; }
+}

@@ -43,6 +43,8 @@ describe("a page's mind map in the page menu", () => {
     useWorkspace.getState().openPath(PAGE);
     bar();
     fireEvent.click(screen.getByRole("button", { name: "Page options" }));
+    // The mind map rows sit in the View submenu.
+    fireEvent.click(await screen.findByRole("menuitem", { name: "View" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: new RegExp(`^${label}`) }));
   }
 

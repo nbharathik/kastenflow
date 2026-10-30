@@ -1,12 +1,8 @@
-import { useRef, useState, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 
 import { mapKey } from "../features/boards/map-sync";
-import { findOrMakeMap } from "../features/boards/page-map";
 import { useBoards } from "../features/boards/store";
-import { askAboutPage } from "../features/chat/actions";
 import { useSourceTitle } from "../features/sources/store";
-import { reloadLists } from "../features/workspace/reload";
-import { linkFor } from "../features/workspace/links";
 import { isDraft } from "../features/workspace/drafts";
 import { iconOf, titleOf } from "../features/workspace/names";
 import { usePrefs } from "../features/workspace/prefs";
@@ -15,26 +11,21 @@ import { activeTab, type Pane, type ViewId } from "../features/workspace/tabs";
 import { ancestors, movable, noteAt, projects } from "../features/workspace/tree";
 import { useShell } from "../lib/store";
 import type { NoteMeta } from "../lib/vault/types";
-import { keyHint, keyTitle } from "../features/shortcuts/store";
+import { keyTitle } from "../features/shortcuts/store";
 import { JournalActions, JournalCrumbs } from "../features/journal/JournalBar";
 import { journalPath } from "../features/journal/feed";
 import { isoDay } from "../lib/dates";
+import { AutonomousMark } from "./AutonomousMark";
 import { BoardActions, BoardCrumbs } from "./BoardBar";
-import { PageStyle } from "./PageStyle";
-import { setLocked } from "../features/workspace/page/page-lock";
-import { saveAsTemplate } from "../features/templates/kits";
-import { copyAsMarkdown, showInFolder } from "../features/workspace/page/page-file";
-import { foldAllSections } from "../features/pages/editor/sections/registry";
-import { presentThisPage, sectionsToDeck, toggleSmartLayout, useSmartLayout } from "../features/pages/present/actions";
-import { inTauri } from "../lib/api";
+import { useSmartLayout, useSmartPage } from "../features/pages/present/actions";
 import { Icon } from "../ui/Icon";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
 import { lineIcon } from "../ui/glyph";
-import { homeItem, templateItems } from "../features/projects/home-menu";
 import { Menu } from "./Menu";
+import { pageMenuEntries } from "./page-menu";
 import { findNav } from "./nav";
 import { openMenuHandlers } from "./open-menu";
-import { PageOpensMenu } from "./PageOpens";
+import { PageOpensMenu, useAskedPageOpens } from "./PageOpens";
 
 const iconButton = "ui-icon-btn";
 
@@ -87,6 +78,7 @@ export function TopBar({ pane, first }: { pane: Pane; first: boolean }) {
           <span className="truncate font-medium">{viewTitle(place.view)}</span>
         )}
       </div>
+      {first && <AutonomousMark />}
       {place.view === "journal" && <JournalActions />}
       {(note ?? day) && <PageActions note={(note ?? day)!} paneId={pane.id} />}
       {board && <BoardActions path={board} />}
@@ -183,14 +175,16 @@ function PageActions({ note, paneId }: { note: NoteMeta; paneId: string }) {
   const saveState = useShell((s) => s.saveStates[note.path] ?? "saved");
   const panelOpen = useShell((s) => s.panels.includes(paneId));
   const sourceOpen = useShell((s) => s.sourceOpen);
-  const prefs = usePrefs();
-  const favourite = prefs.favourites.includes(note.path);
+  const favourite = usePrefs((s) => s.favourites.includes(note.path));
+  const toggleFavourite = usePrefs((s) => s.toggleFavourite);
   const shell = useShell.getState();
   const [choosing, setChoosing] = useState(false);
   const smart = useSmartLayout(note.path);
+  const smartPage = useSmartPage(note.path);
   // A page has one mind map: the menu opens it once it exists.
   const hasMap = useBoards((s) => s.list.some((b) => b.source !== undefined && (b.source === mapKey(note) || b.source === note.path)));
   const actions = useRef<HTMLDivElement>(null);
+  useAskedPageOpens(note.path, actions, useCallback(() => setChoosing(true), []));
 
   return (
     <div ref={actions} className="flex shrink-0 items-center gap-0.5">
@@ -209,7 +203,7 @@ function PageActions({ note, paneId }: { note: NoteMeta; paneId: string }) {
         aria-label={favourite ? "Remove from Favourites" : "Add to Favourites"}
         title={favourite ? "Remove from Favourites" : "Add to Favourites"}
         aria-pressed={favourite}
-        onClick={() => prefs.toggleFavourite(note.path)}
+        onClick={() => toggleFavourite(note.path)}
         className={`${iconButton} ${favourite ? "text-favourite" : ""}`}
       >
         <Icon name="star" className={favourite ? "fill-current" : ""} />
@@ -220,61 +214,11 @@ function PageActions({ note, paneId }: { note: NoteMeta; paneId: string }) {
       <Menu
         label="Page options"
         buttonClass={iconButton}
-        header={<PageStyle path={note.path} />}
-        items={[
-          { label: "Copy link", icon: <Icon name="link" className="size-4" />, hint: "[[ ]]", onSelect: () => void navigator.clipboard?.writeText(linkFor(note, useWorkspace.getState().notes)) },
-          { label: "Open in new tab", icon: <Icon name="external" className="size-4" />, hint: "Ctrl+click", onSelect: () => useWorkspace.getState().openPath(note.path, "tab") },
-          { label: "Open in split view", icon: <Icon name="split" className="size-4" />, hint: keyHint("split"), onSelect: () => useWorkspace.getState().splitRight() },
-          { label: "Open in side peek", icon: <Icon name="peek-side" className="size-4" />, onSelect: () => useWorkspace.getState().openPath(note.path, "peek-side") },
-          { label: "Open links from this page in…", icon: <Icon name="open" className="size-4" />, onSelect: () => setChoosing(true) },
-          "divider",
-          ...(movable(note)
-            ? [
-                { label: "Duplicate", icon: <Icon name="copy" className="size-4" />, onSelect: () => void useWorkspace.getState().duplicate(note.path) },
-                { label: "Move to…", icon: <Icon name="move-to" className="size-4" />, onSelect: () => shell.setMoving(note.path) },
-              ]
-            : []),
-          ...(note.kind === "project" ? [homeItem(note), ...templateItems(note)] : []),
-          { label: "Ask AI about this page", icon: <Icon name="sparkle" className="size-4" />, hint: keyHint("chat-dock"), onSelect: () => askAboutPage(note) },
-          { label: note.locked ? "Unlock for agents" : "Lock for agents", icon: <Icon name="agent" className="size-4" />, onSelect: () => void setLocked(note, !note.locked) },
-          { label: hasMap ? "Open mind map" : "Mind map from this page", icon: <Icon name="board" className="size-4" />, onSelect: () => void mapPage(note) },
-          ...(movable(note) ? [{ label: "Save as template", icon: <Icon name="template" className="size-4" />, onSelect: () => void saveAsTemplate(note.path, titleOf(note)).then((name) => name && shell.openGallery({ select: name })) }] : []),
-          { label: sourceOpen ? "Hide Markdown file" : "Show Markdown file", icon: <Icon name="code" className="size-4" />, onSelect: shell.toggleSource },
-          { label: "Copy as Markdown", icon: <Icon name="copy" className="size-4" />, onSelect: () => void copyAsMarkdown(note) },
-          { label: "Present this page", icon: <Icon name="present" className="size-4" />, onSelect: () => presentThisPage(note) },
-          { label: "Smart layout", checked: smart, onSelect: () => toggleSmartLayout(note) },
-          { label: "Turn sections into a deck", icon: <Icon name="template" className="size-4" />, onSelect: () => sectionsToDeck(note) },
-          { label: "Fold all sections", icon: <Icon name="fold" className="size-4" />, onSelect: () => foldSections(true, note) },
-          { label: "Unfold all sections", icon: <Icon name="chevrons-up-down" className="size-4" />, onSelect: () => foldSections(false, note) },
-          ...(inTauri() ? [{ label: "Show in folder", icon: <Icon name="folder" className="size-4" />, onSelect: () => void showInFolder(note.path) }] : []),
-          { label: "Focus mode", icon: <Icon name="expand" className="size-4" />, hint: keyHint("focus"), onSelect: shell.toggleFocus },
-          { label: "Print or save as PDF", icon: <Icon name="print" className="size-4" />, onSelect: () => window.print() },
-          "divider",
-          { label: "Move to Trash", icon: <Icon name="trash" className="size-4" />, danger: true, onSelect: () => void useWorkspace.getState().trash(note.path) },
-        ]}
+        items={pageMenuEntries({ note, smart, smartPage, hasMap, sourceOpen, chooseOpens: () => setChoosing(true) })}
       >
         <Icon name="more" />
       </Menu>
       {choosing && <PageOpensMenu path={note.path} anchor={actions} onClose={() => setChoosing(false)} />}
     </div>
   );
-}
-
-/** Folds or unfolds every section of `note`, the page cut at its `---` lines, saying how to make some when it has none. */
-function foldSections(folded: boolean, note: NoteMeta): void {
-  if (foldAllSections(folded, note.id || note.path) === 0) useWorkspace.getState().toast("This page has no sections yet: a line of --- starts one.");
-}
-
-/** Opens the page's mind map, making it only when it has none. */
-async function mapPage(note: NoteMeta): Promise<void> {
-  const { client, openPath, toast } = useWorkspace.getState();
-  if (!client) return;
-  try {
-    const { path, created } = await findOrMakeMap(client, note);
-    await reloadLists();
-    openPath(path);
-    if (created) toast(`Made “${note.title} map”: Tab on a branch grows it`);
-  } catch (err) {
-    toast(err instanceof Error ? err.message : String(err));
-  }
 }

@@ -36,6 +36,14 @@ pub fn section_text(body: &str, heading: &str) -> Result<String> {
     Ok(lines[found.line + 1..end].concat())
 }
 
+/// The section under `heading` with its heading line, as it is in the body.
+pub fn section_with_heading(body: &str, heading: &str) -> Result<String> {
+    let (found, end) = find(body, heading)?;
+    let lines: Vec<&str> = body.split_inclusive('\n').collect();
+    let end = end.unwrap_or(lines.len());
+    Ok(lines[found.line..end].concat())
+}
+
 /// Whether a line is an item of a bullet or numbered list (a to-do too).
 fn list_item(line: &str) -> bool {
     let line = line.trim_start();

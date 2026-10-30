@@ -1,0 +1,8 @@
+version: 1
+title: Timeline
+kit: "1"
+queries:
+  events:
+    tag: event
+size:
+  height: 420

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { reflectBrowser } from "../../plugins/browser/link";
 import { Button } from "../../ui/Button";
 import { Block, Group, Note, resetOf, Row, Segmented, Switch } from "../workspace/views/settings/parts";
 import { browserBackend } from "./backend";
@@ -18,7 +19,11 @@ export function BrowserSettings() {
 
   const turn = (on: boolean) => {
     setProblem(null);
-    prefs.turn(on).catch((err: unknown) => setProblem(message(err)));
+    // The app's switch is the computer's; the Plugins page and the palette read the same one, so tell them.
+    prefs
+      .turn(on)
+      .then((now) => reflectBrowser(now))
+      .catch((err: unknown) => setProblem(message(err)));
   };
 
   return (

@@ -1,0 +1,3 @@
+[
+  { "op": "move", "block": { "block": "b4" }, "after": { "block": "b7" } }
+]

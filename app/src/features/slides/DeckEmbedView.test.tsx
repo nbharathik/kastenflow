@@ -11,9 +11,11 @@ import { DeckEmbedView } from "./DeckEmbedView";
 import { presentFrom } from "./embed-present";
 import { useDecks } from "./store";
 
-const present = vi.hoisted(() => ({ openPresentation: vi.fn(), willPresent: vi.fn(), fillScreen: vi.fn() as unknown }));
+const present = vi.hoisted(() => ({ close: vi.fn(), openPresentation: vi.fn(), willPresent: vi.fn(), fillScreen: vi.fn() as unknown }));
 
-vi.mock("@kasten-slides/react", () => ({
+// The package is the real one, but for the slide (the engine draws it) and the presentation (nothing opens over a test).
+vi.mock("@kasten-slides/react", async (original) => ({
+  ...(await original<typeof import("@kasten-slides/react")>()),
   SlideView: ({ slide, number, count }: { slide: { id: string }; number: number; count: number }) => (
     <div data-testid="slide">
       {slide.id} {number}/{count}
@@ -40,6 +42,7 @@ beforeEach(() => {
   // The slide is scaled to the width of its box.
   Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, value: 640 });
   useDecks.setState({ list: [] });
+  present.openPresentation.mockReturnValue({ close: present.close, update: vi.fn() });
 });
 
 afterEach(() => {
@@ -126,14 +129,37 @@ describe("presenting from a page", () => {
     const request = present.openPresentation.mock.calls[0]![0] as { start: number; imageUrl(path: string): string; fullscreen(): void; onClosed(): void };
     expect(request.start).toBe(1);
     expect(request.imageUrl("a.png")).toBe("asset://a.png");
-    // F gives the screen, and again gives it back.
-    request.fullscreen();
-    await waitFor(() => expect(fillScreen).toHaveBeenCalledTimes(1));
-    await act(async () => {});
+    // The screen is filled from the start; F gives it back, and again takes it.
+    expect(fillScreen).toHaveBeenCalledTimes(1);
     request.fullscreen();
     expect(leave).toHaveBeenCalledTimes(1);
+    request.fullscreen();
+    await waitFor(() => expect(fillScreen).toHaveBeenCalledTimes(2));
+    await act(async () => {});
     request.onClosed();
     expect(finished).toHaveBeenCalledTimes(1);
+    // Closing gives back what F took last.
+    expect(leave).toHaveBeenCalledTimes(2);
+  });
+
+  it("ends the presentation when the person leaves full screen another way, and gives everything back when it fails to open", async () => {
+    const { client } = vault(2);
+    const finished = vi.fn();
+    let left: () => void = () => {};
+    present.willPresent.mockResolvedValue(finished);
+    present.fillScreen = vi.fn(async (onLeft: () => void) => ((left = onLeft), () => {}));
+    await presentFrom(client, "talks/pitch.deck", JSON.parse(text(2)), 0, vi.fn());
+    left();
+    expect(present.close).toHaveBeenCalledTimes(1);
+    const leave = vi.fn();
+    present.fillScreen = vi.fn().mockResolvedValue(leave);
+    present.openPresentation.mockImplementationOnce(() => {
+      throw new Error("no room");
+    });
+    finished.mockClear();
+    await expect(presentFrom(client, "talks/pitch.deck", JSON.parse(text(2)), 0, vi.fn())).rejects.toThrow("no room");
+    expect(finished).toHaveBeenCalledTimes(1);
+    expect(leave).toHaveBeenCalledTimes(1);
   });
 
   it("opens a plain presentation where the app has no screen of its own", async () => {

@@ -1,0 +1,217 @@
+/* Completion, the build's marks, the outline and the problem list of the LaTeX editor. Tokens only. */
+
+.latex-side {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.latex-side > .latex-tree {
+  min-height: 0;
+  flex: 1 1 50%;
+}
+
+.latex-outline {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 50%;
+  flex-direction: column;
+  overflow: auto;
+  padding: 4px;
+  border-top: 1px solid var(--color-line);
+  font-size: var(--text-13);
+}
+
+.latex-side-title {
+  margin: 0;
+  padding: 4px 8px 2px;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+  font-weight: 600;
+}
+
+.latex-side-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  color: var(--color-muted);
+}
+
+.latex-outline-list,
+.latex-problems-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.latex-outline-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--color-ink);
+}
+
+.latex-outline-item:hover {
+  background: var(--color-hover);
+}
+
+.latex-outline-item .is-major {
+  font-weight: 600;
+}
+
+.latex-line-no {
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+
+.latex-problems {
+  flex: none;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-canvas);
+  font-size: var(--text-13);
+}
+
+.latex-problems-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 2px 12px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.latex-problems-bar .is-error {
+  color: var(--color-danger);
+}
+
+.latex-problems-bar .latex-spacer {
+  flex: 1;
+}
+
+.latex-problems-list {
+  max-height: 148px;
+  overflow: auto;
+}
+
+.latex-problem {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 12px;
+  text-align: left;
+  color: var(--color-ink);
+}
+
+button.latex-problem:hover {
+  background: var(--color-hover);
+}
+
+.latex-problem-kind {
+  flex: none;
+  min-width: 56px;
+  font-size: var(--text-12);
+  font-weight: 600;
+}
+
+.latex-problem.is-error .latex-problem-kind {
+  color: var(--color-danger);
+}
+
+.latex-problem.is-warning .latex-problem-kind {
+  color: var(--color-warning);
+}
+
+.latex-problem.is-info .latex-problem-kind {
+  color: var(--color-muted);
+}
+
+.latex-problem-place {
+  flex: none;
+  color: var(--color-faint);
+  font-size: var(--text-12);
+}
+
+.latex-problem-text {
+  min-width: 0;
+  flex: 1;
+}
+
+/* The library's marks come with their own colours; these use the app's. */
+.latex-editor .cm-lintRange-error,
+.latex-editor .cm-lintRange-warning,
+.latex-editor .cm-lintRange-info {
+  background-image: none;
+  text-decoration: underline wavy;
+  text-underline-offset: 3px;
+}
+
+.latex-editor .cm-lintRange-error {
+  text-decoration-color: var(--color-danger);
+}
+
+.latex-editor .cm-lintRange-warning {
+  text-decoration-color: var(--color-warning);
+}
+
+.latex-editor .cm-lintRange-info {
+  text-decoration-color: var(--color-muted);
+}
+
+.latex-editor .cm-lint-marker {
+  content: none;
+  width: 8px;
+  height: 8px;
+  margin: 5px 0 0 4px;
+  border-radius: 50%;
+}
+
+.latex-editor .cm-lint-marker-error {
+  background: var(--color-danger);
+}
+
+.latex-editor .cm-lint-marker-warning {
+  background: var(--color-warning);
+}
+
+.latex-editor .cm-lint-marker-info {
+  background: var(--color-muted);
+}
+
+.latex-editor .cm-diagnostic {
+  color: var(--color-ink);
+}
+
+.latex-editor .cm-diagnostic-error {
+  border-left-color: var(--color-danger);
+}
+
+.latex-editor .cm-diagnostic-warning {
+  border-left-color: var(--color-warning);
+}
+
+.latex-editor .cm-diagnostic-info {
+  border-left-color: var(--color-muted);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  font-family: inherit;
+  font-size: var(--text-13);
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background: var(--color-selected);
+  color: var(--color-ink);
+}
+
+.cm-completionDetail {
+  color: var(--color-faint);
+}

@@ -12,7 +12,7 @@ export interface BlockAt {
 /** Blocks whose insides move with them: no handle of their own inside. */
 const WHOLE = new Set(["table", "blockquote", "code_block"]);
 /** Blocks whose children each get a handle. */
-const HOLDERS = new Set(["doc", "toggle", "callout"]);
+const HOLDERS = new Set(["doc", "toggle", "callout", "column"]);
 const LISTS = new Set(["bullet_list", "ordered_list"]);
 
 export const isList = (node: Node) => LISTS.has(node.type.name);
@@ -54,6 +54,8 @@ export function outerUnit(doc: Node, at: BlockAt): BlockAt | null {
   if (isList($pos.parent) && depth >= 2 && $pos.node(depth - 1).type.name === "list_item") {
     return { pos: $pos.before(depth - 1), node: $pos.node(depth - 1) };
   }
+  // Out of a column is out of the columns block: the columns themselves are not places a block lands.
+  if ($pos.parent.type.name === "column" && depth >= 2) return { pos: $pos.before(depth - 1), node: $pos.node(depth - 1) };
   return { pos: $pos.before(depth), node: $pos.parent };
 }
 

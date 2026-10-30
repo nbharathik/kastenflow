@@ -4,11 +4,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { CommitInfo, SessionInfo, Undone } from "../../lib/vault/types";
+import type { Checkpoint, CommitInfo, SessionInfo, Undone } from "../../lib/vault/types";
 import { Icon } from "../../ui/Icon";
 import { useWorkspace } from "../workspace/store";
 import { CommitRow } from "./CommitRow";
 import { changesLeft, clock, sessionCommits, sessionSpan, undoneIds } from "./group";
+import { RestorePoints } from "./RestorePoints";
 import { message, useReview } from "./store";
 import { BUTTON, Callout, ClientBadge, ConfirmBar, Empty, Pill } from "./ui";
 import { count } from "./words";
@@ -25,13 +26,15 @@ interface SessionsProps {
   sessions: SessionInfo[];
   /** The history list, for each session's commits. */
   commits: CommitInfo[];
+  /** Where the vault can be put back to; a session with one can be restored to before it. */
+  checkpoints?: Checkpoint[];
   /** Reads the lists again after a change. */
   onChanged(): Promise<void>;
   /** The session to open and scroll to. */
   focus?: SessionFocus | null;
 }
 
-export function SessionsTab({ sessions, commits, onChanged, focus = null }: SessionsProps) {
+export function SessionsTab({ sessions, commits, checkpoints = [], onChanged, focus = null }: SessionsProps) {
   if (sessions.length === 0) {
     return (
       <Empty icon="agent" title="No agent sessions yet">
@@ -43,7 +46,7 @@ export function SessionsTab({ sessions, commits, onChanged, focus = null }: Sess
   return (
     <ul className="mt-3 space-y-2">
       {sessions.map((session) => (
-        <SessionRow key={session.id} session={session} commits={commits} undone={undone} onChanged={onChanged} focus={focus?.id === session.id ? focus : null} />
+        <SessionRow key={session.id} session={session} commits={commits} checkpoints={checkpoints.filter((c) => c.session === session.id)} undone={undone} onChanged={onChanged} focus={focus?.id === session.id ? focus : null} />
       ))}
     </ul>
   );
@@ -54,12 +57,14 @@ export type Outcome = Undone | { error: string };
 interface RowProps {
   session: SessionInfo;
   commits: CommitInfo[];
+  /** This session's restore points, newest first. */
+  checkpoints: Checkpoint[];
   undone: Set<string>;
   onChanged(): Promise<void>;
   focus: SessionFocus | null;
 }
 
-function SessionRow({ session, commits, undone, onChanged, focus }: RowProps) {
+function SessionRow({ session, commits, checkpoints, undone, onChanged, focus }: RowProps) {
   const [open, setOpen] = useState(focus !== null);
   const row = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -158,6 +163,7 @@ function SessionRow({ session, commits, undone, onChanged, focus }: RowProps) {
               </div>
             )
           )}
+          {checkpoints.length > 0 && <RestorePoints points={checkpoints} onChanged={onChanged} />}
           {!session.undone && !asking && (
             <p className="mt-2 text-12 leading-snug text-muted">
               Trusting lifts this session's soft limits for an hour: how much of a note one edit may remove, how many notes it may change in 10 minutes and how many it may

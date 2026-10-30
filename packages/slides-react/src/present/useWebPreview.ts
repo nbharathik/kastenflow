@@ -30,6 +30,8 @@ export interface WebPreviewOptions {
 export interface WebPreviewSession {
   phase: PreviewPhase;
   state: WebPreviewState | null;
+  /** The page has loaded (only then is the host's view on the screen). */
+  loaded: boolean;
   /** The handle, once the host gave one. */
   handle(): WebPreviewHandle | null;
 }
@@ -39,15 +41,16 @@ export function useWebPreview({ host, url, box, mode, layoutKey, onKey }: WebPre
   const [state, setState] = useState<WebPreviewState | null>(null);
   const handle = useRef<WebPreviewHandle | null>(null);
   const gone = useRef(false);
-  const latest = useRef({ mode, onKey, failed: false });
-  latest.current = { mode, onKey, failed: state?.status === "failed" || state?.status === "blocked" };
+  const latest = useRef({ mode, onKey, failed: false, loaded: false });
+  latest.current = { mode, onKey, failed: state?.status === "failed" || state?.status === "blocked", loaded: state?.status === "ready" };
 
   const place = useCallback(() => handle.current?.place(measure(box.current, latest.current.mode)), [box]);
-  // The view is off the screen while the editor has something open over it, and while the page failed (the card says why).
+  // The view is off the screen until the page has loaded (a skeleton stands in, so nothing under the view matters), while the editor has
+  // something open over it, and while the page failed (the card says why).
   const seen = useCallback(() => {
     const current = handle.current;
     if (!current) return;
-    if (covered() || latest.current.failed) current.hide();
+    if (covered() || latest.current.failed || !latest.current.loaded) current.hide();
     else current.show();
   }, []);
 
@@ -100,14 +103,34 @@ export function useWebPreview({ host, url, box, mode, layoutKey, onKey }: WebPre
     const watch = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
     watch?.observe(element);
     window.addEventListener("resize", place);
+    // A move to a screen of another density changes what the box is in physical pixels without resizing it: the window is not told, so
+    // the density is watched on its own, and the display change event where the system sends one.
+    let density: MediaQueryList | null = null;
+    const changed = (): void => {
+      place();
+      listen();
+    };
+    const listen = (): void => {
+      density?.removeEventListener("change", changed);
+      density = typeof window.matchMedia === "function" ? window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`) : null;
+      density?.addEventListener("change", changed);
+    };
+    listen();
+    // The screen is an event target in the engines that send a change (the types do not know it).
+    const display = typeof (window.screen as Partial<EventTarget> | undefined)?.addEventListener === "function" ? (window.screen as unknown as EventTarget) : null;
+    display?.addEventListener("change", place);
+    window.visualViewport?.addEventListener("resize", place);
     return () => {
       watch?.disconnect();
       window.removeEventListener("resize", place);
+      density?.removeEventListener("change", changed);
+      display?.removeEventListener("change", place);
+      window.visualViewport?.removeEventListener("resize", place);
     };
   }, [box, place]);
 
   useEffect(() => onCoverChange(seen), [seen]);
   useEffect(() => seen(), [seen, state?.status, phase]);
 
-  return { phase, state, handle: () => handle.current };
+  return { phase, state, loaded: state?.status === "ready", handle: () => handle.current };
 }

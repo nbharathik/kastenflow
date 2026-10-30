@@ -183,8 +183,7 @@
   border-radius: var(--radius-lg);
   background: var(--notion-bg);
   box-shadow:
-    0 14px 32px rgb(15 15 15 / 0.14),
-    0 2px 8px rgb(15 15 15 / 0.08),
+    var(--shadow-lift),
     0 0 0 1px var(--notion-line-soft);
   pointer-events: none;
   will-change: transform;
@@ -196,15 +195,8 @@
   & > * {
     margin-top: 0;
     margin-bottom: 0;
-    mask-image: linear-gradient(to bottom, #000 150px, transparent 212px);
+    mask-image: linear-gradient(to bottom, var(--color-canvas) 150px, transparent 212px);
   }
-}
-
-:root[data-theme="dark"] .kasten-page-editor .milkdown .ProseMirror.kasten-block-ghost {
-  box-shadow:
-    0 14px 34px rgb(0 0 0 / 0.5),
-    0 2px 8px rgb(0 0 0 / 0.3),
-    0 0 0 1px var(--notion-line-soft);
 }
 
 @keyframes kasten-block-lift {

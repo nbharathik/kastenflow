@@ -26,6 +26,7 @@ fn chip(refs: &[&str]) -> ContextChip {
         kind: "pdf".to_owned(),
         label: "A Zettelkasten primer, pp. 1-2".to_owned(),
         refs: refs.iter().map(|r| r.to_string()).collect(),
+        ..Default::default()
     }
 }
 

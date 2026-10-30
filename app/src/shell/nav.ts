@@ -12,6 +12,7 @@ import { useBrowserPrefs } from "../features/browser/prefs";
 import { capturesPlace, capturesShown, isCapturesPlace } from "../features/extension/captures";
 import { useReview } from "../features/review/store";
 import type { Place, ViewId } from "../features/workspace/store";
+import { sidebarRows, viewById } from "../plugins/contributions";
 import type { IconName } from "../ui/Icon";
 
 /** A view's id. Rows that open another view's place (the Browser's tab, the
@@ -49,7 +50,6 @@ export const NAV: readonly NavItem[] = [
   { id: "captures", label: "Captures", icon: "bookmark", group: "capture", follows: "inbox", available: capturesShown },
   { id: "journal", label: "Journal", icon: "journal", group: "capture", pinned: true },
   { id: "boards", label: "Whiteboards", icon: "board", group: "think" },
-  { id: "diagrams", label: "Diagrams", icon: "diagram", group: "think" },
   { id: "slides", label: "Slides", icon: "present", group: "think" },
   { id: "graph", label: "Graph", icon: "graph", group: "think" },
   { id: "projects", label: "Projects", icon: "project", group: "organise" },
@@ -85,12 +85,25 @@ export function showsNav(open: Place, id: string): boolean {
   return open.view === (id === "browser" ? "web" : id);
 }
 
-/** The views a person can open, as the sidebar lists them: those that are there. */
-export const availableNav = (): NavItem[] => NAV.filter((item) => item.available?.() ?? true);
+/** The views a person can open, as the sidebar lists them: those that are there, then the rows plugins add. */
+export function availableNav(): NavItem[] {
+  const list: NavItem[] = [...NAV];
+  // A plugin's row sits right after the row it names (so Diagrams stays between Whiteboards and Slides), else at the end.
+  for (const { after, ...row } of sidebarRows()) {
+    const at = after ? list.findIndex((item) => item.id === after) : -1;
+    list.splice(at < 0 ? list.length : at + 1, 0, row);
+  }
+  return list.filter((item) => item.available?.() ?? true);
+}
 
 /** A view's entry, whether or not it is there to open: for its title. */
 export function findNav(id: ViewId): NavItem | undefined {
-  return NAV.find((n) => n.id === id) ?? (id === SETTINGS_NAV.id ? SETTINGS_NAV : undefined);
+  const own = NAV.find((n) => n.id === id) ?? (id === SETTINGS_NAV.id ? SETTINGS_NAV : undefined);
+  if (own || !id.startsWith("plugin:")) return own;
+  const row = sidebarRows().find((r) => r.id === id);
+  if (row) return row;
+  const view = viewById(id);
+  return view ? { id: view.id, label: view.title, icon: view.icon, group: "tools" } : undefined;
 }
 
 /** The ids pinned until the person chooses, in the registry's order. */
@@ -101,7 +114,9 @@ export const defaultPinned = (): NavId[] => NAV.filter((n) => n.pinned).map((n) 
 export function pinnedIds(saved: readonly string[] | null): NavId[] {
   if (saved === null) return defaultPinned();
   const known = new Set<string>(NAV.map((n) => n.id));
-  return [...new Set(saved)].filter((id): id is NavId => known.has(id));
+  // A plugin's row is kept even while its plugin is not loaded (the sidebar only lists what is there); "diagrams" was a view of the app's own before it became a plugin's.
+  const renamed = saved.map((id) => (id === "diagrams" ? "plugin:diagrams" : id));
+  return [...new Set(renamed)].filter((id): id is NavId => known.has(id) || id.startsWith("plugin:"));
 }
 
 /** What shows in the sidebar's views list: the pinned views in their

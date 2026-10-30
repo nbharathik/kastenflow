@@ -1,0 +1,52 @@
+/* Settings → Plugins: a plugin's card, its status and its download line. */
+
+.kasten-plugin + .kasten-plugin {
+  border-top: 1px solid var(--color-line);
+}
+
+.kasten-plugin-status {
+  color: var(--color-muted);
+  font-size: var(--text-12);
+}
+
+.kasten-plugin-status.is-on {
+  color: var(--color-accent);
+}
+
+.kasten-plugin-status.is-failed {
+  color: var(--color-danger);
+}
+
+.kasten-plugin-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.kasten-plugin .is-danger {
+  color: var(--color-danger);
+}
+
+.kasten-plugin-track {
+  display: block;
+  height: 6px;
+  min-width: 96px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-well);
+}
+
+.kasten-plugin-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--motion-slow) var(--ease-standard);
+}
+
+.kasten-plugin-track > .is-unknown {
+  opacity: 0.5;
+}

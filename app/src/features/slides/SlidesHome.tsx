@@ -10,6 +10,7 @@ import { dragNotes } from "../workspace/drag";
 import { usePrefs } from "../workspace/prefs";
 import { howFrom, useWorkspace } from "../workspace/store";
 import { type DeckSort, SORTS, filterDecks, groupByProject, readSort, sortDecks, writeSort } from "./deck-sort";
+import { ContinueRow } from "./ContinueRow";
 import { DeckThumb } from "./DeckThumb";
 import { ImportButton } from "./ImportButton";
 import { NewDeck } from "./NewDeck";
@@ -61,6 +62,8 @@ export function SlidesHome() {
           New deck
         </button>
       </header>
+
+      {!creating && <ContinueRow />}
 
       {creating ? <NewDeck key={draftProject ?? ""} /> : <StartRow onGallery={start} />}
 

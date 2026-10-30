@@ -15,6 +15,7 @@ mod edit;
 mod extras;
 mod files;
 mod geometry;
+mod removals;
 mod source;
 mod style;
 #[cfg(test)]
@@ -34,6 +35,7 @@ pub use files::{
     board_text, boards_referencing, create_board, plan_board, read_board, relink_boards,
     write_board,
 };
+pub use removals::removed_by;
 pub(crate) use style::document_with as json_document;
 pub use view::{BoardView, Drawing, EdgeView, NodeView, file_title, view};
 

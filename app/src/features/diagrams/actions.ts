@@ -4,6 +4,7 @@
 // two files together and the links in order; nothing here writes a file.
 
 import type { VaultClient } from "../../lib/vault/types";
+import { pluginOff, turnPluginOn } from "../../plugins/off";
 import { usePrefs } from "../workspace/prefs";
 import { flushOpenPage, reloadOpenPage } from "../workspace/page/open-page";
 import { useWorkspace, type OpenHow } from "../workspace/store";
@@ -26,6 +27,11 @@ async function attempt<T>(run: (client: VaultClient) => Promise<T>): Promise<T |
 
 /** Makes a diagram, in `project` or the library, and opens its editor at once (`template`: with the editor's own template dialog). */
 export async function newDiagram(options: { project?: string | null; template?: boolean; title?: string; how?: OpenHow } = {}): Promise<string | null> {
+  // With draw.io off there is nothing to draw it with: say so instead of leaving a diagram nobody can open.
+  if (pluginOff("diagrams")) {
+    useWorkspace.getState().toast("Turn on the draw.io plugin to make a diagram", { label: "Turn on", run: () => void turnPluginOn("diagrams") });
+    return null;
+  }
   const path = await attempt((c) => c.createDiagram(options.title ?? "Untitled diagram", options.project ?? null));
   if (!path) return null;
   diagramChanged(path);

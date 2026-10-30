@@ -45,8 +45,9 @@ export const ENTRIES: SettingEntry[] = [
     [
       ["font", "Font", PAGE_OWN, "typeface serif mono sans reading"],
       ["textSize", "Text size", PAGE_OWN, "font size larger smaller bigger reading"],
-      ["fullWidth", "Full width", "Use the whole window for page text.", "wide column margins"],
+      ["pageWidth", "Page width", "How wide page text runs: the usual column, a wider one, or the whole window.", "full width wide normal column margins"],
       ["spellcheck", "Check spelling", "Underline words the spell checker does not know.", "spell typos"],
+      ["propsFold", "Properties on pages", "Whether a page's properties show under its title or fold into one line. A page you fold or unfold yourself keeps your choice.", "fold unfold collapse hide show tags properties"],
     ],
     "Reading",
   ),
@@ -57,8 +58,22 @@ export const ENTRIES: SettingEntry[] = [
       ["peek", "Open pages from views in", "A page picked in the calendar, a table, a board of cards or Tasks.", "peek center side full"],
       ["links", "Open links and sub-pages in", "A plain click on a link, a sub-page or a page in the sidebar. Ctrl, Shift and Alt clicks, and what a page chooses in its ••• menu, still win.", "same tab peek stack right"],
       ["right", "Open to the right", "What a page opened to the right does to the pane there.", "split replace add tab"],
+      ["keepTabs", "Keep recent tabs ready", "The last few tabs you used stay open out of sight, so coming back is instant and keeps your place, caret and whiteboard undo. More uses more memory; Off closes a tab's view when you leave it. Browser tabs are never kept.", "memory speed fast switch tabs cache keep alive background off"],
     ],
     "Opening pages",
+  ),
+  ...make(
+    "pages",
+    [
+      [
+        "smartRun",
+        "Smart pages",
+        "A smart page has a small app of its own, such as a tracker or a dashboard, that works with your notes under the same rules as an agent. They are a plugin that is off until you turn it on in Plugins, for each vault; a project can turn them on or off for its own pages from its menu. Off, every smart page shows its notes instead, and agents can only ask you to turn them on. A page an agent made waits for your Allow to run either way.",
+        "smart interactive app tracker dashboard sandbox frames plugin turn on off stop disable kill switch",
+        { only: "desktop" },
+      ],
+    ],
+    "Smart pages",
   ),
   ...make("sidebar", [
     ["cards", "Show quick notes under projects", "Quick notes and captures stay on their project's home and in the Inbox; turn this on to list them under the project as well.", "cards captures inbox"],
@@ -90,6 +105,37 @@ export const ENTRIES: SettingEntry[] = [
   ...make(
     "ai",
     [
+      [
+        "selectedText",
+        "Selected text",
+        "Add automatically: selecting 3 or more characters in a page, PDF, LaTeX document or slide text box puts it on the chat as a chip you can remove. Only with “Add to chat”: nothing is added until you press Add to chat (Ctrl+Alt+L). Never: selections are not offered. Add to chat keeps up to five snippets.",
+        "selection snippet quote context highlight automatically chip add to chat ask about",
+      ],
+      [
+        "onSwitch",
+        "When I switch pages",
+        "Keep this chat and follow the page: one chat whose page chip follows the page in front. Use that page’s chat: each page has its own chat, made when you first write in it; switching tabs switches chats. Start a new chat: every page you open gets a fresh chat.",
+        "switch tabs page chat bound per page new chat follow conversation separate",
+      ],
+      [
+        "assistantLinks",
+        "Links from the assistant open",
+        "Where a page, board or file named in a deck’s assistant opens when you click it. Beside the deck: in the pane to its right, so the deck stays where it is. In a new tab: a tab of its own. In the deck’s tab: replaces the deck there (Back brings it back). Ctrl, Shift and Alt still choose.",
+        "slides deck assistant link click open beside new tab here replace pane split",
+      ],
+      ["listSize", "Chats in the list", "How many chats the list keeps. Older ones are archived, not deleted, and stay under Archived in the Chat view. A chat tied to a page, or one that is working, is never archived.", "history archive older chats keep number list size limit"],
+      [
+        "maxConcurrent",
+        "Agents working at once",
+        "How many chats may work at the same time. A chat past the limit says “Waiting for another chat to finish” and starts when a place is free; Stop takes it out of the line.",
+        "concurrent parallel simultaneous queue waiting agents chats limit memory",
+      ],
+    ],
+    "Chat panel",
+  ),
+  ...make(
+    "ai",
+    [
       ["budgetRounds", "Steps in one go", "How many times the assistant may ask the model, one step after another, before it pauses. A pause keeps everything it has done; Continue lets it go on.", "limit pause continue budget agent chat steps rounds"],
       ["budgetCalls", "Tool calls in one go", "How many times the assistant may use its tools (read, search, change notes) before it pauses and waits for Continue.", "limit pause continue budget agent chat tools calls"],
       ["budgetMinutes", "Minutes in one go", "How long one answer may run before it pauses and waits for Continue.", "limit pause continue budget agent chat time duration"],
@@ -110,6 +156,15 @@ export const ENTRIES: SettingEntry[] = [
     "Connection report",
   ),
   ...make("agents", [
+    [
+      "mode",
+      "How much agents may do",
+      "Review everything holds every change for your review. Balanced lets small changes through and holds big or risky ones. Autonomous lets agents work freely for a time you choose; a restore point is saved first, and everything can be undone.",
+      "review everything balanced autonomous permission approve trust free hands off unattended",
+      { card: "How much agents may do" },
+    ],
+    ["modeUntil", "How long Autonomous lasts", "1 hour, 8 hours, or until you turn it off. When the time is up, agents are on Balanced again.", "autonomous time box hour duration expire end", { card: "How much agents may do", quiet: true }],
+    ["modeProjects", "Projects with a mode of their own", "A project can be stricter or looser than everything else. Agents working in it follow its mode.", "project override per project autonomous review", { card: "How much agents may do" }],
     ["claude", "Connect Claude Code", "Run this once in a terminal.", "mcp command cli claude code"],
     ["config", "Claude Desktop, Cursor and other MCP apps", "Add this to the app's MCP settings (its mcpServers).", "mcp json config cursor"],
     ["url", "Clients that connect by URL", "Start the server with the command, then connect to its address with the token as a bearer. It answers this computer only.", "http token bearer server address"],
@@ -151,14 +206,23 @@ export const ENTRIES: SettingEntry[] = [
   ...make("history", [
     ["synced", "Vault folder", "Quit KastenFlow, move the vault folder out of the synced folder, then open the folder from its new place.", "dropbox onedrive google drive icloud synced cloud", { quiet: true }],
     ["history", "History", "Saved changes are recorded in local Git history so you can restore earlier versions.", "git versions restore undo"],
+    ["check", "Check the vault", "Looks for pages with broken properties, pages that clash with each other, links to missing pages and damaged history.", "verify problems integrity repair"],
+    ["health", "Vault health", "How the vault stands: saving and indexing, backup, copies kept after outside changes, proposed changes, broken links and missing pictures, and what drawing and the browser need. Looking changes nothing.", "status problems conflicts indexing stale failed saved external proposed diagnose repair missing assets", { card: "Vault health", jump: true }],
+  ]),
+  ...make("backup", [
+    ["setup", "Set up backup", "A guided setup: pick GitHub, another git host or a folder, and the first backup is made for you.", "wizard guide start github folder drive sync", { only: "desktop" }],
     ["github", "Back up to GitHub", "Sign in, and KastenFlow makes a private repository in your account for this vault.", "sign in remote repository"],
-    ["remote", "Backup remote", "A private git repository on any host, such as GitLab, Gitea or your own server. Pushes happen 2 minutes after changes and at least hourly, never forced.", "git gitlab gitea server push token url"],
+    ["remote", "Backup remote", "A private git repository on any host, such as GitLab, Gitea or your own server. Nothing on the server is ever overwritten.", "git gitlab gitea server push token url"],
     ["status", "Backup status", "When this vault was last backed up, and a button to back up now.", "push now", { quiet: true }],
     ["latest", "Get latest", "Brings in what you changed on another computer. Nothing here is overwritten: a page changed on both keeps the other version beside yours.", "pull sync another computer restore", { quiet: true }],
     ["token", "Backup token", "A personal access token that can read and write the backup repository. It is checked now and sent to that server only.", "password credentials git", { quiet: true }],
+    ["signin", "Sign-in", "The GitHub account KastenFlow signs in with. Signing out forgets it on this computer; revoking takes the access away on GitHub too.", "account sign out revoke access token github", { only: "desktop", quiet: true }],
+    ["when", "When to back up", "As I work: 2 minutes after you stop changing things, and at least once an hour. Every hour: once an hour when something changed. Only when I close or by hand: never by itself.", "push delay interval schedule hourly manual automatic", { only: "desktop" }],
+    ["others", "Changes from other computers", "Automatically when safe brings in what another computer backed up when nothing here is waiting and no page has unsaved typing. Ask me tells you first. Only by hand never looks. Two sets of changes that need joining always ask first.", "get latest pull fetch sync interval minutes look automatic ask manual", { only: "desktop" }],
     ["files", "Backup files", "For Dropbox, Google Drive, OneDrive or a disk: a file of the whole vault in their folder, written daily. Not encrypted.", "folder bundle dropbox drive onedrive disk"],
-    ["check", "Check the vault", "Looks for broken frontmatter, repeated ids, links to missing pages and damaged history.", "verify problems integrity repair"],
-    ["health", "Vault health", "How the vault stands: saving and indexing, backup, copies kept after outside changes, proposed changes, broken links and missing pictures, and what drawing and the browser need. Looking changes nothing.", "status problems conflicts indexing stale failed saved external proposed diagnose repair missing assets", { card: "Vault health", jump: true }],
+    ["keep", "Backup files to keep", "How many of this computer's backup files stay in the folder, from 3 to 60. Seven by default.", "retention count folder bundle", { only: "desktop" }],
+    ["safety", "Safety", "Whether the backup is private and locked against rewriting, when it was last read back whole, which files were left out and how big the history is.", "private public visibility protection verify size 100 mb skipped", { only: "desktop" }],
+    ["notin", "What is not in the backup", "Saved chats, attachments in chats and this app's settings stay on this computer. Save a chat as a note to keep it in the vault.", "chats attachments settings missing excluded", { only: "desktop" }],
   ]),
   ...make("search", [
     ["provider", "Provider", "An OpenAI-compatible one: OpenAI, or a local server such as vLLM or Ollama. Add one under AI providers first.", "embeddings openai vllm ollama", { only: "desktop" }],
@@ -167,7 +231,7 @@ export const ENTRIES: SettingEntry[] = [
     ["unavailable", "Search by meaning works in the desktop app", "It asks an embedding model, with a key kept in your system keychain.", "embeddings vectors", { only: "preview" }],
   ]),
   ...make("diagrams", [
-    ["editor", "Diagram editor", "A separate download, checked against a fixed checksum before it is unpacked. Apache-2.0. It never reaches the network.", "draw.io drawio install remove download flowchart"],
+    ["editor", "Diagram editor", "A separate download, checked to be exactly the file KastenFlow expects before it is installed. Apache-2.0. It never reaches the network.", "draw.io drawio install remove download flowchart"],
     ["credit", "Credit", "The editor's licence and notices are kept with the installed copy and in the docs.", "drawio licence apache"],
   ]),
   ...make("templates", [
@@ -176,6 +240,7 @@ export const ENTRIES: SettingEntry[] = [
     ["kits", "Starter kits", "A daily planner, a second brain, a Zettelkasten, Getting Things Done, student or research: pages, templates and tag databases in one step that Undo takes back.", "gtd planner zettelkasten para"],
     ["missing", "New starter templates", "Starter templates a newer KastenFlow added since this vault was made.", "add", { quiet: true }],
   ]),
+  ...make("plugins", [["list", "Plugins", "Extra tools you can switch on, such as diagrams, LaTeX, smart pages and the browser. Some download a program the first time.", "extensions add-ons extras tools diagrams drawio latex smart pages browser download"]]),
   ...make("desktop", [
     ["keepRunning", "Keep running when the window closes", "KastenFlow stays in the tray, so quick capture and backups carry on. Quit from the tray icon.", "tray background close", { only: "desktop" }],
     ["capture", "Quick capture", "A small box over any app: type, Tab to choose where it goes, Enter to save.", "shortcut global key hotkey capture", { only: "desktop" }],

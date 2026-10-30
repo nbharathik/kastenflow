@@ -11,8 +11,11 @@
 pub mod agent;
 pub mod assets;
 mod atomic;
+pub mod backup;
+pub mod batch;
 pub mod bib;
 pub mod board;
+pub mod bridge;
 pub mod bundle;
 pub(crate) mod capture;
 pub mod cite;
@@ -21,6 +24,8 @@ pub mod collections;
 pub mod comments;
 pub mod companions;
 pub mod config;
+pub mod config_keys;
+mod config_merge;
 pub mod dates;
 pub mod deck;
 pub mod diagrams;
@@ -36,6 +41,7 @@ pub mod history;
 mod id;
 pub mod import;
 pub mod index;
+pub mod latex;
 pub mod links;
 pub mod local_paths;
 mod lock;
@@ -45,6 +51,8 @@ pub mod merge;
 mod moving;
 mod note;
 mod ops;
+pub mod pages;
+pub mod policy;
 pub mod props;
 mod readable;
 mod rename;
@@ -54,7 +62,9 @@ mod save;
 mod search;
 pub mod sections;
 mod slug;
+pub mod smart;
 pub mod sources;
+pub mod structure;
 mod survey;
 mod synced;
 pub mod tag_query;
@@ -70,6 +80,9 @@ pub mod vectors;
 pub mod watch;
 
 pub use config::Config;
+pub use engine::DiagramPicture;
+pub use engine::NewProject;
+pub use engine::PersonBatch;
 pub use engine::{
     AddedKit, BACKUP_FILES_KEPT, BackupFile, BackupFileRecord, BackupFileStatus, BackupRecord,
     BoardApplied, BoardInfo, Brainstormed, ChangedFile, DeckInfo, Emptied, Idea, Kasten, KitInfo,
@@ -77,8 +90,12 @@ pub use engine::{
     Placed, Problem, QUIET_MS, Report, SessionInfo, Tick, UndoConflict, Undone, VaultRestore,
     computer_name, kits,
 };
-pub use engine::{AppliedSetup, SetupInfo, SetupPlan, SetupTarget, setups};
+pub use engine::{
+    AppliedSetup, SavedSetup, SetupGone, SetupInfo, SetupPage, SetupPlan, SetupSource, SetupTarget,
+    setups,
+};
 pub use engine::{DeckEdit, DecksSaved, MAX_SAVE_DECKS, SaveDecksRequest};
+pub use engine::{Digest, DigestSession};
 pub use engine::{
     Expected, MAX_REPLACE_NOTES, MAX_REPLACEMENTS, NoteMatches, ReplaceRequest, Replaced,
 };
@@ -88,6 +105,8 @@ pub use engine::{
     ProjectSummary, TaskCounts,
 };
 pub use engine::{MAX_TAGGED, TagAdded};
+pub use engine::{MadeSmart, NewSmartPage, SavedSmartTemplate, SmartTemplate, SmartTemplateInfo};
+pub use engine::{ProjectSmart, SMART_PLUGIN, SMART_PROJECT_KEY};
 pub use engine::{Revision, RevisionArea, area_of, shipped_template};
 pub use error::{Error, Result};
 pub use id::ulid_at;

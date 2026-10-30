@@ -1,7 +1,9 @@
 // The store's tabs, panes and side stack: actions over `tabs.ts`, the
 // layout kept in this browser so the window reopens as it was left.
 
+import { rekeyBoard } from "../boards/canvas/state/registry";
 import { usePeek } from "../peek/store";
+import { openKind, opensBesideStack } from "./open-kind";
 import { usePrefs } from "./prefs";
 import * as tabs from "./tabs";
 import type { Layout, Place } from "./tabs";
@@ -187,15 +189,13 @@ export function layoutSlice(set: Set, get: Get) {
       },
       openInStack(path: string) {
         // The stack holds pages; a board opens beside the current pane instead.
-        if (path.endsWith(".canvas")) return get().splitRight({ view: "boards", path });
-        if (path.endsWith(".deck")) return get().splitRight({ view: "slides", path });
-        if (path.endsWith(".drawio")) return get().splitRight({ view: "diagrams", path });
+        if (opensBesideStack(path)) return get().splitRight({ view: openKind(path), path });
         const stack = [path, ...get().stack.filter((p) => p !== path)].slice(0, MAX_STACK);
         stackChange(stack, true);
         get().recentVisit({ view: "page", path });
       },
       stackAll(paths: readonly string[]) {
-        const pages = paths.filter((p) => !p.endsWith(".canvas") && !p.endsWith(".deck") && !p.endsWith(".drawio"));
+        const pages = paths.filter((p) => !opensBesideStack(p));
         if (pages.length === 0) return;
         stackChange([...new Set([...pages, ...get().stack])].slice(0, MAX_STACK), true);
       },
@@ -220,13 +220,18 @@ export function layoutSlice(set: Set, get: Get) {
       /** Tabs, stack cards and the peek follow notes that moved, by path. */
       followMoves(moves: ReadonlyMap<string, string>) {
         let layout = get().layout;
-        for (const [from, to] of moves) layout = tabs.renamePath(layout, from, to);
+        for (const [from, to] of moves) {
+          layout = tabs.renamePath(layout, from, to);
+          rekeyBoard(from);
+        }
         if (layout !== get().layout) apply(layout);
         const stack = get().stack.map((p) => moves.get(p) ?? p);
         if (stack.some((p, i) => p !== get().stack[i])) stackChange(stack, get().stackOpen);
         const peek = usePeek.getState().peek;
         const moved = peek && moves.get(peek.path);
         if (moved) usePeek.getState().open(moved, peek.mode);
+        // Chats tied to a moved page, deck or diagram follow it (loaded on demand).
+        void import("../chat/binding/moves").then((m) => m.rebindChats(moves), () => {});
       },
     },
   };

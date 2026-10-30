@@ -39,6 +39,9 @@ pub struct AppSettings {
     /// The folder backup files go to, by vault folder: one a sync client
     /// or a disk keeps, confirmed on this computer.
     pub backup_folders: BTreeMap<String, String>,
+    /// GitHub repositories (`owner/name`, lower case) the person said they
+    /// want as a public backup; any other public one pauses pushing.
+    pub public_ok: BTreeSet<String>,
     /// Closing the window keeps Kasten running in the tray (the default)
     /// rather than quitting. macOS keeps it in the Dock either way.
     pub keep_running: Option<bool>,

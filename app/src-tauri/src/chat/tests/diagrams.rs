@@ -33,6 +33,7 @@ fn chip(refs: &[&str]) -> ContextChip {
         kind: "diagram".to_owned(),
         label: "Shop".to_owned(),
         refs: refs.iter().map(|r| r.to_string()).collect(),
+        ..Default::default()
     }
 }
 
@@ -147,6 +148,7 @@ fn a_diagram_that_cannot_be_read_says_so_and_the_rest_still_goes() {
                 kind: "note".to_owned(),
                 label: "Welcome".to_owned(),
                 refs: vec!["library/welcome-to-kasten.md".to_owned()],
+                ..Default::default()
             },
         ],
     );

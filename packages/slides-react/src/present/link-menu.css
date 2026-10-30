@@ -1,0 +1,52 @@
+/* The link menu keeps its own colours. In a show it sits over a slide whose background and text can be anything (white text on a white
+   slide), and it must not take either: the slide's colours never reach it. The set below is the editor's own, set again here so the menu
+   reads the same wherever it opens; a ring and a stronger shadow tell it apart from the slide under it. */
+.ks-link-menu {
+  --ks-raised: #ffffff;
+  --ks-ink: #31302e;
+  --ks-muted: #64615c;
+  --ks-faint: #6f6c67;
+  --ks-line: rgb(0 0 0 / 0.1);
+  --ks-danger: #c4403b;
+  --ks-hover: color-mix(in srgb, #0075de 12%, transparent);
+  --ks-pressed: color-mix(in srgb, #0075de 20%, transparent);
+  --ks-shadow-pop: 0 0 0 1px rgb(0 117 222 / 0.35), 0 4px 10px rgb(15 15 15 / 0.18), 0 12px 32px rgb(15 15 15 / 0.28);
+  --ks-font: "Inter Variable", Inter, ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --ks-fast: 90ms;
+  --ks-ease: cubic-bezier(0.2, 0, 0, 1);
+  --ks-radius: 4px;
+  --ks-radius-md: 6px;
+  color-scheme: light;
+  font: 13px/1.4 var(--ks-font);
+  letter-spacing: normal;
+  text-shadow: none;
+}
+
+.ks-link-menu[data-theme="dark"],
+:root[data-theme="dark"] .ks-link-menu {
+  --ks-raised: #2d2c2b;
+  --ks-ink: #e6e4df;
+  --ks-muted: #a8a49c;
+  --ks-faint: #8f8b84;
+  --ks-line: rgb(255 255 255 / 0.12);
+  --ks-danger: #ef7d78;
+  --ks-hover: color-mix(in srgb, #4da3ff 18%, transparent);
+  --ks-pressed: color-mix(in srgb, #4da3ff 28%, transparent);
+  --ks-shadow-pop: 0 0 0 1px rgb(77 163 255 / 0.45), 0 6px 20px rgb(0 0 0 / 0.55);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ks-link-menu {
+    --ks-raised: #2d2c2b;
+    --ks-ink: #e6e4df;
+    --ks-muted: #a8a49c;
+    --ks-faint: #8f8b84;
+    --ks-line: rgb(255 255 255 / 0.12);
+    --ks-danger: #ef7d78;
+    --ks-hover: color-mix(in srgb, #4da3ff 18%, transparent);
+    --ks-pressed: color-mix(in srgb, #4da3ff 28%, transparent);
+    --ks-shadow-pop: 0 0 0 1px rgb(77 163 255 / 0.45), 0 6px 20px rgb(0 0 0 / 0.55);
+    color-scheme: dark;
+  }
+}

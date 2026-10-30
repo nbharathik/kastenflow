@@ -71,19 +71,19 @@ export function VaultSettings({ onSwitch }: { onSwitch: () => void }) {
 const SAFETY_ID: Record<string, string> = {
   "Vault folder": "history.synced",
   History: "history.history",
-  "Back up to GitHub": "history.github",
-  GitHub: "history.github",
-  "Backup remote": "history.remote",
-  "Get latest": "history.latest",
-  "Backup files": "history.files",
+  "Back up to GitHub": "backup.github",
+  GitHub: "backup.github",
+  "Backup remote": "backup.remote",
+  "Get latest": "backup.latest",
+  "Backup files": "backup.files",
   "Check the vault": "history.check",
 };
 
 /** The row the backup parts draw with: Settings' own, given the index id of what they are about. */
-const SafetyRow: RowComponent = ({ label, detail, help, children }) => {
-  const id = SAFETY_ID[label] ?? (label.startsWith("Token for") ? "history.token" : "history.status");
+export const SAFETY_ROW: RowComponent = ({ label, detail, help, children }) => {
+  const id = SAFETY_ID[label] ?? (label.startsWith("Token for") ? "backup.token" : "backup.status");
   // What the backup is doing now stays in view; the rest of what it says is behind the ?.
-  const status = id === "history.status" || id === "history.synced";
+  const status = id === "backup.status" || id === "history.synced";
   return (
     <Row id={id} label={label} help={help} detail={status && typeof detail === "string" ? <>{detail}</> : detail}>
       {children}
@@ -94,8 +94,8 @@ const SafetyRow: RowComponent = ({ label, detail, help, children }) => {
 export function HistorySettings() {
   return (
     <>
-      <Group title="History and backup">
-        <VaultSafety Row={SafetyRow} />
+      <Group title="History">
+        <VaultSafety Row={SAFETY_ROW} part="history" />
       </Group>
       <HealthSettings />
     </>

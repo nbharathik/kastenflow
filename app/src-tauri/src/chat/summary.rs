@@ -71,6 +71,16 @@ fn action(name: &str, input: &Value) -> String {
     if let Some(words) = kasten_mcp::diagram_words::action(name, input) {
         return words;
     }
+    if let Some(words) = kasten_mcp::latex_words::action(name, input) {
+        return words;
+    }
+    if let Some(words) = kasten_mcp::smart_words::action(name, input) {
+        return words;
+    }
+    // The structure, page-block and parity tools.
+    if let Some(words) = kasten_mcp::parity_words::action(name, input) {
+        return words;
+    }
     let note = quoted(text(input, "note"));
     let board = quoted(text(input, "board"));
     let or = |key: &str, default: &str| match text(input, key) {
@@ -98,6 +108,7 @@ fn action(name: &str, input: &Value) -> String {
         "rename_note" => format!("rename {note} to {}", quoted(text(input, "title"))),
         "move_note" => format!("move {note} to {}", or("project", "the library")),
         "journal_append" => format!("add to the journal for {}", or("date", "today")),
+        "batch" => format!("make {} as one batch", count(len(&input["ops"]), "change")),
         "trash_note" => format!("move {note} to the trash"),
         "propose_edit" => format!("rewrite {note}"),
         "update_tag_schema" => format!(
@@ -190,6 +201,33 @@ fn described(
     }
     // So are the diagram tools.
     if let Some(told) = kasten_mcp::diagram_words::told(name, input, value) {
+        return Described {
+            ok: true,
+            summary: told.summary,
+            paths: told.paths,
+            staged: false,
+        };
+    }
+    // The LaTeX tools.
+    if let Some(told) = kasten_mcp::latex_words::told(name, input, value) {
+        return Described {
+            ok: true,
+            summary: told.summary,
+            paths: told.paths,
+            staged: false,
+        };
+    }
+    // The smart page tools.
+    if let Some(told) = kasten_mcp::smart_words::told(name, input, value) {
+        return Described {
+            ok: true,
+            summary: told.summary,
+            paths: told.paths,
+            staged: false,
+        };
+    }
+    // And the structure, page-block and parity tools.
+    if let Some(told) = kasten_mcp::parity_words::told(name, input, value) {
         return Described {
             ok: true,
             summary: told.summary,
@@ -290,6 +328,27 @@ fn described(
             format!("Added to the journal for {}", text(done, "title")),
             vec![path],
         ),
+        "batch" => {
+            // Each change's own result: a note, or a rename's note, or a board.
+            let paths = done["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .flat_map(|each| {
+                    [
+                        text(each, "path"),
+                        text(&each["note"], "path"),
+                        text(each, "board"),
+                    ]
+                })
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned)
+                .collect();
+            let n = done["changes"]
+                .as_u64()
+                .map_or(len(&input["ops"]), |n| n as usize);
+            (format!("Made {} as one batch", count(n, "change")), paths)
+        }
         "trash_note" => {
             // `.trash/<when>/<original path>`
             let trashed = text(done, "trashed");

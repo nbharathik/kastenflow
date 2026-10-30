@@ -79,6 +79,13 @@ export function setEditorBackend(next: EditorBackend | null): void {
   backend = next;
 }
 
+/** The page the browser preview's demo shows in place of the editor; null outside the demo. */
+let demoPage: string | null = null;
+
+export function setDemoEditorPage(page: string | null): void {
+  demoPage = page;
+}
+
 interface EditorState {
   info: EditorInfo | null;
   progress: InstallProgress | null;
@@ -148,6 +155,7 @@ export const useDiagramEditor = create<EditorState>((set, get) => ({
 export function editorPage(): string | null {
   const info = useDiagramEditor.getState().info;
   if (!info?.installed) return null;
+  if (demoPage) return demoPage;
   if (!inTauri()) return previewHasEditor() ? `${window.location.origin}/${previewKind === "real" ? "drawio" : "diagrams-stub"}/index.html` : null;
   // `http://diagrams.localhost/…` where a web view knows only http and https, `diagrams://localhost/…` elsewhere.
   return convertFileSrc("index.html", "diagrams");

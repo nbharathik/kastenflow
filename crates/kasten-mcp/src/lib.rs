@@ -3,18 +3,48 @@
 //! both call [`run`], and the app's chat calls the same tools in-process
 //! through [`tools`].
 
+mod agent_guide;
+pub mod bridge;
+mod config_watch;
 pub mod decks;
 pub mod diagram_words;
 mod http;
+mod latex_instructions;
+pub mod latex_words;
 mod mcp_board;
 mod mcp_diagram;
 mod mcp_diagram_ai;
+mod mcp_diagram_more;
+mod mcp_figure;
+mod mcp_latex;
+mod mcp_latex_app;
+mod mcp_latex_files;
+mod mcp_latex_more;
+mod mcp_pages;
+mod mcp_parity;
 mod mcp_read;
+mod mcp_resources;
+mod mcp_smart;
+mod mcp_structure;
 mod mcp_write;
+mod page_instructions;
 mod params;
 mod params_diagram;
+mod params_figure;
+mod params_latex;
+mod params_latex_files;
+mod params_latex_more;
+mod params_pages;
+mod params_parity;
+mod params_smart;
+mod params_structure;
+pub mod parity_words;
+mod plugins;
 mod server;
 mod setup;
+mod smart_instructions;
+pub mod smart_kit;
+pub mod smart_words;
 mod token;
 pub mod tools;
 
@@ -36,7 +66,7 @@ use crate::setup::{Server, Target};
 
 const USAGE: &str = "Usage: kasten-mcp --vault <path> [--http [--port 7433]]
        kasten-mcp --vault <path> --check
-       kasten-mcp --vault <path> --setup claude-code|claude-desktop|http
+       kasten-mcp --vault <path> --setup claude-code|claude-desktop|codex|http
 
 Serves a KastenFlow vault to AI agents over MCP. Without --http it speaks
 stdio, for Claude Code and Claude Desktop. The vault is --vault, else
@@ -79,10 +109,10 @@ fn options(args: &[String]) -> Result<Option<Options>, String> {
             "--setup" => {
                 let word = iter
                     .next()
-                    .ok_or("--setup needs claude-code, claude-desktop or http")?;
+                    .ok_or("--setup needs claude-code, claude-desktop, codex or http")?;
                 setup = Some(Target::parse(word).ok_or_else(|| {
                     format!(
-                        "Not something to set up: {word}. Use claude-code, claude-desktop or http."
+                        "Not something to set up: {word}. Use claude-code, claude-desktop, codex or http."
                     )
                 })?);
             }
@@ -256,7 +286,14 @@ async fn stdio(kasten: Arc<Kasten>) -> Result<(), String> {
         .serve(rmcp::transport::stdio())
         .await
         .map_err(|e| e.to_string())?;
-    running.waiting().await.map_err(|e| e.to_string())?;
+    // A plugin turned on or off in the app changes the tools this client has.
+    let watching = tokio::spawn(config_watch::watch(
+        Arc::clone(&kasten),
+        running.peer().clone(),
+    ));
+    let waited = running.waiting().await;
+    watching.abort();
+    waited.map_err(|e| e.to_string())?;
     // Agent ops commit at once; this catches anything else still waiting.
     let _ = kasten.commit_edits();
     Ok(())

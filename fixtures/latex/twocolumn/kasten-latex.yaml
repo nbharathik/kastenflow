@@ -1,0 +1,6 @@
+main: main.tex
+engine: latexmk-pdf
+bibliography: local
+locked: true
+# Kept as written: this key belongs to a later version.
+review_stamp: "2026-10-20"

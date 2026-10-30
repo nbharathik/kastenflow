@@ -6,7 +6,9 @@
 // call is left out when the client grows.
 
 import { localStamp } from "../templates/template-vars";
+import { AGENT_MODE_RULES } from "../../lib/vault/agent-mode-types";
 import { ANNOTATION_RULES } from "../../lib/vault/annotation-types";
+import { BATCH_RULES } from "../../lib/vault/batch-types";
 import { BUNDLE_RULES } from "../../lib/vault/bundle-types";
 import { COLLECTION_RULES } from "../../lib/vault/collection-types";
 import type { DraftRule as Rule } from "../../lib/vault/draft-rule";
@@ -41,6 +43,7 @@ const RULES = {
   move: "own",
   moveToInbox: "make",
   nest: "own",
+  reorderChildren: "own",
   convert: "own",
   duplicate: "make",
   trash: "own",
@@ -74,6 +77,8 @@ const RULES = {
   tagSchemas: "pass",
   setTagViews: "pass",
   setTagProperties: "pass",
+  tagFormulas: "pass",
+  checkFormula: "pass",
   updateProps: "make",
   setTags: "make",
   replaceSection: "make",
@@ -112,6 +117,7 @@ const RULES = {
   acceptProposal: "pass",
   rejectProposal: "pass",
   sessions: "pass",
+  activityDigest: "pass",
   undoSession: "pass",
   clipUrl: "pass",
   trustSession: "pass",
@@ -151,6 +157,8 @@ const RULES = {
   ...REFERENCE_RULES,
   ...BUNDLE_RULES,
   ...HEALTH_RULES,
+  ...AGENT_MODE_RULES,
+  ...BATCH_RULES,
   ...REVISION_RULES,
 } satisfies Record<MethodName, Rule>;
 
@@ -222,6 +230,7 @@ export function withDrafts(client: VaultClient, hooks: DraftHooks): VaultClient 
       const under = parent === null ? null : await real(parent);
       return untouched(path) ? placed(await make(path, { parent: under })) : client.nest(await real(path), under);
     },
+    reorderChildren: async (parent, ids) => client.reorderChildren(await real(parent), ids),
     convert: async (path, kind) => (untouched(path) ? placed(await make(path, { kind })) : client.convert(await real(path), kind)),
     async trash(path) {
       // A draft never written in goes without a trace.

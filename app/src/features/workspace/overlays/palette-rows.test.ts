@@ -31,7 +31,7 @@ describe("more palette rows", () => {
     expect(settingsRows("Settings: appear").map((r) => r.label)).toEqual(["Settings: Appearance"]);
     settingsRows("backup")[0]!.run("here");
     expect(useWorkspace.getState().place.view).toBe("settings");
-    expect(takeSettingsJump()).toEqual({ group: "history" });
+    expect(takeSettingsJump()).toEqual({ group: "backup" });
     expect(takeSettingsJump()).toBeNull();
   });
 

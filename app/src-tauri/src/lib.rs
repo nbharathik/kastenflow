@@ -4,6 +4,7 @@
 mod app_settings;
 mod backup;
 mod brainstorm;
+mod bridge;
 mod browser;
 mod calendars;
 mod capture;
@@ -25,12 +26,15 @@ mod main_window;
 mod meaning;
 mod notify;
 mod open_vault;
+mod plugins;
 mod presenter;
+mod presenter_screen;
 mod rehearsals;
 mod reveal;
 mod runtime;
 mod secrets;
 mod shortcut;
+mod smart;
 mod startup;
 mod tray;
 mod update_install;
@@ -111,6 +115,8 @@ pub fn run() {
                 .with_filename(main_window::state_file(vault_from_env))
                 // Restored while the window is still hidden, in `prepare`.
                 .skip_initial_state(closing::MAIN)
+                // The presenter's window is placed on the display the show leaves free, never where it was last left.
+                .with_denylist(&[presenter::PRESENTER])
                 .build(),
         )
         .manage(chat::commands::ChatState::new(std::sync::Arc::new(
@@ -124,6 +130,13 @@ pub fn run() {
         .manage(browser::Browser::default())
         .manage(extension::Extension::default())
         .manage(diagrams::Editor::default())
+        .manage(plugins::Payloads::default())
+        .manage(smart::Runtime::default())
+        // A smart page's folder and the kit, to the page's sandboxed frame and nobody else.
+        .register_asynchronous_uri_scheme_protocol(
+            smart::protocol::SCHEME,
+            smart::protocol::handler,
+        )
         // The installed diagram editor's files, to its frame and nobody else.
         .register_asynchronous_uri_scheme_protocol(
             diagrams::protocol::SCHEME,
@@ -166,6 +179,8 @@ pub fn run() {
             browser::start(app.handle());
             // Shut until the person turns the browser extension's door on.
             extension::start(app.handle());
+            // The diagram editor an earlier version kept in its own folder moves under plugins/, once.
+            plugins::migrate_payloads(app.handle());
             if std::env::args().any(|a| a == "--capture") {
                 capture::show(app.handle());
             }
@@ -182,6 +197,8 @@ pub fn run() {
                 git_host::hand_token(kasten, chat.keys().as_ref());
                 backup::finish_on_open(&handle, kasten);
                 show_files(&handle, kasten.root());
+                // Agents on MCP can ask the app to build a LaTeX document or keep its PDF.
+                bridge::start_for_app(&handle, kasten);
                 let watcher = runtime::start(&handle, std::sync::Arc::clone(kasten));
                 // Keep the watcher for the life of the app.
                 handle.manage(std::sync::Mutex::new(watcher));
@@ -197,6 +214,10 @@ pub fn run() {
         // Typing is committed on close, not lost to the 30 s wait.
         // Then one last push, if the backup lacks something.
         RunEvent::Exit => {
+            // A LaTeX engine still building does not outlive the app.
+            plugins::latex::proc::kill_all();
+            // Agents are told the app is closed.
+            bridge::stop(handle);
             if let Some(kasten) = handle.state::<commands::notes::OpenVault>().kasten() {
                 let _ = crash::caught(|| kasten.commit_edits().map_err(|e| e.to_string()));
                 backup::final_backup(&kasten);

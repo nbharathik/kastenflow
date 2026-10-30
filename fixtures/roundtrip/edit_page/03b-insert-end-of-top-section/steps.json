@@ -1,0 +1,4 @@
+[
+  { "op": "insert", "at_end_of_heading": { "block": "b4" }, "markdown": "Under B." },
+  { "op": "insert", "at_end_of_heading": { "block": "b1" }, "markdown": "Tail." }
+]

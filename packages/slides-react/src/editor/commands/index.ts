@@ -110,10 +110,12 @@ export type KeyArea = "stage" | "canvas" | "filmstrip" | "text" | "field";
 export function dispatchKey(event: KeyboardEvent, context: CommandContext, area: KeyArea): boolean {
   const combo = comboOf(event);
   const candidates = bindings().get(combo) ?? [];
+  // A chord with Ctrl or Cmd is never typing, nor is a function key (F5 starts the show from a text box too).
+  const notTyping = /^(Mod|Ctrl)\+/.test(combo) || /^(Alt\+|Shift\+)?F\d{1,2}$/.test(combo);
   const usable = candidates.filter((command) => {
     const scope: KeyScope = command.scope ?? "global";
-    if (area === "field") return command.inFields === true && /^(Mod|Ctrl)\+/.test(combo);
-    if (area === "text") return scope === "global" && /^(Mod|Ctrl)\+/.test(combo);
+    if (area === "field") return command.inFields === true && notTyping;
+    if (area === "text") return scope === "global" && notTyping;
     return scope === "global" || scope === area || (area === "stage" && scope === "canvas");
   });
   const command = usable.find((candidate) => isEnabled(candidate, context));

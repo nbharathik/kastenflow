@@ -113,16 +113,20 @@ export const viewCommands: Command[] = [
     id: "view.present",
     label: "Present",
     icon: "play",
-    keys: ["Mod+Enter"],
+    // Shift+F5 is PowerPoint's and Google Slides' "from the current slide".
+    keys: ["Mod+Enter", "Shift+F5"],
     scope: "global",
+    inFields: true,
     run: ({ ui }) => ui.actions.present?.("current"),
   },
   {
     id: "view.present-start",
     label: "Present from beginning",
     icon: "monitor-play",
-    keys: ["Mod+Shift+Enter"],
+    // F5 is "from the start" in PowerPoint and Google Slides.
+    keys: ["Mod+Shift+Enter", "F5"],
     scope: "global",
+    inFields: true,
     run: ({ ui }) => ui.actions.present?.("start"),
   },
   {

@@ -1,6 +1,9 @@
 import { lazy, Suspense, useEffect } from "react";
 
 import { loadNotePage } from "../features/workspace/page/LazyNotePage";
+import { usePlugins } from "../plugins/registry";
+import { forgetProjectSmart } from "../features/smart/availability";
+import { forgetRunSwitch } from "../features/smart/run-switch";
 import { Palette } from "../features/workspace/overlays/Palette";
 import { SideStack } from "../features/stack/SideStack";
 import { VaultChooser } from "../features/vaults/VaultChooser";
@@ -11,7 +14,8 @@ import { useGlobalShortcuts } from "../features/workspace/shortcuts";
 import { useWindowTitle } from "./window-title";
 import { useWeeklyCheck } from "../features/workspace/weekly-check";
 import { startLive } from "../features/workspace/status";
-import { lookForNewerBackup } from "../features/backup/ahead";
+import { startBackupLook } from "../features/backup/look";
+import { useKeepSafeStep } from "../features/backup/told-up-front";
 import { useDesktopEvents } from "./desktop-events";
 import { useWorkspace } from "../features/workspace/store";
 import { connectVault, type Connection } from "../features/workspace/vault";
@@ -21,6 +25,8 @@ import { useWebLinks } from "./web-links";
 import { useMouseNavigation } from "./mouse-nav";
 import { useSystemMenu } from "./native-menu";
 import { useWritesOnClose } from "../features/workspace/page/close-writes";
+import { useDrawForAgents } from "../features/diagrams/draw-png";
+import { useSelectionShare } from "../features/chat/selection/sharing";
 import { useShowWhenDrawn } from "./window-ready";
 import { useFirstPage } from "../features/vaults/first-page";
 import { Tooltips } from "../ui/Tooltips";
@@ -28,6 +34,8 @@ import { ViewBoundary } from "../ui/ViewBoundary";
 import { useStoryboard } from "../features/pages/present/storyboard/state";
 import { useSlideNumbers } from "../features/slides/slide-numbers-state";
 import { useExportRequest } from "../features/projects/export/request";
+import { useSaveSetupRequest } from "../features/projects/setups/request";
+import { useBackupWizard } from "../features/backup/wizard";
 import { usePaperDialog } from "../features/references/add-state";
 import { useCompareDialog } from "../features/sources/compare/compare-state";
 import { PagePeek } from "./peek/PagePeek";
@@ -52,6 +60,9 @@ const SlidesOverlays = lazy(() => import("../features/slides/SlidesOverlays"));
 const ResearchOverlays = lazy(() => import("../features/references/ResearchOverlays"));
 // "Export a project" (a bundle in a folder) loads when it is asked for.
 const ExportProject = lazy(() => import("../features/projects/export/ExportProject"));
+const SaveSetup = lazy(() => import("../features/projects/setups/SaveSetup"));
+// "Keep your notes safe", the guided backup setup, loads when it is asked for.
+const BackupWizard = lazy(() => import("../features/backup/wizard/WizardHost"));
 // The template gallery (with the starter kits and its previews) and the "Move to" picker load when they are opened.
 const TemplateGallery = lazy(() => import("../features/templates/TemplateGallery").then((m) => ({ default: m.TemplateGallery })));
 const MovePicker = lazy(() => import("../features/workspace/overlays/MovePicker").then((m) => ({ default: m.MovePicker })));
@@ -94,6 +105,8 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   const addingPaper = usePaperDialog((s) => s.request !== null);
   const comparing = useCompareDialog((s) => s.request !== null);
   const exporting = useExportRequest((s) => s.request !== null);
+  const savingSetup = useSaveSetupRequest((s) => s.request !== null);
+  const settingUpBackup = useBackupWizard((s) => s.open);
   useGlobalShortcuts();
   useWindowTitle();
   useWeeklyCheck();
@@ -102,10 +115,14 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   useMouseNavigation();
   useSystemMenu();
   useWritesOnClose();
+  // What an agent asks of the window through the app: a diagram drawn as a PNG, and the selection it reads.
+  useDrawForAgents();
+  useSelectionShare();
   useShowWhenDrawn();
   useUpdatesAtStart();
   useDesktopEvents();
   useFirstPage();
+  useKeepSafeStep();
 
   useEffect(() => {
     let cancelled = false;
@@ -117,11 +134,15 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
         await useWorkspace.getState().connect(connection);
         if (!cancelled && connection.client) {
           stopLive = startLive(connection.client);
-          stopLook = lookForNewerBackup();
+          stopLook = startBackupLook();
         }
         if (!cancelled) {
           preloadEditor();
           preloadViews();
+          // Smart pages are on or off for each vault, so what was heard before this connection is forgotten.
+          forgetRunSwitch();
+          forgetProjectSmart();
+          void usePlugins.getState().sync();
         }
       },
       (err: unknown) => !cancelled && void useWorkspace.getState().connect({ client: null, problem: String(err) }),
@@ -195,6 +216,16 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
       {exporting && (
         <Suspense fallback={null}>
           <ExportProject />
+        </Suspense>
+      )}
+      {savingSetup && (
+        <Suspense fallback={null}>
+          <SaveSetup />
+        </Suspense>
+      )}
+      {settingUpBackup && (
+        <Suspense fallback={null}>
+          <BackupWizard />
         </Suspense>
       )}
       {whatsNew && (

@@ -157,7 +157,7 @@ describe("the presenter's view", () => {
     await act(async () => void vi.advanceTimersByTime(65_000));
     expect(fact("timer")).toContain("01:05");
     expect(fact("clock")).toBe("10:01");
-    host.querySelector<HTMLButtonElement>(".ks-pv-timer button")?.click();
+    [...host.querySelectorAll<HTMLButtonElement>(".ks-pv-timer button")].find((b) => b.textContent === "Reset")?.click();
     await act(async () => void vi.advanceTimersByTime(2000));
     expect(fact("timer")).toContain("00:02");
   });
@@ -201,7 +201,7 @@ describe("the presenter's window", () => {
     const asked: string[] = [];
     theirs.subscribe((m) => asked.push(m.type));
     await render(<PresenterWindow sync={mine} />);
-    expect(text(".ks-presenter")).toContain("Waiting for the presentation");
+    expect(text(".ks-presenter")).toContain("Waiting for the show");
     await act(async () => void vi.advanceTimersByTime(3200));
     expect(asked.filter((t) => t === "hello").length).toBeGreaterThanOrEqual(2);
     theirs.post({ type: "deck", deck, images: {}, state: { indexh: 1, indexv: 0, indexf: 0 }, since: Date.now() });
@@ -232,7 +232,7 @@ describe("the presenter's window", () => {
     expect([...heard].reverse().find((m) => m.type === "state")).toMatchObject({ state: { paused: true } });
   });
 
-  it("says when the presentation has ended, and says it is closing", async () => {
+  it("goes back to waiting for a show when the presentation ends, and says it is closing", async () => {
     const [mine, theirs] = memorySyncPair();
     const heard: string[] = [];
     theirs.subscribe((m) => heard.push(m.type));
@@ -241,7 +241,7 @@ describe("the presenter's window", () => {
     await act(async () => void (await new Promise((done) => setTimeout(done, 5))));
     theirs.post({ type: "bye" });
     await act(async () => void (await new Promise((done) => setTimeout(done, 5))));
-    expect(text(".ks-pv-ended")).toBe("The presentation has ended.");
+    expect(text(".ks-presenter")).toContain("Waiting for the show");
     await act(async () => root.unmount());
     expect(heard).toContain("bye");
   });

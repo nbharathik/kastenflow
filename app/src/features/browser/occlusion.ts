@@ -50,8 +50,9 @@ export const useOcclusion = create<Occlusion>()((set) => ({
     }),
 }));
 
-/** Whether any hold covers `area`. */
-export const covered = (holds: Readonly<Record<string, Hold>>, area: Box): boolean => Object.values(holds).some((hold) => hold === "all" || overlaps(hold, area));
+/** Whether any hold covers `area`. A hold named in `ignoring` is not counted (the view of a show is above the show's own hold). */
+export const covered = (holds: Readonly<Record<string, Hold>>, area: Box, ignoring?: string): boolean =>
+  Object.entries(holds).some(([key, hold]) => key !== ignoring && (hold === "all" || overlaps(hold, area)));
 
 /** An overlay is open while the component is mounted (or `on`): it covers
  * the rectangle `measure` gives, read after each layout and when the window

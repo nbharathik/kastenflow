@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::chat::WriteMode;
+use crate::chat::binding::Binding;
 use crate::chat::capabilities::GenerationSettings;
 use crate::chat::model::Message;
 use crate::chat::plan::PlanItem;
@@ -24,6 +25,9 @@ pub enum Status {
     Idle,
     /// A turn is working.
     Running,
+    /// A turn is ready and waits for another chat to finish: as many chats
+    /// are working as `chat.max_concurrent` allows.
+    Waiting,
     /// A turn stopped on a budget, a loop or a length limit and can go on.
     Paused,
     /// A turn was working when the app closed; it can go on.
@@ -33,6 +37,11 @@ pub enum Status {
 }
 
 impl Status {
+    /// A turn was under way: found so with nothing working, the app closed on it.
+    pub fn was_working(self) -> bool {
+        matches!(self, Status::Running | Status::Waiting)
+    }
+
     /// Whether Continue makes sense.
     pub fn can_continue(self) -> bool {
         matches!(self, Status::Paused | Status::Interrupted | Status::Error)
@@ -76,6 +85,12 @@ pub struct Record {
     /// Attachments the conversation refers to.
     #[serde(default)]
     pub attachments: Vec<String>,
+    /// Older than the list's size: shown under "Archived", never deleted for it.
+    #[serde(default)]
+    pub archived: bool,
+    /// The page, deck, diagram or document the thread is about.
+    #[serde(default)]
+    pub bound: Option<Binding>,
     /// Which snapshot of the thread this is, so an older one never replaces a
     /// newer one that was written first. Not saved.
     #[serde(skip)]
@@ -93,6 +108,12 @@ pub struct ThreadSummary {
     pub status: Status,
     pub provider: String,
     pub model: String,
+    /// In the head file so the list can show it, and the cap archive, without opening the thread.
+    #[serde(default)]
+    pub archived: bool,
+    /// What the thread is bound to, if anything.
+    #[serde(default)]
+    pub bound: Option<Binding>,
 }
 
 /// The summary and what the store needs to know without the conversation.
@@ -119,6 +140,8 @@ impl Record {
             status: self.status,
             provider: self.provider.clone(),
             model: self.model.clone(),
+            archived: self.archived,
+            bound: self.bound.clone(),
         }
     }
 

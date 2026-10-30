@@ -10,11 +10,12 @@ use crate::links::{Directory, Place, Resolution, path_key, title_key};
 use crate::note::NoteMeta;
 use crate::search::{Backlink, DayMention};
 
-pub(super) const META_COLUMNS: &str = "n.path, n.id, n.title, n.kind, n.icon, n.cover, n.parent, n.project, n.tags, n.modified, n.created, n.updated, n.excerpt, n.words, n.props, n.locked";
+pub(super) const META_COLUMNS: &str = "n.path, n.id, n.title, n.kind, n.icon, n.cover, n.parent, n.project, n.tags, n.modified, n.created, n.updated, n.excerpt, n.words, n.props, n.locked, n.children_order";
 
 pub(super) fn meta_of(row: &Row) -> rusqlite::Result<NoteMeta> {
     let tags: String = row.get(8)?;
     let props: String = row.get(14)?;
+    let children_order: String = row.get(16)?;
     Ok(NoteMeta {
         path: row.get(0)?,
         id: row.get(1)?,
@@ -32,6 +33,7 @@ pub(super) fn meta_of(row: &Row) -> rusqlite::Result<NoteMeta> {
         words: row.get(13)?,
         props: serde_json::from_str(&props).unwrap_or_else(|_| serde_json::json!({})),
         locked: row.get(15)?,
+        children_order: serde_json::from_str(&children_order).unwrap_or_default(),
     })
 }
 
@@ -95,6 +97,16 @@ impl Index {
             .conn
             .query_row("SELECT path FROM notes WHERE id = ?1", [id], |r| r.get(0))
             .ok())
+    }
+
+    /// How many notes carry this id (more than one in a vault whose files
+    /// were copied by hand).
+    pub fn count_by_id(&self, id: &str) -> Result<usize> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM notes WHERE id = ?1", [id], |r| {
+                r.get::<_, i64>(0)
+            })? as usize)
     }
 
     /// Notes saved from the web page whose `clip::url_key` is `key`, the

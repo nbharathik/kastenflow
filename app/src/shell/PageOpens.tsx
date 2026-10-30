@@ -2,13 +2,35 @@
 // click on its links and sub-pages opens, kept in its `opens` key. A page that
 // makes no choice follows Settings → Pages.
 
-import type { RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 import { pageFor } from "../features/workspace/page/open-page";
 import { setLayout, usePageLayouts } from "../features/workspace/page/page-layout";
 import { OPENS, OPENS_LABEL, type Opens } from "../features/workspace/opens";
 import { usePrefs } from "../features/workspace/prefs";
 import { PointMenu } from "./PointMenu";
+import { isShown } from "./visible-dom";
+
+const ASK = "kasten:page-opens";
+
+/** Asks the menu of the page at `path` (the one shown) to open: the palette's way to it. */
+export function askPageOpens(path: string): void {
+  window.dispatchEvent(new CustomEvent(ASK, { detail: path }));
+}
+
+/** Opens the menu (`open`) when the palette asks for this page's, if its buttons (`anchor`) are shown. */
+export function useAskedPageOpens(path: string, anchor: RefObject<HTMLElement | null>, open: () => void): void {
+  useEffect(() => {
+    const on = (event: Event) => {
+      const el = anchor.current;
+      const pane = el?.closest(".kasten-pane");
+      // With the page in two panes, the focused one answers.
+      if ((event as CustomEvent<string>).detail === path && el && isShown(el) && (!pane || pane.classList.contains("is-focused"))) open();
+    };
+    window.addEventListener(ASK, on);
+    return () => window.removeEventListener(ASK, on);
+  }, [path, anchor, open]);
+}
 
 /** The menu of choices, under the button it belongs to (`anchor`), ticking the
  * page's own choice, or the one that follows Settings. Choosing writes the page. */

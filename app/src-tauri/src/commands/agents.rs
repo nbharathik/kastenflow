@@ -2,7 +2,7 @@
 //! rejecting them, agent sessions and undoing one.
 
 use kasten_core::agent::Proposal;
-use kasten_core::{ChangedFile, Instant, SessionInfo, Undone};
+use kasten_core::{ChangedFile, Digest, Instant, SessionInfo, Undone};
 use serde_json::Value;
 use tauri::State;
 
@@ -39,6 +39,13 @@ pub fn list_sessions(
     limit: Option<usize>,
 ) -> Result<Vec<SessionInfo>, String> {
     state.run(|k| k.sessions(limit.unwrap_or(50)))
+}
+
+/// What agents did since `since` (milliseconds since the Unix epoch), session
+/// by session, for Home's "Agents today". A person's edits are not in it.
+#[tauri::command(async)]
+pub fn activity_digest(state: State<'_, OpenVault>, since: u64) -> Result<Digest, String> {
+    state.run(|k| k.activity_digest(since))
 }
 
 #[tauri::command(async)]

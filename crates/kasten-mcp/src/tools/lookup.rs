@@ -21,6 +21,12 @@ pub(crate) trait Lookup {
     fn body_of(&self, path: &str) -> Result<String>;
     /// A diagram's source as it is now.
     fn diagram_xml(&self, path: &str) -> Result<String>;
+    /// A note's id, if it has one.
+    fn id_of(&self, path: &str) -> Result<Option<String>>;
+    /// A saved search's path from its name or path.
+    fn resolve_collection(&self, reference: &str) -> Result<String>;
+    /// Where a trashed note is now, from that path, the path it had or its title.
+    fn resolve_trashed(&self, reference: &str) -> Result<String>;
 }
 
 impl Lookup for Kasten {
@@ -42,6 +48,18 @@ impl Lookup for Kasten {
 
     fn diagram_xml(&self, path: &str) -> Result<String> {
         Ok(self.diagram(path)?.xml)
+    }
+
+    fn id_of(&self, path: &str) -> Result<Option<String>> {
+        Ok(self.read(path)?.meta.id)
+    }
+
+    fn resolve_collection(&self, reference: &str) -> Result<String> {
+        super::finders::collection_path(self, reference)
+    }
+
+    fn resolve_trashed(&self, reference: &str) -> Result<String> {
+        super::finders::trashed_path(self, reference)
     }
 }
 
@@ -72,6 +90,18 @@ impl Lookup for Staged<'_> {
 
     fn diagram_xml(&self, path: &str) -> Result<String> {
         Ok(self.kasten.diagram_in(self.set, path)?.xml)
+    }
+
+    fn id_of(&self, path: &str) -> Result<Option<String>> {
+        Ok(self.kasten.read_in(self.set, path)?.meta.id)
+    }
+
+    fn resolve_collection(&self, reference: &str) -> Result<String> {
+        super::finders::collection_path(self.kasten, reference)
+    }
+
+    fn resolve_trashed(&self, reference: &str) -> Result<String> {
+        super::finders::trashed_path(self.kasten, reference)
     }
 }
 

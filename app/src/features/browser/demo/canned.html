@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{title}}</title>
+    <style>
+      :root { --bg: #fbfaf7; --ink: #1f1f1c; --muted: #6a6a63; --line: #e4e2da; --accent: #1f5fd1; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 16px/1.65 Georgia, "Times New Roman", serif; color: var(--ink); background: var(--bg); }
+      nav { display: flex; gap: 22px; align-items: center; padding: 16px 40px; border-bottom: 1px solid var(--line); font: 14px system-ui, sans-serif; color: var(--muted); }
+      nav b { color: var(--ink); font-size: 16px; margin-right: auto; }
+      main { max-width: 680px; margin: 0 auto; padding: 44px 24px 80px; }
+      .kicker { font: 600 12px system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+      h1 { font-size: 40px; line-height: 1.15; margin: 10px 0 14px; }
+      .by { font: 14px system-ui, sans-serif; color: var(--muted); margin-bottom: 30px; }
+      a { color: var(--accent); }
+      blockquote { margin: 26px 0; padding-left: 18px; border-left: 3px solid var(--accent); font-style: italic; color: var(--muted); }
+      footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font: 13px system-ui, sans-serif; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <nav><b>{{host}}</b><span>Essays</span><span>Archive</span><span>About</span></nav>
+    <main>
+      <div class="kicker">Essay</div>
+      <h1>Notes that outlast the app that made them</h1>
+      <div class="by">By the editors · 6 min read</div>
+      <p>Most of what we write down is meant for later. A decade on, the tool is gone, the format is locked away, and the notes are with it. The ones that survive are plain files in a folder you own.</p>
+      <p>Plain text is boring on purpose. It opens everywhere, it diffs cleanly, and a copy of it can sit in another city without anyone's permission. <a href="#">Version history</a> turns that copy into a record of how your thinking changed.</p>
+      <blockquote>Keep the files. Everything else is a view of them.</blockquote>
+      <p>A backup is not a feature to switch on once; it is a habit the tool makes cheap. Private by default, never overwritten, and easy to <a href="#">restore on a new computer</a>.</p>
+      <footer>{{url}}</footer>
+    </main>
+  </body>
+</html>

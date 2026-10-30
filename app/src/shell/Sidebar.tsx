@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 
+import { usePluginsVersion } from "../plugins/registry";
 import { useBoards } from "../features/boards/store";
 import { useDiagrams } from "../features/diagrams/store";
 import { useDecks } from "../features/slides/store";
@@ -17,7 +18,7 @@ import { ResizeHandle } from "../ui/ResizeHandle";
 import { SETTINGS_NAV } from "./nav";
 import { FavouriteBoards } from "./BoardRows";
 import { FavouriteDecks } from "./DeckRows";
-import { FavouriteDiagrams } from "./DiagramRows";
+import { FavouritePluginRows, usePluginFavourites } from "./PluginRows";
 import { FolderTree } from "./FolderTree";
 import { Menu } from "./Menu";
 import { ACTIVE_ROW, IDLE_ROW, openView, ROW, useActive } from "./NavRow";
@@ -54,7 +55,8 @@ export function Sidebar() {
   const favouriteNotes = favourites.map((p) => noteAt(notes, p)).filter((n): n is NonNullable<typeof n> => Boolean(n));
   const favouriteBoards = favourites.filter((p) => p.endsWith(".canvas"));
   const favouriteDecks = favourites.filter((p) => p.endsWith(".deck"));
-  const favouriteDiagrams = favourites.filter((p) => p.endsWith(".drawio"));
+  usePluginsVersion();
+  const favouriteExtras = usePluginFavourites(favourites);
 
   // What is typed in the filter box narrows the tree to the titles that
   // match, whiteboards, decks and diagrams included, with what holds them opened out.
@@ -112,14 +114,14 @@ export function Sidebar() {
         <TreeFilterBox value={query} onChange={setQuery} />
         <TreeFilterProvider value={match}>
           {match && match.show.size === 0 && <p className="px-3 py-2 text-13 text-muted">No page is called “{query.trim()}”.</p>}
-          {(favouriteNotes.length > 0 || favouriteBoards.length > 0 || favouriteDecks.length > 0 || favouriteDiagrams.length > 0) && (
+          {(favouriteNotes.length > 0 || favouriteBoards.length > 0 || favouriteDecks.length > 0 || favouriteExtras.length > 0) && (
             <Section title="Favourites">
               {favouriteNotes.map((note) => (
                 <TreeRow key={note.path} note={note} />
               ))}
               <FavouriteBoards paths={favouriteBoards} />
               <FavouriteDecks paths={favouriteDecks} />
-              <FavouriteDiagrams paths={favouriteDiagrams} />
+              <FavouritePluginRows paths={favouriteExtras} />
             </Section>
           )}
           <Section title="Projects" onAdd={() => setNaming(true)} addLabel="New project" actions={<ProjectsHubButton />}>

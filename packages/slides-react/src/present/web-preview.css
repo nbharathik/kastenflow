@@ -24,13 +24,23 @@
   border-width: 0 0 0 1px;
 }
 
+/* Over the slide: 90 % of the screen, but never wider or taller than the slide's own shape asks for. */
 .ks-wp[data-mode="center"] {
-  top: 5%;
-  bottom: 5%;
-  left: 50%;
-  width: min(1100px, 90%);
-  margin-left: calc(min(1100px, 90%) / -2);
-  border-radius: 10px;
+  inset: 0;
+  width: min(90vw, calc(90vh * var(--ks-wp-aspect, 1.7778)));
+  height: min(90vh, calc(90vw / var(--ks-wp-aspect, 1.7778)));
+  margin: auto;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* The slide, dimmed, behind the window that is over it. */
+.ks-wp-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  background: var(--ks-scrim, rgb(0 0 0 / 0.5));
+  animation: ks-wp-in var(--ks-slow, 200ms) var(--ks-ease, ease) both;
 }
 
 .ks-wp[data-mode="full"] {
@@ -100,13 +110,66 @@
 }
 
 .ks-wp-title {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   padding: 0 8px;
   overflow: hidden;
-  color: var(--ks-pr-tool-dim, var(--ks-muted));
+  line-height: 1.25;
+}
+
+.ks-wp-site,
+.ks-wp-address {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ks-wp-site {
+  font-weight: 600;
+}
+
+.ks-wp-address {
+  color: var(--ks-pr-tool-dim, var(--ks-muted));
+  font-size: 11px;
+}
+
+.ks-wp-state {
+  flex: none;
+  padding: 0 8px;
+  color: var(--ks-pr-tool-dim, var(--ks-muted));
+  font-size: 12px;
+}
+
+/* What stands in the page's place until it has loaded, so the host's view is never on the screen with nothing in it. */
+.ks-wp-skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+}
+
+.ks-wp-skeleton span {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--ks-hover, rgb(128 128 128 / 0.2));
+  animation: ks-wp-pulse 1.4s var(--ks-ease, ease) infinite alternate;
+}
+
+.ks-wp-skeleton span:nth-child(1) {
+  width: 55%;
+  height: 22px;
+}
+
+.ks-wp-skeleton span:nth-child(2) {
+  width: 90%;
+}
+
+.ks-wp-skeleton span:nth-child(3) {
+  width: 75%;
 }
 
 .ks-wp-view {
@@ -191,7 +254,19 @@
   }
 }
 
+@keyframes ks-wp-pulse {
+  from {
+    opacity: 0.5;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 :root[data-motion="off"] .ks-wp,
+:root[data-motion="off"] .ks-wp-scrim,
+:root[data-motion="off"] .ks-wp-skeleton span,
 :root[data-motion="off"] .ks-wp-loading {
   animation: none;
 }

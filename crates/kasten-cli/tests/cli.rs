@@ -5,9 +5,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn run(binary: &str, args: &[&str]) -> std::process::Output {
+    // The addresses agreed to with --yes go to a folder of this test run, not
+    // the real user's config folder.
+    let config = std::env::temp_dir().join(format!("kasten-cli-config-{}", std::process::id()));
     Command::new(binary)
         .args(args)
         .env_remove("KASTEN_VAULT")
+        .env("KASTEN_CONFIG_DIR", config)
         .output()
         .unwrap_or_else(|e| panic!("failed to run {binary}: {e}"))
 }
@@ -353,4 +357,179 @@ fn verify_reaches_the_backup_remote_only_when_asked() {
     assert_eq!(out.status.code(), Some(1), "{}", text(&out));
     assert!(text(&out).contains("remote"), "{}", text(&out));
     assert!(!missing.exists());
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+fn tip(remote: &Path) -> String {
+    git2::Repository::open_bare(remote)
+        .unwrap()
+        .refname_to_id("refs/heads/main")
+        .unwrap()
+        .to_string()
+}
+
+#[test]
+fn backup_now_and_backup_status_answer_for_scripts() {
+    // A copy of the dev vault, backed up to a local bare repository.
+    let dir = temp("backup-now");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/dev-vault"),
+        &dir.0,
+    );
+    let vault = s(&dir.0);
+    let remote = Dir(dir.0.with_extension("remote.git"));
+    git2::Repository::init_bare(&remote.0).unwrap();
+    assert!(
+        kasten(&["start-history", "--vault", vault])
+            .status
+            .success()
+    );
+
+    // No backup yet: a problem to look at, and backing up says why.
+    let out = kasten(&["backup-status", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    assert!(text(&out).contains("no backup is set up"), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    assert!(text(&out).contains("No backup is set up"), "{}", text(&out));
+    {
+        let k = kasten_core::Kasten::open(&dir.0).unwrap();
+        let mut config = k.config();
+        config.git.remote = Some(s(&remote.0).to_owned());
+        k.set_config(config).unwrap();
+    }
+
+    // Set up, nothing sent: changes are waiting.
+    let out = kasten(&["backup-status", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    let said = text(&out);
+    assert!(said.contains("Last backup: never"), "{said}");
+    assert!(said.contains("Waiting: "), "{said}");
+    assert!(!said.contains("Waiting: nothing"), "{said}");
+
+    // Back up: done (agreeing to the address the first time), then nothing to do.
+    let out = kasten(&["backup-now", "--vault", vault, "--yes"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    assert!(text(&out).contains("Backed up"), "{}", text(&out));
+    let first = tip(&remote.0);
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    assert!(text(&out).contains("Nothing to back up"), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault, "--json"]);
+    let answer: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(answer["answer"], "nothingToDo");
+
+    let out = kasten(&["backup-status", "--vault", vault, "--json"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    let status: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(status["waiting"], false);
+    assert_eq!(status["state"], "ok");
+    assert_eq!(status["visibility"], "unknown");
+    assert_eq!(status["verifiedAt"], serde_json::Value::Null);
+
+    // The weekly check, by hand: the backup is read back and counted verified.
+    let out = kasten(&["verify", "--vault", vault, "--remote"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    assert!(text(&out).contains("read back whole"), "{}", text(&out));
+    let out = kasten(&["backup-status", "--vault", vault]);
+    assert!(!text(&out).contains("Verified: never"), "{}", text(&out));
+
+    // Someone resets the backup to an older commit: backing up stops and
+    // says so, and carrying on takes the backup as it is without forcing.
+    let out = kasten(&["capture", "--vault", vault, "First", "thing"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(
+        kasten(&["backup-now", "--vault", vault]).status.code(),
+        Some(0)
+    );
+    let repo = git2::Repository::open_bare(&remote.0).unwrap();
+    repo.reference(
+        "refs/heads/main",
+        git2::Oid::from_str(&first).unwrap(),
+        true,
+        "test: reset",
+    )
+    .unwrap();
+    let out = kasten(&["capture", "--vault", vault, "Second", "thing"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    assert!(text(&out).contains("rewritten"), "{}", text(&out));
+    assert_eq!(tip(&remote.0), first, "the backup was overwritten");
+    let out = kasten(&["backup-status", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault, "--carry-on"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out));
+    assert!(text(&out).contains("Backed up"), "{}", text(&out));
+    assert_ne!(tip(&remote.0), first);
+}
+
+#[test]
+fn carrying_on_with_a_backup_of_other_history_exits_1_and_forces_nothing() {
+    let dir = temp("carry-on-unrelated");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/dev-vault"),
+        &dir.0,
+    );
+    let vault = s(&dir.0);
+    let remote = Dir(dir.0.with_extension("remote.git"));
+    git2::Repository::init_bare(&remote.0).unwrap();
+    assert!(
+        kasten(&["start-history", "--vault", vault])
+            .status
+            .success()
+    );
+    {
+        let k = kasten_core::Kasten::open(&dir.0).unwrap();
+        let mut config = k.config();
+        config.git.remote = Some(s(&remote.0).to_owned());
+        k.set_config(config).unwrap();
+    }
+    // Nothing is stopped yet: there is nothing to carry on with.
+    assert_eq!(
+        kasten(&["backup-now", "--vault", vault, "--yes"])
+            .status
+            .code(),
+        Some(0)
+    );
+    let out = kasten(&["backup-now", "--vault", vault, "--carry-on"]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+
+    // The backup is replaced by a history that shares nothing with the vault.
+    let repo = git2::Repository::open_bare(&remote.0).unwrap();
+    let tree = repo.treebuilder(None).unwrap().write().unwrap();
+    let tree = repo.find_tree(tree).unwrap();
+    let sig = git2::Signature::now("Someone", "someone@example.com").unwrap();
+    let other = repo
+        .commit(None, &sig, &sig, "somebody else's", &tree, &[])
+        .unwrap();
+    repo.reference("refs/heads/main", other, true, "test: replaced")
+        .unwrap();
+    assert!(
+        kasten(&["capture", "--vault", vault, "After", "it"])
+            .status
+            .success()
+    );
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault, "--carry-on"]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    assert!(text(&out).contains("shares no history"), "{}", text(&out));
+    let out = kasten(&["backup-now", "--vault", vault]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out));
+    assert_eq!(tip(&remote.0), other.to_string(), "the backup was changed");
 }

@@ -17,8 +17,9 @@ import { useShell } from "../lib/store";
 import type { NoteMeta } from "../lib/vault/types";
 import { ProjectBoards } from "./BoardRows";
 import { ProjectDecks } from "./DeckRows";
-import { ProjectDiagrams } from "./DiagramRows";
-import { DROP_INTO, useNestDrop } from "./drop-into";
+import { ProjectPluginRows } from "./PluginRows";
+import { DROP_EDGE, DROP_INTO, useNestDrop } from "./drop-into";
+import { moveStep, siblingsOf } from "../features/workspace/reorder";
 import { Icon } from "../ui/Icon";
 import { IconOrEmoji } from "../ui/IconOrEmoji";
 import { Menu, openRowMenu, type MenuItem } from "./Menu";
@@ -26,6 +27,13 @@ import { openItems, openMenuHandlers } from "./open-menu";
 import { PinMark } from "./PinMark";
 import { ShowMoreRow, useRowLimit } from "./row-limit";
 import { keeps, useTreeFilter } from "./tree-filter";
+import { firstVisible } from "./visible-dom";
+
+/** Puts the keyboard focus back on a row after it moved (its element may be
+ * remade); the sidebar of the tab in front, not a hidden one. */
+function refocusRow(path: string): void {
+  requestAnimationFrame(() => firstVisible<HTMLElement>(`[data-row-path="${CSS.escape(path)}"] [data-row-title]`)?.focus());
+}
 import { treeKey } from "./tree-keys";
 import { rowOrder, useSidebarSelection } from "./selection";
 
@@ -129,6 +137,12 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
   const hasDiagrams = useDiagrams((s) => note.kind === "project" && s.list.some((d) => d.project === note.project));
   // The page this one is inside, to take it out again.
   const holder = useWorkspace((s) => (note.parent ? treeOf(s.notes).byId.get(note.parent) : undefined));
+  // Whether it can go up (1) or down (2) among the sub-pages beside it.
+  const steps = useWorkspace((s) => {
+    const found = siblingsOf(s.notes, note);
+    const at = found ? found.list.findIndex((n) => n.path === note.path) : -1;
+    return found && found.list.length > 1 ? (at > 0 ? 1 : 0) + (at < found.list.length - 1 ? 2 : 0) : 0;
+  });
   const nestDrop = useNestDrop(note);
   const { openPath, newPage, trash } = useWorkspace.getState();
   // While pages are picked (selection.ts), a click picks or unpicks.
@@ -140,7 +154,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
   const startRename = () => {
     // The open page renames from its own title field, which owns its edits:
     // the one in the focused pane, where this page is open.
-    const field = active ? document.querySelector<HTMLTextAreaElement>('.kasten-pane.is-focused textarea[aria-label="Page title"]') : null;
+    const field = active ? firstVisible<HTMLTextAreaElement>('.kasten-pane.is-focused textarea[aria-label="Page title"]') : null;
     if (field) {
       field.focus();
       field.select();
@@ -167,13 +181,20 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
         }}
         onKeyDown={(e) => {
           extras?.onKeyDown?.(e);
-          if (!e.defaultPrevented) treeKey(e, { open, canOpen: children.length > 0, toggle });
+          if (e.defaultPrevented) return;
+          if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.target as HTMLElement).hasAttribute?.("data-row-title")) {
+            e.preventDefault();
+            void moveStep(note.path, e.key === "ArrowUp" ? -1 : 1).then((moved) => moved && refocusRow(note.path));
+            return;
+          }
+          treeKey(e, { open, canOpen: children.length > 0, toggle });
         }}
         {...nestDrop.handlers}
         data-drop-into={nestDrop.over ? "" : undefined}
+        data-drop-edge={nestDrop.edge ?? undefined}
         data-row-path={note.path}
         onContextMenu={renaming ? undefined : openRowMenu}
-        className={`group flex h-7 items-center gap-1 rounded-md pr-1 text-13 transition-colors ${picked ? "bg-soft" : active ? "bg-selected font-medium" : "hover:bg-hover"} ${nestDrop.over ? DROP_INTO : ""}`}
+        className={`group flex h-7 items-center gap-1 rounded-md pr-1 text-13 transition-colors ${picked ? "bg-soft" : active ? "bg-selected font-medium" : "hover:bg-hover"} ${nestDrop.over ? DROP_INTO : ""} ${nestDrop.edge ? DROP_EDGE[nestDrop.edge] : ""}`}
         style={{ paddingLeft: `${4 + depth * 14}px` }}
       >
         <button
@@ -250,6 +271,8 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
                     { label: "Move to…", icon: <Icon name="move-to" className="size-4" />, onSelect: () => useShell.getState().setMoving(note.path) },
                   ]
                 : []),
+              ...(steps & 1 ? [{ label: "Move up", icon: <Icon name="chevron" className="size-4 -rotate-90" />, hint: "Alt+↑", onSelect: () => void moveStep(note.path, -1) }] : []),
+              ...(steps & 2 ? [{ label: "Move down", icon: <Icon name="chevron" className="size-4 rotate-90" />, hint: "Alt+↓", onSelect: () => void moveStep(note.path, 1) }] : []),
               ...(holder?.kind === "page" && holder.path !== note.path
                 ? [{ label: `Take out of “${titleOf(holder)}”`, icon: <Icon name="move-to" className="size-4" />, onSelect: () => void nestNote(note.path, null) }]
                 : []),
@@ -278,7 +301,7 @@ export const TreeRow = memo(function TreeRow({ note, depth = 0, extras }: { note
           <RowList notes={children} depth={depth + 1} listKey={note.path} />
           {note.kind === "project" && note.project && <ProjectBoards project={note.project} depth={depth + 1} />}
           {note.kind === "project" && note.project && <ProjectDecks project={note.project} depth={depth + 1} />}
-          {note.kind === "project" && note.project && <ProjectDiagrams project={note.project} depth={depth + 1} />}
+          {note.kind === "project" && note.project && <ProjectPluginRows project={note.project} depth={depth + 1} />}
           {children.length === 0 && !(note.kind === "project" && (hasBoards || hasDecks || hasDiagrams)) && (
             <li className="py-1 text-13 text-muted" style={{ paddingLeft: `${30 + (depth + 1) * 14}px` }}>
               No pages inside

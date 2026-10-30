@@ -26,12 +26,33 @@ pub(super) struct Preview {
 impl Kasten {
     /// What a proposal shows a reviewer: the note, the text before and
     /// after, and a diff or a description.
-    fn preview(&self, op: &AgentOp) -> Result<Preview> {
+    pub(super) fn preview(&self, op: &AgentOp) -> Result<Preview> {
+        if let AgentOp::Batch { ops, .. } = op {
+            return Ok(self.batch_preview(ops));
+        }
         if let Some(deck) = self.deck_preview(op)? {
             return Ok(deck);
         }
         if let Some(diagram) = self.diagram_op_preview(op)? {
             return Ok(diagram);
+        }
+        if let Some(source) = self.latex_op_preview(op)? {
+            return Ok(source);
+        }
+        if let Some(files) = self.latex_files_preview(op)? {
+            return Ok(files);
+        }
+        if let Some(more) = self.latex_more_preview(op)? {
+            return Ok(more);
+        }
+        if let Some(export) = self.latex_export_preview(op)? {
+            return Ok(export);
+        }
+        if let Some(file) = self.smart_op_preview(op)? {
+            return Ok(file);
+        }
+        if let Some(page) = self.page_op_preview(op)? {
+            return Ok(page);
         }
         if let AgentOp::Template {
             name, text, base, ..
@@ -160,12 +181,48 @@ impl Kasten {
             }
             AgentOp::Trash { .. } => (body.clone(), None, format!("Move “{title}” to the trash")),
             // Shown before the note is read, above.
-            AgentOp::Template { .. }
+            AgentOp::Batch { .. }
+            | AgentOp::Template { .. }
             | AgentOp::EditDeck { .. }
             | AgentOp::CreateDeck { .. }
             | AgentOp::CreateDiagram { .. }
             | AgentOp::UpdateDiagram { .. }
+            | AgentOp::SaveSource { .. }
+            | AgentOp::CreateLatexDoc { .. }
+            | AgentOp::AppendLatexFile { .. }
+            | AgentOp::TrashLatexFile { .. }
+            | AgentOp::AddLatexAsset { .. }
+            | AgentOp::CiteReference { .. }
+            | AgentOp::ExportLatexPdf { .. }
+            | AgentOp::SendPageToLatex { .. }
+            | AgentOp::SmartCreate { .. }
+            | AgentOp::SmartWrite { .. }
+            | AgentOp::SmartDelete { .. }
+            | AgentOp::EditPage { .. }
             | AgentOp::EditDiagram { .. } => (None, None, String::new()),
+            AgentOp::RequestSmartPages { .. } => (None, None, self.smart_request_words(op)),
+            AgentOp::SetParent { .. }
+            | AgentOp::ReorderChildren { .. }
+            | AgentOp::CreateProject { .. }
+            | AgentOp::SetProjectState { .. }
+            | AgentOp::SetTagViews { .. } => (None, None, self.structure_words(op, &title)),
+            AgentOp::SetViewOrder { .. } => (None, None, self.view_order_words(op)),
+            AgentOp::DuplicateNote { .. }
+            | AgentOp::RestoreNote { .. }
+            | AgentOp::SetNoteMeta { .. }
+            | AgentOp::ApplyTemplate { .. }
+            | AgentOp::JournalDay { .. }
+            | AgentOp::SetTask { .. }
+            | AgentOp::AddComment { .. }
+            | AgentOp::ResolveComment { .. }
+            | AgentOp::CreateCollection { .. }
+            | AgentOp::UpdateCollection { .. }
+            | AgentOp::AddReference { .. }
+            | AgentOp::RenameDiagram { .. }
+            | AgentOp::MoveDiagram { .. }
+            | AgentOp::DuplicateDiagram { .. }
+            | AgentOp::UndoSession { .. } => (None, None, self.parity_words(op, &title)),
+            AgentOp::SaveProjectSetup { .. } => (None, None, self.setup_save_words(op)),
             AgentOp::CreateBoard { title, .. } => {
                 (None, None, format!("Create the board “{title}”"))
             }
@@ -198,6 +255,23 @@ impl Kasten {
                     "On {board}, make a section “{label}” around {}",
                     nodes.join(", ")
                 ),
+            ),
+            AgentOp::BoardChanges {
+                board,
+                changes,
+                summary,
+            } => (
+                None,
+                None,
+                if summary.trim().is_empty() {
+                    format!(
+                        "On {board}, {} changes, taking {} off",
+                        changes.len(),
+                        crate::board::removed_by(changes)
+                    )
+                } else {
+                    format!("On {board}: {}", summary.trim())
+                },
             ),
         };
         let name = target.as_ref().map_or("new note", |t| t.path.as_str());
@@ -240,9 +314,22 @@ impl Kasten {
         } = self.preview(op)?;
         let note = match op {
             AgentOp::Trash { reason, .. }
+            | AgentOp::Batch { reason, .. }
             | AgentOp::Edit { reason, .. }
             | AgentOp::EditDiagram { reason, .. }
+            | AgentOp::SaveSource { reason, .. }
+            | AgentOp::CreateLatexDoc { reason, .. }
+            | AgentOp::AppendLatexFile { reason, .. }
+            | AgentOp::TrashLatexFile { reason, .. }
+            | AgentOp::CiteReference { reason, .. }
+            | AgentOp::ExportLatexPdf { reason, .. }
+            | AgentOp::SendPageToLatex { reason, .. }
+            | AgentOp::SmartCreate { reason, .. }
+            | AgentOp::SmartWrite { reason, .. }
+            | AgentOp::SmartDelete { reason, .. }
+            | AgentOp::EditPage { reason, .. }
             | AgentOp::UpdateDiagram { reason, .. } => reason.clone(),
+            AgentOp::RequestSmartPages { reason, .. } => Some(reason.trim().to_owned()),
             _ => None,
         };
         let proposal = Proposal {

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project status board</title>
+  <link rel="stylesheet" href="smart://kit/1/kit.css">
+  <link rel="stylesheet" href="smart://kit/1/kit-visual.css">
+</head>
+<body>
+  <main>
+    <h1>Project status board</h1>
+    <p id="empty" class="kit-empty" role="status" hidden></p>
+    <div id="content" class="kit-stack" hidden>
+      <section aria-labelledby="h-next">
+        <h2 id="h-next">Due next</h2>
+        <div id="next"></div>
+      </section>
+      <section aria-labelledby="h-board">
+        <h2 id="h-board">Board</h2>
+        <div id="board"></div>
+      </section>
+      <section aria-labelledby="h-table">
+        <h2 id="h-table">All tasks</h2>
+        <div id="table"></div>
+      </section>
+    </div>
+  </main>
+  <script src="smart://kit/1/kit.js"></script>
+  <script src="smart://kit/1/lib/dom.js"></script>
+  <script src="smart://kit/1/lib/dates.js"></script>
+  <script src="smart://kit/1/lib/format.js"></script>
+  <script src="smart://kit/1/lib/keys.js"></script>
+  <script src="smart://kit/1/components/countdown.js"></script>
+  <script src="smart://kit/1/components/kanban.js"></script>
+  <script src="smart://kit/1/components/table.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

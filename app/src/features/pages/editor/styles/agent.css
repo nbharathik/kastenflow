@@ -146,7 +146,7 @@
     &.is-primary {
       border-color: transparent;
       background: var(--kasten-agent);
-      color: #fff;
+      color: var(--color-on-accent);
 
       &:hover {
         filter: brightness(1.08);

@@ -80,7 +80,7 @@ describe("a diagram on a whiteboard", () => {
     fireEvent.doubleClick(nodes()[0]!);
     expect(useDiagramHost.getState().modal).toBe(flow);
     // The board itself is untouched: it is still on the same board.
-    expect(useWorkspace.getState().place).not.toEqual({ view: "diagrams", path: flow });
+    expect(useWorkspace.getState().place).not.toEqual({ view: "plugin:diagrams", path: flow });
   });
 
   it("takes a diagram dragged from the Diagrams view as a card, once", async () => {

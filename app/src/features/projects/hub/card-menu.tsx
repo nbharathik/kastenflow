@@ -6,6 +6,7 @@ import type { ProjectSummary } from "../../../lib/vault/project-types";
 import type { MenuItem } from "../../../shell/Menu";
 import { Icon, type IconName } from "../../../ui/Icon";
 import { askToExport } from "../export/request";
+import { saveSetupItem } from "../home-menu";
 import { changeProjectState } from "../state/state-actions";
 import { stateItems } from "../state/StateChips";
 import { healthOfProps, statusOfProps } from "../state/status";
@@ -48,6 +49,7 @@ export function cardMenu({ s, pinned, earlier, later, onShift, onNextAction }: C
     "divider",
     // A copy of the project as a folder outside the vault: shown in a dialog before anything is written.
     { label: "Export project…", icon: icon("upload"), onSelect: () => askToExport(s.folder) },
+    saveSetupItem(s.folder),
     s.archived
       ? { label: "Unarchive project", icon: icon("restore"), onSelect: () => void archiveProject(s, false) }
       : { label: "Archive project", icon: icon("archive"), onSelect: () => void archiveProject(s, true) },

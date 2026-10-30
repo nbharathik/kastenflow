@@ -6,22 +6,17 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { boxOf } from "../features/browser/bounds";
 import { useOccludes } from "../features/browser/occlusion";
 import { Popup } from "../features/pages/page/Popup";
-import { Icon } from "../ui/Icon";
 import { menuItems, moveInMenu } from "../ui/menu-keys";
+import type { MenuEntry } from "./menu-types";
+import { MenuItems } from "./MenuRows";
 
-export interface MenuItem {
-  label: string;
-  icon?: ReactNode;
-  hint?: string;
-  danger?: boolean;
-  /** A switch: shown ticked or not, read out as on or off. */
-  checked?: boolean;
-  onSelect: () => void;
-}
+export type { MenuCustom, MenuEntry, MenuHeading, MenuItem, MenuSubmenu } from "./menu-types";
+export { MenuItems };
 
 interface MenuProps {
   label: string;
-  items: (MenuItem | "divider")[];
+  /** Items, with headings over groups of them and rows that open a submenu. */
+  items: MenuEntry[];
   /** The button's face. */
   children: ReactNode;
   buttonClass?: string;
@@ -49,43 +44,6 @@ function floatAt(anchor: DOMRect, menu: DOMRect, align: "left" | "right"): CSSPr
     top = above >= EDGE ? above : Math.max(EDGE, window.innerHeight - EDGE - menu.height);
   }
   return { left: Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - menu.width)), top };
-}
-
-/** The rows of a menu: each item a button, dividers between groups. `onPick`
- * runs first (the menu closes), then the item. Shared by `Menu` and the
- * Open menu, so every menu looks and answers the same. */
-export function MenuItems({ items, onPick }: { items: (MenuItem | "divider")[]; onPick: () => void }) {
-  return (
-    <>
-      {items.map((item, i) =>
-        item === "divider" ? (
-          <hr key={`d${i}`} className="my-1 border-line" />
-        ) : (
-          <button
-            key={item.label}
-            type="button"
-            role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
-            aria-checked={item.checked}
-            tabIndex={-1}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-13 outline-none hover:bg-hover focus-visible:bg-hover ${item.danger ? "text-danger" : ""}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onPick();
-              item.onSelect();
-            }}
-          >
-            {item.checked !== undefined ? (
-              <span className="flex w-5 justify-center text-accent">{item.checked && <Icon name="check" className="size-4" />}</span>
-            ) : (
-              item.icon !== undefined && <span className="flex w-5 justify-center text-muted">{item.icon}</span>
-            )}
-            <span className="flex-1 whitespace-nowrap">{item.label}</span>
-            {item.hint && <span className="whitespace-nowrap text-12 text-muted">{item.hint}</span>}
-          </button>
-        ),
-      )}
-    </>
-  );
 }
 
 /** A button with a small dropdown of actions, closed by Escape or a click
@@ -137,7 +95,7 @@ export function Menu({ label, items, children, buttonClass = "", wrapClass = "",
       anchor={button}
       role="menu"
       onClose={() => setOpen(false)}
-      className={`kasten-shell-menu min-w-56 p-1 outline-none ${float ? "" : `top-full mt-1 ${align === "right" ? "right-0" : "left-0"}`}`}
+      className={`kasten-shell-menu min-w-56 max-h-[calc(100vh-2rem)] overflow-auto p-1 outline-none ${float ? "" : `top-full mt-1 ${align === "right" ? "right-0" : "left-0"}`}`}
     >
       {header}
       <MenuItems items={items} onPick={() => setOpen(false)} />

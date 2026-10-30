@@ -8,9 +8,11 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { NoteMeta, TagSchema, TagView } from "../../../../lib/vault/types";
 import { useWorkspace } from "../../../workspace/store";
 import { addNote } from "../../actions";
+import { titleOf } from "../../../workspace/names";
 import { useNoteHome } from "../../home";
 import { Glyph } from "./icons";
 import { prefill } from "./prefill";
+import { addSubItem } from "./sub-moves";
 import { IconOrEmoji } from "../../../../ui/IconOrEmoji";
 import { lineIcon } from "../../../../ui/glyph";
 
@@ -49,21 +51,35 @@ interface NewRowProps {
   add?(title: string): Promise<NoteMeta | null>;
   /** What the table is called, in place of "#tag". */
   label?: string;
+  /** The row a new sub-item is being made under: the field opens for it, and
+   * new rows are its sub-items until it is closed. */
+  under?: NoteMeta | null;
+  onUnderDone?(): void;
 }
 
-export function NewRow({ tag, view, schema, count, onAdded, footRef, add, label }: NewRowProps) {
+export function NewRow({ tag, view, schema, count, onAdded, footRef, add, label, under = null, onUnderDone }: NewRowProps) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const home = useNoteHome();
+  useEffect(() => {
+    if (under) setAdding(true);
+  }, [under]);
   const close = () => {
     setAdding(false);
     setTitle("");
+    onUnderDone?.();
   };
   const create = async () => {
     const text = title.trim();
     if (!text) return;
     setTitle("");
-    const made = add ? add(text).then((meta) => meta?.path ?? null) : addNote(tag, text, prefill(view.filter, schema), home).then((note) => note?.meta.path ?? null);
+    // With "match any" no one filter is implied, so a new row takes no values from them.
+    const implied = view.filter_mode === "any" ? undefined : view.filter;
+    const made = under
+      ? addSubItem(tag, under, text, add ? {} : prefill(implied, schema), add)
+      : add
+        ? add(text).then((meta) => meta?.path ?? null)
+        : addNote(tag, text, prefill(implied, schema), home).then((note) => note?.meta.path ?? null);
     const path = await made.catch((err: unknown) => {
       useWorkspace.getState().toast(err instanceof Error ? err.message : String(err));
       return null;
@@ -87,8 +103,8 @@ export function NewRow({ tag, view, schema, count, onAdded, footRef, add, label 
           </span>
           <input
             autoFocus
-            aria-label={label ? `Title of a new page in ${label}` : `Title of a new row in #${tag}`}
-            placeholder="Title, then Enter…"
+            aria-label={under ? `Title of a new sub-item of ${titleOf(under)}` : label ? `Title of a new page in ${label}` : `Title of a new row in #${tag}`}
+            placeholder={under ? `Sub-item of “${titleOf(under)}”, then Enter…` : "Title, then Enter…"}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {

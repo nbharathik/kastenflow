@@ -21,6 +21,47 @@
   }
 }
 
+/* The fold line: a chevron and a count, then the tags as small links. */
+.kasten-props-fold {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin: 0 0 2px -6px;
+  color: var(--notion-text-3);
+}
+
+.kasten-props-fold-toggle,
+.kasten-props-fold-tag {
+  padding: 4px 6px;
+  border-radius: var(--radius);
+  color: var(--notion-text-3);
+
+  &:hover {
+    background: var(--notion-hover);
+    color: var(--notion-text-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
+    outline-offset: -2px;
+  }
+}
+
+.kasten-props-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  & .kasten-props-fold-chevron {
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+
+  &[aria-expanded="true"] .kasten-props-fold-chevron {
+    transform: rotate(90deg);
+  }
+}
+
 .kasten-page-props-add {
   display: inline-flex;
   align-items: center;

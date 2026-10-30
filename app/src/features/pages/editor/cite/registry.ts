@@ -2,6 +2,7 @@
 // for a citation to insert. It imports almost nothing: the palette is on the
 // start-up path and the editor is not.
 
+import { isShown } from "../../../../shell/visible-dom";
 import { useWorkspace } from "../../../workspace/store";
 
 /** A page editor that can take a citation. */
@@ -24,7 +25,7 @@ export function registerCiter(entry: Citer): () => void {
 
 /** The editors on screen: the focused one first, then the focused pane's. */
 function inFront(): Citer[] {
-  const live = [...open].filter((c) => c.dom.isConnected);
+  const live = [...open].filter((c) => c.dom.isConnected && isShown(c.dom));
   const rank = (c: Citer) => (c.dom.contains(document.activeElement) ? 0 : c.dom.closest(".kasten-pane.is-focused") ? 1 : 2);
   return live.sort((a, b) => rank(a) - rank(b));
 }

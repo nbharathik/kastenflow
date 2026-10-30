@@ -115,6 +115,19 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
         "delete_columns" => format!("remove columns from {deck}"),
         "merge_cells" => format!("merge cells in {deck}"),
         "unmerge_cells" => format!("split merged cells in {deck}"),
+        "move_slides" => format!("move slides in {deck}"),
+        "set_rich_text" => format!("change the words of a text in {deck}"),
+        "set_slide_steps" => format!(
+            "set the clicks of slide {} of {deck}",
+            // A slide may be named by its number, which arrives as a number.
+            input["slide"]
+                .as_u64()
+                .map_or_else(|| text(input, "slide").to_owned(), |n| n.to_string())
+        ),
+        "apply_deck_template" => format!(
+            "put the look of {} on {deck}",
+            quoted(text(input, "template").trim_end_matches(".deck"))
+        ),
         other => format!("change {deck} ({})", other.replace('_', " ")),
     })
 }
@@ -126,7 +139,7 @@ fn verb(name: &str) -> &'static str {
             "Added to"
         }
         "delete_slides" | "delete_elements" => "Removed from",
-        "set_text" | "replace_all" | "set_notes" => "Changed the words of",
+        "set_text" | "set_rich_text" | "replace_all" | "set_notes" => "Changed the words of",
         "set_cells" => "Filled cells in",
         "clear_cells" => "Cleared cells in",
         "set_cell_fill" => "Coloured cells in",
@@ -137,8 +150,8 @@ fn verb(name: &str) -> &'static str {
         "merge_cells" => "Merged cells in",
         "unmerge_cells" => "Split merged cells in",
         "place_image" => "Placed a picture in",
-        "apply_theme" | "edit_theme" | "set_logo" => "Changed the look of",
-        "reorder_slides" | "reorder_elements" => "Reordered",
+        "apply_theme" | "apply_deck_template" | "edit_theme" | "set_logo" => "Changed the look of",
+        "reorder_slides" | "move_slides" | "reorder_elements" => "Reordered",
         _ => "Changed",
     }
 }

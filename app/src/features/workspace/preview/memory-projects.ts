@@ -5,7 +5,7 @@
 
 import { dayFrom, isoDay } from "../../../lib/dates";
 import type { Health } from "../../../lib/vault/health-types";
-import type { AppliedSetup, ProjectStateChange, ProjectSummary, SetupInfo, SetupPlan, SetupTarget } from "../../../lib/vault/project-types";
+import type { AppliedSetup, ProjectStateChange, ProjectSummary, SavedSetup, SetupGone, SetupInfo, SetupPlan, SetupSource, SetupTarget } from "../../../lib/vault/project-types";
 import type { Revision } from "../../../lib/vault/revision-types";
 import type { NoteFile, VaultEvents } from "../../../lib/vault/types";
 import { splitFrontmatter } from "../../pages/markdown/frontmatter";
@@ -15,6 +15,7 @@ import { isConflictCopy, previewHealth } from "./memory-health";
 import { eolOf } from "./memory-notes";
 import { MemoryPictures } from "./memory-pictures";
 import { Revisions, sign, type Signs } from "./memory-revision";
+import { checkName, idOf, infoOf, SAVED_PREFIX, saveSetup, sourceOf, type Saved, type SourceHost } from "./memory-saved-setups";
 import { appliedFrom, planSetup, setupInfos, type Planned } from "./memory-setups";
 import { checkProps } from "./props-check";
 import { findTask, stateProps } from "./project-state";
@@ -89,12 +90,46 @@ export class MemoryProjects extends MemoryPictures {
     return this.put(path, setFrontmatterKey(withProps, "updated", stamps(this.now()).rfc3339, eol) + body);
   }
 
+  /** The setups saved from projects, for the session (inside the app they are files in the vault). */
+  private readonly savedSetups = new Map<string, Saved>();
+
   async listSetups(): Promise<SetupInfo[]> {
-    return setupInfos();
+    const mine = [...this.savedSetups.values()].map(infoOf).sort((a, b) => a.name.localeCompare(b.name));
+    return [...setupInfos(), ...mine];
+  }
+
+  private async sourceHost(): Promise<SourceHost> {
+    return { notes: await this.list(), textOf: (path) => this.data.files[path]?.text ?? "", tagYaml: this.data.tags ?? {}, tagName: (path, yaml) => parseSchema(path, yaml).name };
+  }
+
+  async previewProjectSetup(project: string): Promise<SetupSource> {
+    return sourceOf(await this.sourceHost(), project);
+  }
+
+  async saveProjectSetup(project: string, title: string, pages: string[], slug = ""): Promise<SavedSetup> {
+    const { saved, result } = saveSetup(await this.sourceHost(), project, title, pages, (taken) => this.savedSetups.has(idOf(taken)), slug);
+    this.savedSetups.set(idOf(saved.slug), saved);
+    return result;
+  }
+
+  async renameSetup(id: string, name: string): Promise<SetupInfo> {
+    const saved = this.savedSetups.get(id);
+    if (!saved) throw new Error(`There is no setup “${id}”`);
+    saved.manifest.name = checkName(name);
+    return infoOf(saved);
+  }
+
+  async trashSetup(id: string): Promise<SetupGone> {
+    const saved = this.savedSetups.get(id);
+    if (!saved) throw new Error(`There is no setup “${id}”`);
+    this.savedSetups.delete(id);
+    return { id, trashed: `.trash/setups/${saved.slug}.yaml`, commit: null };
   }
 
   private planned(id: string, target: SetupTarget): Planned {
     const day = isoDay(new Date(this.now()));
+    const custom = id.startsWith(SAVED_PREFIX) ? this.savedSetups.get(id) : undefined;
+    if (id.startsWith(SAVED_PREFIX) && !custom) throw new Error(`There is no setup “${id}”`);
     return planSetup(
       id,
       target,
@@ -107,6 +142,7 @@ export class MemoryProjects extends MemoryPictures {
       },
       this.now(),
       day,
+      custom,
     );
   }
 

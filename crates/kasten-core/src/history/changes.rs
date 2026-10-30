@@ -48,6 +48,26 @@ impl History {
         Ok(out)
     }
 
+    /// The paths `rev` changed against its first parent, without reading any
+    /// file (the digest only counts and names them).
+    pub fn changed_paths(&self, rev: &str) -> Result<Vec<String>> {
+        let repo = self.repo();
+        let commit = repo.revparse_single(rev)?.peel_to_commit()?;
+        let tree = commit.tree()?;
+        let parent = commit.parent(0).ok().map(|p| p.tree()).transpose()?;
+        let diff = repo.diff_tree_to_tree(parent.as_ref(), Some(&tree), None)?;
+        Ok(diff
+            .deltas()
+            .filter_map(|delta| {
+                delta
+                    .new_file()
+                    .path()
+                    .or_else(|| delta.old_file().path())
+                    .map(|p| p.to_string_lossy().replace('\\', "/"))
+            })
+            .collect())
+    }
+
     /// The id of the tree at `rev`: equal trees mean equal vault contents.
     pub fn tree_id(&self, rev: &str) -> Result<String> {
         let repo = self.repo();

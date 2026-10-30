@@ -3,65 +3,74 @@
 
 import type { AiPanelProps } from "@kasten-slides/react";
 
+import { migrateDeckBindings } from "../chat/binding/migrate";
 import { useChat } from "../chat/store";
 import { chipKey, type Chip } from "../chat/thread";
 
-/** Deck path to the thread that talks about it, while the window lives. */
+/** Deck path to the thread that talks about it, while the window lives. The backend keeps the tie between a deck and
+ * its chat (chat_bind), so a chat kept from an earlier run is found by the deck. */
 const threads = new Map<string, string>();
 
-/** The same, kept in this browser between runs: a chat kept on the backend has an id, and the deck it belongs to is
- * only known here. */
-const KEY = "kasten.chat.decks";
+/** What a deck is tied to. */
+const tieOf = (deck: string) => ({ kind: "deck" as const, path: deck });
 
-function remembered(): Record<string, string> {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return saved && typeof saved === "object" && !Array.isArray(saved) ? (saved as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function remember(deck: string, id: string): void {
-  try {
-    // The latest few decks only.
-    const kept = Object.entries({ ...remembered(), [deck]: id }).slice(-200);
-    localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(kept)));
-  } catch {
-    // The deck's chat is then found again until the window closes.
-  }
-}
-
-/** The thread of a deck: made the first time and found again after, until it is discarded. It is not opened in the Chat view. */
-export function threadOfDeck(deck: string): string {
+/** The thread of a deck: made the first time and found again after, until it is discarded. It is not opened in the
+ * Chat view. A new one is tied to the deck when its first message is sent. `fresh` makes another even if there is one. */
+export function threadOfDeck(deck: string, fresh = false): string {
   const chat = useChat.getState();
   const known = threads.get(deck);
-  if (known && chat.threads[known]) return known;
+  if (known && chat.threads[known] && !fresh) return known;
   const id = chat.start({ open: false });
   threads.set(deck, id);
-  remember(deck, id);
+  chat.bindWhenSent(id, tieOf(deck));
   return id;
 }
 
-/** The thread of a deck, brought back from an earlier run when there is one kept: what the assistant did there, and the
- * plan it was following, are in it still (it may even be working). Otherwise `threadOfDeck`. */
-export function restoreDeckThread(deck: string): string | Promise<string> {
+/** A new chat for the deck that leaves the old one in the list; the tie moves to the new one. */
+export async function newDeckThread(deck: string, from: string): Promise<string> {
+  const chat = useChat.getState();
+  const id = await chat.newThreadFrom(from, { open: false });
+  threads.set(deck, id);
+  chat.bindWhenSent(id, tieOf(deck));
+  return id;
+}
+
+/** The thread of a deck, or the saved chat that could not be brought back. */
+export type Restored = string | { failed: string };
+
+/** The thread of a deck, brought back from an earlier run when there is one tied to it: what the assistant did there,
+ * and the plan it was following, are in it still (it may even be working). Otherwise `threadOfDeck`. A chat that is
+ * tied to the deck and cannot be read is not hidden by a new one: the answer says which, for Retry or Start a new one. */
+export function restoreDeckThread(deck: string): string | Promise<Restored> {
   const chat = useChat.getState();
   const known = threads.get(deck);
   if (known && chat.threads[known]) return known;
-  const kept = remembered()[deck];
-  if (!kept) return threadOfDeck(deck);
-  if (chat.threads[kept]) {
-    threads.set(deck, kept);
-    return kept;
-  }
-  // Kept on the backend and not in this window yet: it is brought in, and a new thread takes its place if it is gone.
-  chat.ensure();
-  return chat.adopt(kept).then((there) => {
-    if (!there) return threadOfDeck(deck);
-    threads.set(deck, kept);
-    return kept;
-  });
+  return (async (): Promise<Restored> => {
+    const client = chat.ensure();
+    // The old deck-to-chat map in this browser becomes ties, once.
+    await migrateDeckBindings(client);
+    const found = await client.threadFor(tieOf(deck)).catch(() => null);
+    if (!found) return threadOfDeck(deck);
+    if (!useChat.getState().threads[found.id] && !(await useChat.getState().adopt(found.id))) return { failed: found.id };
+    threads.set(deck, found.id);
+    return found.id;
+  })();
+}
+
+/** Tries a chat that could not be brought back once more. */
+export async function retryDeckThread(deck: string, failed: string): Promise<Restored> {
+  const there = await useChat.getState().retryAdopt(failed);
+  if (!there) return { failed };
+  threads.set(deck, failed);
+  return failed;
+}
+
+/** The thread tied to a deck that this window already holds (made here, or brought back from an earlier run), without starting one. */
+export function knownDeckThread(deck: string): string | undefined {
+  const chat = useChat.getState();
+  const known = threads.get(deck);
+  if (known && chat.threads[known]) return known;
+  return Object.values(chat.threads).find((t) => t.bound?.kind === "deck" && t.bound.path === deck && !t.archived)?.id;
 }
 
 /** The chip for the slide the person is looking at in `deck`, when its assistant tab has told the chat which; none before that. */

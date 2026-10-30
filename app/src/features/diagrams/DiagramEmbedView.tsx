@@ -2,6 +2,7 @@ import "./diagrams.css";
 
 import { useEffect } from "react";
 
+import { usePluginOff } from "../../plugins/off";
 import { Menu } from "../../shell/Menu";
 import { IconButton } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -21,13 +22,15 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 export function DiagramEmbedView({ path }: { path: string }) {
   const client = useWorkspace((s) => s.client);
   const info = useDiagrams((s) => s.list.find((d) => d.path === path));
-  const installed = useDiagramEditor((s) => s.info?.installed ?? false);
+  // With the plugin off the picture is all there is: no editor to draw a missing one, edit, or open the diagram in.
+  const off = usePluginOff("diagrams");
+  const installed = useDiagramEditor((s) => s.info?.installed ?? false) && !off;
   const title = titleOfPath(path);
 
   useEffect(() => {
     if (!useDiagrams.getState().loaded) void useDiagrams.getState().load();
-    if (!useDiagramEditor.getState().info) void useDiagramEditor.getState().refresh();
-  }, []);
+    if (!off && !useDiagramEditor.getState().info) void useDiagramEditor.getState().refresh();
+  }, [off]);
 
   useEffect(() => {
     if (installed && info && info.preview !== "fresh" && !info.problem) useDiagramHost.getState().redraw(path);
@@ -38,7 +41,7 @@ export function DiagramEmbedView({ path }: { path: string }) {
   const waiting = installed && info && info.preview !== "fresh" && !info.problem;
 
   return (
-    <div className="kasten-diagram-embed-view group/diagram relative min-w-[min(100%,280px)] max-w-full" onDoubleClick={() => editDiagram(path)}>
+    <div className="kasten-diagram-embed-view group/diagram relative min-w-[min(100%,280px)] max-w-full" onDoubleClick={off ? undefined : () => editDiagram(path)}>
       <DiagramImage
         path={path}
         alt={title}
@@ -46,13 +49,13 @@ export function DiagramEmbedView({ path }: { path: string }) {
         fallback={
           <div className="flex min-h-28 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line-strong bg-panel px-4 py-6 text-center text-13 text-muted">
             <Icon name="diagram" className="size-4 shrink-0" />
-            {info?.problem ? `This diagram cannot be read: ${info.problem}` : waiting ? "Drawing the picture…" : installed ? "No picture yet. Edit the diagram to draw it." : "No picture yet. Install the diagram editor to draw it."}
+            {info?.problem ? `This diagram cannot be read: ${info.problem}` : waiting ? "Drawing the picture…" : installed ? "No picture yet. Edit the diagram to draw it." : off ? "No picture yet. Turn on the draw.io plugin to draw it." : "No picture yet. Install the diagram editor to draw it."}
           </div>
         }
       />
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-lg bg-canvas p-0.5 opacity-0 shadow-card transition-opacity focus-within:opacity-100 group-hover/diagram:opacity-100 motion-reduce:transition-none">
-        <IconButton icon="edit" size="sm" label={`Edit ${title}`} onClick={() => editDiagram(path)} />
-        <IconButton icon="open" size="sm" label={`Open ${title} in a tab`} onClick={() => useWorkspace.getState().openPath(path, "tab")} />
+        {!off && <IconButton icon="edit" size="sm" label={`Edit ${title}`} onClick={() => editDiagram(path)} />}
+        {!off && <IconButton icon="open" size="sm" label={`Open ${title} in a tab`} onClick={() => useWorkspace.getState().openPath(path, "tab")} />}
         <Menu
           label={`Export or copy ${title}`}
           buttonClass="ui-icon-btn is-sm"

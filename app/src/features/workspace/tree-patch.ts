@@ -11,7 +11,10 @@ const MAX_PATCH = 32;
 /** Whether `next` sits where `old` did in every list (only text, icon or
  * dates changed), so the index can be patched instead of rebuilt. */
 const sameShape = (old: NoteMeta, next: NoteMeta) =>
-  old.path === next.path && old.title === next.title && old.parent === next.parent && old.project === next.project && old.kind === next.kind && old.id === next.id;
+  old.path === next.path && old.title === next.title && old.parent === next.parent && old.project === next.project && old.kind === next.kind && old.id === next.id && sameOrder(old.childrenOrder, next.childrenOrder);
+
+/** A page's stored order is part of its shape: its sub-pages list by it. */
+const sameOrder = (a: readonly string[] = [], b: readonly string[] = []) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 /** The previous index with a few notes swapped for their new versions. A
  * save while typing changes one note; this keeps that under a millisecond

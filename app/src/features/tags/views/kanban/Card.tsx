@@ -8,7 +8,10 @@ import { memo, type MouseEvent } from "react";
 
 import type { NoteMeta, PropDef } from "../../../../lib/vault/types";
 import { chipStyle } from "../../../panel/properties/schemas";
+import { CalculatedCue, RowProblems } from "../../formula/FormulaMark";
+import { isFormula } from "../../formula/rows";
 import { iconOf, titleOf } from "../../../workspace/names";
+import { ParentChip } from "../../sub-items";
 import { useBoard } from "./context";
 import { cardChips, tintOf } from "./values";
 import { IconOrEmoji } from "../../../../ui/IconOrEmoji";
@@ -31,6 +34,7 @@ export const Card = memo(function Card({ note, defs, colorBy, today }: CardProps
   const title = titleOf(note);
   const tint = tintOf(note, colorBy);
   const chips = cardChips(note, defs, today);
+  const calculated = defs.filter(isFormula).map((d) => d.key);
   const excerpt = note.excerpt && note.excerpt !== title ? note.excerpt : "";
   return (
     <li className="kasten-kanban-slot">
@@ -54,14 +58,17 @@ export const Card = memo(function Card({ note, defs, colorBy, today }: CardProps
           </span>
           <span className="kasten-kanban-name">{title}</span>
         </span>
+        <ParentChip note={note} />
         {excerpt && <span className="kasten-kanban-excerpt">{excerpt}</span>}
-        {chips.length > 0 && (
+        {(chips.length > 0 || calculated.length > 0) && (
           <span className="kasten-kanban-chips">
             {chips.map((chip) => (
               <span key={chip.id} title={chip.title} className={`kasten-kanban-chip is-${chip.kind}${chip.late ? " is-late" : ""}`} style={chipStyle(chip.tone)}>
+                {chip.kind === "formula" && <CalculatedCue />}
                 {chip.text}
               </span>
             ))}
+            <RowProblems path={note.path} keys={calculated} />
           </span>
         )}
       </div>

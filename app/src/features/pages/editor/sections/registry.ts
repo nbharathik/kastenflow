@@ -2,6 +2,8 @@
 // sections of the page in front, present it, or read its sections. It imports
 // nothing: the palette is on the start-up path and the editor is not.
 
+import { isShown } from "../../../../shell/visible-dom";
+
 /** What a presenter's keys do to the slide shown. */
 export type SlideStep = "next" | "previous" | "first" | "last";
 
@@ -38,7 +40,7 @@ export function registerSections(handle: SectionsHandle): () => void {
 
 /** The editors on screen: the focused one first, then the focused pane's. */
 function inFront(): SectionsHandle[] {
-  const live = [...open].filter((handle) => handle.dom.isConnected);
+  const live = [...open].filter((handle) => handle.dom.isConnected && isShown(handle.dom));
   const rank = (handle: SectionsHandle) => (handle.dom.contains(document.activeElement) ? 0 : handle.dom.closest(".kasten-pane.is-focused") ? 1 : 2);
   return live.sort((a, b) => rank(a) - rank(b));
 }
@@ -56,7 +58,8 @@ export function foldAllSections(folded: boolean, page?: string): number {
 /** The editor showing `page` (a note id or path), or the editor whose element this is, or the one in front. */
 const showing = (target?: string | HTMLElement): SectionsHandle | undefined => {
   if (target === undefined) return inFront()[0];
-  return inFront().find((handle) => (typeof target === "string" ? handle.page() === target : handle.dom === target));
+  if (typeof target !== "string") return [...open].find((handle) => handle.dom === target);
+  return inFront().find((handle) => handle.page() === target);
 };
 
 /** Presents the page in front, or the open page `page`, from the slide holding `pos` (the first when

@@ -66,7 +66,8 @@ export function CommitRow({ commit, undone, author = true }: { commit: CommitInf
           )}
         </span>
         <span className="flex shrink-0 items-center gap-1.5">
-          {commit.approvedBy && <Pill tone="ok">approved by {commit.approvedBy}</Pill>}
+          {commit.approvedBy && commit.approvedBy !== "autonomous-mode" && <Pill tone="ok">approved by {commit.approvedBy}</Pill>}
+          {commit.mode === "autonomous" && <Pill tone="warn" title="Made while agents were set to Autonomous">autonomous</Pill>}
           {commit.undoes && <Pill title="Reverts an agent's change">undo</Pill>}
           {undone && <Pill title="A later commit undid this one">undone</Pill>}
           {author && (commit.agent ? <ClientBadge client={clientOf(commit.author)} /> : <span className="max-w-[10rem] truncate text-12 text-muted">{commit.author}</span>)}
@@ -149,7 +150,7 @@ function RestoreVault({ commit }: { commit: CommitInfo }) {
       </button>
       {asking && (
         <ConfirmDialog title="Restore everything to this point?" confirm="Restore everything" busy={busy} onConfirm={() => void restore()} onClose={() => setAsking(false)}>
-          <p>Every page and whiteboard goes back to how it was after this change. Anything made since goes to the trash, where it can be restored.</p>
+          <p>Every page and whiteboard goes back to how it was after this change. Anything made since goes to the trash, where it can be restored. Your settings (agent mode, limits, backup) stay as they are now.</p>
           <p>It is one change: Undo takes it all back.</p>
         </ConfirmDialog>
       )}

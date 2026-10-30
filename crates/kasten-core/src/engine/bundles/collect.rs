@@ -203,8 +203,21 @@ pub(super) fn collect(kasten: &Kasten, folder: &str) -> Result<Collected> {
             },
         );
     }
+    // A file placed by hand in a smart page's folder that the folder may not hold (a program, a hidden
+    // file) stays home: the import would refuse the whole bundle for it.
+    let before = files.len();
+    files.retain(|path, _| !unfit_for_a_smart_folder(path));
+    let left_out = before - files.len();
     for path in files.keys() {
         check_path(path, folder)?;
+    }
+    let mut outside = outside_sentence(found.outside);
+    if left_out > 0 {
+        outside.push(format!(
+            "{left_out} file{} a smart page may not have {} left out",
+            if left_out == 1 { "" } else { "s" },
+            if left_out == 1 { "was" } else { "were" }
+        ));
     }
     Ok(Collected {
         project: BundleProject {
@@ -223,6 +236,20 @@ pub(super) fn collect(kasten: &Kasten, folder: &str) -> Result<Collected> {
             .filter(|k| !have.contains(*k))
             .cloned()
             .collect(),
-        outside: outside_sentence(found.outside),
+        outside,
     })
+}
+
+/// Whether `path` is inside a smart page's folder and is a file that folder may
+/// not hold.
+fn unfit_for_a_smart_folder(path: &str) -> bool {
+    let suffix = crate::smart::SMART_DIR_SUFFIX;
+    let parts: Vec<&str> = path.split('/').collect();
+    let Some(end) = parts[..parts.len() - 1]
+        .iter()
+        .position(|part| part.len() > suffix.len() && part.to_ascii_lowercase().ends_with(suffix))
+    else {
+        return false;
+    };
+    crate::smart::check_path(&parts[end + 1..].join("/")).is_err()
 }

@@ -76,7 +76,7 @@
 }
 
 .kasten-schema-problem {
-  color: var(--notion-red, #e03e3e);
+  color: var(--color-danger);
   font-size: var(--text-13);
 }
 

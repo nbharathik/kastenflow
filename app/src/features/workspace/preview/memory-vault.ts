@@ -9,11 +9,15 @@ import { splitFrontmatter } from "../../pages/markdown/frontmatter";
 import { setFrontmatterKey, yamlList } from "../../pages/page/page-meta";
 import type {
   Backlink,
+  BatchChange,
+  BatchRun,
   DayMention,
   BackupStatus,
   ChangedFile,
   CommitInfo,
   FindSpec,
+  FormulaFill,
+  FormulaIssue,
   GraphScope,
   ImportOptions,
   ImportSummary,
@@ -23,6 +27,7 @@ import type {
   NoteMatches,
   Placed,
   NoteStats,
+  PageBlocks,
   PropDef,
   RelatedNote,
   ReplaceRequest,
@@ -70,6 +75,8 @@ const isDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 export function dueDate(text: string): string | null {
   return dueAt(text)?.day ?? null;
 }
+
+const PREVIEW_BATCH = "Making many changes as one needs the desktop app; the browser preview changes one page at a time.";
 
 const PREVIEW_IMPORT = "Importing reads a folder on your computer, so it needs the desktop app. The browser preview keeps its notes in the browser.";
 
@@ -143,6 +150,19 @@ export class MemoryVault extends MemoryReferences implements VaultClient {
 
   async undoCommit(_commit: string): Promise<Undone> {
     throw new Error("Undoing one change needs the desktop app; undo a chat or an agent's changes from History");
+  }
+
+  // A batch is one commit that one Undo takes back, which the preview's per-page versions are not.
+  async runBatch(_changes: BatchChange[], _reason?: string): Promise<BatchRun> {
+    throw new Error(PREVIEW_BATCH);
+  }
+
+  async pageBlocks(_path: string): Promise<PageBlocks> {
+    throw new Error(PREVIEW_BATCH);
+  }
+
+  async newTagFile(_tag: string): Promise<string> {
+    throw new Error(PREVIEW_BATCH);
   }
 
   async findUnder(root: string, spec: FindSpec, maxNotes = 200): Promise<NoteMatches[]> {
@@ -293,7 +313,8 @@ export class MemoryVault extends MemoryReferences implements VaultClient {
 
   async setTagViews(tag: string, views: TagView[]): Promise<TagSchema> {
     const name = tag.trim().replace(/^#+/, "").trim();
-    checkViews(name, views);
+    const known = (await this.tagSchemas()).find((s) => s.name.toLowerCase() === name.toLowerCase());
+    checkViews(name, views, known?.properties ?? []);
     return this.setTagList(name, "views", views);
   }
 
@@ -301,6 +322,15 @@ export class MemoryVault extends MemoryReferences implements VaultClient {
     const name = tag.trim().replace(/^#+/, "").trim();
     checkProperties(name, properties);
     return this.setTagList(name, "properties", properties);
+  }
+
+  /** The browser preview has no formula engine: cells stay empty. */
+  async tagFormulas(_tag: string, _today: string): Promise<FormulaFill> {
+    return { values: {}, problems: {} };
+  }
+
+  async checkFormula(_formula: string, _key: string, _properties: PropDef[]): Promise<FormulaIssue | null> {
+    return null;
   }
 
   /** One list in the tag's file replaced, found by the name inside it. */

@@ -37,7 +37,7 @@ export interface TabSet {
   project?: string;
 }
 
-const VIEWS = new Set(["home", "page", "inbox", "journal", "calendar", "library", "tasks", "trash", "settings", "boards", "slides", "diagrams", "tags", "highlights", "chat", "history", "review", "import", "graph", "overview", "collections", "projects", "references", "reviews", "web"]);
+const VIEWS = new Set(["home", "page", "inbox", "journal", "calendar", "library", "tasks", "trash", "settings", "boards", "slides", "tags", "highlights", "chat", "history", "review", "import", "graph", "overview", "collections", "projects", "references", "reviews", "web"]);
 
 /** The most tabs one set keeps, so a stored set stays small. */
 export const MAX_SET_TABS = 60;
@@ -121,8 +121,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 function readTab(raw: unknown): SetTab | null {
   if (!isRecord(raw) || !isRecord(raw.place)) return null;
-  const { view, path, url } = raw.place;
-  if (typeof view !== "string" || !VIEWS.has(view)) return null;
+  const { view: saved, path, url } = raw.place;
+  if (typeof saved !== "string") return null;
+  // Diagrams were a view of their own before they became a plugin's; a plugin's view is kept (it shows Home while the plugin is off).
+  const view = saved === "diagrams" ? "plugin:diagrams" : saved;
+  if (!VIEWS.has(view) && !/^plugin:[\w-]+$/.test(view)) return null;
   if (path !== undefined && typeof path !== "string") return null;
   if (url !== undefined && (typeof url !== "string" || url.length > MAX_URL || !/^https?:\/\//i.test(url))) return null;
   const place: Place = { view: view as Place["view"], ...(path ? { path } : {}), ...(url ? { url } : {}) };

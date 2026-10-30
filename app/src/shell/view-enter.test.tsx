@@ -36,6 +36,30 @@ describe("view fade", () => {
     expect(animate.mock.calls[0]).toEqual([[{ opacity: 0 }, { opacity: 1 }], expect.objectContaining({ duration: VIEW_FADE_MS })]);
   });
 
+  it("fades a newly mounted view when asked, but not one shown again", () => {
+    function Shown({ visible, place }: { visible: boolean; place: string }) {
+      const ref = useRef<HTMLDivElement>(null);
+      useViewEnter(ref, place, true);
+      return <div ref={ref} hidden={!visible} />;
+    }
+    const { rerender } = render(<Shown visible place="a" />);
+    expect(animate).toHaveBeenCalledTimes(1);
+    rerender(<Shown visible={false} place="a" />);
+    rerender(<Shown visible place="a" />);
+    expect(animate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fade a newly mounted view while motion is off", () => {
+    document.documentElement.dataset.motion = "off";
+    function Shown() {
+      const ref = useRef<HTMLDivElement>(null);
+      useViewEnter(ref, "a", true);
+      return <div ref={ref} />;
+    }
+    render(<Shown />);
+    expect(animate).not.toHaveBeenCalled();
+  });
+
   it("does nothing while motion is off", () => {
     document.documentElement.dataset.motion = "off";
     const { rerender } = render(<View place="home" />);

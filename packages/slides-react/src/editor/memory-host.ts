@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 
 import type { RehearsalStore } from "../present/rehearsal-store.ts";
 import type { DecksHost } from "./decks-host.ts";
-import type { AiPanelProps, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
+import type { AiPanelProps, AiStatusSource, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
 import type { TemplatesHost } from "./layouts/templates-host.ts";
 import type { WebPreviewHost } from "./web-preview-host.ts";
 
@@ -20,6 +20,8 @@ export class MemoryHost implements SlidesHost {
   answer: SaveOutcome = { status: "saved" };
   /** The assistant tab, for a test to give. */
   aiPanel?: ComponentType<AiPanelProps>;
+  /** What the assistant is doing, for a test to give. */
+  aiStatus?: AiStatusSource;
   /** Where images are used, for a test to set: what `imageUsage` answers. */
   usage: Record<string, ImageUse> = {};
   /** The templates, for a test to give: none unless it does. */

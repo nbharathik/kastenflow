@@ -25,6 +25,8 @@ export interface CommitInfo {
   approvedBy: string | null;
   /** The commit this one undoes. */
   undoes: string | null;
+  /** The agent mode it was made in: `autonomous` is the only one written. */
+  mode?: string | null;
   /** It joins two lines of history, as getting the latest does; it can't
    * be undone as one change. */
   merge?: boolean;
@@ -87,6 +89,8 @@ export interface Emptied {
 export interface VaultConfig {
   name: string;
   git: { remote: string | null; push_delay_seconds: number; push_interval_minutes: number };
+  /** Changes from other computers, and how many backup files are kept. */
+  backup?: { get_latest?: "auto" | "ask" | "manual"; fetch_interval?: number; keep_files?: number } | null;
   guardrails: Record<string, number>;
   ai: {
     providers: { name: string; kind: string; base_url: string; model: string }[];

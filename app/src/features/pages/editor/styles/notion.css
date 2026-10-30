@@ -227,9 +227,30 @@
   }
 }
 
-/* Tables: thin warm borders and a tinted header row. */
+/* Tables: thin warm borders and a tinted header row. A wide table scrolls
+   sideways in its own wrapper instead of squeezing its columns. */
 .kasten-page-editor .milkdown .milkdown-table-block {
   margin: 8px 0;
+
+  & .table-wrapper,
+  & .tableWrapper {
+    overflow-x: auto;
+  }
+
+  & table {
+    table-layout: auto;
+    width: auto;
+    min-width: 100%;
+  }
+
+  & .column-resize-handle {
+    background-color: var(--color-accent);
+  }
+
+  & .selectedCell::after {
+    background-color: var(--color-soft);
+    opacity: 1;
+  }
 
   & th,
   & td {

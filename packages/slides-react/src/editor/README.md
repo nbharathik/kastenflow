@@ -168,10 +168,15 @@ presentation, and never plain typing). `focus/focus-audit.test.tsx` has one test
 
 ### Web pages beside the slide (`preview/`, `present/WebPreviewPanel.tsx`)
 
-`host.webPreview` is a view the host draws (a native web view) and this package places: a peek at the right (dragged wider, kept as
-`ks-web-preview-width`), in the middle, or over the window, with a toolbar of named icon buttons. Escape steps back one size at a
-time, then closes, and is heard before a presentation could end on it. In a presentation a web link opens it; in the editor, Preview
-live does (the chip over a selected web page, the element menu, the palette). `ui/covers.ts` is how a dialog or menu tells the
+`host.webPreview` is a view the host draws (a native web view) and this package places: a window over the dimmed slide (the way a
+presentation opens it, kept per deck as `ks-web-preview-mode:<deck id>`), a peek at the right (dragged wider, kept as
+`ks-web-preview-width`; the way the editor opens it), or the whole window, with a header of named icon buttons that stays in the page.
+The host's view is shown only once the page has loaded (the host reports `loading`, then `ready`; a skeleton stands in until then).
+Escape steps back one level at a time (a menu, the whole window, then closed), and is heard before a presentation could end on it.
+In a presentation a web link opens it; in the editor, Preview live does (the chip over a selected web page, the element menu, the
+palette, the Preview button of the link card). A right-click on a web link (in a show, on the header, on the link card) opens the same
+six choices (`present/link-menu.tsx`); `host.openInTab` adds the tab row. Mail and phone links go to `host.openUrl`. The preview is
+placed again on a resize, a density change and a display change. `ui/covers.ts` is how a dialog or menu tells the
 preview to hide its view while it is open. A host without one opens the address outside, and the editor shows a selected web page in a
 frame in the page, watched by `present/web-frame.ts`: a refused, slow or offline page gets a card that says so and never an
 address probe. The filmstrip's width (160 to 360, dragged by its edge or with the arrow keys, kept as `ks-filmstrip-width`) sets the

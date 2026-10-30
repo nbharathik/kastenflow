@@ -299,6 +299,9 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
     <div
       ref={stage}
       className="ks-stage"
+      // Which slide this is, for a host that reads what is selected (a chat about the selected words).
+      data-slide={slide.id}
+      data-slide-number={index + 1}
       tabIndex={0}
       role="application"
       aria-label="Slide"

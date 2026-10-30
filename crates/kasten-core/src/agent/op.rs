@@ -2,10 +2,28 @@
 //! proposals. There is deliberately no raw file
 //! write, no permanent delete and no git command.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::board::BoardChange;
+use crate::comments::Anchor;
 use crate::diagrams::steps::Step;
+use crate::engine::ProjectState;
+use crate::pages::PageStep;
+
+mod meta;
+#[cfg(test)]
+mod tests;
+
+/// One text file of a new smart page's folder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SmartNewFile {
+    /// Its path inside the folder (`index.html`, `data/venues.json`).
+    pub path: String,
+    pub content: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -118,6 +136,16 @@ pub enum AgentOp {
         nodes: Vec<String>,
         label: String,
     },
+    /// A batch of changes on a board, as a person's edits are sent: taking
+    /// nodes off, moving, restyling. Taking off more nodes than
+    /// `max_board_nodes_removed` waits for review.
+    BoardChanges {
+        board: String,
+        changes: Vec<BoardChange>,
+        /// What the batch does, in a few words for the history and the review.
+        #[serde(default)]
+        summary: String,
+    },
     /// A template made (`create_template`) or rewritten
     /// (`update_template`), as its whole file. It always waits for review:
     /// agents never write `templates/` themselves.
@@ -210,102 +238,324 @@ pub enum AgentOp {
         #[serde(default)]
         summary: String,
     },
+    /// A LaTeX source file written whole (`.tex`, `.sty`, `.cls`, `.bst`, or
+    /// a `.bib` inside a LaTeX folder). `base` is the text the agent read, so
+    /// accepting a proposal later keeps what a person typed meanwhile; empty
+    /// for a new file, which is a new document when it is a root `.tex`.
+    SaveSource {
+        path: String,
+        text: String,
+        #[serde(default)]
+        base: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A new LaTeX document made from a template (`article`, `report` or
+    /// `beamer`; empty means `article`): a folder of its own in `project`
+    /// (or the library) holding the root file. The folder's name is numbered
+    /// when it is taken.
+    CreateLatexDoc {
+        title: String,
+        #[serde(default)]
+        template: String,
+        #[serde(default)]
+        project: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// Text added to a LaTeX source file: at its end, or right after `after`,
+    /// a piece of text that is in the file exactly once. `base_hash` is the
+    /// hash of the file the agent read; every other byte stays as it was.
+    AppendLatexFile {
+        path: String,
+        base_hash: String,
+        text: String,
+        #[serde(default)]
+        after: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A LaTeX source file taken out of its document. It goes to the trash and
+    /// can be put back; nothing is deleted for good.
+    TrashLatexFile {
+        path: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A picture for a LaTeX document (`doc` is its folder), kept in the
+    /// document's `figures/` folder: a PNG, JPEG or PDF (an SVG too, but it
+    /// needs a converter). Its bytes are `base64` or the file of the vault at
+    /// `vault_path`; the same bytes already there are the same file. It adds a
+    /// file and changes none, so it is never held for review: the limits on an
+    /// agent's pictures hold it instead.
+    AddLatexAsset {
+        doc: String,
+        name: String,
+        #[serde(default)]
+        base64: Option<String>,
+        #[serde(default)]
+        vault_path: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// `\cite{key}` put in a LaTeX file of a document (`doc` is its folder,
+    /// `file` the file's vault path), at the end of the paragraph that holds
+    /// `at` or at the end of the file, with the Reference's entry in the
+    /// document's `references.bib` once. The Reference itself is never changed.
+    CiteReference {
+        doc: String,
+        file: String,
+        key: String,
+        #[serde(default)]
+        at: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// The built PDF of a LaTeX document (`doc` is its folder) kept beside its
+    /// root file. It names nothing else: the bytes are the app's last build,
+    /// read from the vault's cache when the op runs (never sent by the agent),
+    /// so a proposal for it carries none. The person's own Export PDF is a
+    /// different, person-only call.
+    ExportLatexPdf {
+        doc: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A page (or one section of it, under `section`) sent to LaTeX as the
+    /// app's "Send to LaTeX" does: added to the root file of the document in
+    /// `doc` (its folder), or made into a new document (`title`, `template`,
+    /// `project`) when `doc` is left out.
+    SendPageToLatex {
+        page: String,
+        #[serde(default)]
+        section: Option<String>,
+        #[serde(default)]
+        doc: Option<String>,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        template: String,
+        #[serde(default)]
+        project: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A text file of a smart page's code folder written whole (`index.html`,
+    /// `app.js`, a stylesheet, data, the manifest). `page` is the smart page's
+    /// path and `path` the file inside its folder. `base` is the hash the agent
+    /// read the file with; empty for a new file, which must not be there yet.
+    /// Pictures are added by a person.
+    SmartWrite {
+        page: String,
+        path: String,
+        content: String,
+        #[serde(default)]
+        base: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A new smart page made whole: the page with `layout: smart` and its
+    /// code folder (`files`, text only, with an `index.html`), in one commit.
+    /// Nothing is there yet to be read, so no base.
+    SmartCreate {
+        title: String,
+        /// The project folder to put it in; none means the library.
+        #[serde(default)]
+        project: Option<String>,
+        /// Path of the parent page.
+        #[serde(default)]
+        parent: Option<String>,
+        files: Vec<SmartNewFile>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A file of a smart page's folder taken out. It goes to the trash and
+    /// can be put back; nothing is deleted for good.
+    SmartDelete {
+        page: String,
+        path: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A request to a person to turn smart pages on, for the whole vault or
+    /// for one project (`project`, its folder or name). It changes nothing by
+    /// itself and runs in no mode: it is always kept for the person, and only
+    /// their accepting it turns anything on. Rejecting it changes nothing.
+    RequestSmartPages {
+        /// Why the agent wants smart pages, in a sentence, for the person.
+        reason: String,
+        #[serde(default)]
+        project: Option<String>,
+    },
+    /// Steps on a page's blocks (`edit_page`): insert, replace, move, delete,
+    /// wrap in columns, a toggle or a callout, tick a task, change a table or
+    /// add an embed. The steps name blocks by the id and hash `read_page_blocks`
+    /// gave, and are made against the page as it is when they run: a block that
+    /// changed since refuses all of them.
+    EditPage {
+        path: String,
+        steps: Vec<PageStep>,
+        /// Why, for the person reviewing it.
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// Several changes as one (`batch`): all are made or none, in one commit
+    /// that one undo takes back; when any of them needs review the whole batch
+    /// waits as one proposal. See the `batch` module for what it may hold.
+    Batch {
+        ops: Vec<AgentOp>,
+        /// Why the agent sends them, in a few words for the review and the history.
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    /// A page put inside another (`parent`, a page's path), moving it and its
+    /// sub-pages to the parent's project or the library; with no parent the
+    /// page leaves its page where it is.
+    SetParent {
+        path: String,
+        #[serde(default)]
+        parent: Option<String>,
+    },
+    /// The order a page's sub-pages are shown in: `ids` are the sub-pages'
+    /// ids, first to last. Ids that are not sub-pages are ignored and the
+    /// sub-pages left out follow alphabetically; no ids at all goes back to
+    /// alphabetical. Written into the parent page's frontmatter.
+    ReorderChildren {
+        /// The parent page's path.
+        parent: String,
+        ids: Vec<String>,
+    },
+    /// A new project, empty or from one of the project setups (`setup`).
+    CreateProject {
+        title: String,
+        #[serde(default)]
+        setup: Option<String>,
+    },
+    /// A project page's status, health, next action and review days, through
+    /// the op that checks every value.
+    SetProjectState {
+        /// The project page's path, `projects/<name>/_project.md`.
+        path: String,
+        state: ProjectState,
+    },
+    /// The views a tag's database shows, replacing the ones it showed before.
+    SetTagViews {
+        tag: String,
+        views: Vec<Value>,
+    },
+    /// The order a tag's database shows the rows of one of its views in, by
+    /// note id, first to last. Stored as `order` in the view; used only when
+    /// the view has no sort. No ids takes the order away.
+    SetViewOrder {
+        tag: String,
+        view: String,
+        ids: Vec<String>,
+    },
+    /// A copy of a note beside it, with its comments and highlights.
+    DuplicateNote {
+        path: String,
+    },
+    /// A note taken out of the trash, with the sub-pages that went with it;
+    /// `path` is where it is now, `.trash/<time>/<path>`.
+    RestoreNote {
+        path: String,
+    },
+    /// One page header key: `icon`, `cover`, `font`, `width`, `text` or
+    /// `layout`. No value takes the key off.
+    SetNoteMeta {
+        path: String,
+        key: String,
+        #[serde(default)]
+        value: Option<String>,
+    },
+    /// An empty page filled from a template, by name.
+    ApplyTemplate {
+        path: String,
+        template: String,
+        /// The day the template's date words mean; today when none.
+        #[serde(default)]
+        date: Option<String>,
+    },
+    /// A journal day, made from the template if it is not there yet.
+    JournalDay {
+        date: String,
+    },
+    /// A to-do ticked or unticked: `line` is its line in the body from 0, as
+    /// `list_tasks` tells it, and `base` the hash of the note it read it in.
+    SetTask {
+        path: String,
+        line: u32,
+        done: bool,
+        base: String,
+    },
+    /// A comment on a page, signed by the agent.
+    AddComment {
+        path: String,
+        anchor: Anchor,
+        text: String,
+    },
+    /// A comment resolved, or opened again.
+    ResolveComment {
+        path: String,
+        id: String,
+        resolved: bool,
+    },
+    /// A saved search: its name, and its keys (`icon`, `query`, `when`,
+    /// `filter`, `sort`, `display`).
+    CreateCollection {
+        name: String,
+        edits: Map<String, Value>,
+    },
+    /// Keys of a saved search changed; `base` is its hash as listed.
+    UpdateCollection {
+        /// `views/<name>.yaml`.
+        path: String,
+        edits: Map<String, Value>,
+        base: String,
+    },
+    /// A reference added to the managed bibliography.
+    AddReference {
+        #[serde(rename = "type")]
+        kind: String,
+        key: String,
+        #[serde(default)]
+        fields: BTreeMap<String, String>,
+        #[serde(default)]
+        allow_duplicate: bool,
+    },
+    RenameDiagram {
+        path: String,
+        title: String,
+    },
+    MoveDiagram {
+        path: String,
+        #[serde(default)]
+        project: Option<String>,
+    },
+    DuplicateDiagram {
+        path: String,
+    },
+    /// Every change of one agent session taken back, newest first. Only the
+    /// agent's own session runs at once; another's waits for review (unless
+    /// the person lets agents work on their own).
+    UndoSession {
+        session: String,
+    },
+    /// A project saved as a setup new projects can start from: `project` is
+    /// its folder or its page's path, `title` the setup's name, `slug` its
+    /// file name (blank makes one of the title), `pages` the vault paths of
+    /// the pages kept (none: those directly under the project's `pages/`).
+    SaveProjectSetup {
+        project: String,
+        #[serde(default)]
+        slug: String,
+        title: String,
+        #[serde(default)]
+        pages: Option<Vec<String>>,
+    },
 }
 
 impl AgentOp {
-    /// The op's name, as in the `Kasten-Op` trailer.
-    pub fn name(&self) -> &'static str {
-        match self {
-            AgentOp::Capture { .. } => "capture",
-            AgentOp::CreateNote { .. } => "create_note",
-            AgentOp::Append { .. } => "append",
-            AgentOp::ReplaceSection { .. } => "replace_section",
-            AgentOp::UpdateProps { .. } => "update_props",
-            AgentOp::Tags { .. } => "tags",
-            AgentOp::Rename { .. } => "rename_note",
-            AgentOp::Move { .. } => "move_note",
-            AgentOp::JournalAppend { .. } => "journal_append",
-            AgentOp::Trash { .. } => "trash_note",
-            AgentOp::Edit { .. } => "propose_edit",
-            AgentOp::TagSchema { .. } => "update_tag_schema",
-            AgentOp::CreateBoard { .. } => "create_board",
-            AgentOp::AddToBoard { .. } => "add_to_board",
-            AgentOp::Connect { .. } => "connect",
-            AgentOp::Group { .. } => "group_on_board",
-            AgentOp::Template { .. } => "template",
-            AgentOp::EditDeck { .. } => "edit_deck",
-            AgentOp::CreateDeck { .. } => "create_deck",
-            AgentOp::CreateDiagram { .. } => "create_diagram",
-            AgentOp::UpdateDiagram { .. } => "update_diagram",
-            AgentOp::EditDiagram { .. } => "edit_diagram",
-        }
-    }
-
-    /// The existing note the op changes, if it names one.
-    pub fn path(&self) -> Option<&str> {
-        match self {
-            AgentOp::Append { path, .. }
-            | AgentOp::ReplaceSection { path, .. }
-            | AgentOp::UpdateProps { path, .. }
-            | AgentOp::Tags { path, .. }
-            | AgentOp::Rename { path, .. }
-            | AgentOp::Move { path, .. }
-            | AgentOp::Trash { path, .. }
-            | AgentOp::Edit { path, .. }
-            | AgentOp::UpdateDiagram { path, .. }
-            | AgentOp::EditDiagram { path, .. }
-            | AgentOp::EditDeck { path, .. } => Some(path),
-            AgentOp::AddToBoard { board, .. }
-            | AgentOp::Connect { board, .. }
-            | AgentOp::Group { board, .. } => Some(board),
-            _ => None,
-        }
-    }
-
-    /// How many bytes of text the agent sends, for the size limit.
-    pub fn bytes(&self) -> usize {
-        let sum = |items: &[String]| items.iter().map(String::len).sum::<usize>();
-        match self {
-            AgentOp::Capture { markdown, tags } => markdown.len() + sum(tags),
-            AgentOp::Append { markdown, .. }
-            | AgentOp::ReplaceSection { markdown, .. }
-            | AgentOp::JournalAppend { markdown, .. } => markdown.len(),
-            AgentOp::CreateNote {
-                title,
-                body,
-                tags,
-                props,
-                ..
-            } => {
-                title.len()
-                    + body.len()
-                    + sum(tags)
-                    + serde_json::to_string(props).map_or(0, |p| p.len())
-            }
-            AgentOp::Edit { body, .. } => body.len(),
-            AgentOp::UpdateProps { props, .. } => {
-                serde_json::to_string(props).map_or(0, |p| p.len())
-            }
-            AgentOp::TagSchema { schema, .. } => {
-                serde_json::to_string(schema).map_or(0, |p| p.len())
-            }
-            AgentOp::Tags { add, remove, .. } => sum(add) + sum(remove),
-            AgentOp::Rename { title, .. } | AgentOp::CreateBoard { title, .. } => title.len(),
-            AgentOp::AddToBoard { notes, .. } => sum(notes),
-            AgentOp::Group { nodes, label, .. } => sum(nodes) + label.len(),
-            AgentOp::Connect { label, .. } => label.as_ref().map_or(0, String::len),
-            AgentOp::Template { text, .. } => text.len(),
-            AgentOp::EditDeck { sent, .. } | AgentOp::CreateDeck { sent, .. } => *sent,
-            AgentOp::CreateDiagram { title, xml, .. } => title.len() + xml.len(),
-            AgentOp::UpdateDiagram { xml, .. } => xml.len(),
-            // What the agent sent: the steps as they travel.
-            AgentOp::EditDiagram { steps, .. } => {
-                serde_json::to_string(steps).map_or(0, |s| s.len())
-            }
-            AgentOp::Move { .. } | AgentOp::Trash { .. } => 0,
-        }
-    }
-
     /// Whether the op makes a new note rather than changing one.
     pub fn creates(&self) -> bool {
         matches!(
@@ -316,8 +566,17 @@ impl AgentOp {
                 | AgentOp::CreateBoard { .. }
                 | AgentOp::CreateDeck { .. }
                 | AgentOp::CreateDiagram { .. }
+                | AgentOp::SmartCreate { .. }
+                | AgentOp::CreateLatexDoc { .. }
+                | AgentOp::SendPageToLatex { doc: None, .. }
+                | AgentOp::CreateProject { .. }
+                | AgentOp::DuplicateNote { .. }
+                | AgentOp::RestoreNote { .. }
+                | AgentOp::JournalDay { .. }
+                | AgentOp::CreateCollection { .. }
+                | AgentOp::DuplicateDiagram { .. }
                 | AgentOp::Template { base: None, .. }
-        )
+        ) || matches!(self, AgentOp::SaveSource { base, .. } if base.is_empty())
     }
 
     /// Where a template op writes: `templates/<slug>.md`; none for a name
@@ -326,51 +585,5 @@ impl AgentOp {
         name.chars()
             .any(char::is_alphanumeric)
             .then(|| format!("templates/{}.md", crate::slug::slugify(name)))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ops_round_trip_as_json() {
-        let op = AgentOp::ReplaceSection {
-            path: "a.md".into(),
-            heading: "Plan".into(),
-            markdown: "x".into(),
-        };
-        let json = serde_json::to_value(&op).unwrap();
-        assert_eq!(json["kind"], "replace_section");
-        assert_eq!(serde_json::from_value::<AgentOp>(json).unwrap(), op);
-        let create: AgentOp =
-            serde_json::from_str(r#"{"kind":"create_note","type":"card","title":"T"}"#).unwrap();
-        assert_eq!(create.name(), "create_note");
-        assert!(create.creates());
-        assert_eq!(op.path(), Some("a.md"));
-        assert_eq!(op.bytes(), 1);
-    }
-
-    #[test]
-    fn deck_ops_measure_what_was_sent_and_not_the_deck() {
-        let edit: AgentOp = serde_json::from_str(
-            r#"{"kind":"edit_deck","path":"library/a.deck","tool":"add_slide","base":"{}","text":"{ }   ","sent":42}"#,
-        )
-        .unwrap();
-        assert_eq!(
-            (edit.name(), edit.path(), edit.bytes()),
-            ("edit_deck", Some("library/a.deck"), 42)
-        );
-        assert!(!edit.creates());
-        // Older or hand-written proposals name no summary and no size.
-        let made: AgentOp = serde_json::from_str(
-            r#"{"kind":"create_deck","title":"T","tool":"create_deck","text":"{}"}"#,
-        )
-        .unwrap();
-        assert_eq!(
-            (made.name(), made.path(), made.bytes()),
-            ("create_deck", None, 0)
-        );
-        assert!(made.creates());
     }
 }

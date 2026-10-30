@@ -27,7 +27,7 @@ pub struct VaultRestore {
 }
 
 /// "2026-09-24 10:20" for a commit.
-fn when(history: &History, rev: &str) -> String {
+pub(super) fn when(history: &History, rev: &str) -> String {
     let time = history.log(None, 10_000).ok().and_then(|log| {
         log.into_iter()
             .find(|c| c.id.starts_with(rev))
@@ -82,8 +82,21 @@ impl Kasten {
     }
 
     /// Puts every tracked file back as it was at `rev`, as one new commit,
-    /// which `undo_commit` takes back whole.
+    /// which `undo_commit` takes back whole. `.kasten/config.yaml` stays as it
+    /// is now: going back in time must not bring back an older agent mode,
+    /// guardrail limit, plugin choice or backup address.
     pub fn restore_vault(&self, actor: &Actor, rev: &str, now: Instant) -> Result<VaultRestore> {
+        self.restore_vault_keeping(actor, rev, now, &[crate::config::CONFIG_PATH])
+    }
+
+    /// `restore_vault`, leaving the files named in `keep` as they are now.
+    pub(super) fn restore_vault_keeping(
+        &self,
+        actor: &Actor,
+        rev: &str,
+        now: Instant,
+        keep: &[&str],
+    ) -> Result<VaultRestore> {
         let history = self.history_or_err()?;
         // Anything typed or changed outside is committed first, so it stays in history.
         self.commit_edits()?;
@@ -105,7 +118,7 @@ impl Kasten {
                 let mut done = Rollback::default();
                 let restored = (|| -> Result<()> {
                     for path in &then {
-                        if path.starts_with(".trash/") {
+                        if path.starts_with(".trash/") || keep.contains(&path.as_str()) {
                             continue;
                         }
                         let Some(bytes) = history.blob_at(rev, path)? else {
@@ -119,10 +132,11 @@ impl Kasten {
                         done.write(&file, &bytes, before)?;
                         report.written.push(path.clone());
                     }
-                    for path in current
-                        .iter()
-                        .filter(|p| !then.contains(p) && !p.starts_with(".trash/"))
-                    {
+                    for path in current.iter().filter(|p| {
+                        !then.contains(p)
+                            && !p.starts_with(".trash/")
+                            && !keep.contains(&p.as_str())
+                    }) {
                         let from = vault.tracked_file(path)?;
                         if !from.is_file() {
                             continue;

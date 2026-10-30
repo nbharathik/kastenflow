@@ -26,7 +26,17 @@ describe("the menu on selected text", () => {
     const event = click();
     expect(selectionMenu(view, event, vi.fn())).toBe(true);
     expect(event.defaultPrevented).toBe(true);
-    expect(items()).toEqual(["Explain", "Ask AI…", "Copy", "Cut"]);
+    expect(items()).toEqual(["Explain", "Ask AI…", "Add to chat", "Copy", "Cut"]);
+  });
+
+  it("offers Add to chat, which keeps the selection with the chat", async () => {
+    const add = vi.fn(() => true);
+    vi.doMock("../../../chat/selection/add", () => ({ addSelectionToChat: add }));
+    const { view } = fakeView(3, 12, 7);
+    selectionMenu(view, click(), vi.fn());
+    (document.querySelector('.kasten-menu [data-key="add-to-chat"]') as HTMLElement).click();
+    await vi.waitFor(() => expect(add).toHaveBeenCalledTimes(1));
+    vi.doUnmock("../../../chat/selection/add");
   });
 
   it("leaves the system's menu for a click outside the selection, or with nothing selected", () => {

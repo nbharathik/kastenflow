@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 
 use super::store::{DeckText, Saved, Store};
-use super::{ToolError, ToolOutput, ToolResult, create, edit, files, place, read, steps};
+use super::{ToolError, ToolOutput, ToolResult, create, edit, files, place, read, steps, template};
 use crate::canonical;
 use crate::lint::{self, Options, Severity};
 use crate::model::Deck;
@@ -47,7 +47,7 @@ pub(super) struct Edited<T> {
 }
 
 /// The deck's file name as the store knows it: `talk` and `talk.deck` are the same deck.
-fn full_name(given: &str) -> String {
+pub(super) fn full_name(given: &str) -> String {
     let given = given.trim();
     if given.ends_with(".deck") {
         given.to_owned()
@@ -82,6 +82,7 @@ impl Agent {
             "create_deck" => create::create_deck(self, store, &args),
             "update_elements" => edit::update_elements(self, store, &args),
             "apply_layout" => edit::apply_layout(self, store, &args),
+            "apply_deck_template" => template::apply_deck_template(self, store, &args),
             "duplicate_slide" => edit::duplicate_slide(self, store, &args),
             "reorder_slides" => edit::reorder_slides(self, store, &args),
             "set_morph" => edit::set_morph(self, store, &args),
@@ -93,7 +94,12 @@ impl Agent {
             "trash_deck" => files::trash_deck(self, store, &args),
             "render_slide" => files::render(self, store, &args, false),
             "render_grid" => files::render(self, store, &args, true),
-            other if crate::ops::names().contains(&other) => {
+            // An operation that is not on the list is called inside `update_elements`, not by its name;
+            // the person's own (`accept_marks`) is still run so it can say whose it is.
+            other
+                if crate::ops::names().contains(&other)
+                    && (!super::specs::is_hidden(other) || edit::PERSONS.contains(&other)) =>
+            {
                 edit::run_op(self, store, other, &args)
             }
             other => Err(ToolError::new(format!(

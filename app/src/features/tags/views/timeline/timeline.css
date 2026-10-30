@@ -1,0 +1,374 @@
+/* The timeline view of a tag database: a toolbar, the grid (lane labels at
+   the left, the scale across the top, bars in lanes, a line for today),
+   and the aside for notes without dates. Light and dark follow the theme
+   tokens; nothing here moves while motion is off (the duration tokens go to
+   nothing, and scrolling is instant). */
+
+.kasten-tagdb:has(> .kasten-tagdb-body > .kasten-tl) {
+  height: 100%;
+}
+
+.kasten-tl {
+  --tl-head: 52px;
+  --tl-bar: 24px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 380px;
+}
+
+.kasten-tl-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.kasten-tl-tip {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kasten-tl-empty {
+  padding: 10px 14px;
+  border: 1.5px dashed var(--color-line);
+  border-radius: var(--radius-xl);
+  color: var(--color-muted);
+  font-size: var(--text-13);
+  line-height: 1.5;
+}
+
+.kasten-tl-body {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+}
+
+/* The grid scrolls both ways; the scale and the lane labels stay in view. */
+.kasten-tl-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+
+  &[data-dragging] {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+.kasten-tl-grid {
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--tl-head);
+  grid-auto-rows: auto;
+  align-content: start;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* The scale */
+
+.kasten-tl-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  grid-column: 1;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+}
+
+.kasten-tl-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  grid-column: 2;
+  height: var(--tl-head);
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+}
+
+.kasten-tl-bands,
+.kasten-tl-ticks {
+  position: relative;
+  height: 50%;
+}
+
+.kasten-tl-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-line);
+  /* The label stays in view as the band scrolls past under the lane labels. */
+  &:first-child {
+    border-left: 0;
+  }
+}
+
+.kasten-tl-band-label {
+  position: sticky;
+  left: 0;
+  display: inline-block;
+  padding: 5px 8px;
+  color: var(--color-ink);
+  font-size: var(--text-12);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kasten-tl-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 5px 0 0 5px;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  white-space: nowrap;
+
+  &[data-strong] {
+    color: var(--color-ink);
+  }
+}
+
+.kasten-tl-scroll[data-dragging] .kasten-tl-bar {
+  pointer-events: none;
+}
+
+/* Lines down the grid; today's is the accent. */
+
+.kasten-tl-lines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  /* A faint line for every day at the week scale (40px wide), the Mondays drawn on top. */
+  &[data-scale="week"] {
+    background: repeating-linear-gradient(to right, color-mix(in srgb, var(--color-line) 55%, transparent) 0 1px, transparent 1px 40px) 0 var(--tl-head) / 100% calc(100% - var(--tl-head)) no-repeat;
+  }
+}
+
+/* A tag with no date property yet */
+
+.kasten-tl-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 28px 32px;
+  border: 1.5px dashed var(--color-line);
+  border-radius: var(--radius-2xl);
+  text-align: center;
+
+  & h2 {
+    font-size: var(--text-16);
+    font-weight: 600;
+  }
+
+  & p {
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    line-height: 1.55;
+  }
+
+  & strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+}
+
+.kasten-tl-start-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xl);
+  background: var(--color-soft);
+  color: var(--color-accent);
+}
+
+.kasten-tl-line {
+  position: absolute;
+  top: var(--tl-head);
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-line) 60%, transparent);
+
+  &[data-strong] {
+    background: var(--color-line);
+  }
+}
+
+.kasten-tl-today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-accent);
+  opacity: 0.8;
+}
+
+/* Lanes: a label at the left, a track of rows to the right. */
+
+.kasten-tl-lane {
+  display: contents;
+}
+
+.kasten-tl-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  grid-column: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+  font-size: var(--text-13);
+  font-weight: 500;
+
+  & > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.kasten-tl-count {
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: var(--text-12);
+  font-weight: 400;
+}
+
+.kasten-tl-track {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* Bars, markers and their edges are in timeline-bars.css. */
+
+/* Notes without dates */
+
+.kasten-tl-nodates {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 232px;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-panel);
+
+  & h2 {
+    font-size: var(--text-13);
+    font-weight: 600;
+  }
+
+  & p {
+    color: var(--color-muted);
+    font-size: var(--text-12);
+    line-height: 1.5;
+  }
+
+  & ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  & li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.kasten-tl-nodates-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-13);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-hover);
+  }
+}
+
+.kasten-tl-nodates-set {
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-accent);
+  font-size: var(--text-12);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--color-hover);
+  }
+}
+
+/* While motion is off, scrolling to today and the bar's colours do not animate. */
+:root[data-motion="off"] {
+  .kasten-tl-scroll {
+    scroll-behavior: auto;
+  }
+
+  .kasten-tl-bar,
+  .kasten-tl-grip::after {
+    transition: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .kasten-tl-body {
+    flex-direction: column;
+  }
+
+  .kasten-tl-nodates {
+    width: auto;
+    max-height: 30%;
+  }
+
+  .kasten-tl-tip {
+    display: none;
+  }
+}

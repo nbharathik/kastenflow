@@ -71,6 +71,9 @@ tauri-plugin-notification = "=2.4.0"
 # same crate and features as the slide engine's PowerPoint files. Its download
 # is checked with sha2 above.
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+# LaTeX: reads the `.synctex.gz` a build writes. Already in the tree (the
+# lock file has it), so no new package comes with it.
+flate2 = "1.1.10"
 
 
 [lints]

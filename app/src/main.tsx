@@ -40,7 +40,8 @@ function resetLayout(): void {
   location.reload();
 }
 
-// The presenter's window is this page with `?presenter=…`: it draws the speaker's view of a talk, not the app.
+// In the browser preview the presenter's window is this page with `?presenter=…`: it draws the speaker's view of a talk, not the app.
+// The desktop app's presenter window has a page of its own (presenter.html) and loads none of the app.
 const presenter = new URLSearchParams(location.search).get("presenter");
 const PresenterApp = lazy(() => import("./features/slides/PresenterApp"));
 

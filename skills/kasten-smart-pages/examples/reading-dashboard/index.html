@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reading dashboard</title>
+  <link rel="stylesheet" href="smart://kit/1/kit.css">
+  <link rel="stylesheet" href="smart://kit/1/kit-visual.css">
+</head>
+<body>
+  <main>
+    <h1>Reading dashboard</h1>
+    <p id="empty" class="kit-empty" role="status" hidden></p>
+    <div id="content" class="kit-stack" hidden>
+      <section aria-labelledby="h-summary">
+        <h2 id="h-summary" class="kit-sr">Summary</h2>
+        <div id="stats"></div>
+      </section>
+      <section aria-labelledby="h-board">
+        <h2 id="h-board">Reading list</h2>
+        <div id="board"></div>
+      </section>
+      <section aria-labelledby="h-chart">
+        <h2 id="h-chart">Pages by status</h2>
+        <div id="chart"></div>
+      </section>
+    </div>
+  </main>
+  <script src="smart://kit/1/kit.js"></script>
+  <script src="smart://kit/1/lib/dom.js"></script>
+  <script src="smart://kit/1/lib/dates.js"></script>
+  <script src="smart://kit/1/lib/format.js"></script>
+  <script src="smart://kit/1/lib/keys.js"></script>
+  <script src="smart://kit/1/components/legend.js"></script>
+  <script src="smart://kit/1/components/charts.js"></script>
+  <script src="smart://kit/1/components/stat.js"></script>
+  <script src="smart://kit/1/components/kanban.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

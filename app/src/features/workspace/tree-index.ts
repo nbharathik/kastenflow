@@ -5,6 +5,7 @@
 import type { NoteMeta } from "../../lib/vault/types";
 import { HOLDS_PAGES } from "./page/new-page-home";
 import { byTitle, folderTree, share, shareMap } from "./tree-parts";
+import { arranged } from "./tree-order";
 import { patch } from "./tree-patch";
 import { inOtherFolder, type TreeIndex } from "./tree-types";
 
@@ -34,7 +35,8 @@ export function build(notes: readonly NoteMeta[]): TreeIndex {
   }
   for (const n of notes) {
     if (n.kind === "template") {
-      if (n.path.startsWith("templates/")) templateList.push(n);
+      // The pages inside a saved project setup (templates/setups/) are parts of it, not templates to start a page from.
+      if (n.path.startsWith("templates/") && !n.path.startsWith("templates/setups/")) templateList.push(n);
       continue;
     }
     openableList.push(n);
@@ -65,7 +67,7 @@ export function build(notes: readonly NoteMeta[]): TreeIndex {
     if (top && inOtherFolder(n.path)) elsewhere.push(n);
     else if (top && n.kind === "page" && !n.project && !n.path.startsWith("inbox/")) looseAll.push(n);
   }
-  for (const list of children.values()) list.sort(byTitle);
+  for (const [id, list] of children) children.set(id, arranged(byId.get(id)?.childrenOrder, list.sort(byTitle)));
   const projectPages = new Map<string, NoteMeta[]>();
   for (const [project, list] of grouped) {
     const own = list.filter((n) => n.path !== projectNote.get(project)?.path).sort(byTitle);

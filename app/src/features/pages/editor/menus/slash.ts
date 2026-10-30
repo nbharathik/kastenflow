@@ -12,13 +12,13 @@ import type { Rect } from "../ui/dom";
 import { Popover, type MenuSection } from "../ui/popover";
 import { filesOf } from "../files";
 import { insertFiles, pickFiles } from "../paste-files";
+import { inColumn, insertColumns } from "../columns/ops";
 import { smartPage } from "../sections/smart-page";
 import { onlySlash, templatePickerOf } from "../template-pick";
 import { colorBlocks, insertBlock } from "./block-ops";
-import { matchChoices, SLASH_CHOICES, type Choice } from "./catalog";
+import { matchChoices, slashChoices, type Choice } from "./catalog";
 import { startCitePick } from "../cite/cite-pick";
 import { startDeckPick } from "./deck-pick";
-import { startDiagramPick } from "./diagram-pick";
 import { startLink } from "./mention";
 import { turnInto } from "./transform";
 
@@ -66,7 +66,7 @@ function nextState(tr: Transaction, prev: SlashState, state: EditorState): Slash
   const query = doc.textBetween(from + 1, selection.head, "\n", "￼");
   // A space right after "/", or one after a query that finds nothing, means plain text.
   if (/^\s/.test(query) || query.length > MAX_QUERY) return CLOSED;
-  if (/\s$/.test(query) && matchChoices(SLASH_CHOICES, query).length === 0) return CLOSED;
+  if (/\s$/.test(query) && matchChoices(slashChoices(), query).length === 0) return CLOSED;
   return { from };
 }
 
@@ -103,15 +103,17 @@ export function choiceCommand(choice: Choice, ctx: Ctx): Command {
     };
   }
   if (action.type === "smart") return smartPage(ctx);
+  if (action.type === "columns") return insertColumns(action.count);
+  if (action.type === "plugin") {
+    const { run } = action;
+    return (state, _dispatch, view) => {
+      run(view ? { view, ctx, from: state.selection.from } : undefined);
+      return true;
+    };
+  }
   if (action.type === "deck") {
     return (state, _dispatch, view) => {
       if (view) startDeckPick(view, ctx, state.selection.from);
-      return Boolean(view);
-    };
-  }
-  if (action.type === "diagram") {
-    return (state, _dispatch, view) => {
-      if (view) startDiagramPick(view, ctx, state.selection.from);
       return Boolean(view);
     };
   }
@@ -133,8 +135,11 @@ export function choiceCommand(choice: Choice, ctx: Ctx): Command {
 
 /** Menu sections for a query: Notion's sections when empty, best matches
  * first otherwise. "Template…" only when the page can offer templates. */
-function sections(query: string, pick: (choice: Choice) => void, templates: boolean): MenuSection[] {
-  const found = matchChoices(SLASH_CHOICES, query).filter((choice) => templates || choice.action.type !== "template");
+function sections(query: string, pick: (choice: Choice) => void, templates: boolean, nested = false): MenuSection[] {
+  // Columns do not nest, so the entries are not offered inside one.
+  const found = matchChoices(slashChoices(), query).filter(
+    (choice) => (templates || choice.action.type !== "template") && !(nested && choice.action.type === "columns"),
+  );
   const toItem = (choice: Choice) => ({ ...choice, boxed: true, onPick: () => pick(choice) });
   if (query.trim() !== "") return [{ items: found.map(toItem) }];
   const bySection = new Map<string, Choice[]>();
@@ -159,14 +164,15 @@ class SlashMenuView {
     }
     // Filling from a template needs an empty page: nothing but the "/query".
     const templates = templatePickerOf(this.ctx) !== null && onlySlash(this.view.state);
+    const nested = inColumn(this.view.state.doc, this.view.state.selection.from);
     if (!this.popover) {
-      this.popover = new Popover(sections(query, this.pick, templates), {
+      this.popover = new Popover(sections(query, this.pick, templates, nested), {
         anchor: () => this.caretRect(),
         label: "Insert block",
         onClose: () => this.onPopoverClosed(),
       });
     } else if (query !== this.query) {
-      this.popover.setSections(sections(query, this.pick, templates));
+      this.popover.setSections(sections(query, this.pick, templates, nested));
     } else {
       this.popover.position();
     }

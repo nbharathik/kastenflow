@@ -7,6 +7,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { HIGHLIGHT_DRAG, NOTE_DRAG } from "../../workspace/drag";
+import { settleStats } from "../../workspace/note-stats";
 import { MemoryVault } from "../../workspace/preview/memory-vault";
 import { derive } from "../../workspace/store-layout";
 import { useWorkspace } from "../../workspace/store";
@@ -215,6 +216,8 @@ describe("the whiteboard", () => {
     const note = await vault.read(IDEA);
     const saved = await vault.saveBody(IDEA, "A sharper first line.\n", note.hash);
     act(() => useWorkspace.getState().noteChanged(saved.note.meta));
+    // The list takes a typed page's new excerpt once typing settles; leaving the page settles it at once.
+    act(() => settleStats());
     expect(within(main.board).getByText("A sharper first line.")).toBeTruthy();
     expect(within(inner.board).getByText("A sharper first line.")).toBeTruthy();
     // A new title moves the file; both boards follow it.

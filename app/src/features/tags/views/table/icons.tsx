@@ -41,6 +41,7 @@ const TYPES: Record<string, ReactNode> = {
     </>
   ),
   relation: <path d="M7 17 17 7M9.5 7H17v7.5" />,
+  formula: <path d="M18 6H7l6 6-6 6h11" />,
   clock: (
     <>
       <circle cx="12" cy="12" r="8" />
@@ -58,6 +59,7 @@ const TYPES: Record<string, ReactNode> = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  chevron: <path d="M9.5 6l6 6-6 6" />,
   close: <path d="M7 7l10 10M17 7 7 17" />,
   tick: <path d="M5.5 12.5l4 4 9-9.5" />,
 };

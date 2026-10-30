@@ -35,6 +35,8 @@ export function selectionMenu(view: EditorView, event: MouseEvent, open: (action
           items: [
             { key: "explain", label: "Explain", icon: "icon:bulb", description: "Say what the selected text means; the page stays as it is.", onPick: () => open("explain") },
             { key: "ask-ai", label: "Ask AI…", icon: "icon:sparkle", description: "Ask AI to change the selected text or write about it.", onPick: () => open("ask") },
+            // Loaded on demand: the chat is not part of the editor.
+            { key: "add-to-chat", label: "Add to chat", icon: "icon:chat", description: "Keep the selected text with the chat, to ask about it.", hint: "Ctrl+Alt+L", onPick: () => void import("../../../chat/selection/add").then((m) => m.addSelectionToChat()) },
           ],
         },
         {

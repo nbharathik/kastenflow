@@ -285,7 +285,7 @@ impl Kasten {
             kept: Vec::new(),
         };
         let all = own_files(&dir, &prefix, ".bundle")?;
-        let older = all.len().saturating_sub(KEEP);
+        let older = all.len().saturating_sub(self.config().backup_files_kept());
         for old in &all[..older] {
             let inside =
                 read_bundle_header(old).is_ok_and(|h| history.holds(&header.head, &h.head));

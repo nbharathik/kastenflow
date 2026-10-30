@@ -19,6 +19,8 @@ export interface CommitOptions {
   group?: string;
   /** Joins only within this many milliseconds of the previous batch. */
   within?: number;
+  /** False for a batch that is not the person's edit (a page-map sync): it is saved but leaves the stacks alone. */
+  record?: boolean;
 }
 
 const MAX = 200;
@@ -44,6 +46,7 @@ export class BoardHistory {
   /** Sends a gesture's changes; resolves with what the core made. */
   async commit(changes: BoardChange[], options: CommitOptions = {}): Promise<Applied> {
     const applied = await this.queue.send(changes);
+    if (options.record === false) return applied;
     const back = invert(applied.before, applied.changes, applied.made);
     this.redos = [];
     this.push(this.undos, back, options);

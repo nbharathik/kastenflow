@@ -15,6 +15,7 @@ use super::budget::ChatBudgets;
 use super::chatgpt::{self, SIGN_IN_AGAIN, SIGN_IN_FIRST};
 use super::clients;
 use super::http::{HttpModel, Kind};
+use super::limit::ChatLimits;
 use super::providers;
 use super::steady::Steady;
 use super::store::Store;
@@ -130,6 +131,7 @@ impl ChatState {
     pub fn open_threads(&self, kasten: &Arc<Kasten>, data: Option<&Path>) {
         if let Some(dir) = self.config_dir() {
             self.chats.set_budgets(ChatBudgets::load(&dir));
+            self.chats.set_limits(ChatLimits::load(&dir));
         }
         let Some(data) = data else {
             return;

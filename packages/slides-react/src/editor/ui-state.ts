@@ -184,6 +184,12 @@ export interface EditorActions {
   fullScreen?(on: boolean): void | Promise<void>;
 }
 
+/** See `EditorUi.memory`. */
+export interface UiMemory {
+  filmstripWidth: number | null;
+  filmstripScroll: number;
+}
+
 export class EditorUi {
   private current: UiState = {
     ...INITIAL,
@@ -202,6 +208,22 @@ export class EditorUi {
    * layout, the theme, the transition) is not offered there. Set once, when the designer opens; it never changes while the editor lives.
    */
   designing = false;
+  /** What the editor's window keeps that no view draws from: the filmstrip's width and scroll. A host can keep it with the rest (`ui-snapshot.ts`). */
+  readonly memory: UiMemory = { filmstripWidth: null, filmstripScroll: 0 };
+  private readonly memoryListeners = new Set<() => void>();
+
+  subscribeMemory = (listener: () => void): (() => void) => {
+    this.memoryListeners.add(listener);
+    return () => this.memoryListeners.delete(listener);
+  };
+
+  /** Notes a change to `memory`; the listeners are told only when something differs. */
+  remember(changes: Partial<UiMemory>): void {
+    const differs = (Object.keys(changes) as (keyof UiMemory)[]).some((key) => changes[key] !== undefined && changes[key] !== this.memory[key]);
+    if (!differs) return;
+    Object.assign(this.memory, changes);
+    for (const listener of [...this.memoryListeners]) listener();
+  }
 
   /** What the host lets the editor do: present, export, print, leave. Set by the editor component; regions read it with `useUiState`. */
   get actions(): EditorActions {

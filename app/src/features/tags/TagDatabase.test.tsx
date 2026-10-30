@@ -33,6 +33,12 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
+/** Opens a themed drop-down inside `popup` and picks an option. */
+function pickIn(popup: HTMLElement, label: string, option: string) {
+  fireEvent.click(within(popup).getByRole("button", { name: new RegExp(`^${label}:`) }));
+  fireEvent.click(within(screen.getByRole("listbox", { name: label })).getByRole("option", { name: option }));
+}
+
 describe("Tag Database", () => {
   it("lists every tag with its notes and opens one's database", async () => {
     render(<TagsHome />);
@@ -62,13 +68,14 @@ describe("Tag Database", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /All/ }));
     fireEvent.click(screen.getByRole("button", { name: "+ Filter" }));
     const popup = screen.getByRole("dialog", { name: "Add a filter" });
-    fireEvent.change(within(popup).getByRole("combobox", { name: "Property" }), { target: { value: "status" } });
-    fireEvent.change(within(popup).getByRole("combobox", { name: "Condition" }), { target: { value: "is_not" } });
-    fireEvent.change(within(popup).getByRole("combobox", { name: "Value" }), { target: { value: "Done" } });
+    pickIn(popup, "Property", "status");
+    pickIn(popup, "Condition", "is not");
+    pickIn(popup, "Value", "Done");
     await act(async () => fireEvent.click(within(popup).getByRole("button", { name: "Add filter" })));
     await expect.poll(() => screen.queryByText("Plan budget")).toBeNull();
     expect(screen.getByText("2 of 3")).toBeTruthy();
-    fireEvent.change(screen.getByRole("combobox", { name: "Add a sort" }), { target: { value: "status" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Sort:/ }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Sort" })).getByRole("option", { name: "status" }));
     await expect.poll(async () => (await schema()).views[1]).toEqual({
       name: "All",
       type: "table",
@@ -90,9 +97,8 @@ describe("Tag Database", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /All/ }));
     fireEvent.click(screen.getByRole("button", { name: "+ Filter" }));
     const popup = screen.getByRole("dialog", { name: "Add a filter" });
-    fireEvent.change(within(popup).getByRole("combobox", { name: "Property" }), { target: { value: "urgent" } });
-    const value = within(popup).getByRole("combobox", { name: "Value" }) as HTMLSelectElement;
-    expect(value.selectedOptions[0]!.textContent).toBe("ticked");
+    pickIn(popup, "Property", "urgent");
+    expect(within(popup).getByRole("button", { name: "Value: ticked" })).toBeTruthy();
     await act(async () => fireEvent.click(within(popup).getByRole("button", { name: "Add filter" })));
     await expect.poll(async () => (await schema()).views[1]!.filter).toEqual([{ key: "urgent", op: "is", value: true }]);
     expect(screen.getByText("urgent is ticked")).toBeTruthy();

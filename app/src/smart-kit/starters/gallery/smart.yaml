@@ -1,0 +1,8 @@
+version: 1
+title: Gallery
+kit: "1"
+queries:
+  pictures:
+    tag: picture
+size:
+  height: 500

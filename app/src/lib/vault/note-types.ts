@@ -29,6 +29,9 @@ export interface NoteMeta {
   props: Record<string, unknown>;
   /** Read-only for agents. */
   locked: boolean;
+  /** For a page: the ids of its sub-pages in the order they show; those it
+   * does not name come after, alphabetically. */
+  childrenOrder?: string[];
 }
 
 export interface NoteFile {

@@ -1,9 +1,12 @@
-// The page menu's style choices: font, text size and full width, for this
+// The page menu's style choices: font, text size and width, for this
 // page. Each is kept in the page's frontmatter when it differs from the
 // defaults in Settings → Pages (workspace/page/page-layout.ts).
 
+import { useMemo } from "react";
+
 import { pageFor } from "../features/workspace/page/open-page";
 import { layoutValue, setLayout, shownLayout, STYLE_KEYS, usePageLayouts, type ShownLayout, type StyleKey } from "../features/workspace/page/page-layout";
+import { WidthControl } from "../features/workspace/page/WidthControl";
 import { TEXT_CHOICES } from "../features/workspace/page/text-size";
 import { usePrefs, type PageFont, type TextSize } from "../features/workspace/prefs";
 
@@ -17,7 +20,10 @@ const FONTS: { id: PageFont; label: string; family: string }[] = [
 const SAMPLE: Record<TextSize, string> = { small: "text-13", normal: "text-16", large: "text-20", xl: "text-24" };
 
 export function PageStyle({ path }: { path: string }) {
-  const prefs = usePrefs();
+  const font = usePrefs((s) => s.font);
+  const textSize = usePrefs((s) => s.textSize);
+  const pageWidth = usePrefs((s) => s.pageWidth);
+  const prefs = useMemo(() => ({ font, textSize, pageWidth }), [font, textSize, pageWidth]);
   const session = pageFor(path);
   const own = usePageLayouts((s) => (session ? s.of.get(session) : undefined));
   if (!session || !own) return null;
@@ -27,7 +33,7 @@ export function PageStyle({ path }: { path: string }) {
   const set = STYLE_KEYS.filter((key) => own[key] !== undefined);
 
   return (
-    <div className="mb-1 border-b border-line px-1 pb-2 pt-1" role="group" aria-label="Style of this page">
+    <div className="mb-1 border-b border-line px-1 pb-2 pt-1" role="group" aria-label="Style of this page" data-menu-focus="">
       <div className="flex gap-1">
         {FONTS.map((font) => (
           <button
@@ -64,10 +70,7 @@ export function PageStyle({ path }: { path: string }) {
           </button>
         ))}
       </div>
-      <label className="mt-1 flex cursor-pointer items-center justify-between rounded px-2 py-1 text-13 hover:bg-line/50">
-        Full width
-        <input type="checkbox" checked={shown.full} onChange={() => change("width", { full: !shown.full })} />
-      </label>
+      <WidthControl className="mt-1 w-full" value={shown.width} onChange={(width) => change("width", { width })} />
       {set.length > 0 && (
         <button
           type="button"

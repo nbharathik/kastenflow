@@ -85,6 +85,91 @@ fn the_status_tool_says_the_version_the_vault_the_history_the_session_and_whethe
     assert!(k.dirty().unwrap().is_empty());
 }
 
+/// A little more than the 100 ms the engine waits between looks at the config file.
+const PAUSE: std::time::Duration = std::time::Duration::from_millis(200);
+
+fn write_config(root: &std::path::Path, text: &str) {
+    std::fs::create_dir_all(root.join(".kasten")).unwrap();
+    std::fs::write(root.join(".kasten/config.yaml"), text).unwrap();
+}
+
+#[test]
+fn the_status_tool_says_the_limits_the_mode_and_the_plugins() {
+    let v = vault();
+    let k = Kasten::open(&v.0).unwrap();
+    let s = Session::start("kasten-chat", Instant::now());
+    let status = call(&k, &s, "server_status", Value::Null).unwrap();
+    assert_eq!(status["limits"]["max_trash_per_session"], json!(5));
+    assert_eq!(status["limits"]["max_board_nodes_removed"], json!(10));
+    assert_eq!(status["limits"]["max_write_bytes"], json!(204_800));
+    assert_eq!(status["mode"], json!("balanced"));
+    // Smart pages are off in a vault that says nothing.
+    assert_eq!(
+        status["plugins"],
+        json!({"diagrams": true, "latex": false, "smart": false})
+    );
+}
+
+#[test]
+fn a_change_to_the_config_on_disk_shows_without_a_restart() {
+    let v = vault();
+    let k = Kasten::open(&v.0).unwrap();
+    let s = Session::start("kasten-chat", Instant::now());
+    let before = call(&k, &s, "server_status", Value::Null).unwrap();
+    assert_eq!(before["limits"]["max_trash_per_session"], json!(5));
+
+    // The app saves a new limit, a plugin and a mode while the server runs.
+    std::thread::sleep(PAUSE);
+    write_config(
+        &v.0,
+        "name: Dev vault\nguardrails:\n  max_trash_per_session: 2\nplugins:\n  latex: true\nagents:\n  mode: review\n",
+    );
+    std::thread::sleep(PAUSE);
+    let after = call(&k, &s, "server_status", Value::Null).unwrap();
+    assert_eq!(
+        after["limits"]["max_trash_per_session"],
+        json!(2),
+        "{after}"
+    );
+    assert_eq!(after["plugins"]["latex"], json!(true), "{after}");
+    assert_eq!(after["mode"], json!("review"), "{after}");
+
+    // A file that does not parse keeps what was in force and says so.
+    std::thread::sleep(PAUSE);
+    write_config(&v.0, "guardrails: [broken\n");
+    std::thread::sleep(PAUSE);
+    let broken = call(&k, &s, "server_status", Value::Null).unwrap();
+    assert_eq!(broken["limits"]["max_trash_per_session"], json!(2));
+    assert!(
+        broken["problems"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p.as_str().unwrap().contains("config.yaml")),
+        "{broken}"
+    );
+}
+
+#[test]
+fn over_mcp_a_running_server_sees_a_limit_changed_on_disk() {
+    let v = vault();
+    let mut c = Client::start(&v.0, "claude-code");
+    let before = c.call("server_status", json!({})).unwrap();
+    assert_eq!(before["limits"]["max_trash_per_session"], json!(5));
+    std::thread::sleep(PAUSE);
+    write_config(
+        &v.0,
+        "name: Dev vault\nguardrails:\n  max_trash_per_session: 3\n",
+    );
+    std::thread::sleep(PAUSE);
+    let after = c.call("server_status", json!({})).unwrap();
+    assert_eq!(
+        after["limits"]["max_trash_per_session"],
+        json!(3),
+        "{after}"
+    );
+}
+
 #[test]
 fn a_vault_without_history_is_a_problem_the_status_names() {
     let dir = without_history();
@@ -190,6 +275,21 @@ fn setup_prints_the_lines_for_this_program_and_the_vault_as_the_file_system_spel
     );
     assert_eq!(entry["args"], json!(["--vault", canonical]));
 
+    // Codex: a TOML block for ~/.codex/config.toml, with this program and the vault.
+    let codex = mcp(&["--vault", vault_path, "--setup", "codex"]);
+    assert!(codex.status.success(), "{}", stderr(&codex));
+    let toml = stdout(&codex);
+    let escaped = |text: &str| text.replace('\\', "\\\\");
+    assert!(
+        toml.contains("~/.codex/config.toml")
+            && toml.contains("[mcp_servers.kasten]")
+            && toml.contains("[mcp_servers.kasten.env]")
+            && toml.contains(&format!("KASTEN_VAULT = \"{}\"", escaped(&canonical)))
+            && toml.contains("kasten-mcp")
+            && toml.contains("args = []"),
+        "{toml}"
+    );
+
     let http = mcp(&["--vault", vault_path, "--setup", "http"]);
     let text = stdout(&http);
     assert!(
@@ -211,7 +311,7 @@ fn setup_for_something_it_does_not_know_is_refused_with_the_choices() {
     assert_eq!(out.status.code(), Some(2));
     let said = stderr(&out);
     assert!(
-        said.contains("claude-code, claude-desktop or http") && stdout(&out).is_empty(),
+        said.contains("claude-code, claude-desktop, codex or http") && stdout(&out).is_empty(),
         "{said}"
     );
     let none = mcp(&["--vault", v.0.to_str().unwrap(), "--setup"]);

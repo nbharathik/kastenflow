@@ -9,10 +9,12 @@ mod clean;
 pub mod commands;
 mod extract;
 mod install;
-mod pinned;
+pub(crate) mod pinned;
 pub mod protocol;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub use commands::{Editor, installed_dir};
+pub(crate) use extract::LIMITS;
+pub(crate) use install::editor_spec;

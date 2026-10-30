@@ -2,7 +2,7 @@
 // editor is ready: jumps to a heading or line, and the reader's place
 // after a reload.
 
-import { useCallback, useState, type RefObject } from "react";
+import { useCallback, useState, useSyncExternalStore, type RefObject } from "react";
 
 import type { PageEditorHandle } from "../../pages/editor/PageEditor";
 import { usePageJumps } from "./jump";
@@ -21,14 +21,49 @@ interface PageEditorOptions {
   bodyRoot: RefObject<HTMLDivElement | null>;
 }
 
+/** The page's text as typed, held outside React state: typing draws only
+ * what reads it (`useBody`), not the whole page. */
+export interface BodyStore {
+  get(): string;
+  set(next: string): void;
+  subscribe(listener: () => void): () => void;
+}
+
+function bodyStore(initial: string): BodyStore {
+  let text = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => text,
+    set(next) {
+      if (next === text) return;
+      text = next;
+      for (const listener of [...listeners]) listener();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+  };
+}
+
+/** The page's text, drawn again on each change while `on`; "" when not. */
+export function useBody(store: BodyStore, on: boolean): string {
+  return useSyncExternalStore(store.subscribe, () => (on ? store.get() : ""));
+}
+
+/** Whether the page has no text yet: draws again only when that changes. */
+export function useBlank(store: BodyStore, on: boolean): boolean {
+  return useSyncExternalStore(store.subscribe, () => on && !store.get().trim());
+}
+
 export function usePageEditor({ loaded, session, journal, compact, headless, editor, bodyRoot }: PageEditorOptions) {
-  const [body, setBody] = useState(loaded.body);
+  const [body] = useState(() => bodyStore(loaded.body));
   const onBody = useCallback(
     (next: string) => {
-      setBody(next);
+      body.set(next);
       session.editBody(next);
     },
-    [session],
+    [session, body],
   );
   const [editorReady, setEditorReady] = useState(0);
   usePageJumps(session.path, editor, editorReady);

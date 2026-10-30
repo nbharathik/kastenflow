@@ -22,12 +22,18 @@ export interface ChatLinks {
   showSession(session: string): void;
 }
 
-export function linksFor(variant: Variant): ChatLinks {
+/**
+ * The links of a chat. `usually` is where a plain click opens what the chat links to (Ctrl, Shift and Alt still choose): "here" unless the
+ * place that shows the chat is a document that a link must not take over (a deck's assistant tab).
+ */
+export function linksFor(variant: Variant, usually: OpenHow = "here"): ChatLinks {
+  // A plain click asks for "here" (no key held): that is the usual place. Ctrl, Shift and Alt still choose.
+  const way = (how: OpenHow | undefined): OpenHow => (how === undefined || how === "here" ? usually : how);
   return {
     variant,
-    openTitle: (title, how = "here") => void useWorkspace.getState().openTitle(title, how),
-    openPath: (path, how = "here") => useWorkspace.getState().openPath(path, how),
-    go: (place) => useWorkspace.getState().go(place),
+    openTitle: (title, how) => void useWorkspace.getState().openTitle(title, way(how)),
+    openPath: (path, how) => useWorkspace.getState().openPath(path, way(how)),
+    go: (place) => useWorkspace.getState().go(place, usually),
     showSession: (session) => showSession(session),
   };
 }

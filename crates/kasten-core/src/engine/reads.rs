@@ -45,7 +45,25 @@ impl Kasten {
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<Hit>> {
-        self.index().search(query, limit)
+        let mut hits = self.index().search(query, limit)?;
+        // With the LaTeX plugin on, the words of documents' .tex files are found too,
+        // after the notes. A document that cannot be read only goes unfound.
+        if hits.len() < limit && self.config().plugin_enabled("latex") {
+            let more = self
+                .latex_hits(query, limit - hits.len())
+                .unwrap_or_default();
+            hits.extend(more);
+        }
+        // The words a smart page's index.html shows lead to the page, after the rest.
+        if hits.len() < limit {
+            let seen: std::collections::HashSet<String> =
+                hits.iter().map(|hit| hit.path.clone()).collect();
+            let more = self
+                .smart_hits(query, limit - hits.len(), &seen)
+                .unwrap_or_default();
+            hits.extend(more);
+        }
+        Ok(hits)
     }
 
     /// Notes whose links go to the note at `path`.
@@ -77,12 +95,44 @@ impl Kasten {
         self.index().by_id(id)
     }
 
+    /// Whether more than one note carries `id` (files copied by hand): what is
+    /// kept by id, like a person's leave for a page, would belong to all of them.
+    pub fn id_is_shared(&self, id: &str) -> Result<bool> {
+        Ok(self.index().count_by_id(id)? > 1)
+    }
+
     /// Commits, newest first; with a path, those that changed that note.
     pub fn log(&self, path: Option<&str>, limit: usize) -> Result<Vec<CommitInfo>> {
         match self.history.get() {
             Some(history) => history.log(path, limit),
             None => Ok(Vec::new()),
         }
+    }
+
+    /// The commit that made `path`: who made the page, whatever was done to
+    /// it since. A rename or a move is followed back to the making, and so is
+    /// a copy a person made of a note (a duplicate of a page an agent made was
+    /// still made by the agent). None when there is no history, or the path
+    /// was never there.
+    pub fn first_commit(&self, path: &str) -> Result<Option<CommitInfo>> {
+        let Some(history) = self.history.get() else {
+            return Ok(None);
+        };
+        let mut found = history.first_change(path)?;
+        // A copy of a copy of a copy: a few steps are followed, no more.
+        for _ in 0..8 {
+            let Some(first) = found.as_ref().filter(|first| !first.agent) else {
+                break;
+            };
+            let Some(source) = first.copy_of().filter(|source| source != path) else {
+                break;
+            };
+            match history.first_change(&source)? {
+                Some(origin) => found = Some(origin),
+                None => break,
+            }
+        }
+        Ok(found)
     }
 
     /// A file's text at a commit.

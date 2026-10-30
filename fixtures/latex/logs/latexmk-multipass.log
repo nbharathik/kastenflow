@@ -1,0 +1,102 @@
+Rc files read:
+  NONE
+Latexmk: This is Latexmk, John Collins, 26 Dec. 2023. Version 4.83.
+No existing .aux file, so I'll make a simple one, and require run of *latex.
+Latexmk: applying rule 'pdflatex'...
+Rule 'pdflatex':  Reasons for rerun
+Category 'other':
+  Rerun of 'pdflatex' forced or previously required:
+  Reason or flag: 'Initial setup'
+
+------------
+Run number 1 of rule 'pdflatex'
+------------
+------------
+Running 'pdflatex  -recorder  "main.tex"'
+------------
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:30
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(./main.aux)
+
+LaTeX Warning: Citation `knuth' on page 1 undefined on input line 15.
+
+
+LaTeX Warning: Citation `ctan' on page 1 undefined on input line 16.
+
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.aux)
+
+LaTeX Warning: There were undefined references.
+
+ )
+Output written on main.pdf (1 page, 2345 bytes).
+Transcript written on main.log.
+Latexmk: Index file 'main.idx' was not originally made
+Latexmk: applying rule 'bibtex main'...
+Rule 'bibtex main':  Reasons for rerun
+Category 'changed files, or newly in use since previous run(s)':
+  'main.aux'
+
+------------
+Run number 1 of rule 'bibtex main'
+------------
+------------
+Running 'bibtex  "main.aux"'
+------------
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+The top-level auxiliary file: main.aux
+The style file: plain.bst
+Database file #1: refs.bib
+Warning--I didn't find a database entry for "ctan"
+(There was 1 warning)
+Latexmk: applying rule 'pdflatex'...
+Rule 'pdflatex':  Reasons for rerun
+Category 'changed files, or newly in use since previous run(s)':
+  'main.aux'
+  'main.bbl'
+
+------------
+Run number 2 of rule 'pdflatex'
+------------
+------------
+Running 'pdflatex  -recorder  "main.tex"'
+------------
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2024.3.1)  22 OCT 2026 10:30
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2023-11-01> patch level 1
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(./main.aux)
+(./main.bbl)
+
+Overfull \hbox (7.2pt too wide) in paragraph at lines 20--21
+[]\OT1/cmr/m/n/10 Supercalifragilistic
+ []
+
+
+LaTeX Warning: Citation `ctan' on page 1 undefined on input line 16.
+
+[1{/usr/share/texlive/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+(./main.aux)
+
+LaTeX Warning: There were undefined references.
+
+ )
+Output written on main.pdf (1 page, 2400 bytes).
+Transcript written on main.log.
+Latexmk: Summary of warnings from last run of *latex:
+  Latex failed to resolve 1 reference(s)
+Latexmk: All targets (main.pdf) are up-to-date

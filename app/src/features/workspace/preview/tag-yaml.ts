@@ -4,9 +4,9 @@
 
 import { writeFlow } from "../../../lib/flow-yaml";
 
-const KINDS = ["text", "number", "select", "multi_select", "date", "checkbox", "url", "relation"];
+const KINDS = ["text", "number", "select", "multi_select", "date", "checkbox", "url", "relation", "formula"];
 // As kasten-core's VIEW_KINDS (engine/tag_lists.rs).
-const VIEW_KINDS = ["table", "kanban", "list", "calendar", "gallery"];
+const VIEW_KINDS = ["table", "kanban", "list", "calendar", "gallery", "timeline"];
 
 /** A byte-order mark, which may begin a file's first line. */
 const BOM = String.fromCharCode(0xfeff);
@@ -83,8 +83,9 @@ export function setValue(yaml: string, key: string, value: unknown): string {
 const textOf = (item: Record<string, unknown>, key: string) => (typeof item[key] === "string" ? (item[key] as string).trim() : "");
 const isMap = (item: unknown): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item);
 
-/** Refuses views the app could not show, as the core does. */
-export function checkViews(tag: string, views: readonly unknown[]): void {
+/** Refuses views the app could not show, as the core does. `properties`, when
+ * given, are the tag's: a timeline's dates and lanes are held to them. */
+export function checkViews(tag: string, views: readonly unknown[], properties: readonly { key: string; type: string }[] = []): void {
   const bad = (why: string) => new Error(`Views of “${tag}”: ${why}`);
   const names: string[] = [];
   for (const view of views) {
@@ -95,7 +96,38 @@ export function checkViews(tag: string, views: readonly unknown[]): void {
     if (!VIEW_KINDS.includes(kind)) throw bad(`“${name}” has an unknown type “${kind}”`);
     if (names.includes(name.toLowerCase())) throw bad(`two views are called “${name}”`);
     names.push(name.toLowerCase());
+    if (kind === "timeline") {
+      const why = timelineProblem(view, name, (key) => properties.find((p) => p.key === key)?.type);
+      if (why) throw bad(why);
+    }
   }
+}
+
+const DATE_KINDS = ["date", "formula"];
+const LANE_KINDS = ["select", "multi_select", "relation"];
+
+/** What is wrong with a timeline's settings, as kasten-core's tags/timeline.rs says it, or null. */
+function timelineProblem(view: Record<string, unknown>, name: string, kindOf: (key: string) => string | undefined): string | null {
+  const is = (key: string, kinds: string[], what: string, verb: string): string | null => {
+    const value = textOf(view, key);
+    if (!value) return `“${name}” has a ${key} that is not a property name`;
+    const kind = kindOf(value);
+    if (kind === undefined) return `“${name}” ${verb} “${value}”, which is not a property of this tag`;
+    return kinds.includes(kind) ? null : `“${name}” ${verb} “${value}”, which is a ${kind.replace("_", " ")} property; ${what}`;
+  };
+  if (!textOf(view, "start")) return `“${name}” needs a start: the date property its bars begin at`;
+  const found = is("start", DATE_KINDS, "a start must be a date", "starts at");
+  if (found) return found;
+  if (view.end != null) {
+    const end = is("end", DATE_KINDS, "an end must be a date", "ends at");
+    if (end) return end;
+  }
+  if (view.group_by != null) {
+    const group = is("group_by", LANE_KINDS, "lanes come from a select, multi select or relation property", "groups by");
+    if (group) return group;
+  }
+  if (view.scale != null && !["week", "month", "quarter"].includes(view.scale as string)) return `“${name}” has a scale that is not one of week, month, quarter`;
+  return null;
 }
 
 /** Refuses properties the app could not keep, as the core does. */

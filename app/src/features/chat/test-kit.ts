@@ -2,7 +2,7 @@
 // event, and a store emptied between tests.
 
 import type { NoteFile } from "../../lib/vault/types";
-import { DEFAULT_BUDGETS, type AttachKind, type ChatBudgets, type ChatSnapshot, type LoadedThread, type RequestOutcome, type ThreadSummary } from "./agent-types";
+import { DEFAULT_BUDGETS, DEFAULT_CHAT_LIMITS, type AttachKind, type Binding, type ChatBudgets, type ChatLimits, type ChatSnapshot, type ImportedBindings, type LoadedThread, type RequestOutcome, type ThreadSummary } from "./agent-types";
 import { forgetCapabilities, type ModelCapabilities } from "./capabilities";
 import type { ChatClient } from "./client";
 import { BUILT_IN_CATALOG } from "./preview/actions";
@@ -58,6 +58,24 @@ export interface Scripted extends ChatClient {
   /** The threads continued and deleted. */
   continues: string[];
   deleted: string[];
+  /** What `load` rejects with for a chat (the typed adopt failure, or a plain error). */
+  loadErrors: Record<string, unknown>;
+  /** The `from` of each `newThread`, the ids it gave, and what it did to others. */
+  newThreads: (string | undefined)[];
+  /** The ids unarchived, the ids `deleteArchived` was asked for, and the skipped ones it answers with. */
+  unarchives: string[];
+  /** The ids archived by hand (`archive`). */
+  archives: string[];
+  archivedDeletes: string[][];
+  skipOnDelete: { id: string; reason: string }[];
+  limitValues: ChatLimits;
+  /** Ties, as `bind` made them (thread to target), the unbound threads, and the moves passed to `rebind`. */
+  ties: Record<string, Binding>;
+  unbinds: string[];
+  rebinds: { from: string; to: string }[][];
+  /** What `importBindings` was given (one entry per call), and what it answers. */
+  imports: Record<string, string>[];
+  imported: ImportedBindings;
   /** The next `send` while a turn runs answers as queued. */
   queueNext(): void;
   budgetValues: ChatBudgets;
@@ -127,6 +145,18 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
     stateAsks: [],
     continues: [],
     deleted: [],
+    loadErrors: {},
+    newThreads: [],
+    unarchives: [],
+    archives: [],
+    archivedDeletes: [],
+    skipOnDelete: [],
+    limitValues: { ...DEFAULT_CHAT_LIMITS },
+    ties: {},
+    unbinds: [],
+    rebinds: [],
+    imports: [],
+    imported: { bound: 0, missing: 0, kept: 0 },
     queueNext: () => void (queue = true),
     budgetValues: { ...DEFAULT_BUDGETS },
     outcomes: [],
@@ -217,6 +247,7 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
     },
     threads: async () => client.threadList,
     async load(chat) {
+      if (chat in client.loadErrors) throw client.loadErrors[chat];
       const found = client.loads[chat];
       if (!found) throw new Error(`No saved chat ${chat}`);
       return found;
@@ -251,6 +282,63 @@ export function scriptedChat(providers: ChatProvider[] = [CLAUDE]): Scripted {
     },
     async reset(chat) {
       client.resets.push(chat);
+    },
+    async newThread(from) {
+      client.newThreads.push(from);
+      const id = `chat-new-${client.newThreads.length}`;
+      // A tie on `from` moves to the new thread.
+      const tie = from ? client.ties[from] : undefined;
+      if (from && tie) {
+        delete client.ties[from];
+        client.ties[id] = tie;
+      }
+      return { id, ...(tie ? { bound: tie } : {}) };
+    },
+    async archive(id) {
+      client.archives.push(id);
+      client.threadList = client.threadList.map((t) => (t.id === id ? { ...t, archived: true, bound: null } : t));
+      return true;
+    },
+    async unarchive(id) {
+      client.unarchives.push(id);
+      client.threadList = client.threadList.map((t) => (t.id === id ? { ...t, archived: false } : t));
+      return true;
+    },
+    async deleteArchived(ids) {
+      client.archivedDeletes.push(ids);
+      const skipped = client.skipOnDelete;
+      const deleted = ids.filter((id) => !skipped.some((s) => s.id === id));
+      client.threadList = client.threadList.filter((t) => !deleted.includes(t.id));
+      return { deleted, count: deleted.length, skipped };
+    },
+    limits: async () => client.limitValues,
+    async setLimits(limits) {
+      client.limitValues = limits;
+      return limits;
+    },
+    async bind(thread, target) {
+      const lost = Object.entries(client.ties).filter(([id, tie]) => id !== thread && tie.kind === target.kind && tie.path === target.path).map(([id]) => id);
+      for (const id of lost) delete client.ties[id];
+      client.ties[thread] = target;
+      return lost;
+    },
+    async unbind(thread) {
+      client.unbinds.push(thread);
+      const had = thread in client.ties;
+      delete client.ties[thread];
+      return had;
+    },
+    async threadFor(target) {
+      const id = Object.keys(client.ties).find((key) => client.ties[key]!.kind === target.kind && client.ties[key]!.path === target.path);
+      return (id && client.threadList.find((t) => t.id === id)) || null;
+    },
+    async rebind(moves) {
+      client.rebinds.push(moves);
+      return moves.length;
+    },
+    async importBindings(map) {
+      client.imports.push(map);
+      return client.imported;
     },
     async rewind(chat, keep) {
       client.rewinds.push([chat, keep]);

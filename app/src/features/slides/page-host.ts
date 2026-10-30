@@ -5,13 +5,14 @@ import type { HostPage, HostPageText, OpenPageWay, SlidesHost } from "@kasten-sl
 
 import { openWeb } from "../../shell/web-links";
 import type { VaultClient } from "../../lib/vault/types";
+import { openInKastenTab } from "../browser/open";
 import { splitFrontmatter } from "../pages/markdown/frontmatter";
 import { useWorkspace } from "../workspace/store";
 import { onPageFiles } from "./events";
 import { PagePanel } from "./PagePanel";
 import { hostPage, isPage, usePagePicker } from "./page-picker";
 
-type PageMembers = Required<Pick<SlidesHost, "pickPage" | "readPage" | "listPages" | "openPage" | "watchPages" | "pagePanel" | "openUrl">>;
+type PageMembers = Required<Pick<SlidesHost, "pickPage" | "readPage" | "listPages" | "openPage" | "watchPages" | "pagePanel" | "openUrl" | "openInTab">>;
 
 /** How the Slides host's ways of opening a page are the workspace's own. */
 const WAYS: Record<OpenPageWay, "here" | "tab" | "right" | "peek"> = { here: "here", tab: "tab", right: "right", peek: "peek" };
@@ -41,5 +42,6 @@ export function pageHost(client: VaultClient): PageMembers {
     watchPages: (onChange) => onPageFiles(onChange),
     pagePanel: PagePanel,
     openUrl: (url) => openWeb(url),
+    openInTab: openInKastenTab,
   };
 }

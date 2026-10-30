@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reading dashboard</title>
+  <link rel="stylesheet" href="smart://kit/1/kit.css">
+</head>
+<body>
+  <h1>Reading dashboard</h1>
+  <section class="kit-stack">
+    <div id="stats"></div>
+    <div id="deadlines"></div>
+    <div id="chart"></div>
+    <div id="papers"></div>
+  </section>
+  <script src="smart://kit/1/kit.js"></script>
+  <script src="smart://kit/1/lib/dom.js"></script>
+  <script src="smart://kit/1/lib/dates.js"></script>
+  <script src="smart://kit/1/lib/format.js"></script>
+  <script src="smart://kit/1/lib/keys.js"></script>
+  <script src="smart://kit/1/components/legend.js"></script>
+  <script src="smart://kit/1/components/charts.js"></script>
+  <script src="smart://kit/1/components/stat.js"></script>
+  <script src="smart://kit/1/components/countdown.js"></script>
+  <script src="smart://kit/1/components/table.js"></script>
+  <script>
+    // Papers tagged "paper": a live table, and numbers worked out from the same notes.
+    kit.components.table("#papers", { label: "Papers", columns: ["title", "status"], watch: { tag: "paper" }, map: (notes) => notes.map((n) => ({ id: n.id, title: n.title, status: (n.props && n.props.status) || "unread" })) });
+    const stats = kit.components.stat("#stats", { data: [] });
+    const chart = kit.components.donut("#chart", { label: "Papers by status", data: [] });
+    kasten.watch({ tag: "paper" }, (notes) => {
+      const counts = {};
+      notes.forEach((n) => {
+        const s = (n.props && n.props.status) || "unread";
+        counts[s] = (counts[s] || 0) + 1;
+      });
+      stats.update([{ label: "Papers", value: notes.length }]);
+      chart.update(Object.keys(counts).map((k) => ({ label: k, value: counts[k] })));
+    });
+    kit.components.countdown("#deadlines", {
+      label: "Deadlines",
+      data: [{ title: "Camera-ready", date: "2027-03-01", aoe: true }, { title: "Conference", date: "2027-06-10", announced: false }],
+    });
+  </script>
+</body>
+</html>

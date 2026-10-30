@@ -9,7 +9,7 @@ import { contextualParser, isBlank, type MarkdownCodec, type Snapshot, type Unit
  * nodes written by the editor's serializer. `from`/`to` index `current`. */
 type Segment<N> =
   | { kind: "verbatim"; unit: Unit<N>; from: number; to: number }
-  | { kind: "fresh"; gap: string | null; from: number; to: number };
+  | { kind: "fresh"; gap: string | null; from: number; to: number; was?: Unit<N> };
 
 /** Where each source block stood, by its number in the source. Blocks that now
  * stand next to ones they never stood beside (moved, or with a block taken from
@@ -154,7 +154,8 @@ function planHole<N>(segments: Segment<N>[], units: readonly Unit<N>[], from: nu
     }
     const last = ++v === visible.length;
     const take = last ? to - pos : Math.min(u.nodes.length, to - pos);
-    segments.push({ kind: "fresh", gap: u.gap, from: pos, to: pos + take });
+    // One block for one block: the codec may keep the old bytes of what did not change in it.
+    segments.push({ kind: "fresh", gap: u.gap, from: pos, to: pos + take, ...(take === 1 && u.nodes.length === 1 ? { was: u } : {}) });
     pos += take;
   }
 }
@@ -187,11 +188,12 @@ function render<N>(
     }
     const nodes = current.slice(seg.from, seg.to).filter((n) => !isBlank(codec, n));
     if (nodes.length === 0) continue;
-    const text = codec
+    const written = codec
       .serialize(nodes)
       .replace(/^(?:[ \t]*\r?\n)+/, "")
-      .replace(/\s+$/, "")
-      .replace(/\r?\n/g, eol);
+      .replace(/\s+$/, "");
+    const refined = seg.was && nodes.length === 1 ? codec.refine?.(seg.was.src.replace(/\r\n/g, "\n"), nodes[0]!, written.replace(/\r\n/g, "\n")) : null;
+    const text = (refined ?? written).replace(/\r?\n/g, eol);
     const gap = last === "none" ? lead : ensureBlankLine(seg.gap ?? eol + eol, eol);
     out.push(gap + text);
     last = "fresh";

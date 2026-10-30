@@ -9,16 +9,21 @@
 
 import "./dock.css";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 import { useShell } from "../../lib/store";
 import { Icon } from "../../ui/Icon";
 import { ResizeHandle } from "../../ui/ResizeHandle";
+import { useBoards } from "../boards/store";
 import { boxOf } from "../browser/bounds";
 import { holdWhile, useOccludes } from "../browser/occlusion";
-import { noteChip } from "./context";
+import { useShowing } from "../browser/show";
+import { useWorkspace } from "../workspace/store";
+import { followChip } from "./binding/target";
+import { useSwitchMode } from "./binding/use-switch-mode";
 import { clampWidth, DOCK_WIDTH, dockLayout, keepWidth, loadWidth } from "./dock";
-import { useActivePage } from "./open-pages";
+import { useActivePage, useActiveTarget } from "./open-pages";
+import { useSelectionContext } from "./selection/use-selection";
 import { useChat } from "./store";
 import { following } from "./thread";
 import { Conversation, useChatSetup } from "./view/Conversation";
@@ -87,14 +92,24 @@ export function ChatDock() {
     if (!chat.active || !chat.threads[chat.active]) chat.start({ open: true });
   }, [active]);
 
-  // The page in front is the thread's page chip, while it follows.
-  const path = page?.path ?? null;
-  const title = page?.title ?? null;
+  // What is in front (a page, deck, whiteboard, diagram or document) is the thread's chip, while it follows.
+  // A tab with none of those (Settings, Trash) leaves the chip as it was.
+  const target = useActiveTarget();
+  const notes = useWorkspace((s) => s.notes);
+  const boards = useBoards((s) => s.list);
+  const chip = useMemo(() => followChip(target, notes, boards), [target, notes, boards]);
+  const chipId = chip ? `${chip.kind}\u0000${chip.ref.join("\u0000")}\u0000${chip.label}` : "";
+  const hasTarget = target !== null;
   useEffect(() => {
-    if (!active || !follows || !page) return;
-    useChat.getState().followPage(active, noteChip(page));
-    // The chip is made from the page's path and title only.
-  }, [active, follows, path, title]);
+    if (!active || !follows || !hasTarget) return;
+    // A target whose chip cannot be made yet (a page the list does not have) takes the old chip away rather than leave it standing for something else.
+    useChat.getState().followPage(active, chip);
+    // The chip is made from the target's path and title only.
+  }, [active, follows, chipId, hasTarget]);
+  // The settings "When I switch pages": the page's own chat, or a new one for each page.
+  useSwitchMode(target);
+  // Selected text becomes a chip (Settings → "Selected text").
+  useSelectionContext(active);
 
   // Room again once the window is wide enough: back to the panes.
   useEffect(() => {
@@ -109,7 +124,9 @@ export function ChatDock() {
     area.classList.add("kasten-chat-expanded");
     return () => area.classList.remove("kasten-chat-expanded");
   }, [hidingPanes, mounted]);
-  useOccludes(held, () => (dock.current ? boxOf(dock.current.getBoundingClientRect()) : null));
+  // Not while a slide show holds the whole window: the show's hold already covers it, and the dock must not add its own.
+  const presenting = useShowing((s) => s.count > 0);
+  useOccludes(held && !presenting, () => (dock.current ? boxOf(dock.current.getBoundingClientRect()) : null));
 
   if (!active) return null;
   const collapsed = layout === "expanded" && showPage;

@@ -6,10 +6,10 @@ import { isoDay } from "../../lib/dates";
 import type { NoteMeta, PropDef, TagSchema, TagView, TagViewKind, ViewFilter } from "../../lib/vault/types";
 import { titleOf } from "../workspace/names";
 
-export const VIEW_KINDS: readonly TagViewKind[] = ["table", "kanban", "list", "gallery", "calendar"];
+export const VIEW_KINDS: readonly TagViewKind[] = ["table", "kanban", "list", "gallery", "calendar", "timeline"];
 
 /** What a new view of each kind is called. */
-export const KIND_NAMES: Record<TagViewKind, string> = { table: "Table", kanban: "Board", list: "List", calendar: "Calendar", gallery: "Gallery" };
+export const KIND_NAMES: Record<TagViewKind, string> = { table: "Table", kanban: "Board", list: "List", calendar: "Calendar", gallery: "Gallery", timeline: "Timeline" };
 
 const lower = (s: string) => s.toLowerCase();
 const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
@@ -48,7 +48,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 /** A key as YAML may write it: text, or a number such as 2026. */
 const keyOf = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : typeof value === "number" ? String(value) : null);
-const FILTER_OPS: readonly string[] = ["is", "is_not", "contains", "empty", "not_empty", "before", "after"];
+const FILTER_OPS: readonly string[] = ["is", "is_not", "contains", "empty", "not_empty", "before", "after", "gt", "gte", "lt", "lte"];
 
 function readFilter(raw: unknown): ViewFilter | null {
   if (!isRecord(raw)) return null;
@@ -75,11 +75,18 @@ export function readView(raw: unknown): TagView | null {
   if ("filter" in raw) view.filter = known(listOf(raw.filter).map(readFilter));
   if ("sort" in raw) view.sort = known(listOf(raw.sort).map(readSort));
   if ("columns" in raw) view.columns = known(listOf(raw.columns).map(keyOf));
-  for (const key of ["group_by", "date"] as const) {
+  for (const key of ["group_by", "date", "start", "end"] as const) {
     const value = keyOf(raw[key]);
     if (value) view[key] = value;
     else delete view[key];
   }
+  for (const key of ["sub_items", "hide_sub_items", "wrap", "freeze_title"] as const) {
+    if (key in raw && typeof raw[key] !== "boolean") delete view[key];
+  }
+  if ("filter_mode" in raw && raw.filter_mode !== "all" && raw.filter_mode !== "any") delete view.filter_mode;
+  if ("density" in raw && raw.density !== "compact" && raw.density !== "comfortable") delete view.density;
+  if ("calcs" in raw && !isRecord(raw.calcs)) delete view.calcs;
+  if ("scale" in raw && raw.scale !== "week" && raw.scale !== "month" && raw.scale !== "quarter") delete view.scale;
   if ("scope" in raw) {
     if (raw.scope === "project" || raw.scope === "vault") view.scope = raw.scope;
     else delete view.scope;
@@ -112,6 +119,13 @@ export function newView(kind: TagViewKind, schema: TagSchema | null, views: read
   const date = firstOf(schema, "date");
   if (kind === "kanban" && select) view.group_by = select;
   if (kind === "calendar" && date) view.date = date;
+  if (kind === "timeline") {
+    // Bars begin at the first date property and end at the second, if the tag has two.
+    const dates = (schema?.properties ?? []).filter((p) => p.type === "date");
+    if (dates[0]) view.start = dates[0].key;
+    if (dates[1]) view.end = dates[1].key;
+    view.scale = "month";
+  }
   return view;
 }
 
@@ -183,6 +197,33 @@ function same(value: unknown, wanted: unknown, def: PropDef | undefined): boolea
   return !isEmpty(value) && textOf(value) === textOf(wanted);
 }
 
+/** A value as a number, or null when it is empty or not one. */
+const numberOf = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
+
+/** `is more than`, `is at least`, `is less than`, `is at most`: a value with no number never passes. */
+function atNumber(value: unknown, filter: ViewFilter): boolean {
+  const have = numberOf(value);
+  const want = numberOf(filter.value);
+  if (have === null || want === null) return false;
+  switch (filter.op) {
+    case "gt":
+      return have > want;
+    case "gte":
+      return have >= want;
+    case "lt":
+      return have < want;
+    default:
+      return have <= want;
+  }
+}
+
 /** Whether a note passes one filter. */
 export function passes(note: NoteMeta, filter: ViewFilter, def: PropDef | undefined): boolean {
   const value = valueOf(note, filter.key);
@@ -201,6 +242,11 @@ export function passes(note: NoteMeta, filter: ViewFilter, def: PropDef | undefi
       return dayOf(value) !== "" && dayOf(value) < dayOf(filter.value);
     case "after":
       return dayOf(value) !== "" && dayOf(value) > dayOf(filter.value);
+    case "gt":
+    case "gte":
+    case "lt":
+    case "lte":
+      return atNumber(value, filter);
     default:
       return true;
   }
@@ -213,6 +259,14 @@ function compareValues(a: unknown, b: unknown, def: PropDef | undefined, key: st
   switch (type) {
     case "number":
       return Number(a) - Number(b);
+    case "formula": {
+      // A calculated value is a number or a text; numbers go by size, numbers before text.
+      const x = numberOf(a);
+      const y = numberOf(b);
+      if (x !== null && y !== null) return x - y;
+      if (x !== null || y !== null) return x !== null ? -1 : 1;
+      return collator.compare(String(a), String(b));
+    }
     case "checkbox":
       return Number(truthy(a)) - Number(truthy(b));
     case "select": {
@@ -238,12 +292,31 @@ export function findInView(notes: readonly NoteMeta[], query: string): NoteMeta[
   return notes.filter((n) => titleOf(n).toLowerCase().includes(q) || Object.values(n.props).some(holds));
 }
 
+/** Each id of a view's `order` with its place; null when there is no usable list. */
+function manualRank(order: unknown): Map<string, number> | null {
+  if (!Array.isArray(order) || order.length === 0) return null;
+  const rank = new Map<string, number>();
+  for (const id of order) if (typeof id === "string" && !rank.has(id)) rank.set(id, rank.size);
+  return rank;
+}
+
 export function applyView(notes: readonly NoteMeta[], view: TagView, schema: TagSchema | null): NoteMeta[] {
   const defs = new Map((schema?.properties ?? []).map((p) => [p.key, p]));
-  const shown = notes.filter((note) => (view.filter ?? []).every((f) => passes(note, f, defs.get(f.key))));
+  const filters = view.filter ?? [];
+  const some = view.filter_mode === "any" && filters.length > 0;
+  const ok = (note: NoteMeta, f: ViewFilter) => passes(note, f, defs.get(f.key));
+  const shown = notes.filter((note) => (some ? filters.some((f) => ok(note, f)) : filters.every((f) => ok(note, f))));
   const sorts = view.sort ?? [];
   const titles = new Map(shown.map((n) => [n.path, titleOf(n)]));
+  const rank = sorts.length === 0 ? manualRank(view.order) : null;
   return shown.sort((a, b) => {
+    if (rank) {
+      // Rows put in order by hand come first; new rows and rows without an id follow, by title.
+      const ra = a.id ? rank.get(a.id) : undefined;
+      const rb = b.id ? rank.get(b.id) : undefined;
+      if (ra !== undefined && rb !== undefined) return ra - rb;
+      if (ra !== undefined || rb !== undefined) return ra !== undefined ? -1 : 1;
+    }
     for (const { key, dir } of sorts) {
       const va = valueOf(a, key);
       const vb = valueOf(b, key);

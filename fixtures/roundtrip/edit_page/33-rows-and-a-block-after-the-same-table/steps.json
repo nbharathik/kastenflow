@@ -1,0 +1,4 @@
+[
+  { "op": "insert", "after": { "block": "b1" }, "markdown": "Para" },
+  { "op": "table_rows", "block": { "block": "b1" }, "insert_at": 2, "rows": [["3", "4"]] }
+]

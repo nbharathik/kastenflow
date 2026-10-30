@@ -9,10 +9,13 @@ import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { SlideView } from "../render/index.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { Notes } from "./notes.tsx";
-import { type Direction, type Plan, type Position, firstPosition, lastPosition, move, planOf, samePosition, spotAt } from "./plan.ts";
+import { type Direction, type Position, move, planOf, samePosition, spotAt } from "./plan.ts";
+import { PresenterClock } from "./PresenterClock.tsx";
+import { target, usePresenterKeys } from "./presenter-keys.ts";
 import { RehearsalBar } from "./RehearsalBar.tsx";
 import { RehearsalSummary } from "./RehearsalSummary.tsx";
 import { Scaled } from "./ScrollView.tsx";
+import { stopwatchFrom, toggled } from "./stopwatch.ts";
 import { type RehearsalSetup, useRehearsal } from "./useRehearsal.ts";
 import "./presenter.css";
 import "./rehearsal.css";
@@ -28,6 +31,8 @@ export interface PresenterProps {
   since: number;
   /** Asks for the audience to be taken to a position, and to have its black screen up or down. */
   onGo(position: Position, paused?: boolean): void;
+  /** Escape was pressed with nothing else to put away: the show is to end. */
+  onEnd?: () => void;
   /** The presenter closed the view. */
   onClose?: () => void;
   /** Where rehearsals are kept. With it the view can time a run-through; without it there are no rehearsal controls. */
@@ -46,77 +51,26 @@ function savedSize(): number {
   }
 }
 
-/** The clock's time and how long the talk has gone on, refreshed each second. */
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
-  return now;
-}
-
-const two = (n: number): string => String(n).padStart(2, "0");
-
-/** `12:03` or `1:12:03`. */
-export function elapsedText(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  return h > 0 ? `${h}:${two(m)}:${two(total % 60)}` : `${two(m)}:${two(total % 60)}`;
-}
+export { elapsedText } from "./PresenterClock.tsx";
+export { moveOfKey } from "./presenter-keys.ts";
 
 /** The deck's wording for "step 2 of 5". */
 export function stepText(deck: Deck, step: number, steps: number): string {
   return deck.present.stepLabel.replaceAll("{n}", String(step)).replaceAll("{total}", String(steps));
 }
 
-/** The keys of the presenter's view: the move each stands for. */
-export function moveOfKey(event: Pick<KeyboardEvent, "key" | "shiftKey">): Direction | "first" | "last" | null {
-  switch (event.key) {
-    case "ArrowRight":
-    case "PageDown":
-    case "n":
-    case "N":
-      return "right";
-    case " ":
-      return event.shiftKey ? "left" : "right";
-    case "ArrowLeft":
-    case "PageUp":
-    case "p":
-    case "P":
-      return "left";
-    case "ArrowDown":
-      return "down";
-    case "ArrowUp":
-      return "up";
-    case "Home":
-      return "first";
-    case "End":
-      return "last";
-    default:
-      return null;
-  }
-}
-
-function target(plan: Plan, from: Position, key: Direction | "first" | "last"): Position {
-  if (key === "first") return firstPosition();
-  if (key === "last") return lastPosition(plan);
-  // Up and down are for backup slides; in a deck without any they step like right and left.
-  return move(plan, from, key);
-}
-
-export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClose, rehearsal }: PresenterProps): JSX.Element {
+export function Presenter({ deck, imageUrl, position, paused, since, onGo, onEnd, onClose, rehearsal }: PresenterProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
   const spot = spotAt(plan, position);
   const ahead = move(plan, position, "right");
   const nextSpot = samePosition(ahead, position) ? null : spotAt(plan, ahead);
-  const now = useNow();
   // Timing a run-through: the same position that is on the screen, never a move of its own.
   const rehearsing = useRehearsal(deck, spot ? { slide: spot.slide.id, step: spot.step } : null, rehearsal);
-  const [reset, setReset] = useState(since);
+  const [watch, setWatch] = useState(() => stopwatchFrom(since));
   const [size, setSize] = useState(savedSize);
   const root = useRef<HTMLDivElement>(null);
+  const toggleTimer = useCallback(() => setWatch((now) => toggled(now, Date.now())), []);
+  const resetTimer = useCallback(() => setWatch(stopwatchFrom(Date.now())), []);
 
   const resize = useCallback((by: number | "reset") => {
     setSize((current) => {
@@ -131,38 +85,14 @@ export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClo
     });
   }, []);
 
+  // The window that is opened for the speaker has the keys at once.
   useEffect(() => {
     root.current?.focus({ preventScroll: true });
-    const keys = (event: KeyboardEvent) => {
-      const command = event.ctrlKey || event.metaKey;
-      if (command && (event.key === "+" || event.key === "=")) {
-        event.preventDefault();
-        resize(1);
-      } else if (command && (event.key === "-" || event.key === "_")) {
-        event.preventDefault();
-        resize(-1);
-      } else if (command && event.key === "0") {
-        event.preventDefault();
-        resize("reset");
-      } else if (!command && !event.altKey && (event.key === "b" || event.key === "B")) {
-        event.preventDefault();
-        onGo(position, !paused);
-      } else if (!command && !event.altKey) {
-        const wanted = moveOfKey(event);
-        if (!wanted) return;
-        event.preventDefault();
-        // In a deck without backup slides the arrows down and up are just as good as right and left.
-        const key = !plan.columns.some((column) => column.slides.length > 1) ? (wanted === "down" ? "right" : wanted === "up" ? "left" : wanted) : wanted;
-        onGo(target(plan, position, key));
-      }
-    };
-    window.addEventListener("keydown", keys);
-    return () => window.removeEventListener("keydown", keys);
-  }, [plan, position, paused, onGo, resize]);
+  }, []);
+  const { typed, endArmed } = usePresenterKeys({ plan, position, paused, onGo, onEnd, onResize: resize, onToggleTimer: toggleTimer, onResetTimer: resetTimer });
 
   const go = (key: Direction) => () => onGo(target(plan, position, key));
   const stepLabel = spot && spot.steps > 0 ? stepText(deck, spot.step, spot.steps) : "No steps";
-  const clock = new Date(now);
 
   return (
     <div ref={root} className="ks-presenter" tabIndex={-1}>
@@ -174,15 +104,17 @@ export function Presenter({ deck, imageUrl, position, paused, since, onGo, onClo
         <span className="ks-pv-fact" data-fact="step">
           {stepLabel}
         </span>
-        <span className="ks-pv-fact ks-pv-clock" data-fact="clock" aria-label="Time now">
-          {two(clock.getHours())}:{two(clock.getMinutes())}
-        </span>
-        <span className="ks-pv-fact ks-pv-timer" data-fact="timer" role="timer" aria-label="Time spent">
-          {elapsedText(now - reset)}
-          <button type="button" className="ks-pv-button is-small" onClick={() => setReset(Date.now())} title="Start the timer again">
-            Reset
-          </button>
-        </span>
+        <PresenterClock watch={watch} onToggle={toggleTimer} onReset={resetTimer} />
+        {typed !== "" ? (
+          <span className="ks-pv-fact ks-pv-jump" role="status">
+            Go to slide {typed}  ↵
+          </span>
+        ) : null}
+        {endArmed ? (
+          <span className="ks-pv-fact ks-pv-jump" role="status">
+            Press Esc again to end the show
+          </span>
+        ) : null}
         {onClose ? (
           <button type="button" className="ks-pv-button" onClick={onClose}>
             Close

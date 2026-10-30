@@ -1,0 +1,8 @@
+version: 1
+title: Conference tracker
+kit: "1"
+queries:
+  conferences:
+    tag: conference
+size:
+  height: 1100

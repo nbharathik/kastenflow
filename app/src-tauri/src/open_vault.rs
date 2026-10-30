@@ -119,7 +119,13 @@ fn open(settings_dir: Option<&Path>) -> Opened {
             if let Some(dir) = settings_dir {
                 let settings = crate::app_settings::AppSettings::load(dir);
                 let folder = kasten.root().display().to_string();
-                kasten.confirm_remote(settings.confirmed_remote(&folder));
+                let confirmed = settings.confirmed_remote(&folder);
+                // A GitHub backup that might be public waits for the first
+                // look at who can see it (the backup thread's first ticks),
+                // so not even one push goes out before that.
+                if !crate::git_host::visibility::hold_at_open(&settings, confirmed) {
+                    kasten.confirm_remote(confirmed);
+                }
             }
             Opened {
                 kasten: Some(Arc::new(kasten)),

@@ -4,9 +4,12 @@
 
 import { openInWindow } from "../../pages/follow.ts";
 import type { EditorSession } from "../session/session.ts";
+import type { PreviewMode } from "../web-preview-host.ts";
 
 export class PreviewStore {
   private address: string | null = null;
+  private way: PreviewMode | null = null;
+  private asks = 0;
   private readonly listeners = new Set<() => void>();
 
   subscribe = (listener: () => void): (() => void) => {
@@ -16,15 +19,31 @@ export class PreviewStore {
 
   getSnapshot = (): string | null => this.address;
 
-  open(address: string): void {
-    if (address === this.address) return;
+  /** How many times a way to sit was asked for by name (a menu choice); the peek follows each ask. */
+  getAsks = (): number => this.asks;
+
+  /** The way last asked for by name, if any. */
+  getWay = (): PreviewMode | null => this.way;
+
+  /** Opens the page, in the way named when one is (the peek that is open moves to it). */
+  open(address: string, way?: PreviewMode): void {
+    if (way === undefined && address === this.address) return;
     this.address = address;
-    for (const listener of [...this.listeners]) listener();
+    if (way !== undefined) {
+      this.way = way;
+      this.asks += 1;
+    }
+    this.emit();
   }
 
   close(): void {
     if (this.address === null) return;
     this.address = null;
+    this.way = null;
+    this.emit();
+  }
+
+  private emit(): void {
     for (const listener of [...this.listeners]) listener();
   }
 }

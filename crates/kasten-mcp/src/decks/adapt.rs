@@ -37,6 +37,100 @@ const EXPORT_NOTE: &str = " In a vault only pptx is kept as a file; get_outline 
 /// Said of the tool that puts a deck in the trash.
 const TRASH_DECK_NOTE: &str = " In KastenFlow this always waits for the person to accept it.";
 
+/// The slides-core operations that are not a deck tool of their own, with why. The editor applies
+/// every one of them; an agent either has another tool that does the same (the reason says which),
+/// or the change is a person's to make. A new operation must be a tool or be named here, so the
+/// next release cannot forget one (`every_operation_is_a_tool_or_is_left_out_for_a_reason`). The
+/// ones that other tools take the place of still run inside `update_elements`.
+#[cfg(test)]
+const LEFT_OUT: &[(&str, &str)] = &[
+    // Taken in by another tool.
+    ("set_layout", "apply_layout does the same"),
+    ("duplicate_slides", "duplicate_slide does the same"),
+    ("set_step_states", "set_steps takes the states"),
+    ("build_steps", "set_steps builds them with a recipe"),
+    (
+        "paste_elements",
+        "add_elements puts the same elements on a slide",
+    ),
+    (
+        "apply_template",
+        "apply_deck_template reads the deck to take the look from; the operation takes a theme as data",
+    ),
+    // The editor's own bookkeeping, with no meaning for an agent.
+    (
+        "add_slides",
+        "puts slides copied from a deck in another, which the editor's clipboard does",
+    ),
+    (
+        "replace_deck",
+        "puts a deck's slides in place of its own when an import is applied",
+    ),
+    (
+        "collapse_slides",
+        "folds look-alike slides after an import, a choice the person makes by looking",
+    ),
+    // A person's to accept.
+    (
+        "accept_marks",
+        "the stars on what an agent made are cleared by the person who accepts it",
+    ),
+    // The layouts a person keeps are the editor's: an agent reads them (list_layouts) and uses them (add_slide).
+    (
+        "add_layout",
+        "layouts a person keeps are made in the editor",
+    ),
+    (
+        "save_layout",
+        "layouts a person keeps are made in the editor",
+    ),
+    (
+        "edit_layout",
+        "layouts a person keeps are made in the editor",
+    ),
+    (
+        "set_layout_design",
+        "layouts a person keeps are made in the editor",
+    ),
+    (
+        "delete_layout",
+        "layouts a person keeps are changed in the editor",
+    ),
+    (
+        "move_layout",
+        "layouts a person keeps are ordered in the editor",
+    ),
+    (
+        "import_layouts",
+        "layouts are brought in from another deck in the editor",
+    ),
+    (
+        "reset_slides",
+        "puts slides back on their layout, which the editor offers on a look at the slide",
+    ),
+    // Slides made from a page or a storyboard: the editor reads the page; an agent writes the slide with add_slide and set_text.
+    (
+        "add_page_contents",
+        "Insert, Page reads a page of the app, which an agent has no way to hand over; deck_from_note starts from a note",
+    ),
+    (
+        "update_page_contents",
+        "Update from page reads the page again in the editor",
+    ),
+    (
+        "add_page_slides",
+        "Insert, Page reads a page of the app; deck_from_note starts from a note",
+    ),
+    (
+        "add_storyboard_slides",
+        "a storyboard is drafted and edited by a person in the editor",
+    ),
+    (
+        "acknowledge_source",
+        "the person says a changed page is fine as it is",
+    ),
+];
+
 fn adapt(mut spec: ToolSpec) -> ToolSpec {
     if let Some(deck) = spec.input_schema.pointer_mut("/properties/deck") {
         deck["description"] = json!(DECK_WORDS);
@@ -174,6 +268,29 @@ mod tests {
     }
 
     #[test]
+    fn every_operation_is_a_tool_or_is_left_out_for_a_reason() {
+        let tools: Vec<&str> = specs().iter().map(|t| t.name.as_str()).collect();
+        let ops = slides_core::ops::names();
+        for op in &ops {
+            assert!(
+                tools.contains(op) || LEFT_OUT.iter().any(|(name, _)| name == op),
+                "{op} is the editor's operation but neither a deck tool nor named in LEFT_OUT"
+            );
+        }
+        let mut seen = Vec::new();
+        for (name, why) in LEFT_OUT {
+            assert!(ops.contains(name), "{name} is not an operation any more");
+            assert!(
+                !tools.contains(name),
+                "{name} is a deck tool, so it is not left out"
+            );
+            assert!(why.len() > 15, "{name} needs its reason");
+            assert!(!seen.contains(name), "{name} is listed twice");
+            seen.push(name);
+        }
+    }
+
+    #[test]
     fn no_deck_tool_takes_the_name_of_a_note_tool() {
         let notes = [
             "search",
@@ -199,6 +316,7 @@ mod tests {
             "update_tag_schema",
             "create_template",
             "update_template",
+            "apply_template",
             "list_boards",
             "read_board",
             "create_board",

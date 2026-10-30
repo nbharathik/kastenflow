@@ -5,6 +5,8 @@
 
 import { create } from "zustand";
 
+import { pluginOff, turnPluginOn } from "../../plugins/off";
+import { useWorkspace } from "../workspace/store";
 import { useDiagramEditor } from "./editor";
 
 /** What the picker answers: the diagram chosen, and whether it was just made (so it is drawn before it is used). */
@@ -95,11 +97,21 @@ export function drawAgainLater(path: string): void {
   useDiagramHost.setState((s) => ({ seen: s.seen.filter((p) => p !== path) }));
 }
 
+/** With the draw.io plugin off there is no editor: says so, with the button that turns it on. True when it stopped the caller. */
+export function refuseEditing(): boolean {
+  if (!pluginOff("diagrams")) return false;
+  useWorkspace.getState().toast("Turn on the draw.io plugin to edit this diagram", { label: "Turn on", run: () => void turnPluginOn("diagrams") });
+  return true;
+}
+
 /** Opens the diagram in the editor over the window, without leaving the page, board or slide. */
-export const editDiagram = (path: string): void => useDiagramHost.getState().openModal(path);
+export function editDiagram(path: string): void {
+  if (!refuseEditing()) useDiagramHost.getState().openModal(path);
+}
 
 /** Opens the diagram in the editor over the window and resolves once that editor is closed (or another diagram took its place). */
 export function editDiagramAndWait(path: string): Promise<void> {
+  if (refuseEditing()) return Promise.resolve();
   return new Promise((resolve) => {
     useDiagramHost.getState().openModal(path);
     const stop = useDiagramHost.subscribe((state) => {

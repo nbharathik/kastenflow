@@ -14,6 +14,7 @@ import { useBrowserOn } from "../browser/prefs";
 import { browserBackend } from "../browser/backend";
 import { useDiagramEditor } from "../diagrams/editor";
 import { useDiagrams } from "../diagrams/store";
+import type { SaveState } from "../workspace/page/page-session";
 import { useVaultStatus } from "../workspace/status";
 import { useWorkspace } from "../workspace/store";
 import { sectionsOf, type Level, type Section } from "./health-sections";
@@ -30,7 +31,11 @@ export function HealthCenter() {
   const notes = useWorkspace((s) => s.notes);
   const health = useHealth((s) => s.health);
   const report = useHealth((s) => s.report);
-  const saves = useShell((s) => s.saveStates);
+  // Only whether a save failed (and which) and whether one is under way
+  // count: not each page's save going from edited to saving to saved.
+  const failed = useShell((s) => Object.keys(s.saveStates).find((path) => s.saveStates[path] === "failed"));
+  const writing = useShell((s) => Object.values(s.saveStates).some((state) => state === "edited" || state === "saving"));
+  const saves = useMemo<Record<string, SaveState>>(() => ({ ...(writing ? { "": "saving" as const } : {}), ...(failed !== undefined ? { [failed]: "failed" as const } : {}) }), [failed, writing]);
   const commitError = useVaultStatus((s) => s.error);
   const diagrams = useDiagrams((s) => s.list);
   const editor = useDiagramEditor((s) => s.info);
@@ -89,8 +94,8 @@ export function HealthCenter() {
 function SectionView({ section, context, onRepaired }: { section: Section; context: { editorInstalled: boolean | null }; onRepaired(): void }) {
   return (
     <section className="kasten-health-section" aria-label={section.title} data-section={section.id} data-level={section.level}>
+      <span aria-hidden="true" className={`kasten-health-dot ${DOT[section.level]}`} />
       <h4 className="kasten-health-title">
-        <span aria-hidden="true" className={`kasten-health-dot ${DOT[section.level]}`} />
         {section.title}
         <span className="sr-only"> — {WORD[section.level]}</span>
       </h4>
@@ -98,7 +103,7 @@ function SectionView({ section, context, onRepaired }: { section: Section; conte
       {section.issues.length > 0 && (
         <ul className="kasten-health-issues">
           {section.issues.map((issue) => (
-            <IssueRow key={issue.id} issue={issue} context={context} onRepaired={onRepaired} />
+            <IssueRow key={issue.id} issue={issue} level={section.level} context={context} onRepaired={onRepaired} />
           ))}
         </ul>
       )}

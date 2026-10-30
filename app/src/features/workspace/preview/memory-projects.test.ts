@@ -121,6 +121,51 @@ describe("project setups in the preview", () => {
   });
 });
 
+describe("setups saved from a project in the preview", () => {
+  it("lists a project's pages with those under pages/ ticked, and the tags whose schemas come along", async () => {
+    const source = await vault().previewProjectSetup("trip");
+    expect(source.title).toBe("Trip");
+    expect(source.pages.map((p) => [p.path, p.included])).toEqual([
+      ["projects/trip/pages/plan.md", true],
+      ["projects/trip/pages/update-1.md", true],
+      ["projects/trip/pages/update-2.md", true],
+    ]);
+    expect(source.tags).toEqual(["task"]);
+    expect(source.props).toEqual(["summary"]);
+    await expect(vault().previewProjectSetup("nowhere")).rejects.toThrow("no project called");
+  });
+
+  it("saves a setup, lists it after the built-in ones and starts a new project from it", async () => {
+    const v = vault();
+    const saved = await v.saveProjectSetup("trip", "Trip kit", ["projects/trip/pages/plan.md"]);
+    expect(saved.id).toBe("saved:trip-kit");
+    const second = await v.saveProjectSetup("trip", "Trip kit", []);
+    expect(second.id).toBe("saved:trip-kit-2");
+    const all = await v.listSetups();
+    expect(all.map((s) => s.id)).toEqual(["research", "writing", "presentation", "saved:trip-kit", "saved:trip-kit-2"]);
+    expect(all[3]).toMatchObject({ saved: true, name: "Trip kit", files: ["pages/plan.md"], tags: ["task"] });
+    const done = await v.applySetup("saved:trip-kit", { kind: "new", title: "Rome" });
+    expect(done.written).toContain("projects/rome/pages/plan.md");
+    const plan = await v.read("projects/rome/pages/plan.md");
+    expect(plan.meta.title).toBe("Plan");
+    expect(plan.text).not.toContain("{{");
+    expect(plan.text.endsWith("A plan.\n")).toBe(true);
+    expect((await v.read("projects/trip/pages/plan.md")).text).toContain("A plan.");
+  });
+
+  it("refuses pages that are not the project's, renames a setup and moves it to the trash", async () => {
+    const v = vault();
+    await expect(v.saveProjectSetup("trip", "Kit", ["projects/old/_project.md"])).rejects.toThrow("not a page of this project");
+    await expect(v.saveProjectSetup("trip", "  ", [])).rejects.toThrow("one line");
+    await expect(v.saveProjectSetup("trip", "Kit", [], "../x")).rejects.toThrow("file name");
+    const { id } = await v.saveProjectSetup("trip", "Kit", []);
+    expect((await v.renameSetup(id, "My kit")).name).toBe("My kit");
+    await v.trashSetup(id);
+    expect((await v.listSetups()).map((s) => s.id)).toEqual(["research", "writing", "presentation"]);
+    await expect(v.applySetup(id, { kind: "new", title: "X" })).rejects.toThrow("There is no setup");
+  });
+});
+
 describe("the revision and health in the preview", () => {
   it("bumps the counters of the kind of file that changed and tells watchers", async () => {
     const v = vault();

@@ -1,0 +1,3 @@
+[
+  { "op": "table_columns", "block": { "block": "b2" }, "delete": [1] }
+]

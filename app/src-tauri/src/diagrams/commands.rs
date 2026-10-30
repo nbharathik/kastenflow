@@ -39,7 +39,7 @@ impl Editor {
         *self.running.lock().unwrap_or_else(|e| e.into_inner()) = None;
     }
 
-    fn busy(&self) -> bool {
+    pub(crate) fn busy(&self) -> bool {
         self.running
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -47,12 +47,15 @@ impl Editor {
     }
 }
 
-/// The folder the editor lives in, in the app's local data.
+/// The folder the editor lives in, in the app's local data: the diagrams
+/// plugin's payload folder. A copy an earlier version of the app kept in
+/// `diagrams/` is moved here the first time it is asked for.
 pub fn editor_root(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
+    let local = app
+        .path()
         .app_local_data_dir()
-        .map(|dir| dir.join("diagrams"))
-        .map_err(|err| format!("KastenFlow has no folder for the diagram editor: {err}"))
+        .map_err(|err| format!("KastenFlow has no folder for the diagram editor: {err}"))?;
+    Ok(crate::plugins::payload_root(&local, "diagrams"))
 }
 
 /// The installed editor's folder, when the pinned release is installed whole.
@@ -93,7 +96,13 @@ pub fn diagram_editor_status(app: AppHandle, editor: State<'_, Editor>) -> Statu
 pub async fn diagram_editor_install(
     app: AppHandle,
     editor: State<'_, Editor>,
+    payloads: State<'_, crate::plugins::Payloads>,
 ) -> Result<&'static str, String> {
+    // With the plugin off there is nothing to download the editor for.
+    crate::plugins::require(&app, "diagrams")?;
+    if payloads.busy("diagrams") {
+        return Err("The diagram editor is already being installed".to_owned());
+    }
     let cancel = editor.begin()?;
     let result = async {
         let root = editor_root(&app).map_err(Failure::Failed)?;

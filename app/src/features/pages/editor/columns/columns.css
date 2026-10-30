@@ -1,0 +1,99 @@
+/* Columns (columns/view.ts): the blocks between <!-- columns --> and
+   <!-- /columns -->, side by side. The widths come from the node view as
+   --kf-columns (grid tracks) and a --kf-cut per gutter; below 640 px the
+   columns stack, in the order the Markdown reads. */
+
+.kasten-page-editor .kasten-columns {
+  --kf-gap: 32px;
+  position: relative;
+  margin: 4px 0;
+  container-type: inline-size;
+}
+
+.kasten-page-editor .kasten-columns-body {
+  display: grid;
+  grid-template-columns: var(--kf-columns, 1fr 1fr);
+  column-gap: var(--kf-gap);
+  align-items: start;
+}
+
+.kasten-page-editor .kasten-column {
+  min-width: 0;
+}
+
+.kasten-page-editor .kasten-columns-gutters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* A gutter sits in the gap after the columns before it: --kf-cut is the share
+   of the widths before it (0 to 1), --kf-index how many columns that is. */
+.kasten-page-editor .kasten-columns-gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc((100% - (var(--kf-count) - 1) * var(--kf-gap)) * var(--kf-cut) + (var(--kf-index) - 0.5) * var(--kf-gap));
+  width: var(--kf-gap);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  touch-action: none;
+}
+
+.kasten-page-editor .kasten-columns-gutter::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  border-radius: var(--radius);
+  background: var(--notion-accent);
+  content: "";
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+.kasten-page-editor .kasten-columns:hover .kasten-columns-gutter::before,
+.kasten-page-editor .kasten-columns-gutter:hover::before,
+.kasten-page-editor .kasten-columns-gutter:focus-visible::before,
+.kasten-page-editor .kasten-columns.is-resizing .kasten-columns-gutter::before {
+  opacity: 0.35;
+}
+
+.kasten-page-editor .kasten-columns-gutter:hover::before,
+.kasten-page-editor .kasten-columns-gutter:focus-visible::before,
+.kasten-page-editor .kasten-columns.is-resizing .kasten-columns-gutter::before {
+  opacity: 1;
+}
+
+.kasten-page-editor .kasten-columns-gutter:focus-visible {
+  outline: none;
+}
+
+/* Narrow windows and narrow panes: one column under the other. The media query
+   covers engines without container queries. */
+@media (max-width: 639px) {
+  .kasten-page-editor .kasten-columns-body {
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+  }
+
+  .kasten-page-editor .kasten-columns-gutters {
+    display: none;
+  }
+}
+
+@container (max-width: 639px) {
+  .kasten-page-editor .kasten-columns-body {
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+  }
+
+  .kasten-page-editor .kasten-columns-gutters {
+    display: none;
+  }
+}

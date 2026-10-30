@@ -9,7 +9,9 @@
 //! wherever the name recurs) and `{{id8:name}}` (eight characters of it, for a
 //! deck's id). Applying is one commit that undo takes back; a file that is
 //! there already is never touched; an agent cannot apply one. What an apply
-//! would do is worked out in `setup_plan`.
+//! would do is worked out in `setup_plan`. Setups a person saved from a
+//! project (`saved:<slug>`, kept in `templates/setups/`) are read by
+//! `setup_saved` into the same shape and applied the same way.
 
 use std::collections::HashMap;
 use std::fs;
@@ -83,6 +85,8 @@ pub struct SetupInfo {
     pub files: Vec<String>,
     /// The tags it brings schemas for; a schema the vault has is kept.
     pub tags: Vec<String>,
+    /// One the person saved from a project (`templates/setups/`), not a built-in one.
+    pub saved: bool,
 }
 
 /// Where a setup goes.
@@ -162,6 +166,7 @@ pub fn setups() -> Vec<SetupInfo> {
                 summary: m.summary,
                 files,
                 tags,
+                saved: false,
             }
         })
         .collect()
@@ -187,6 +192,24 @@ impl Kasten {
         if actor.is_agent() {
             return Err(Error::Invalid(
                 "Project setups are applied by the person, not by an agent".to_owned(),
+            ));
+        }
+        self.apply_setup_as(actor, id, target, now)
+    }
+
+    /// `apply_setup` for whoever asks. Only `create_project` calls it for an
+    /// agent, and only for a project that agent is making: an agent never
+    /// adds a setup to a project that is there.
+    pub(super) fn apply_setup_as(
+        &self,
+        actor: &Actor,
+        id: &str,
+        target: &SetupTarget,
+        now: Instant,
+    ) -> Result<AppliedSetup> {
+        if actor.is_agent() && !matches!(target, SetupTarget::New { .. }) {
+            return Err(Error::Invalid(
+                "An agent starts a setup only on a project it is making".to_owned(),
             ));
         }
         // Checked before the lock is taken, so a bad request waits for nothing.

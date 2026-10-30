@@ -11,7 +11,7 @@ use serde::Serialize;
 use super::parse::{Action, parse};
 
 /// The shipped actions, in the order they are offered.
-const BUILT_IN: [(&str, &str); 9] = [
+const BUILT_IN: [(&str, &str); 14] = [
     ("explain", include_str!("builtin/explain.md")),
     (
         "compare-sources",
@@ -33,6 +33,23 @@ const BUILT_IN: [(&str, &str); 9] = [
     ),
     ("tidy-diagram", include_str!("builtin/tidy-diagram.md")),
     ("check-diagram", include_str!("builtin/check-diagram.md")),
+    ("layout-page", include_str!("builtin/layout-page.md")),
+    (
+        "fix-latex-errors",
+        include_str!("builtin/fix-latex-errors.md"),
+    ),
+    (
+        "make-smart-page",
+        include_str!("builtin/make-smart-page.md"),
+    ),
+    (
+        "improve-smart-layout",
+        include_str!("builtin/improve-smart-layout.md"),
+    ),
+    (
+        "fix-smart-errors",
+        include_str!("builtin/fix-smart-errors.md"),
+    ),
 ];
 
 /// A vault file that could not be used, and why.
@@ -120,8 +137,23 @@ pub fn merge(files: &[NoteFile]) -> Catalog {
     Catalog { actions, problems }
 }
 
-/// The actions on offer in the vault.
+/// The actions about smart pages. They are the Smart pages plugin's: offered
+/// only where smart pages are on, and they make or change a page's code.
+pub const SMART_ACTIONS: [&str; 3] = [
+    "make-smart-page",
+    "improve-smart-layout",
+    "fix-smart-errors",
+];
+
+/// The actions on offer in the vault. Those about smart pages are left out
+/// while smart pages are off everywhere (the vault's plugin and every project).
 pub fn load(kasten: &Kasten) -> Result<Catalog, String> {
     let files = kasten.ai_actions().map_err(|e| e.to_string())?;
-    Ok(merge(&files))
+    let mut catalog = merge(&files);
+    if !kasten.smart_enabled_anywhere() {
+        catalog
+            .actions
+            .retain(|action| !SMART_ACTIONS.contains(&action.slug.as_str()));
+    }
+    Ok(catalog)
 }

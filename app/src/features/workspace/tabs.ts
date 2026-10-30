@@ -3,7 +3,10 @@
 // own tabs and its own back and forward. Pure functions over the layout,
 // so the store stays small and this stays easy to test.
 
-export type ViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "diagrams" | "tags" | "highlights" | "chat" | "history" | "review" | "import" | "graph" | "overview" | "web" | "collections" | "projects" | "references" | "reviews";
+export type CoreViewId = "home" | "page" | "inbox" | "journal" | "calendar" | "library" | "tasks" | "trash" | "settings" | "boards" | "slides" | "tags" | "highlights" | "chat" | "history" | "review" | "import" | "graph" | "overview" | "web" | "collections" | "projects" | "references" | "reviews";
+
+/** A view is one of the app's own, or one a plugin adds (`plugin:` and its name). */
+export type ViewId = CoreViewId | `plugin:${string}`;
 
 export interface Place {
   view: ViewId;

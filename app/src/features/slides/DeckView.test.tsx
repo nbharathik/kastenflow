@@ -7,6 +7,7 @@ import { useWorkspace } from "../workspace/store";
 import { derive } from "../workspace/store-layout";
 import { focusPane, initialLayout, split } from "../workspace/tabs";
 import { DeckView } from "./DeckView";
+import { deckUi, keepDeckUi, resetDeckUi, wantAssistant } from "./deck-ui";
 
 const seen = vi.hoisted(() => [] as Record<string, unknown>[]);
 
@@ -30,7 +31,54 @@ beforeEach(() => {
   useWorkspace.setState({ ...derive(focusPane(base, base.panes[0]!.id)), notes: [], toasts: [], client: { deck: () => Promise.resolve({ path: DECK, text: "{}", hash: "h" }) } as never });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetDeckUi();
+});
+
+describe("the deck's window state", () => {
+  const left = () => useWorkspace.getState().layout.panes[0]!.id;
+  const shown = () => (
+    <PaneContext.Provider value={left()}>
+      <DeckView path={DECK} />
+    </PaneContext.Provider>
+  );
+  const snapshot = { panel: "ai", view: "edit", slideId: "s3", slideSelection: ["s3"], selection: ["e1"], filmstripOpen: true, filmstripWidth: 260, filmstripScroll: 120 };
+
+  it("opens a deck never seen on its usual state", async () => {
+    render(shown());
+    await waitFor(() => expect(screen.getByTestId("editor")).toBeTruthy());
+    expect(last().initialUi).toBeUndefined();
+  });
+
+  it("keeps the state the editor reports, and gives it back when the tab's view is built again", async () => {
+    const first = render(shown());
+    await waitFor(() => expect(screen.getByTestId("editor")).toBeTruthy());
+    act(() => (last().onUiChange as (s: unknown) => void)(snapshot));
+    expect(deckUi(DECK)).toEqual(snapshot);
+    // The tab's view was put away (keep-alive limit) and is built again.
+    first.unmount();
+    render(shown());
+    await waitFor(() => expect(screen.getByTestId("editor")).toBeTruthy());
+    expect(last().initialUi).toEqual(snapshot);
+  });
+
+  it("keeps each deck's state apart", async () => {
+    keepDeckUi("decks/other.deck", { ...snapshot, slideId: "s9" } as never);
+    render(shown());
+    await waitFor(() => expect(screen.getByTestId("editor")).toBeTruthy());
+    expect(last().initialUi).toBeUndefined();
+  });
+
+  it("opens the assistant panel in the editor that is shown, when something asks for it", async () => {
+    render(shown());
+    await waitFor(() => expect(screen.getByTestId("editor")).toBeTruthy());
+    const openPanel = vi.fn();
+    act(() => (last().onSession as (s: unknown, u: unknown) => void)({}, { openPanel }));
+    wantAssistant(DECK);
+    expect(openPanel).toHaveBeenCalledWith("ai");
+  });
+});
 
 describe("the deck in a tab", () => {
   it("gives the editor the keys when its pane is in use, and says which deck keys on the bare page go to", async () => {
