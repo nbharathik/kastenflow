@@ -1,6 +1,6 @@
 // A deck's `Style` (fill, outline, shadow) as what SVG and CSS are told.
 
-import type { Dash, Shadow, Stroke, Style, Theme } from "@kasten-slides/wasm";
+import type { Dash, Gradient, Shadow, Stroke, Style, Theme } from "@kasten-slides/wasm";
 
 import { colorOf } from "../theme/index.ts";
 import { num } from "./format.ts";
@@ -28,6 +28,8 @@ export function dashArray(dash: Dash | null | undefined, width: number): string 
 /** What an SVG shape is painted with. */
 export interface Paint {
   fill: string;
+  /** Colours that blend, painted in place of `fill` (which stays as the nearest solid colour). */
+  gradient?: Gradient;
   stroke: string;
   strokeWidth: number;
   strokeDasharray: string | undefined;
@@ -41,12 +43,25 @@ export function strokeWidthOf(stroke: Stroke | null | undefined): number {
 export function paintOf(theme: Theme, style: Style | null | undefined): Paint {
   const stroke = style?.stroke;
   const width = strokeWidthOf(stroke);
+  const gradient = style?.gradient && style.gradient.stops.length >= 2 ? style.gradient : undefined;
   return {
-    fill: style?.fill ? colorOf(theme, style.fill.color, style.fill.alpha) : "none",
+    fill: style?.fill ? colorOf(theme, style.fill.color, style.fill.alpha) : gradient ? colorOf(theme, gradient.stops[0]?.color ?? "text1") : "none",
+    ...(gradient ? { gradient } : {}),
     stroke: stroke && width > 0 ? colorOf(theme, stroke.color, stroke.alpha) : "none",
     strokeWidth: width,
     strokeDasharray: dashArray(stroke?.dash, width),
   };
+}
+
+/** The SVG `<stop>`s of a gradient and the line (or circle) they blend along, in the unit square of the shape. */
+export function gradientParts(theme: Theme, gradient: Gradient): { stops: { offset: string; color: string }[]; line: { x1: string; y1: string; x2: string; y2: string } } {
+  const stops = [...gradient.stops]
+    .sort((a, b) => a.pos - b.pos)
+    .map((s) => ({ offset: num(Math.min(Math.max(s.pos, 0), 1)), color: colorOf(theme, s.color, s.alpha) }));
+  // PowerPoint's angle runs clockwise from left to right; the line is drawn through the middle of the shape.
+  const turn = ((gradient.angle ?? 90) * Math.PI) / 180;
+  const [dx, dy] = [Math.cos(turn) / 2, Math.sin(turn) / 2];
+  return { stops, line: { x1: num(0.5 - dx), y1: num(0.5 - dy), x2: num(0.5 + dx), y2: num(0.5 + dy) } };
 }
 
 /** The CSS `filter` that casts a shadow, or undefined when the style has none. */
@@ -58,5 +73,5 @@ export function shadowFilter(theme: Theme, shadow: Shadow | null | undefined): s
 
 /** Whether the style paints anything on a shape's box: a fill, an outline that is thick enough to see, or a shadow. */
 export function paintsBox(style: Style | null | undefined): boolean {
-  return Boolean(style && (style.fill || style.shadow || strokeWidthOf(style.stroke) > 0));
+  return Boolean(style && (style.fill || style.gradient || style.shadow || strokeWidthOf(style.stroke) > 0));
 }

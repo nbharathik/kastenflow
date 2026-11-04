@@ -4,7 +4,8 @@
 use std::collections::BTreeMap;
 
 use super::store::{
-    AssetInfo, DeckInfo, DeckText, Draw, Drawn, Saved, Store, StoreError, StoreResult, Written,
+    AssetInfo, Compare, DeckInfo, DeckText, DiagramPicture, Draw, Drawn, GeneratorDrawn,
+    GeneratorJob, Saved, Store, StoreError, StoreResult, Written,
 };
 use crate::lint::{Measures, Refs};
 use crate::model::Deck;
@@ -19,6 +20,9 @@ pub fn hash_of(text: &str) -> String {
     format!("{hash:016x}")
 }
 
+/// The boxes outlined on the before and the after side of a comparison.
+pub type Marks = (Vec<[f64; 4]>, Vec<[f64; 4]>);
+
 #[derive(Default)]
 pub struct MemoryStore {
     pub decks: BTreeMap<String, String>,
@@ -30,10 +34,24 @@ pub struct MemoryStore {
     pub picture: Option<Drawn>,
     /// What was asked to be drawn, in order.
     pub drawn: Vec<Draw>,
+    /// The deck each of those was drawn from (a proposed change is drawn from a copy).
+    pub shown: Vec<Deck>,
     /// The sizes `measure` answers with; without them lint estimates.
     pub measures: Option<Measures>,
     /// The bibliography `references` answers with; without one citation keys are not checked.
     pub refs: Option<Refs>,
+    /// The layouts `library_layouts` answers with: none unless a test gives them.
+    pub library: Vec<serde_json::Value>,
+    /// Every version of a deck that was put or saved, oldest first, for `earlier_version`.
+    pub versions: Vec<DeckText>,
+    /// The boxes outlined (before, after) in each comparison asked for, in order.
+    pub compared: Vec<Marks>,
+    /// What `run_generator` answers with, one for each call in order; without any, running code is not available.
+    pub generator_answers: std::collections::VecDeque<StoreResult<GeneratorDrawn>>,
+    /// The programs it was asked to run, in order.
+    pub generated: Vec<GeneratorJob>,
+    /// The pictures `diagram_picture` answers with, by the diagram's path (such as `projects/talk/flow.drawio`).
+    pub diagrams: BTreeMap<String, Vec<u8>>,
     counter: u64,
 }
 
@@ -45,6 +63,15 @@ impl MemoryStore {
     /// Puts a deck's text in, as another program would.
     pub fn put(&mut self, name: &str, text: &str) {
         self.decks.insert(name.to_owned(), text.to_owned());
+        self.note(name, text);
+    }
+
+    fn note(&mut self, name: &str, text: &str) {
+        self.versions.push(DeckText {
+            name: name.to_owned(),
+            text: text.to_owned(),
+            hash: hash_of(text),
+        });
     }
 
     fn text_of(&self, name: &str) -> StoreResult<DeckText> {
@@ -104,6 +131,7 @@ impl Store for MemoryStore {
             return Ok(Saved::Conflict { copy, current });
         }
         self.decks.insert(name.to_owned(), text.to_owned());
+        self.note(name, text);
         Ok(Saved::Written(self.text_of(name)?))
     }
 
@@ -117,6 +145,7 @@ impl Store for MemoryStore {
             .to_owned();
         let name = self.free(if stem.is_empty() { "deck" } else { &stem }, ".deck");
         self.decks.insert(name.clone(), text.to_owned());
+        self.note(&name, text);
         self.text_of(&name)
     }
 
@@ -188,11 +217,33 @@ impl Store for MemoryStore {
             .ok_or_else(|| StoreError::NotFound(format!("There is no file `{path}`.")))
     }
 
-    fn draw(&mut self, _deck: &Deck, what: Draw) -> StoreResult<Drawn> {
+    fn draw(&mut self, deck: &Deck, what: Draw) -> StoreResult<Drawn> {
         self.drawn.push(what);
+        self.shown.push(deck.clone());
         self.picture.clone().ok_or_else(|| {
             StoreError::Unavailable("Drawing a slide is not available in this build.".to_owned())
         })
+    }
+
+    fn draw_compare(&mut self, compare: &Compare) -> StoreResult<Drawn> {
+        let picture = self.picture.clone().ok_or_else(|| {
+            StoreError::Unavailable("Drawing a slide is not available in this build.".to_owned())
+        })?;
+        self.compared
+            .push((compare.before_marks.clone(), compare.after_marks.clone()));
+        Ok(picture)
+    }
+
+    fn earlier_version(&mut self, name: &str, hash: Option<&str>, not: &str) -> Option<DeckText> {
+        self.versions
+            .iter()
+            .rev()
+            .filter(|v| v.name == name)
+            .find(|v| match hash {
+                Some(wanted) => v.hash == wanted,
+                None => v.hash != not,
+            })
+            .cloned()
     }
 
     fn measure(&mut self, _deck: &Deck) -> Option<Measures> {
@@ -203,6 +254,19 @@ impl Store for MemoryStore {
         self.refs.clone()
     }
 
+    fn library_layouts(&mut self) -> Vec<serde_json::Value> {
+        self.library.clone()
+    }
+
+    fn run_generator(&mut self, job: &GeneratorJob) -> StoreResult<GeneratorDrawn> {
+        self.generated.push(job.clone());
+        self.generator_answers.pop_front().unwrap_or_else(|| {
+            Err(StoreError::Unavailable(
+                "Running a code picture is not available in this build.".to_owned(),
+            ))
+        })
+    }
+
     fn write_export(&mut self, deck: &str, extension: &str, bytes: &[u8]) -> StoreResult<Written> {
         let stem = deck.trim_end_matches(".deck");
         let path = format!("{stem}.{extension}");
@@ -210,6 +274,28 @@ impl Store for MemoryStore {
         Ok(Written {
             path,
             bytes: bytes.len() as u64,
+        })
+    }
+
+    fn diagram_picture(&mut self, diagram: &str) -> StoreResult<DiagramPicture> {
+        let wanted = diagram.trim().to_lowercase();
+        let stem_of = |path: &str| -> String {
+            let file = path.rsplit('/').next().unwrap_or(path);
+            file.strip_suffix(".drawio").unwrap_or(file).to_owned()
+        };
+        let (path, bytes) = self
+            .diagrams
+            .iter()
+            .find(|(path, _)| {
+                let lower = path.to_lowercase();
+                lower == wanted || stem_of(&lower) == wanted
+            })
+            .ok_or_else(|| StoreError::NotFound(format!("There is no diagram `{diagram}`.")))?;
+        Ok(DiagramPicture {
+            diagram: path.clone(),
+            hash: hash_of(&String::from_utf8_lossy(bytes)),
+            name: format!("{}.svg", stem_of(path)),
+            bytes: bytes.clone(),
         })
     }
 }

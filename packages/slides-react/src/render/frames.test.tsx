@@ -61,8 +61,8 @@ describe("the box of an element", () => {
       { type: "text", id: "u", placeholder: "title", h: 40, text: words("Hello") },
     ]);
     const found = elementsOf(draw(<SlideView deck={deck} slide={slide} />));
-    expect(styleOf(found.get("t"))).toEqual({ position: "absolute", left: "64px", top: "36px", width: "832px", height: "96px" });
-    expect(styleOf(found.get("u"))).toMatchObject({ left: "64px", top: "36px", width: "832px", height: "40px" });
+    expect(styleOf(found.get("t"))).toEqual({ position: "absolute", left: "64px", top: "28px", width: "832px", height: "108px" });
+    expect(styleOf(found.get("u"))).toMatchObject({ left: "64px", top: "28px", width: "832px", height: "40px" });
   });
 
   it("is not drawn when nothing gives it a box", async () => {

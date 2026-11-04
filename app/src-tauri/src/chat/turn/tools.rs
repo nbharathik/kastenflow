@@ -8,13 +8,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use kasten_mcp::tools::{Writes, call_with};
+use kasten_mcp::tools::{Called, Writes, call_full};
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 
 use super::{Turn, changes_info};
 use crate::chat::budget::{LoopGuard, Meter, Pause};
-use crate::chat::model::{ToolCall, ToolOutput};
+use crate::chat::model::{Image, ToolCall, ToolOutput};
 use crate::chat::plan::{self, PlanItem};
 use crate::chat::summary::{Described, describe};
 use crate::chat::{EventKind, ToolResultInfo, ToolUse};
@@ -29,14 +29,47 @@ const STOP_LOOK: Duration = Duration::from_millis(100);
 /// The most calls that run at once.
 pub const MAX_PARALLEL: usize = 4;
 
-type Ran = (Result<Value, String>, Described);
+/// How a call went, how to tell the person, and the pictures it drew.
+type Ran = (Result<Value, String>, Described, Vec<Image>);
+
+/// The most thumbnails shown for one call, and the most base64 text in each: a bigger picture
+/// is still given to the model, only its thumbnail is left out.
+const MOST_THUMBNAILS: usize = 3;
+const THUMBNAIL_BYTES: usize = 600_000;
 
 fn not_run(call: &ToolCall, why: &str) -> ToolOutput {
     ToolOutput {
         id: call.id.clone(),
         content: format!("Not run: {why}"),
         is_error: true,
+        images: Vec::new(),
     }
+}
+
+/// The pictures a call drew, as the model reads them.
+fn pictures_of(called: &Called) -> Vec<Image> {
+    called
+        .pictures()
+        .into_iter()
+        .enumerate()
+        .map(|(n, (mime, data))| Image {
+            id: String::new(),
+            name: format!("picture {}", n + 1),
+            mime,
+            data,
+        })
+        .collect()
+}
+
+/// Thumbnails for the tool's step: `data:` URLs of the pictures small enough to send the window.
+fn thumbnails(images: &[Image]) -> Option<Vec<String>> {
+    let urls: Vec<String> = images
+        .iter()
+        .filter(|i| i.data.len() <= THUMBNAIL_BYTES)
+        .take(MOST_THUMBNAILS)
+        .map(|i| format!("data:{};base64,{}", i.mime, i.data))
+        .collect();
+    (!urls.is_empty()).then_some(urls)
 }
 
 /// A result as the model reads it: compact JSON, cut if it is huge.
@@ -66,6 +99,7 @@ fn invalid(call: &ToolCall) -> Ran {
             paths: vec![],
             staged: false,
         },
+        Vec::new(),
     )
 }
 
@@ -150,12 +184,14 @@ impl Turn<'_> {
                     id: call.id.clone(),
                     content: plan::answer(plan),
                     is_error: false,
+                    images: Vec::new(),
                 }
             }
             Err(why) => ToolOutput {
                 id: call.id.clone(),
                 content: why,
                 is_error: true,
+                images: Vec::new(),
             },
         }
     }
@@ -172,7 +208,7 @@ impl Turn<'_> {
                 Some(set) => Writes::Staged(set.as_ref()),
                 None => Writes::Direct,
             };
-            let result = call_with(
+            let called = call_full(
                 &kasten,
                 &session,
                 writes,
@@ -180,8 +216,10 @@ impl Turn<'_> {
                 &name,
                 input.clone(),
             );
+            let images = called.as_ref().map(pictures_of).unwrap_or_default();
+            let result = called.map(|called| called.value);
             let described = describe(&kasten, &name, &input, &result);
-            (result, described)
+            (result, described, images)
         })
     }
 
@@ -206,7 +244,7 @@ impl Turn<'_> {
                 paths: vec![],
                 staged: false,
             };
-            (Err(why), described)
+            (Err(why), described, Vec::new())
         })
     }
 
@@ -237,11 +275,11 @@ impl Turn<'_> {
         }
         let mut outputs = Vec::with_capacity(group.len());
         for (call, handle) in group.iter().zip(started) {
-            let (result, described) = match handle {
+            let (result, described, images) = match handle {
                 Some(mut running) => self.wait(&mut running, &stop, call).await,
                 None => invalid(call),
             };
-            outputs.push(self.report(call, result, described));
+            outputs.push(self.report(call, result, described, images));
         }
         outputs
     }
@@ -252,8 +290,10 @@ impl Turn<'_> {
         call: &ToolCall,
         result: Result<Value, String>,
         described: Described,
+        images: Vec<Image>,
     ) -> ToolOutput {
         let staged = described.staged;
+        let pictures = thumbnails(&images);
         self.emit(EventKind::ToolResult, |e| {
             e.result = Some(ToolResultInfo {
                 id: call.id.clone(),
@@ -261,7 +301,8 @@ impl Turn<'_> {
                 summary: described.summary,
                 paths: described.paths,
                 staged,
-            })
+            });
+            e.pictures = pictures;
         });
         // The bar above the message box follows what has been staged.
         if staged && let Some(changes) = self.changes {
@@ -273,11 +314,13 @@ impl Turn<'_> {
                 id: call.id.clone(),
                 content: content(&value),
                 is_error: false,
+                images,
             },
             Err(error) => ToolOutput {
                 id: call.id.clone(),
                 content: error,
                 is_error: true,
+                images: Vec::new(),
             },
         }
     }

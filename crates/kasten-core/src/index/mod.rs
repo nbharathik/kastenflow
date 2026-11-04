@@ -6,6 +6,7 @@
 mod embed;
 mod filters;
 mod graph;
+mod journals;
 mod marks;
 mod projects;
 mod query;
@@ -24,6 +25,7 @@ use crate::error::{Error, Result};
 
 pub use filters::{DateRange, Filters, parse_query};
 pub use graph::LinkRow;
+pub use journals::{ProjectJournalEntry, ProjectJournalPage, ProjectJournalRef};
 pub(crate) use marks::MarksRow;
 pub use projects::{Counts, ProjectRow, ProjectRows};
 pub use query::TaskRow;

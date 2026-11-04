@@ -103,7 +103,7 @@ op_types! {
 impl Op for AddDiagram {
     type Output = AddedDiagram;
     const NAME: &'static str = "add_diagram";
-    const ABOUT: &'static str = "Draw a diagram: a box for each of `nodes` and an arrow attached to the boxes for each of `edges`, laid out in layers, left to right (the default) or top down, inside `box` (default: the free area under the slide's title). Boxes never overlap, arrows stay attached when boxes move, the type is 14 pt or more, and a diagram that cannot fit is refused with advice. Use it instead of placing boxes and connectors by hand. Node `id`s are short names the edges use; `emphasis` fills one box in the accent colour; `color` sets a fill; `shape` picks a preset (roundRect, rect, ellipse, diamond ...). A cycle is drawn with one arrow going back. Returns the element id of each box and of each arrow.";
+    const ABOUT: &'static str = "Draw a diagram: a box for each of `nodes` and an arrow attached to the boxes for each of `edges`, laid out in layers, left to right (the default) or top down, inside `box` (default: the free area under the slide's title). Boxes never overlap, arrows stay attached when boxes move, the type is 14 pt or more, and a diagram that cannot fit is refused with advice. Use it instead of placing boxes and connectors by hand. Node `id`s are short names the edges use; `emphasis` fills one box in the accent colour; `color` sets a fill; `shape` picks a preset (roundRect, rect, ellipse, diamond ...). Returns the element ids of the boxes and arrows.";
 
     fn scope(&self, _: &Deck) -> Scope {
         Scope::slide(&self.slide)

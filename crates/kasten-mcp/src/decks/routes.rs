@@ -14,20 +14,9 @@ use serde_json::{Map, Value};
 use slides_core::agent::{self, ToolSpec};
 
 use super::adapt;
-use super::render;
 use super::run::{Reply, call_in};
 use crate::server::{KastenServer, failed};
 use crate::tools::Writes;
-
-/// The two tools that draw a picture. A program built without drawing does
-/// not list them (an agent should not be offered what it cannot do); a call
-/// to one still answers in a sentence.
-const DRAWING_TOOLS: [&str; 2] = ["render_slide", "render_grid"];
-
-/// Whether `name` is listed to clients of this program.
-pub(crate) fn is_listed(name: &str) -> bool {
-    render::built() || !DRAWING_TOOLS.contains(&name)
-}
 
 /// A tool as the protocol lists it. Nothing a deck tool does deletes, and none
 /// reaches outside the vault.
@@ -60,11 +49,38 @@ fn result_of(reply: Reply) -> CallToolResult {
     CallToolResult::success(content)
 }
 
+/// The deck tools a vault lists even when it has no deck: the ones that start a deck, and the guide to making one.
+pub(crate) const ENTRY: [&str; 6] = [
+    "slides_help",
+    "list_decks",
+    "create_deck",
+    "build_deck",
+    "deck_from_note",
+    "import_pptx",
+];
+
 impl KastenServer {
     /// Every deck tool.
+    #[cfg(test)]
     pub fn deck_tools() -> ToolRouter<KastenServer> {
+        Self::deck_routes(|_| true)
+    }
+
+    /// The deck tools every vault lists (see `ENTRY`).
+    pub fn slides_entry_tools() -> ToolRouter<KastenServer> {
+        Self::deck_routes(|name| ENTRY.contains(&name))
+    }
+
+    /// The rest of the deck tools: a vault lists them while it has a deck (`live_router`), and the app's chat always.
+    pub fn slides_more_tools() -> ToolRouter<KastenServer> {
+        Self::deck_routes(|name| !ENTRY.contains(&name))
+    }
+
+    fn deck_routes(wanted: impl Fn(&str) -> bool) -> ToolRouter<KastenServer> {
         let mut router = ToolRouter::new();
-        for spec in adapt::specs().iter().filter(|s| is_listed(&s.name)) {
+        // The tools that draw are listed everywhere: a program with no browser still draws in KastenFlow's
+        // window when the app is open, and says in a sentence what to open when it is not.
+        for spec in adapt::specs().iter().filter(|spec| wanted(&spec.name)) {
             let name: Arc<str> = Arc::from(spec.name.as_str());
             let read_only = spec.read_only;
             router.add_route(ToolRoute::new_dyn(
@@ -130,20 +146,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_tools_that_draw_are_listed_only_where_the_program_draws() {
-        assert_eq!(is_listed("render_slide"), render::built());
-        assert_eq!(is_listed("render_grid"), render::built());
-        assert!(is_listed("lint_deck") && is_listed("export"));
+    fn the_tools_that_draw_are_listed_in_every_program() {
         let listed: Vec<String> = KastenServer::deck_tools()
             .list_all()
             .into_iter()
             .map(|tool| tool.name.into_owned())
             .collect();
-        for name in DRAWING_TOOLS {
-            assert_eq!(listed.iter().any(|n| n == name), render::built(), "{name}");
-            // Whether listed or not, the tool still answers (in a sentence where it cannot draw).
+        for name in ["render_slide", "render_grid", "render_diff", "lint_deck"] {
+            assert!(listed.iter().any(|n| n == name), "{name}");
             assert!(adapt::is_tool(name), "{name}");
         }
-        assert!(listed.iter().any(|n| n == "lint_deck"));
+    }
+
+    #[test]
+    fn the_deck_tools_split_into_the_ones_every_vault_lists_and_the_rest() {
+        let names = |router: ToolRouter<KastenServer>| -> Vec<String> {
+            router
+                .list_all()
+                .into_iter()
+                .map(|tool| tool.name.into_owned())
+                .collect()
+        };
+        let entry = names(KastenServer::slides_entry_tools());
+        let more = names(KastenServer::slides_more_tools());
+        let all = names(KastenServer::deck_tools());
+        assert_eq!(entry.len() + more.len(), all.len());
+        for name in ENTRY {
+            assert!(entry.iter().any(|n| n == name), "{name}");
+            assert!(adapt::is_tool(name), "{name} is a deck tool");
+        }
+        for name in ["render_slide", "lint_deck", "add_slide", "set_chart_data"] {
+            assert!(more.iter().any(|n| n == name), "{name}");
+        }
+        assert!(!more.iter().any(|n| ENTRY.contains(&n.as_str())));
     }
 }

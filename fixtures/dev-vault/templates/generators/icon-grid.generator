@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-icon-grid",
+  "label": "Icon grid",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.items);\nconst cols = Math.min(rows.length, 3), cell = 220, size = 64, rowH = 180;\nconst lines = Math.ceil(rows.length / cols);\nconst width = cols * cell, height = lines * rowH;\nconst parts = rows.map((r, i) => {\n  const cx = (i % cols) * cell + cell / 2, cy = Math.floor(i / cols) * rowH + 20;\n  return [\n    kit.icon(r.icon, cx - size / 2, cy, size, { stroke: kit.palette(i), strokeWidth: 1.6 }),\n    kit.text(cx, cy + size + 30, r.label, { anchor: \"middle\", size: 20, weight: 600 }),\n  ];\n});\nreturn kit.svg(width, height, parts);",
+    "inputs": [
+      {
+        "name": "items",
+        "kind": "data",
+        "value": "icon,label\ncheck,Fast\nheart,Friendly\nbolt,Powerful\ncloud,Anywhere\nstar,Loved\nuser,Yours\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

@@ -14,6 +14,9 @@ import { useEditor } from "../useEditor.ts";
 import { useElementSize } from "../useElementSize.ts";
 import { useUiState } from "../useUi.ts";
 import { AgentBadges } from "../agent/AgentBadges.tsx";
+import { CropLayer } from "../aids/CropLayer.tsx";
+import { GuideLayer } from "../aids/GuideLayer.tsx";
+import { TableEdges } from "../aids/TableEdges.tsx";
 import { markedOn } from "../agent/marks.ts";
 import { useImageDrops } from "../gallery/drops.ts";
 import { StepChip } from "../panels/steps/StepChip.tsx";
@@ -24,6 +27,7 @@ import { tableKeys } from "../table/keys.ts";
 import "./canvas.css";
 import { openContextMenuAt } from "./context-menu.ts";
 import { CanvasController, type PointerInfo, type Target } from "./controller.ts";
+import { CommentMarkers } from "../comments/CommentMarkers.tsx";
 import { DiagramBadges } from "./DiagramBadges.tsx";
 import { DistanceLabels, useAltHeld } from "./DistanceLabels.tsx";
 import { useEdgeScroll } from "./edge-scroll.ts";
@@ -41,6 +45,7 @@ import { SelectionBar } from "./SelectionBar.tsx";
 import { type Keys, keysOf, useStagePointer } from "./stage-pointer.ts";
 import { useStageZoom } from "./stage-zoom.ts";
 import { TextLayer } from "./TextLayer.tsx";
+import { typeIntoSelection } from "./type-in.ts";
 import { playTransition } from "./transition-preview.ts";
 import { useLive } from "./useLive.ts";
 
@@ -184,12 +189,13 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
     // The slide must neither take the focus (which ends the edit) nor start a gesture of its own.
     if (state.editing !== null && event.target instanceof HTMLElement && event.target.closest(".ks-text-layer")) return;
     held.current = keysOf(event);
-    // A press on a move handle starts a move. The handle is not text, so the box being edited keeps the focus, its caret and its
-    // edit; the handle of another block is a press elsewhere, which ends the edit like one.
+    // A press on a move handle starts a move, and one on a resize handle of the box being edited a resize. The handles are not text,
+    // so the box being edited keeps the focus, its caret and its edit; the handle of another block is a press elsewhere, which ends
+    // the edit like one.
     const grab = targetOf(event.target);
-    if (grab.kind === "move") {
+    if (grab.kind === "move" || (grab.kind === "handle" && state.editing !== null)) {
       if (event.button !== 0) return;
-      if (state.editing === null || (grab.id !== null && grab.id !== state.editing)) stage.current?.focus({ preventScroll: true });
+      if (state.editing === null || (grab.kind === "move" && grab.id !== null && grab.id !== state.editing)) stage.current?.focus({ preventScroll: true });
       event.currentTarget.setPointerCapture(event.pointerId);
       controller.down(toInfo(event), grab);
       return;
@@ -255,6 +261,8 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
     }
     // Cells picked in a table take the arrows, Tab, Enter and the letters before the slide does.
     if (tableKeys(event.nativeEvent, { session })) return;
+    // A character typed with a text box selected opens it with the character in it, before the one-letter shortcuts can take the key.
+    if (typeIntoSelection(session, event.nativeEvent)) return void event.preventDefault();
     if (dispatchKey(event.nativeEvent, { session, ui }, "stage")) return;
     const step = event.shiftKey ? BIG_NUDGE : NUDGE;
     const arrows: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
@@ -357,6 +365,9 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
           </div>
           <Overlay zoom={zoom} selected={selected} group={group} hovered={hovered} entered={entered} gesture={gesture} active={state.tool === "select"} />
           <CellOutline session={session} zoom={zoom} />
+          <CropLayer session={session} zoom={zoom} />
+          {gesture === null && state.tool === "select" ? <TableEdges session={session} zoom={zoom} /> : null}
+          <GuideLayer session={session} guides={state.deck.present.guides} zoom={zoom} width={slideW * zoom} height={slideH * zoom} />
           <GestureLayer session={session} controller={controller} zoom={zoom} />
           {alt && gesture === null && state.tool === "select" && hovered && !state.selection.includes(hovered.id) ? <DistanceLabels from={controller.selectionBox()} to={boundsOf(hovered)} zoom={zoom} /> : null}
           {group && state.tool === "select" && state.editing === null && gesture === null && !selected.every(({ item }) => item.locked) ? (
@@ -365,6 +376,7 @@ export function SlideCanvas({ session, ui }: { session: EditorSession; ui: Edito
           {state.tool === "select" && state.editing === null && gesture === null ? <EmbedControls session={session} zoom={zoom} page={page} /> : null}
           <AgentBadges slide={slide} boxes={badgeBoxes} zoom={zoom} />
           <DiagramBadges session={session} zoom={zoom} hidden={gesture !== null} />
+          <CommentMarkers session={session} ui={ui} zoom={zoom} hidden={gesture !== null} />
           {previewed !== undefined ? <StepChip step={previewed} steps={slide.steps ?? 0} /> : null}
         </div>
       </div>

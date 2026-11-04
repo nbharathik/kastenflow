@@ -3,7 +3,7 @@
 // says where to add one.
 
 import { useReactFlow } from "@xyflow/react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { motionMs } from "../../../lib/motion";
 import { openProviders } from "../../chat/actions";
@@ -28,7 +28,9 @@ const modelOf = (provider: ChatProvider) => {
 export function BrainstormForm({ onClose }: { onClose: () => void }) {
   const board = useBoard();
   const flow = useReactFlow();
-  const providers = useChat((s) => s.providers);
+  const everything = useChat((s) => s.providers);
+  // A brainstorm asks a model; the coding agents are not offered for it.
+  const providers = useMemo(() => everything?.filter((p) => p.kind !== "cli") ?? null, [everything]);
   const providersError = useChat((s) => s.providersError);
   const preview = useChat((s) => s.client?.kind === "preview");
   const running = useBrainstorms((s) => Boolean(s.running[board.path]));

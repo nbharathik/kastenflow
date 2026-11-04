@@ -176,8 +176,17 @@
 }
 
 .ks-show .ks-show-laser[hidden],
-.ks-show .ks-show-jump[hidden] {
+.ks-show .ks-show-jump[hidden],
+.ks-show .ks-show-white[hidden] {
   display: none;
+}
+
+/* The white screen is the black one's twin (reveal.js draws the black one); a key or the toolbar puts it away. */
+.ks-show .ks-show-white {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  background: #fff;
 }
 
 .ks-show .ks-show-jump {

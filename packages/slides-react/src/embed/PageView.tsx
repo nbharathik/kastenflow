@@ -2,13 +2,12 @@
 // colours. It is made from the blocks the engine reads out of the page's Markdown, with React's own elements: nothing the page says is
 // ever put in as HTML (a formula is KaTeX's output for LaTeX that is not trusted), and no script can come of it.
 
-import "katex/dist/katex.min.css";
 import type { Block, Run, Theme } from "@kasten-slides/wasm";
 import { pageBlocks } from "@kasten-slides/wasm";
 import { type CSSProperties, type JSX, type KeyboardEvent, type ReactNode } from "react";
 
 import type { ImageUrl } from "../render/index.ts";
-import { renderMath } from "../render/math.ts";
+import { useMath } from "../render/math-slot.ts";
 import { safeLink } from "../text/links.ts";
 import { colorOf, fontStack } from "../theme/index.ts";
 import "./embed.css";
@@ -31,14 +30,18 @@ const MARKS = (run: Run): CSSProperties => ({
   ...(run.s && run.link ? { textDecoration: "underline line-through" } : {}),
 });
 
+/** A formula: its LaTeX as written until KaTeX has loaded (it is asked for when the first formula shows), then KaTeX's drawing. */
+function Formula({ latex, inline }: { latex: string; inline: boolean }): JSX.Element {
+  const made = useMath()?.renderMath(latex, inline);
+  if (made?.ok) return inline ? <span dangerouslySetInnerHTML={{ __html: made.html }} /> : <div className="ks-pv-math" dangerouslySetInnerHTML={{ __html: made.html }} />;
+  return inline ? <code>{latex}</code> : <pre>{latex}</pre>;
+}
+
 function Runs({ runs, theme, onLink }: { runs: readonly Run[]; theme: Theme | undefined; onLink: PageViewProps["onLink"] }): JSX.Element {
   return (
     <>
       {runs.map((run, i) => {
-        if (run.math) {
-          const made = renderMath(run.t, true);
-          return made.ok ? <span key={i} dangerouslySetInnerHTML={{ __html: made.html }} /> : <code key={i}>{run.t}</code>;
-        }
+        if (run.math) return <Formula key={i} latex={run.t} inline />;
         const style: CSSProperties = { ...MARKS(run), ...(run.color && theme ? { color: colorOf(theme, run.color) } : {}) };
         const body: ReactNode = run.code ? <code className="ks-pv-code">{run.t}</code> : run.t;
         // Only addresses that may be followed make a link (a page of the vault, the web, mail, a slide): a script is only words.
@@ -159,10 +162,8 @@ export function PageView({ markdown, theme, imageUrl, scroll = false, onLink }: 
                 <code>{block.code}</code>
               </pre>
             );
-          case "math": {
-            const made = renderMath(block.latex, false);
-            return made.ok ? <div key={i} className="ks-pv-math" dangerouslySetInnerHTML={{ __html: made.html }} /> : <pre key={i}>{block.latex}</pre>;
-          }
+          case "math":
+            return <Formula key={i} latex={block.latex} inline={false} />;
           case "image": {
             const url = imageUrl?.(block.src);
             return url ? <img key={i} src={url} alt={block.alt} /> : null;

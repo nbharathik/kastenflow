@@ -63,10 +63,11 @@ const flush = () => act(async () => void (await Promise.resolve()));
 const later = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
 const render = (ui: React.ReactElement) => act(async () => root.render(ui));
 const button = (name: string | RegExp) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => (typeof name === "string" ? b.textContent?.trim() === name : name.test(b.textContent ?? "")));
-const click = (name: string | RegExp) => {
+// The bar and the summary are loaded after the view, so a button may take a moment to come.
+const click = async (name: string | RegExp) => {
+  if (!button(name)) await vi.waitFor(() => expect(button(name), `No button ${String(name)}`).toBeDefined());
   const found = button(name);
-  if (!found) throw new Error(`No button ${String(name)}`);
-  return act(async () => void found.click());
+  return act(async () => void found?.click());
 };
 const text = (selector: string) => host.querySelector(selector)?.textContent?.replaceAll(/\s+/g, " ").trim();
 
@@ -127,6 +128,8 @@ describe("the controls", () => {
     expect(button("Rehearse")).toBeUndefined();
     expect(button("Finish")).toBeDefined();
     await click("Finish");
+    // The summary is loaded when a run ends.
+    await vi.waitFor(() => expect(button("Discard")).toBeDefined());
     await click("Discard");
     // Back to idle: asking again (the deck message is repeated) does not start another.
     await render(view(at(0), { rehearsal: { store, autoStart: true } }));
@@ -261,7 +264,7 @@ describe("the presenter's window", () => {
     await flush();
     await flush();
     await flush();
-    expect(button("Finish")).toBeDefined();
+    await vi.waitFor(() => expect(button("Finish")).toBeDefined());
     expect(button("Rehearse")).toBeUndefined();
   });
 
@@ -273,7 +276,7 @@ describe("the presenter's window", () => {
     await act(async () => root.render(<PresenterWindow sync={presenter} rehearsals={memoryStore()} />));
     await flush();
     await flush();
-    expect(button("Rehearse")).toBeDefined();
+    await vi.waitFor(() => expect(button("Rehearse")).toBeDefined());
     expect(button("Finish")).toBeUndefined();
   });
 

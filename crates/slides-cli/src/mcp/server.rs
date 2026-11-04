@@ -29,6 +29,53 @@ pub struct SlidesServer {
     instructions: Arc<String>,
 }
 
+/// Tools this program cannot run: they draw or run code in KastenFlow's window, which a folder of decks
+/// does not have (the store answers "not available in this build"), so listing them would only invite a refusal.
+const NEEDS_THE_APP: [&str; 5] = [
+    "render_diff",
+    "place_diagram",
+    "place_code_picture",
+    "run_code_picture",
+    "rerun_code_pictures",
+];
+
+/// Settings and table touch-ups that are seldom the point of a request. They are left out of the list so that
+/// an agent does not read their schemas with every session (the list is sent whole and has to stay small), and
+/// they stay what they always were: operations, which `update_elements` takes by name and which can be called
+/// by name too.
+const BY_OPERATION: [&str; 13] = [
+    "set_present",
+    "set_header_footer",
+    "set_guides",
+    "set_slide_access",
+    "set_slide_steps",
+    "add_section",
+    "rename_section",
+    "remove_section",
+    "set_cell_borders",
+    "set_table_style",
+    "resize_table_column",
+    "distribute_table",
+    "set_page_size",
+];
+
+/// The tools this program lists, and for `update_elements` a line that names the operations it takes in their place.
+fn listed() -> Vec<ToolSpec> {
+    let mut tools: Vec<ToolSpec> = agent::tools()
+        .into_iter()
+        .filter(|t| {
+            !NEEDS_THE_APP.contains(&t.name.as_str()) && !BY_OPERATION.contains(&t.name.as_str())
+        })
+        .collect();
+    if let Some(batch) = tools.iter_mut().find(|t| t.name == "update_elements") {
+        batch.description.push_str(&format!(
+            " Also takes, by name as `op`, the settings that have no tool in this list: {}.",
+            BY_OPERATION.join(", ")
+        ));
+    }
+    tools
+}
+
 fn tool_of(spec: ToolSpec) -> Tool {
     let schema = match spec.input_schema {
         Value::Object(map) => map,
@@ -67,7 +114,7 @@ impl SlidesServer {
                 agent: Agent::new(),
                 store,
             })),
-            tools: Arc::new(agent::tools().into_iter().map(tool_of).collect()),
+            tools: Arc::new(listed().into_iter().map(tool_of).collect()),
             instructions: Arc::new(agent::instructions()),
         }
     }
@@ -112,5 +159,28 @@ impl ServerHandler for SlidesServer {
             Err(e) => failed(format!("The tool stopped unexpectedly: {e}")),
         };
         Ok(result.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn what_is_left_out_of_the_list_is_a_tool_and_stays_callable_as_an_operation() {
+        let all: Vec<String> = agent::tools().into_iter().map(|t| t.name).collect();
+        let shown: Vec<String> = listed().into_iter().map(|t| t.name).collect();
+        for name in NEEDS_THE_APP.iter().chain(BY_OPERATION.iter()) {
+            assert!(all.iter().any(|n| n == name), "{name} is not a tool");
+            assert!(!shown.iter().any(|n| n == name), "{name} is listed");
+        }
+        for name in BY_OPERATION {
+            assert!(
+                slides_core::ops::names().contains(&name),
+                "{name} is not an operation, so update_elements could not take it"
+            );
+        }
+        let batch = listed().into_iter().find(|t| t.name == "update_elements");
+        assert!(batch.is_some_and(|t| t.description.contains("set_header_footer")));
     }
 }

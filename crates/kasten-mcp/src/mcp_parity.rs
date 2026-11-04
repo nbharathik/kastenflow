@@ -63,7 +63,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Opens a day of the journal and makes it from the journal template if it is not there yet (today by default). get_journal only reads; use journal_append to add text to a day."
+        description = "Opens a day of the journal and makes it from the journal template if it is not there yet (today by default). get_journal only reads; use journal_append to add text to a day. With `project`, that project's journal."
     )]
     async fn journal_day(
         &self,

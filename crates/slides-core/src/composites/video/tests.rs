@@ -9,8 +9,57 @@ fn video(src: &str, poster: Option<&str>, w: f64, h: f64) -> VideoEl {
         poster: poster.map(str::to_owned),
         autoplay: false,
         looped: false,
+        start: None,
+        end: None,
+        captions: None,
+        volume: None,
         extra: Extra::new(),
     }
+}
+
+#[test]
+fn a_video_keeps_its_volume_and_captions_and_reads_old_files_the_same() {
+    let value = serde_json::json!({
+        "type": "video", "id": "v-vol", "x": 0.0, "y": 0.0, "w": 640.0, "h": 360.0,
+        "src": "assets/clip.mp4", "poster": "assets/clip-poster.png", "volume": 0.25,
+        "captions": "assets/clip.vtt", "start": 2.5, "end": 9.0,
+    });
+    let Element::Video(el) = serde_json::from_value(value.clone()).expect("a video") else {
+        panic!("a video")
+    };
+    assert_eq!(el.volume, Some(0.25));
+    assert_eq!(
+        serde_json::to_value(Element::Video(el)).expect("json"),
+        value
+    );
+    let plain = parts_of(video("assets/clip.mp4", None, 480.0, 270.0));
+    assert_eq!(plain.len(), 4, "volume changes nothing that is drawn");
+}
+
+#[test]
+fn a_video_with_no_start_or_end_reads_the_same_and_a_web_source_is_kept() {
+    let old = serde_json::json!({
+        "type": "video", "id": "v-old", "x": 0.0, "y": 0.0, "w": 640.0, "h": 360.0,
+        "src": "assets/clip.mp4", "autoplay": true,
+    });
+    let Element::Video(el) = serde_json::from_value(old.clone()).expect("a video") else {
+        panic!("a video")
+    };
+    assert_eq!((el.start, el.end), (None, None));
+    assert_eq!(serde_json::to_value(Element::Video(el)).expect("json"), old);
+
+    let new = serde_json::json!({
+        "type": "video", "id": "v-new", "x": 0.0, "y": 0.0, "w": 640.0, "h": 360.0,
+        "src": "https://example.com/media/talk.mp4", "start": 12.0, "end": 60.0,
+        "futureField": true,
+    });
+    let Element::Video(el) = serde_json::from_value(new.clone()).expect("a video") else {
+        panic!("a video")
+    };
+    assert_eq!(el.src, "https://example.com/media/talk.mp4");
+    assert_eq!((el.start, el.end), (Some(12.0), Some(60.0)));
+    assert_eq!(link_of(&el), Some("https://example.com/media/talk.mp4"));
+    assert_eq!(serde_json::to_value(Element::Video(el)).expect("json"), new);
 }
 
 fn parts_of(el: VideoEl) -> Vec<Element> {

@@ -11,13 +11,17 @@ import { Menu } from "../../../shell/Menu";
 import type { MenuEntry } from "../../../shell/menu-types";
 import { Icon } from "../../../ui/Icon";
 import { useWorkspace } from "../../workspace/store";
+import { isAgentProvider } from "../agents/names";
 import { useChat } from "../store";
 import type { Thread } from "../thread";
 import { WRITE_CHOICES, heldByMode, writeChoiceOf, writeLabel } from "../writes";
+import { useChatLinks } from "./links";
+import { useSessionUi } from "./session-ui";
 
 const HINTS = { ask: "Waits for you", direct: "Saved now", auto: "Small ones saved" } as const;
 
-export function WriteMenu({ thread }: { thread: Pick<Thread, "id" | "direct" | "auto" | "streaming"> }) {
+export function WriteMenu({ thread }: { thread: Pick<Thread, "id" | "direct" | "auto" | "streaming" | "changed" | "session" | "undone"> & Partial<Pick<Thread, "provider">> }) {
+  const links = useChatLinks();
   // Read so the menu draws again when the mode changes.
   useAgentMode((s) => s.view);
   const held = heldByMode();
@@ -35,6 +39,14 @@ export function WriteMenu({ thread }: { thread: Pick<Thread, "id" | "direct" | "
       },
     })),
   ];
+  // What the chat changed stays reachable here when its chip under the thread is hidden.
+  // (Not for a coding agent: it changes notes in a session of its own, which History lists.)
+  if (thread.changed && thread.session && !isAgentProvider(thread.provider)) {
+    const session = thread.session;
+    entries.push("divider");
+    if (!thread.undone && !thread.streaming) entries.push({ label: "Undo this chat's changes", icon: <Icon name="undo" className="size-4" />, onSelect: () => useSessionUi.getState().askUndo(thread.id) });
+    entries.push({ label: "See in History", icon: <Icon name="history" className="size-4" />, onSelect: () => links.showSession(session) });
+  }
   return (
     <span className="kasten-chat-write">
       {label && (

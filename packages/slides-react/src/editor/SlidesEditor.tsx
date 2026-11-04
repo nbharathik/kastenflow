@@ -10,15 +10,15 @@ import { Dialogs } from "./dialogs/Dialogs.tsx";
 import { focusHome, forgetEditor, noteEditor } from "./focus/home.ts";
 import { useOrphanKeys } from "./focus/orphan-keys.ts";
 import { watchFullScreen } from "./full-screen.ts";
-import { GridView } from "./grid/GridView.tsx";
 import type { SlidesHost } from "./host.ts";
 import { useChromeValue } from "./chrome/chrome.ts";
 import { ContextMenus } from "./menus/ContextMenus.tsx";
 import { NotesPane } from "./notes/NotesPane.tsx";
-import { OutlineView } from "./outline/OutlineView.tsx";
 import { Filmstrip } from "./filmstrip/Filmstrip.tsx";
-import { GalleryDrawer } from "./gallery/GalleryDrawer.tsx";
+import { Gallery, Grid, Outline, usePreloadParts } from "./lazy-parts.tsx";
 import { PanelHost } from "./panels/PanelHost.tsx";
+import { RecoveryHost } from "./recovery/RecoveryHost.tsx";
+import { DeckFonts } from "./fonts/DeckFonts.tsx";
 import { EditorWebPreview } from "./preview/EditorWebPreview.tsx";
 import { EditorSession, type SessionOptions } from "./session/session.ts";
 import { TitleBar } from "./titlebar/TitleBar.tsx";
@@ -112,6 +112,7 @@ export function SlidesEditor({ text, host, actions, onSession, onError, theme, c
 
   // The first code block a person opens is not made to wait for the engine's first-use work: it is done once the editor has painted and the page is idle.
   useWarmUp(made !== null);
+  usePreloadParts(made !== null);
 
   const classNames = `ks-editor ${className}`.trim();
   if (failed) {
@@ -207,11 +208,11 @@ export function Workspace({ session, ui, className = "ks-editor", theme, autoFoc
       </header>
       <div className="ks-body">
         {view.filmstripOpen && view.view === "edit" ? <Filmstrip session={session} ui={ui} /> : null}
-        {view.galleryOpen && view.view === "edit" ? <GalleryDrawer session={session} ui={ui} /> : null}
+        {view.galleryOpen && view.view === "edit" ? <Gallery.Part session={session} ui={ui} /> : null}
         <main className="ks-center">
           {view.view === "edit" ? <SlideCanvas session={session} ui={ui} /> : null}
-          {view.view === "outline" ? <OutlineView session={session} ui={ui} /> : null}
-          {view.view === "grid" ? <GridView session={session} ui={ui} /> : null}
+          {view.view === "outline" ? <Outline.Part session={session} ui={ui} /> : null}
+          {view.view === "grid" ? <Grid.Part session={session} ui={ui} /> : null}
           {view.view === "edit" ? <NotesPane session={session} ui={ui} /> : null}
         </main>
         <PanelHost session={session} ui={ui} />
@@ -219,6 +220,8 @@ export function Workspace({ session, ui, className = "ks-editor", theme, autoFoc
       </div>
       <Dialogs session={session} ui={ui} />
       <ContextMenus session={session} ui={ui} />
+      <RecoveryHost session={session} />
+      <DeckFonts session={session} />
     </div>
   );
 }

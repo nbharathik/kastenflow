@@ -2,7 +2,7 @@
 //! The deck's text is the editor's own; the commands only carry it to and
 //! from the vault's ops.
 
-use kasten_core::deck::{DeckFile, DeckSaved};
+use kasten_core::deck::{DeckFile, DeckSaved, LayoutFile, LayoutInfo, LayoutSaved};
 use kasten_core::{DeckInfo, DecksSaved, Instant, SaveDecksRequest};
 use tauri::State;
 
@@ -76,6 +76,36 @@ pub fn create_deck_template(
     text: String,
 ) -> Result<String, String> {
     state.run(|k| k.create_deck_template(&HUMAN, &title, &text, Instant::now()))
+}
+
+/// The layouts kept for every deck (`templates/layouts/`), by name.
+#[tauri::command(async)]
+pub fn list_layout_library(state: State<'_, OpenVault>) -> Result<Vec<LayoutInfo>, String> {
+    state.run(|k| k.layout_library())
+}
+
+/// One library layout as the file holds it.
+#[tauri::command(async)]
+pub fn read_library_layout(
+    state: State<'_, OpenVault>,
+    path: String,
+) -> Result<LayoutFile, String> {
+    state.run(|k| k.library_layout(&path))
+}
+
+/// Keeps a layout (the editor writes `text`) in the library: a file with the same id is replaced.
+#[tauri::command(async)]
+pub fn save_library_layout(
+    state: State<'_, OpenVault>,
+    text: String,
+) -> Result<LayoutSaved, String> {
+    state.run(|k| k.save_library_layout(&HUMAN, &text, Instant::now()))
+}
+
+/// Takes a layout out of the library by moving its file to the trash; returns where it went.
+#[tauri::command(async)]
+pub fn remove_library_layout(state: State<'_, OpenVault>, path: String) -> Result<String, String> {
+    state.run(|k| k.remove_library_layout(&HUMAN, &path, Instant::now()))
 }
 
 /// Puts a trashed deck back; returns where it went.

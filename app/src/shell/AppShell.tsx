@@ -23,6 +23,9 @@ import { useMouseNavigation } from "./mouse-nav";
 import { useSystemMenu } from "./native-menu";
 import { useWritesOnClose } from "../features/workspace/page/close-writes";
 import { useDrawForAgents } from "../features/diagrams/draw-png";
+import { useDrawSlidesForAgents } from "../features/slides/draw-slides";
+import { useAsking } from "../features/slides/generator/ask-state";
+import { useRunGeneratorsForAgents } from "../features/slides/generator/listener";
 import { useSelectionShare } from "../features/chat/selection/sharing";
 import { useShowWhenDrawn } from "./window-ready";
 import { useFirstPage } from "../features/vaults/first-page";
@@ -52,6 +55,7 @@ const WhatsNew = lazy(() => import("../features/updates/WhatsNew"));
 const DiagramHost = lazy(() => import("../features/diagrams/DiagramHost"));
 // The storyboard of a page and "turn slide numbers off in every deck" bring the slide engine: they load when one is asked for.
 const SlidesOverlays = lazy(() => import("../features/slides/SlidesOverlays"));
+const AllowGenerator = lazy(() => import("../features/slides/generator/AllowDialog"));
 // "Add a paper" and "Compare papers" load when one is asked for.
 const ResearchOverlays = lazy(() => import("../features/references/ResearchOverlays"));
 // "Export a project" (a bundle in a folder) loads when it is asked for.
@@ -124,6 +128,11 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
   useWritesOnClose();
   // What an agent asks of the window through the app: a diagram drawn as a PNG, and the selection it reads.
   useDrawForAgents();
+  // Slides drawn as pictures, and the size of a deck's words, for the same agents.
+  useDrawSlidesForAgents();
+  // The code of a code picture, run for an agent in a sandbox, and the question whether agent-written code may run.
+  useRunGeneratorsForAgents();
+  const askingToRun = useAsking();
   useSelectionShare();
   useShowWhenDrawn();
   useUpdatesAtStart();
@@ -226,6 +235,11 @@ export function AppShell({ connect = connectVault }: AppShellProps) {
       {diagramsWork && (
         <Suspense fallback={null}>
           <DiagramHost />
+        </Suspense>
+      )}
+      {askingToRun && (
+        <Suspense fallback={null}>
+          <AllowGenerator />
         </Suspense>
       )}
       {slidesDialog && (

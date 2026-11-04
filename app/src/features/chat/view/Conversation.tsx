@@ -71,7 +71,8 @@ export function Conversation({ id, variant, page, autoFocus = false, onClose, he
   // Esc stops the answer that is running here.
   useStopWithEscape(id, section);
   if (!thread) return null;
-  const none = providers !== null && providers.length === 0;
+  // No provider, and no coding agent installed either.
+  const none = providers !== null && !providers.some((p) => p.kind !== "cli" || p.hasKey);
   return (
     <LinksContext.Provider value={links}>
       <section ref={section} className="kasten-chat" data-variant={variant} aria-label="Chat">

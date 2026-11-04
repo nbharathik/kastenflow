@@ -27,7 +27,8 @@ export function InsertTools({ session, ui }: { session: EditorSession; ui: Edito
       {/* The gallery: type to find anything that can be put on the slide. */}
       <CommandButton id="insert.palette" ctx={ctx} icon="plus" />
       <CommandButton id="insert.select" ctx={ctx} on={tool === "select"} />
-      <CommandButton id="insert.text-box" ctx={ctx} on={tool === "text"} />
+      {/* Puts a box in the middle of the slide at once, ready to type; it is no tool that stays in hand. */}
+      <CommandButton id="insert.text-box" ctx={ctx} />
       <MenuButton ui={ui} label="Image" icon="image" items={() => imageItems(ctx)} />
       <ShapeMenu session={session} tool={tool} />
       <MenuButton ui={ui} label="Line" on={lineTool} items={() => lineItems(ctx)}>

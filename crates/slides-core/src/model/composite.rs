@@ -245,55 +245,27 @@ model! {
         /// Show the readable text of the page instead of the page itself, where the host can make it.
         #[serde(default, skip_serializing_if = "is_false")]
         pub reader: bool,
-        #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
-        #[ts(skip)]
-        #[schemars(skip)]
-        pub extra: Extra,
-    }
-
-    #[serde(rename_all = "camelCase")]
-    pub enum ChartKind {
-        /// Vertical bars, grouped by category.
-        Bar,
-        /// A line through the points of each series.
-        Line,
-        /// The first series as slices of a circle.
-        Pie,
-    }
-
-    /// One row of a chart's table: a name and a number for each category.
-    #[serde(rename_all = "camelCase")]
-    pub struct ChartSeries {
-        pub name: String,
-        pub values: Vec<f64>,
-        /// A theme colour or #rrggbb; the theme's accent colours in turn when absent.
+        /// The site the address is of (`youtube`, `vimeo`, `loom`, `google-slides`, `google-docs`, `google-sheets`, `figma`, `web`), when whoever made the embed knew. Only a hint: the frame is built from the address.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub color: Option<String>,
-        #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
-        #[ts(skip)]
-        #[schemars(skip)]
-        pub extra: Extra,
-    }
-
-    /// A bar, line or pie chart of a small table of numbers, drawn from shapes, lines and text.
-    #[serde(rename_all = "camelCase")]
-    pub struct ChartEl {
-        #[serde(flatten)]
-        pub base: Base,
-        pub kind: ChartKind,
-        /// What the chart is about, set above it.
+        pub provider: Option<String>,
+        /// Seconds into a video where it starts.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title: Option<String>,
-        /// The name of each bar group, point on the line or slice.
-        #[serde(default)]
-        pub categories: Vec<String>,
-        pub series: Vec<ChartSeries>,
-        /// The number written on each bar, point and slice.
+        pub start: Option<f64>,
+        /// Seconds into a video where it stops.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub end: Option<f64>,
+        /// A video starts by itself when the slide shows.
         #[serde(default, skip_serializing_if = "is_false")]
-        pub labels: bool,
-        /// Whether the legend is drawn; it is for more than one series, and for a pie, when absent.
+        pub autoplay: bool,
+        /// A video plays without sound.
+        #[serde(default, skip_serializing_if = "is_false")]
+        pub muted: bool,
+        /// A video starts again when it ends.
+        #[serde(default, skip_serializing_if = "is_false")]
+        pub looped: bool,
+        /// Whether the player's own controls show; they do when absent.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub legend: Option<bool>,
+        pub controls: Option<bool>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -335,12 +307,12 @@ model! {
         pub extra: Extra,
     }
 
-    /// A video file the host holds, with a still to show until it plays.
+    /// A video file the host holds, or one on the web, with a still to show until it plays.
     #[serde(rename_all = "camelCase")]
     pub struct VideoEl {
         #[serde(flatten)]
         pub base: Base,
-        /// A file in the host's store.
+        /// A file in the host's store, or a web address (`http` or `https`) of a video file.
         pub src: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub poster: Option<String>,
@@ -348,6 +320,18 @@ model! {
         pub autoplay: bool,
         #[serde(default, skip_serializing_if = "is_false")]
         pub looped: bool,
+        /// Seconds into the video where it starts.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub start: Option<f64>,
+        /// Seconds into the video where it stops.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub end: Option<f64>,
+        /// A WebVTT file in the host's store with the video's captions.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub captions: Option<String>,
+        /// 0 (silent) to 1 (as recorded); 1 when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub volume: Option<f64>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]

@@ -4,16 +4,15 @@
 //! board module.
 
 use std::collections::HashMap;
-use std::fs;
 
 use serde::Serialize;
 
-use crate::atomic::write_atomic;
 use crate::error::{Error, Result};
 use crate::frontmatter::{join, set_key, split, still_readable};
-use crate::links::keep::keep_in_vault;
+use crate::links::keep::keep_in_vault_with;
 use crate::note::{NoteFile, NoteMeta};
 use crate::ops::{folder_of, free_path};
+use crate::rollback::Rollback;
 use crate::slug::slugify;
 use crate::time::Instant;
 use crate::vault::Vault;
@@ -63,6 +62,29 @@ pub fn rename_note_in(
     before: &[NoteMeta],
     candidates: &[String],
 ) -> Result<Renamed> {
+    let mut done = Rollback::default();
+    match rename_note_with(vault, rel, title, now, before, candidates, &mut done) {
+        Ok(renamed) => Ok(renamed),
+        Err(err) => {
+            done.put_back();
+            Err(err)
+        }
+    }
+}
+
+/// `rename_note_in`, noting every write and move in `done` and leaving it to
+/// the caller to put them back: a rename that fails part way must not leave
+/// the new title, the moved file or the rewritten links behind. A caller
+/// that goes on to more steps of its own puts all of them back together.
+pub(crate) fn rename_note_with(
+    vault: &Vault,
+    rel: &str,
+    title: &str,
+    now: Instant,
+    before: &[NoteMeta],
+    candidates: &[String],
+    done: &mut Rollback,
+) -> Result<Renamed> {
     let title = title.trim();
     if title.is_empty() || title.contains(['[', ']', '|']) || title.chars().any(char::is_control) {
         return Err(Error::Invalid(
@@ -88,7 +110,11 @@ pub fn rename_note_in(
     prefix = set_key(&prefix, "updated", Some(&now.rfc3339()), eol);
     still_readable(parts.prefix, &prefix)?;
     let source = vault.path_of(rel)?;
-    write_atomic(&source, join(&prefix, parts.body, eol).as_bytes())?;
+    done.write(
+        &source,
+        join(&prefix, parts.body, eol).as_bytes(),
+        Some(current.text.clone().into_bytes()),
+    )?;
 
     let name = rel.rsplit('/').next().unwrap_or(rel);
     let stem = name.trim_end_matches(".md");
@@ -97,7 +123,7 @@ pub fn rename_note_in(
         let target = free_path(vault, folder_of(rel), &slugify(title));
         let destination = vault.path_of(&target)?;
         if !destination.exists() {
-            fs::rename(&source, &destination)?;
+            done.rename(&source, &destination)?;
             path = target;
         }
     }
@@ -121,7 +147,7 @@ pub fn rename_note_in(
         .map(|p| if p == rel { path.clone() } else { p.clone() })
         .chain(std::iter::once(path.clone()))
         .collect();
-    let relinked = keep_in_vault(vault, before, &after, &moved, &paths)?
+    let relinked = keep_in_vault_with(vault, before, &after, &moved, &paths, done)?
         .into_iter()
         .filter(|p| *p != path)
         .collect();

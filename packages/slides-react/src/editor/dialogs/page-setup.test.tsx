@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { shape } from "../factory.ts";
 import { edit, mountDialogs } from "./test-kit.tsx";
@@ -87,6 +87,28 @@ describe("Page setup", () => {
     await mountDialogs({ dialog: "page", prepare: (engine) => void engine.apply("set_page_size", { w: 800, h: 500 }), blank: false });
     expect(choice("Custom").getAttribute("aria-checked")).toBe("true");
     expect((screen.getByLabelText("Width") as HTMLInputElement).value).toBe("8.33");
+  });
+
+  it("scales what is on the slides by default, and asks to keep its size when that is chosen", async () => {
+    const kit = await mountDialogs({ dialog: "page" });
+    const apply = vi.spyOn(kit.session.slides, "setPageSize").mockImplementation(() => {});
+    const content = () => within(screen.getByRole("radiogroup", { name: "Existing content" })).getAllByRole("radio");
+    expect(content().map((card) => [card.querySelector(".ks-dg-ratio-name")?.textContent, card.getAttribute("aria-checked")])).toEqual([
+      ["Scale content", "true"],
+      ["Keep size", "false"],
+    ]);
+    fireEvent.click(choice("4:3"));
+    fireEvent.click(button("Apply"));
+    expect(apply).toHaveBeenLastCalledWith({ preset: "4:3" });
+
+    cleanup();
+    const again = await mountDialogs({ dialog: "page" });
+    const keeping = vi.spyOn(again.session.slides, "setPageSize").mockImplementation(() => {});
+    fireEvent.click(screen.getByRole("radio", { name: /Keep size/ }));
+    expect(screen.getByRole("radio", { name: /Keep size/ }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(choice("16:10"));
+    fireEvent.click(button("Apply"));
+    expect(keeping).toHaveBeenLastCalledWith({ preset: "16:10", keepSize: true });
   });
 
   it("closes without a change on Cancel", async () => {

@@ -114,7 +114,7 @@ op_types! {
 }
 
 /// A step as a key of a map of states: a whole number from 0 to 50, written plainly.
-fn parse_step(op: &str, key: &str) -> Result<u32> {
+pub(super) fn parse_step(op: &str, key: &str) -> Result<u32> {
     let step = key.parse::<u32>().ok().filter(|s| s.to_string() == key);
     match step {
         Some(step) if step <= MOST_STEPS => Ok(step),
@@ -231,7 +231,7 @@ impl Op for BuildSteps {
             wanted.iter().map(|id| (*id).clone()).collect()
         } else {
             let found = wanted.iter().filter_map(|id| slide.element(id));
-            reading_order(theme, &slide.layout, found)
+            super::access::read_in_order(theme, &slide.layout, slide.access.as_ref(), found)
                 .iter()
                 .map(|e| e.id().to_owned())
                 .collect()

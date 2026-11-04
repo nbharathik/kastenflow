@@ -12,11 +12,13 @@
 //! a stand-in that builds with the tests' fake engine and draws with a fake window.
 
 mod diagram;
+mod generator;
 mod handle;
 mod pages;
 mod report;
 pub(crate) mod selection;
 mod side;
+mod slides;
 pub(crate) mod window;
 
 use std::sync::{Arc, Mutex};
@@ -27,6 +29,10 @@ use tauri::{AppHandle, Manager};
 
 pub use side::{AppSide, Side};
 
+#[cfg(test)]
+mod generator_tests;
+#[cfg(test)]
+mod slides_tests;
 #[cfg(test)]
 mod tests;
 

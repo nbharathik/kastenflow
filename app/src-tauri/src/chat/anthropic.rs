@@ -97,7 +97,11 @@ fn user(out: &mut Vec<Value>, block: Value) {
 /// user turn, results first, as the API requires.
 pub fn messages(thread: &[Message]) -> Vec<Value> {
     let mut out: Vec<Value> = Vec::new();
-    for message in thread {
+    // Pictures a tool drew go to the model once, with the latest results.
+    let latest = thread
+        .iter()
+        .rposition(|m| matches!(m, Message::Results(_)));
+    for (at, message) in thread.iter().enumerate() {
         match message {
             Message::User(text) => user(&mut out, json!({"type": "text", "text": text})),
             Message::UserImages { text, images } => {
@@ -107,7 +111,7 @@ pub fn messages(thread: &[Message]) -> Vec<Value> {
             }
             Message::Results(results) => {
                 for result in results {
-                    user(&mut out, tool_result(result));
+                    user(&mut out, tool_result(result, latest == Some(at)));
                 }
             }
             Message::Assistant(reply) => {
@@ -119,11 +123,18 @@ pub fn messages(thread: &[Message]) -> Vec<Value> {
     out
 }
 
-fn tool_result(result: &ToolOutput) -> Value {
+fn tool_result(result: &ToolOutput, with_pictures: bool) -> Value {
+    let content = if with_pictures && !result.images.is_empty() {
+        let mut blocks = super::parts::anthropic("", &result.images);
+        blocks.push(json!({"type": "text", "text": result.content}));
+        json!(blocks)
+    } else {
+        json!(result.content)
+    };
     let mut block = json!({
         "type": "tool_result",
         "tool_use_id": tool_id(&result.id),
-        "content": result.content,
+        "content": content,
     });
     if result.is_error {
         block["is_error"] = json!(true);

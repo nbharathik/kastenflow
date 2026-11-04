@@ -18,12 +18,13 @@ The vault also holds slide decks: .deck files in library/ or in a project's deck
 - Citation keys are checked against the .bib files in the vault; with none, they are not checked.
 - deck_from_note makes a deck from a note of the vault: each heading becomes a slide with the note's list on it and the note's prose as the speaker notes, its pictures become picture slides, and the citation keys the .bib files know become the slides' footers with a references slide at the end. `include_linked` also turns the notes it links to into sections. Use it to start a talk from what the person has written, then refine slide by slide and run lint_deck after every batch.
 - What you make or change in a deck is marked for the person, with a small star on each element and on the slide in the filmstrip, until they accept it or change it themselves. You cannot accept marks or take them off, so do not try; say which slides you changed so the person knows where to look.
+- Until the vault has a deck only the tools that start one are listed (list_decks, create_deck, build_deck, deck_from_note, import_pptx) and slides_help, which gives the order of work; the rest come once there is a deck. place_diagram puts a draw.io diagram of the vault on a slide (the Diagrams plugin must be on); export also keeps png pictures of the slides in assets/.
 ";
 
 /// Whether the agent can see the slides it builds, in this program.
 fn seeing(facts: &Facts) -> &'static str {
     if facts.render {
-        "- render_slide and render_grid draw slides as pictures where Chrome, Chromium or Edge is installed; draw one picture at a time. When a drawing fails (no browser, or too many at once) you cannot see the slides just then: lint is your eyes, so trust it, and tell the person what you could not check. server_status says whether slides can be drawn here.\n"
+        "- render_slide and render_grid draw slides as pictures, and render_diff a slide before and after a change: in the open KastenFlow app (it draws in its own window), or where Chrome, Chromium or Edge is installed. Draw one picture at a time. When a drawing fails (the app is closed and there is no browser, or too many at once) you cannot see the slides just then: ask the person to open KastenFlow, lint is your eyes meanwhile, and tell the person what you could not check. server_status says whether slides can be drawn here.\n"
     } else {
         "- This program does not draw slides, so you cannot see them. Lint is your eyes; tell the person what it could not check.\n"
     }
@@ -58,8 +59,14 @@ pub(crate) fn instructions() -> String {
 mod tests {
     use super::*;
 
-    const SEEING: Facts = Facts { render: true };
-    const BLIND: Facts = Facts { render: false };
+    const SEEING: Facts = Facts {
+        render: true,
+        diff: true,
+    };
+    const BLIND: Facts = Facts {
+        render: false,
+        diff: false,
+    };
 
     #[test]
     fn the_conventions_come_from_slides_core_and_the_vault_notes_come_first() {
@@ -122,6 +129,8 @@ mod tests {
         assert!(
             seeing.contains("render_slide and render_grid draw slides")
                 && seeing.contains("Then look: render_slide")
+                && seeing.contains("render_diff shows a slide before and after")
+                && seeing.contains("open KastenFlow")
                 && seeing.contains("server_status"),
             "{seeing}"
         );
@@ -133,18 +142,9 @@ mod tests {
     }
 
     #[test]
-    fn this_program_is_told_what_it_was_built_to_do() {
-        assert_eq!(
-            instructions(),
-            instructions_for(&Facts {
-                render: render::built()
-            })
-        );
-        assert_eq!(
-            render::facts(),
-            Facts {
-                render: render::built()
-            }
-        );
+    fn every_program_is_told_it_can_look_since_the_app_window_draws_when_there_is_no_browser() {
+        assert_eq!(instructions(), instructions_for(&SEEING));
+        assert_eq!(render::facts(), SEEING);
+        assert!(instructions().contains("render_diff"));
     }
 }

@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    CardGridEl, ChartEl, ChatEl, CitationEl, CodeEl, EmbedEl, Extra, Fill, MathEl, PageSource,
-    QrEl, StepLabelEl, StepState, Style, Text, TimerEl, TokenProbsEl, VideoEl, is_false,
+    AudioEl, CardGridEl, CellBorders, ChartEl, ChatEl, CitationEl, CodeEl, EmbedEl, Extra, Fill,
+    MathEl, PageSource, QrEl, StepFx, StepLabelEl, StepState, Style, TableStyle, Text, TimerEl,
+    TokenProbsEl, VideoEl, is_false,
 };
 
 model! {
@@ -45,6 +46,9 @@ model! {
         /// The state from each step onward.
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty", deserialize_with = "super::steps::step_keys")]
         pub step_states: BTreeMap<u32, StepState>,
+        /// How the change at a step is drawn, by step number: the deck's effect for a step that names none.
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty", deserialize_with = "super::motion::fx_keys")]
+        pub step_fx: BTreeMap<u32, StepFx>,
         /// The layer's name in the Steps panel and the selection list.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub name: Option<String>,
@@ -115,6 +119,12 @@ model! {
         #[serde(flatten)]
         pub base: Base,
         pub text: Text,
+        /// How many columns the words run in, 2 or 3; one column when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub columns: Option<u8>,
+        /// Space between columns, in slide units; the renderer's default when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub column_gap: Option<f64>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -205,6 +215,9 @@ model! {
         pub col_span: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub row_span: Option<u32>,
+        /// The lines around the cell, over the table's style.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub borders: Option<CellBorders>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -231,6 +244,9 @@ model! {
         pub rows: Vec<TableRow>,
         #[serde(default, skip_serializing_if = "is_false")]
         pub header_row: bool,
+        /// A look for the whole table, made from the theme's colours; the table's `style` is its box's.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub table_style: Option<TableStyle>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -258,6 +274,9 @@ model! {
     }
 
     /// One thing on a slide.
+    // The chart and the connector are the large kinds, a couple of kilobytes each; boxing one would
+    // change every match on it for a saving that a slide of a few dozen elements does not need.
+    #[allow(clippy::large_enum_variant)]
     #[serde(tag = "type", rename_all = "kebab-case")]
     pub enum Element {
         Text(TextEl),
@@ -280,6 +299,7 @@ model! {
         Chart(ChartEl),
         Timer(TimerEl),
         Qr(QrEl),
+        Audio(AudioEl),
     }
 }
 
@@ -297,6 +317,7 @@ impl Base {
             placeholder: None,
             style: None,
             step_states: BTreeMap::new(),
+            step_fx: BTreeMap::new(),
             name: None,
             alt: None,
             locked: false,

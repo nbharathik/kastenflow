@@ -14,6 +14,7 @@ use crate::comments::NewComment;
 use crate::error::{Error, Result};
 use crate::frontmatter::split;
 use crate::history::Actor;
+use crate::journal_path::journal_path_in;
 use crate::note::NoteFile;
 use crate::policy::OpClass;
 use crate::time::Instant;
@@ -167,8 +168,8 @@ impl Kasten {
     /// makes, for the limit on notes changed in ten minutes.
     pub(super) fn parity_touches(&self, op: &AgentOp) -> Result<(Vec<String>, usize)> {
         Ok(match op {
-            AgentOp::JournalDay { date } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+            AgentOp::JournalDay { date, project } => {
+                let path = journal_path_in(&self.vault, project.as_deref(), date)?;
                 if self.vault.exists(&path) {
                     (vec![], 0)
                 } else {
@@ -199,7 +200,9 @@ impl Kasten {
                 let day = date.clone().unwrap_or_else(|| day_of(now));
                 note_ref(&self.apply_template(actor, path, template, &day, now)?)
             }
-            AgentOp::JournalDay { date } => note_ref(&self.journal(actor, date, now)?),
+            AgentOp::JournalDay { date, project } => {
+                note_ref(&self.journal(actor, project.as_deref(), date, now)?)
+            }
             AgentOp::SetTask {
                 path,
                 line,

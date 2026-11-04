@@ -26,6 +26,7 @@ impl Element {
             Element::Chart(e) => &e.base,
             Element::Timer(e) => &e.base,
             Element::Qr(e) => &e.base,
+            Element::Audio(e) => &e.base,
         }
     }
 
@@ -51,6 +52,7 @@ impl Element {
             Element::Chart(e) => &mut e.base,
             Element::Timer(e) => &mut e.base,
             Element::Qr(e) => &mut e.base,
+            Element::Audio(e) => &mut e.base,
         }
     }
 
@@ -81,6 +83,7 @@ impl Element {
             Element::Chart(_) => "chart",
             Element::Timer(_) => "timer",
             Element::Qr(_) => "qr",
+            Element::Audio(_) => "audio",
         }
     }
 
@@ -124,6 +127,7 @@ impl Element {
                 | Element::Chart(_)
                 | Element::Timer(_)
                 | Element::Qr(_)
+                | Element::Audio(_)
         )
     }
 
@@ -131,6 +135,8 @@ impl Element {
         Element::Text(TextEl {
             base,
             text,
+            columns: None,
+            column_gap: None,
             extra: Extra::new(),
         })
     }

@@ -5,6 +5,7 @@
 mod author;
 mod bridge;
 mod errors;
+mod generator;
 mod guard;
 mod kit;
 mod protocol;

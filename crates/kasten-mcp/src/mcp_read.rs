@@ -45,7 +45,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "A day's journal note; defaults to today (UTC). Reading never creates it.",
+        description = "A day's journal note; defaults to today (UTC). Reading never creates it. With `project`, that project's journal.",
         annotations(read_only_hint = true)
     )]
     async fn get_journal(&self, Parameters(args): Parameters<JournalArgs>) -> CallToolResult {

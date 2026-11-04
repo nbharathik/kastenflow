@@ -4,13 +4,16 @@
 // the plan, saved threads) is in agent-types.ts.
 
 import type { AttachmentRef } from "./agent-types";
+import type { Approval } from "./agents/types";
 
 /** The kinds of provider an API key goes with. */
 export type ProviderKind = "anthropic" | "openai";
 
-/** Every kind of provider: those, and "chatgpt", which signs in with the
- * person's ChatGPT account instead of taking a key or an address. */
-export type ChatKind = ProviderKind | "chatgpt";
+/** Every kind of provider: those, "chatgpt", which signs in with the
+ * person's ChatGPT account instead of taking a key or an address, and "cli",
+ * a coding agent (Claude Code, OpenCode) run as the person's own program: it
+ * has no key or address here, and `hasKey` says whether it was found. */
+export type ChatKind = ProviderKind | "chatgpt" | "cli";
 
 /** An AI endpoint chats can use: the Anthropic API, any OpenAI-compatible
  * server or the ChatGPT plan. Its key stays in the system keychain; the
@@ -31,7 +34,7 @@ export interface ChatProvider {
 /** A provider that takes a key and an address: not ChatGPT. */
 export type KeyedProvider = ChatProvider & { kind: ProviderKind };
 
-export const isKeyed = (provider: ChatProvider): provider is KeyedProvider => provider.kind !== "chatgpt";
+export const isKeyed = (provider: ChatProvider): provider is KeyedProvider => provider.kind !== "chatgpt" && provider.kind !== "cli";
 
 /** A provider as Settings sends it. */
 export type ProviderDraft = Omit<ChatProvider, "hasKey" | "confirmed">;
@@ -324,7 +327,7 @@ export interface Recalculated {
 export interface ChatEvent {
   chat: string;
   turn: string;
-  kind: "text" | "tool" | "toolResult" | "done" | "error" | "notice" | "changes" | "plan" | "paused" | "queued" | "round" | "thinking" | "waiting" | "started";
+  kind: "text" | "tool" | "toolResult" | "done" | "error" | "notice" | "changes" | "plan" | "paused" | "queued" | "round" | "thinking" | "waiting" | "started" | "approval";
   /** Counts the chat's events, each more than the last, so a window that was
    * away can ask for what it missed. */
   seq?: number;
@@ -332,6 +335,8 @@ export interface ChatEvent {
   text?: string;
   tool?: ToolCall;
   result?: ToolResult;
+  /** For `toolResult`: the pictures the tool drew (a slide), as `data:` URLs small enough to show as thumbnails in the step. */
+  pictures?: string[];
   /** A done that Stop asked for. */
   stopped?: boolean;
   error?: string;
@@ -353,6 +358,8 @@ export interface ChatEvent {
   code?: string;
   /** For `queued`: whether the turn has taken the message up (false while it waits). */
   delivered?: boolean;
+  /** For `approval`: a coding agent's question and where it stands. */
+  approval?: Approval;
 }
 
 /** The most ideas one brainstorm places (kasten-core `MAX_IDEAS`). */

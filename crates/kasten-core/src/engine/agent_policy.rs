@@ -62,7 +62,16 @@ pub(super) fn projects_of(op: &AgentOp) -> Vec<Option<String>> {
         | AgentOp::CreateLatexDoc {
             project: Some(project),
             ..
-        } => vec![Some(crate::slug::slugify(project))],
+        }
+        // A project's journal day is that project's note: its mode holds.
+        | AgentOp::JournalAppend {
+            project: Some(project),
+            ..
+        }
+        | AgentOp::JournalDay {
+            project: Some(project),
+            ..
+        } => vec![Some(crate::slug::slugify(project.trim()))],
         AgentOp::CreateNote {
             parent: Some(parent),
             ..

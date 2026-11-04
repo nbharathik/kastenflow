@@ -7,9 +7,18 @@ import type { ComponentType } from "react";
 
 import type { RehearsalStore } from "../present/rehearsal-store.ts";
 import type { PresentSync } from "../present/sync.ts";
+import type { EditorAiHost } from "./ai/ai-host.ts";
+import type { BrandHost } from "./brand/brand-host.ts";
+import type { GeneratorLibraryHost, GeneratorRequest, GeneratorResult, GeneratorTrust } from "./code-picture/types.ts";
 import type { DecksHost } from "./decks-host.ts";
+import type { DeckHistoryHost } from "./history/history-host.ts";
+import type { LayoutLibraryHost } from "./layouts/library-host.ts";
+import type { RecoveryJournal } from "./recovery/journal.ts";
 import type { TemplatesHost } from "./layouts/templates-host.ts";
 import type { WebPreviewHost } from "./web-preview-host.ts";
+
+/** What a host knows of whether a page lets itself be shown in a frame. */
+export type FrameVerdict = "open" | "refused" | "unknown";
 
 /** What a save did. */
 export type SaveOutcome =
@@ -234,6 +243,16 @@ export interface SlidesHost {
   /** Calls `onChange` when a diagram changed (saved in its editor, edited elsewhere); returns how to stop. */
   watchDiagrams?(onChange: () => void): () => void;
   /**
+   * Runs the program of a code picture where programs run safely (Kasten: a sandbox with no network and no vault) and answers with the
+   * picture it drew, or with the error and the line it came from. The host reads the inputs the picture declared; the editor never runs
+   * code or reads a file for it. Without this the editor offers no code pictures.
+   */
+  runGenerator?(request: GeneratorRequest): Promise<GeneratorResult>;
+  /** Whether code an agent wrote may run for this deck, and a person's "Allow to run". Left out, an agent's code runs without asking. */
+  generatorTrust?: GeneratorTrust;
+  /** The code pictures kept for every deck ("Save to library", and the library among the templates). Left out, the editor offers no library. */
+  generatorLibrary?: GeneratorLibraryHost;
+  /**
    * The editor now holds `text` as what is saved: it took a version from
    * outside (a change made elsewhere, or the file's version after a conflict).
    * A host that tracks which version it saved over updates that here.
@@ -279,6 +298,28 @@ export interface SlidesHost {
    * Without it a link opens outside, and a selected embed shows live in a frame in the page where the page allows it.
    */
   webPreview?: WebPreviewHost;
+  /**
+   * Whether a web page may be shown in a frame of another page: a site says so in the headers it answers with (`X-Frame-Options`,
+   * `frame-ancestors`), which a page cannot read from a frame. `refused` puts the "can't be shown here, open it in your browser" card
+   * over the embed at once; `open` and `unknown` (it could not be asked, or the address is on this computer) load the frame.
+   */
+  framePolicy?(address: string): Promise<FrameVerdict>;
+  /**
+   * Lets the frames of the editor load these pages (the desktop app refuses every address that a frame loads, except those a
+   * presentation names) while an embed plays in the editor. Resolves to what takes the permission back. Left out, a host that
+   * permits frames (`willPresent`) shows an embed as its picture in the editor, with no Play.
+   */
+  allowFrames?(addresses: string[]): Promise<() => void> | (() => void) | void;
+  /**
+   * The picture a video has (YouTube's thumbnail of it, Vimeo's), fetched from the web by the host: `source.url` is the thumbnail's
+   * address (YouTube) or the oEmbed question to ask (Vimeo). Resolves to the picture under a file name, or to null when it could
+   * not be had. The editor keeps it as the embed's poster with `addImage`.
+   */
+  fetchPoster?(source: { provider: "youtube" | "vimeo"; id: string; url: string }): Promise<{ name: string; bytes: Uint8Array } | null>;
+  /** The font families installed on this computer, for the font browser. Left out, the browser lists the bundled fonts and those of the deck only. */
+  systemFonts?(): Promise<string[]>;
+  /** The words, of those given, that the system's dictionary does not know. Left out, the spelling check asks the browser's own checker. */
+  misspelled?(words: string[]): Promise<string[]>;
   /** Tells the person something short. */
   notify?(message: string): void;
   /**
@@ -317,6 +358,24 @@ export interface SlidesHost {
   /** The other decks the host keeps, so that layouts can be brought in from one of them. A host without them leaves this out, and the editor offers no import of layouts. */
   decks?: DecksHost;
   /**
+   * The layouts the host keeps for every deck ("My layouts"): saved from any deck, offered in the layout picker of all of them, and
+   * copied into a deck when used, so the deck stays self-contained. A host without a library (the standalone page) leaves this out,
+   * and the editor offers no "My layouts" and no choice of where "Save as layout" keeps the layout.
+   */
+  layoutLibrary?: LayoutLibraryHost;
+  /**
+   * The brand kit of the vault or the project (logo, colours, fonts, default theme): Tools → Brand kit… edits it and puts it on the deck, a
+   * new deck starts from it, and the check against it lists the elements that use other colours. Left out (the standalone page), the
+   * editor offers no brand kit.
+   */
+  brand?: BrandHost;
+  /**
+   * Help from the host's assistant inside the editor: Tools → Write with AI (rewrite, shorten, bullets, grammar, a layout, speaker notes,
+   * a deck from a page, a check of the deck). The editor sends a request; the assistant changes the deck through its own tools. Left out,
+   * those commands are not offered.
+   */
+  ai?: EditorAiHost;
+  /**
    * Where the rehearsals of a deck are kept (the timing of each slide and step of a run-through). Kasten keeps them on this computer, outside
    * the vault. Left out, they are kept in the page's local storage, the last ten for each deck.
    */
@@ -326,6 +385,19 @@ export interface SlidesHost {
    * this out, and the title bar shows no star.
    */
   favourite?: DeckFavourite;
+  /** The name comments are written under; left out, "You". */
+  author?: string;
+  /**
+   * The saved versions of this deck, for Deck → History… Kasten reads them from the vault's own history. A host that keeps none leaves
+   * this out, and the editor offers no History. Restoring is the editor's: it puts the old version in as one step of undo, which is
+   * saved like any other change, so a restored version is a new version and nothing is lost.
+   */
+  history?: DeckHistoryHost;
+  /**
+   * Where the edits not yet saved are kept so that a crash does not lose them (never the deck's own file, and never the vault). Left out,
+   * the page's IndexedDB is used where there is one; a page without one keeps nothing and offers no recovery.
+   */
+  recovery?: RecoveryJournal;
 }
 
 /**

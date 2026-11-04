@@ -80,6 +80,10 @@ pub struct ToolOutput {
     pub id: String,
     pub content: String,
     pub is_error: bool,
+    /// Pictures the tool drew (a slide), for the model to look at. Never saved with a
+    /// thread: only the latest results are sent with them, and a reloaded thread has none.
+    #[serde(skip)]
+    pub images: Vec<Image>,
 }
 
 /// A picture the person attached, as an adapter sends it. Its bytes are kept

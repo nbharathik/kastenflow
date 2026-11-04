@@ -52,11 +52,7 @@ export function insertGroupRows(ctx: CommandContext, group: InsertGroupId): Menu
   if (group === "shapes") {
     return [...shapeGroupItems(ctx), submenu("lines", "Lines & arrows", lineItems(ctx), "arrow-up-right")];
   }
-  return insertItems(ctx, group).map((item) => {
-    // The text box is armed by the menu (to be placed with a click) and added at once by its key.
-    const checked = item.command === "insert.text-box" ? ctx.session.state.tool === "text" : undefined;
-    return commandItem(item.command, ctx, { description: item.description, ...(checked === undefined ? {} : { checked }) });
-  });
+  return insertItems(ctx, group).map((item) => commandItem(item.command, ctx, { description: item.description }));
 }
 
 /** The first level of the Insert menu: the groups. */

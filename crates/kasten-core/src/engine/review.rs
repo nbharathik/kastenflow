@@ -11,6 +11,7 @@ use crate::error::Result;
 use crate::frontmatter::split;
 use crate::history::Actor;
 use crate::id::ulid_at;
+use crate::journal_path::journal_path_in;
 use crate::sections::{append_under, replace_section};
 use crate::time::Instant;
 
@@ -125,19 +126,23 @@ impl Kasten {
                 date,
                 markdown,
                 heading,
+                project,
             } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+                let path = journal_path_in(&self.vault, project.as_deref(), date)?;
                 let b = self
                     .vault
                     .read(&path)
                     .map(|n| split(&n.text).body.to_owned())
                     .unwrap_or_default();
                 let after = append_under(&b, markdown, heading.as_deref())?;
-                (
-                    Some(b),
-                    Some(after),
-                    format!("Add to the journal for {date}"),
-                )
+                let words = match project {
+                    Some(_) => format!(
+                        "Add to the journal of {} for {date}",
+                        self.project_title(project.as_deref())
+                    ),
+                    None => format!("Add to the journal for {date}"),
+                };
+                (Some(b), Some(after), words)
             }
             AgentOp::TagSchema { tag, schema } => {
                 let slug = crate::slug::slugify(tag);

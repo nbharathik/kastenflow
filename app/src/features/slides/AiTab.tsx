@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
 import { ChangeSetBar } from "../chat/changes/ChangeSetBar";
+import { hasNoProvider } from "../chat/no-provider";
 import { usePanelPrefs } from "../chat/panel-prefs";
 import { useChat } from "../chat/store";
 import { threadStatus, threadTitle } from "../chat/thread";
@@ -123,7 +124,8 @@ export function AiTab(props: AiPanelProps) {
     );
   }
   if (!thread || !active) return null;
-  const none = providers !== null && providers.length === 0;
+  // The coding agents are always listed; one that is not installed is no provider.
+  const none = hasNoProvider(providers);
   // What the assistant is doing here, said when it is not simply at rest.
   const status = threadStatus(active);
   const word = status === "done" ? "" : STATUS_WORDS[status];

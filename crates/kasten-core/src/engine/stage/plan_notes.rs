@@ -14,6 +14,7 @@ use super::plan::Planned;
 use crate::agent::{AgentOp, ChangeSet, FileKind, NewFile};
 use crate::error::{Error, Result};
 use crate::frontmatter::{Front, split};
+use crate::journal_path::journal_path_in;
 use crate::note::{NoteFile, content_hash, meta_for};
 use crate::ops::{self, NewNote, NotePlan};
 use crate::save::saved_text;
@@ -171,12 +172,10 @@ impl Kasten {
                 date,
                 markdown,
                 heading,
+                project,
             } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+                let path = journal_path_in(&self.vault, project.as_deref(), date)?;
                 if !set.is_new(&path) && !self.vault.exists(&path) {
-                    if crate::template_vars::day_and_time(date).is_none() {
-                        return Err(Error::Invalid(format!("Not a day: {date}")));
-                    }
                     return Ok(Some(Planned::Review(format!(
                         "The journal for {date} does not exist yet, and making a page is not previewed, so this waits for your review"
                     ))));

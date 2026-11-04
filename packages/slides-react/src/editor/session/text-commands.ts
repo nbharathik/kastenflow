@@ -26,11 +26,13 @@ import {
   setLineSpacing,
   setList,
   setParagraphSpacing,
+  setParagraphStyle,
   setStartNumber,
   setValueMark,
 } from "../../text/commands.ts";
 import type { FormatState, Tri } from "../../text/format-state.ts";
 import type { EditorContext } from "../../text/selection-info.ts";
+import { tableTextOperations, tableTexts } from "../table/text.ts";
 import type { EditorSession } from "./session.ts";
 
 export type { FormatState, Tri };
@@ -134,18 +136,25 @@ export class TextCommands {
     });
   }
 
-  /** How the text of the selected elements looks. */
-  state(ids: readonly string[] = this.s.state.selection): FormatState {
-    return summarize(this.targets(ids), this.s.deck.theme);
+  /** The selected tables: their words are the cells picked in them, else all their cells. */
+  private tables(ids: readonly string[]): Extract<Element, { type: "table" }>[] {
+    return this.s.elements.find(ids).filter((element): element is Extract<Element, { type: "table" }> => element.type === "table");
   }
 
-  /** Rewrites the text of each target as one step of undo. */
+  /** How the text of the selected elements looks, a table's cells among them. */
+  state(ids: readonly string[] = this.s.state.selection): FormatState {
+    const cells = this.tables(ids).flatMap((table) => tableTexts(this.s, table));
+    return summarize([...this.targets(ids), ...cells], this.s.deck.theme);
+  }
+
+  /** Rewrites the text of each target, and the words of the cells of each selected table, as one step of undo. */
   private rewrite(ids: readonly string[], change: (text: Text, baseStyle: string) => Text): void {
     const slide = this.s.state.slideId;
-    const operations = this.targets(ids).flatMap(({ element, text, baseStyle }) => {
+    const operations: Parameters<EditorSession["core"]["applyBatch"]>[0] = this.targets(ids).flatMap(({ element, text, baseStyle }) => {
       const next = change(text, baseStyle);
       return next === text || JSON.stringify(next) === JSON.stringify(text) ? [] : [["set_rich_text", { slide, id: element.id, text: next }] satisfies ["set_rich_text", SetRichText]];
     });
+    for (const table of this.tables(ids)) operations.push(...tableTextOperations(this.s, table, change));
     if (operations.length > 0) this.s.run(() => this.s.core.applyBatch(operations));
   }
 
@@ -180,6 +189,19 @@ export class TextCommands {
 
   setAlign(align: Align, ids: readonly string[] = this.s.state.selection): void {
     this.apply(() => setAlign(align), ids);
+  }
+
+  /** Sets every paragraph in a named text style of the theme, as one step; null (or the style of the box itself) leaves it to the box. */
+  setParagraphStyle(style: string | null, ids: readonly string[] = this.s.state.selection): void {
+    this.apply((ctx) => setParagraphStyle(style === ctx.baseStyle ? null : style), ids);
+  }
+
+  /** The text style the paragraphs of these elements are set in, or "mixed" where they differ; null where there is no text. */
+  paragraphStyle(ids: readonly string[] = this.s.state.selection): string | null {
+    const names = this.targets(ids).flatMap(({ text, baseStyle }) => text.paragraphs.map((paragraph) => paragraph.style || baseStyle));
+    const [first] = names;
+    if (first === undefined) return null;
+    return names.every((name) => name === first) ? first : "mixed";
   }
 
   /** Makes every paragraph a bulleted or numbered list, or a plain paragraph if all already were that kind. */

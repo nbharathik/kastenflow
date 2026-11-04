@@ -80,7 +80,7 @@ fn write_all(vault: &Vault, plan: &Plan, now: Instant, done: &mut Rollback) -> R
         paths.extend([pdf.path.clone(), car]);
     }
     for day in &plan.days {
-        let path = format!("journal/{}/{}.md", &day.date[..4], day.date);
+        let path = crate::journal_path::journal_path(None, &day.date)?;
         let file = vault.path_of(&path)?;
         if day.exists {
             let before = fs::read(&file)?;

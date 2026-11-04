@@ -40,10 +40,7 @@ export function Filmstrip({ session, ui }: { session: EditorSession; ui: EditorU
   const service = useMemo(() => lintOf(session), [session]);
   // Lint flags the slides here only when the person asked for the badges; with them off it does no work at all.
   const badges = useUiState(ui).lintBadges;
-  useEffect(() => {
-    service.setBackground(badges);
-    return () => service.setBackground(false);
-  }, [service, badges]);
+  useEffect(() => (badges ? service.retain() : undefined), [service, badges]);
   const lint = badges ? service : null;
 
   // The width the person chose for the filmstrip decides how big the thumbnails are, and so how tall a row is.

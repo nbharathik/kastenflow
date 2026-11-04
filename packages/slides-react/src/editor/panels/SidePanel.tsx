@@ -8,8 +8,11 @@ import { useUiState } from "../useUi.ts";
 import { FormatPanel } from "./format/FormatPanel.tsx";
 import { FoldsProvider, useFolds } from "./format/PanelSection.tsx";
 import { AiPanel } from "./ai/AiPanel.tsx";
-import { CommentsTab } from "./Placeholders.tsx";
+import { AccessPanel } from "../access/AccessPanel.tsx";
+import { CommentsPanel } from "../comments/CommentsPanel.tsx";
 import { StepsPanel } from "./steps/StepsPanel.tsx";
+import { IdeasPanel } from "../ideas/IdeasPanel.tsx";
+import { HistoryPanel } from "../undo-history/HistoryPanel.tsx";
 import { ThemesPanel } from "./themes/ThemesPanel.tsx";
 import { TransitionsPanel } from "./transitions/TransitionsPanel.tsx";
 import "./side-panel.css";
@@ -19,6 +22,10 @@ const TABS: { name: PanelName; label: string; icon: IconName }[] = [
   { name: "themes", label: "Themes", icon: "palette" },
   { name: "transitions", label: "Transitions", icon: "film" },
   { name: "steps", label: "Steps", icon: "wand-sparkles" },
+  { name: "comments", label: "Comments", icon: "message-square" },
+  { name: "access", label: "Accessibility", icon: "eye" },
+  { name: "ideas", label: "Design ideas", icon: "layout-template" },
+  { name: "history", label: "Undo history", icon: "clock" },
   { name: "ai", label: "Assistant", icon: "sparkles" },
 ];
 
@@ -94,7 +101,7 @@ export function SidePanel({ session, ui, shown }: { session: EditorSession; ui: 
             className="ks-btn ks-sp-tab"
             aria-selected={panel === tab.name}
             aria-controls={bodyId}
-            tabIndex={panel === tab.name || (panel === "comments" && tab.name === "format") ? 0 : -1}
+            tabIndex={panel === tab.name ? 0 : -1}
             onClick={() => ui.openPanel(tab.name)}
           >
             <Icon name={tab.icon} size={15} />
@@ -111,7 +118,10 @@ export function SidePanel({ session, ui, shown }: { session: EditorSession; ui: 
         </FoldsProvider>
         {panel === "steps" ? <StepsPanel session={session} ui={ui} /> : null}
         {panel === "ai" ? <AiPanel session={session} ui={ui} /> : null}
-        {panel === "comments" ? <CommentsTab /> : null}
+        {panel === "comments" ? <CommentsPanel session={session} ui={ui} /> : null}
+        {panel === "access" ? <AccessPanel session={session} ui={ui} /> : null}
+        {panel === "ideas" ? <IdeasPanel session={session} ui={ui} /> : null}
+        {panel === "history" ? <HistoryPanel session={session} ui={ui} /> : null}
       </div>
     </aside>
   );

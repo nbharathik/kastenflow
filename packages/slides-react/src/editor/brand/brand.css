@@ -1,0 +1,114 @@
+/* The brand kit dialog: name, logo, colours, fonts and theme, then the check of the deck. */
+.ks-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ks-brand-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.ks-brand-label {
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-brand-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+.ks-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ks-brand-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ks-ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ks-brand-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.ks-brand-logo label:focus-within {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-brand-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+.ks-brand-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.ks-brand-color input[type="color"] {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: transparent;
+}
+.ks-brand-unset {
+  margin-left: auto;
+  color: var(--ks-faint);
+  font-size: 11px;
+}
+.ks-brand-clear {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--ks-muted);
+  cursor: pointer;
+}
+.ks-brand-clear:focus-visible,
+.ks-brand-go:focus-visible {
+  outline: 2px solid var(--ks-accent);
+}
+.ks-brand-check {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.ks-brand-found {
+  margin: 0;
+  padding-left: 16px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+.ks-brand-go {
+  border: 0;
+  background: transparent;
+  color: var(--ks-accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.ks-brand-note {
+  margin: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-brand-note.is-bad {
+  color: var(--ks-danger);
+}

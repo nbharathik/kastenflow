@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::Extra;
+use super::{Adjust, Extra, Gradient};
 
 model! {
     /// A solid fill.
@@ -96,6 +96,15 @@ model! {
         /// Arrowhead at a line's end.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub end_arrow: Option<Arrow>,
+        /// A picture's brightness, contrast, saturation, greyscale and blur.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub adjust: Option<Adjust>,
+        /// A picture shows through this preset shape (`star5`, `heart`, ...) instead of its `mask`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub mask_shape: Option<String>,
+        /// Colours that blend, painted in place of the fill's colour. The fill stays beside it as what a program that knows no gradients draws.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub gradient: Option<Gradient>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -119,6 +128,9 @@ impl Default for Style {
             opacity: None,
             start_arrow: None,
             end_arrow: None,
+            adjust: None,
+            mask_shape: None,
+            gradient: None,
             extra: Extra::new(),
         }
     }

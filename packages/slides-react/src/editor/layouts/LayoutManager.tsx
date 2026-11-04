@@ -8,6 +8,10 @@ import { useEditor } from "../useEditor.ts";
 import type { DialogProps } from "../dialogs/types.ts";
 import { isOwnLayout, markedDefault, ownFirst } from "./default-layout.ts";
 import { LayoutThumb } from "./LayoutThumb.tsx";
+import { refreshFromLibrary, sendToLibrary } from "./library-ops.ts";
+import { useLibrary } from "./library-state.ts";
+import { libraryIdOf } from "./library.ts";
+import { LibrarySection } from "./LibrarySection.tsx";
 import { addLayout, deleteLayout, editLayout, moveLayout, slidesOn } from "./ops.ts";
 import "./layouts.css";
 
@@ -57,6 +61,16 @@ export function LayoutManager({ session, ui, onClose }: DialogProps): JSX.Elemen
   };
 
   const design = (name: string) => ui.openLayoutDesign(name);
+
+  // My layouts: the layouts kept for every deck, when the host has them.
+  const library = session.host.layoutLibrary;
+  const libraryView = useLibrary(session);
+  const send = async (name: string, label: string) => {
+    if (!library) return;
+    const done = await sendToLibrary(session, library, name);
+    if (done) session.host.notify?.(done === "added" ? `Added “${label}” to My layouts. Every deck has it now.` : `Updated My layouts from “${label}”.`);
+    libraryView.reload();
+  };
 
   const newLayout = () => {
     const made = addLayout(session, "New layout");
@@ -130,6 +144,7 @@ export function LayoutManager({ session, ui, onClose }: DialogProps): JSX.Elemen
                 )}
                 <span className="ks-lm-meta">
                   {own ? <span className="ks-lm-badge">Yours</span> : <span>Built in</span>}
+                  {library && libraryIdOf(layout) !== undefined ? <span className="ks-lm-badge">In My layouts</span> : null}
                   {isDefault ? <span className="ks-lm-badge">New slides start here</span> : null}
                   <span>{used === 0 ? "No slides use it" : used === 1 ? "1 slide uses it" : `${used} slides use it`}</span>
                 </span>
@@ -138,6 +153,10 @@ export function LayoutManager({ session, ui, onClose }: DialogProps): JSX.Elemen
                 <Action icon="pen-line" label={`Edit ${layout.label}`} onClick={() => design(layout.name)} />
                 <Action icon="case-sensitive" label={`Rename ${layout.label}`} onClick={() => setRenaming({ name: layout.name, label: layout.label })} />
                 <Action icon="copy" label={`Duplicate ${layout.label}`} onClick={() => duplicate(layout.name)} />
+                {library && own && libraryIdOf(layout) !== undefined ? <Action icon="refresh-cw" label={`Update ${layout.label} from My layouts`} onClick={() => void refreshFromLibrary(session, library, layout.name)} /> : null}
+                {library && own ? (
+                  <Action icon="share" label={libraryIdOf(layout) !== undefined ? `Update My layouts from ${layout.label}` : `Add ${layout.label} to My layouts`} onClick={() => void send(layout.name, layout.label)} />
+                ) : null}
                 <Action icon="star" label={isDefault ? `${layout.label} is where new slides start (click to stop)` : `Start new slides from ${layout.label}`} onClick={() => editLayout(session, layout.name, { defaultForNew: !isDefault })} />
                 <Action icon="arrow-up" label={`Move ${layout.label} up`} disabled={!above} onClick={() => above && moveLayout(session, layout.name, place(above.name))} />
                 <Action icon="arrow-down" label={`Move ${layout.label} down`} disabled={!below} onClick={() => below && moveLayout(session, layout.name, place(below.name))} />
@@ -172,6 +191,7 @@ export function LayoutManager({ session, ui, onClose }: DialogProps): JSX.Elemen
           );
         })}
       </ul>
+      <LibrarySection session={session} deck={deck} imageUrl={imageUrl} view={libraryView} />
     </Dialog>
   );
 }

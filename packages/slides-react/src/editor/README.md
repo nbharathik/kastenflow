@@ -10,7 +10,7 @@ KastenFlow, in the `slides dev` page and in tests.
 ```
 SlidesEditor (SlidesEditor.tsx)         makes an EditorSession and an EditorUi, lays out the regions
 ├─ TitleBar     titlebar/               one slim row: name and star, saving status, the menus (MenuBar, or one Menu button when narrow),
-│                                       the menu search (Alt+/), the assistant, full screen and Slideshow
+│                                       the command palette button (Ctrl+Shift+P), the count of lint problems, the assistant, full screen and Slideshow
 ├─ Toolbar      toolbar/                one row of groups that follows the selection, with a "more" menu for what does not fit
 ├─ Filmstrip    filmstrip/              thumbnails, reorder, sections
 ├─ Gallery      gallery/                the images drawer: search, filters, drag onto the slide, where each is used
@@ -27,7 +27,7 @@ SlidesEditor (SlidesEditor.tsx)         makes an EditorSession and an EditorUi, 
 
 What the bars and panels need that is not the deck's and not the window's: `Chrome` (`chromeOf(ui)`, `useChrome`,
 `useChromeValue`) holds how roomy the bars are (`density`, "Compact toolbars" in the View menu, a `data-density` on the editor), the
-side panel's width, which sections of the format options are folded and whether the menu search is asked for; every choice about
+side panel's width, which sections of the format options are folded and which part of the command palette is asked for; every choice about
 taste is kept in the browser (`storage.ts`, always in a try/catch). `recents.ts` keeps the fonts and colours used lately,
 `overflow.ts` decides which groups of the toolbar go into the more menu, `scrub.ts` is the arithmetic of dragging across a number.
 
@@ -97,7 +97,7 @@ into it are applied with `applyIntoLast`, which keeps them in the step that made
 `setZoom(zoom, { about, instant })` says which place stays where it is and whether the zoom glides. `useUiState(ui)` draws a
 component again only for the keys it read while drawing (a component that reads none follows every change, and `actionsRevision`
 always reaches every caller). `ui.actions` holds what
-the host lets the editor do: `present`, `exportAs`, `print`, `close`, and `fullScreen` (optional). `ui.areas` notes where the focus
+the host lets the editor do: `present`, `exportAs`, `print`, `close`, `home` (the title bar's Home button and Alt+Home appear only when the host gives it; `close` is Back, the place the person came from), and `fullScreen` (optional). `ui.areas` notes where the focus
 last was and which regions select all of what they hold (see "Selecting text").
 
 ### Motion (`motion.ts`)
@@ -145,7 +145,7 @@ background or its dark colour, kept in the browser).
 
 ### Full screen
 
-View → Full screen, the title-bar button and Ctrl+Shift+F put the editor over the whole window of the app it runs in
+View → Full screen, the title-bar button and Ctrl+Alt+F (not Ctrl+Shift+F, which is a host's search) put the editor over the whole window of the app it runs in
 (`.ks-editor.is-fullscreen`, `position: fixed; inset: 0`, at `--ks-fullscreen-z`, 1000 unless the host sets it lower). It is not the
 monitor's full screen: the browser's Fullscreen API is not used, so the editor's own title bar, menus, toolbar, filmstrip, canvas
 and panels are what is left of the window, and nothing of the host's chrome shows around them. `watchFullScreen` (`full-screen.ts`)
@@ -256,11 +256,14 @@ label, embedded page, video) are made, seen and edited here:
 * `composite-kinds.ts` names them and says how each starts (`newComposite`); `insert-composite.ts` puts one on the
   shown slide, in the largest free place (`placement.ts`), selected, as one step of undo. Every way in (the Insert
   menu, the palette, the address dialogs) comes through `insertComposite`.
-* `commands/composites.ts`: `insert.<kind>` for each kind, `insert.palette` (Ctrl+Shift+P, or `/` when the slide has the
-  keys) and `arrange.ungroup-composite` ("Ungroup to shapes", which runs the `expand_composite` operation; not offered
+* `commands/composites.ts`: `insert.<kind>` for each kind, `insert.palette` (Ctrl+/, or `/` when the slide has the
+  keys; it opens the command palette on what to insert; `view.palette`, Ctrl+Shift+P, opens all of it) and `arrange.ungroup-composite` ("Ungroup to shapes", which runs the `expand_composite` operation; not offered
   for a formula, whose expansion is a picture the deck does not keep).
-* `dialogs/InsertDialog.tsx`: the palette. It lists what can be inserted, the layouts to add as a slide, the host's
-  pictures and every command that can be done now; `palette-rank.ts` filters and ranks by the words typed.
+* `dialogs/InsertDialog.tsx`: the command palette (Ctrl+Shift+P, and Ctrl+K where "Insert link" is not enabled; Alt+/
+  opens it on the commands). It lists what can be inserted, the layouts to add as a slide, the slides to go to, the host's
+  pictures and every command that can be done now (`palette-commands.ts`: the rows of the menus with their keys, then
+  the commands no menu has); `palette-rank.ts` filters and ranks by the words typed, `palette-modes.ts` keeps to one
+  part (`>` commands, `+` insert, `#` slides) and puts what was chosen lately first.
   `EmbedDialog` and `VideoDialog` ask for an address.
 * `panels/format/composites/`: a section of the format options for each kind. A double click on a composite opens
   them with the caret in the field marked `data-primary` (`field-focus.ts` carries the request from the canvas to
@@ -286,6 +289,12 @@ step of undo, and none when the slide already cites the key.
 `Icon` (names in `ui/icons.ts`, a subset of Lucide; append a name there if one is missing),
 `IconButton`, `TextButton`, `Divider`, `Popover`, `Menu` (items with icons, keys, checks, sub-menus,
 keyboard), `Dialog`, `ColorPicker`, `NumberField`, `Segmented`, `Toggle`, `Section`.
+
+A `Popover` (so every `Menu`) is drawn in a layer on the page's body, not inside the bar it opens from,
+so no container or `overflow` of the host's layout can move or clip it. It copies the `--ks-*` values,
+`data-theme` and `data-density` of the place it opened from. So style what is in a popover by its own
+classes, never through the toolbar, bar or panel it was opened from; find it in tests by role over the
+whole page. A menu's box is `role="none"` and its list is the named `role="menu"`.
 
 The look is `editor.css`: every colour, radius and shadow is a variable `--ks-*` on `.ks-editor`. Use
 those and nothing else, so a host restyles the editor by setting them and a dark theme needs no

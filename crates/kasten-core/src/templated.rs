@@ -5,6 +5,7 @@
 use crate::atomic::write_atomic;
 use crate::error::{Error, Result};
 use crate::frontmatter::{append_blocks, join, key_blocks, set_key, split, still_readable};
+use crate::journal_path::journal_path_in;
 use crate::note::NoteFile;
 use crate::ops::{Kind, NewNote, create_note, eol_of};
 use crate::slug::slugify;
@@ -12,31 +13,46 @@ use crate::template_vars::{day_and_time, fill};
 use crate::time::Instant;
 use crate::vault::Vault;
 
-/// The journal note for `date`, created from `templates/journal.md` (when
-/// there is one) the first time it is opened.
-pub fn journal_day(vault: &Vault, date: &str, now: Instant) -> Result<NoteFile> {
-    journal_day_from(vault, date, None, now)
+/// The template a project's journal days start from, when the vault has it.
+const PROJECT_JOURNAL_TEMPLATE: &str = "project-journal";
+
+/// The journal note for `date` in the vault's journal (`project` None) or a
+/// project's, created the first time it is opened: from
+/// `templates/project-journal.md` for a project's, else from
+/// `templates/journal.md` (when there is one).
+pub fn journal_day(
+    vault: &Vault,
+    project: Option<&str>,
+    date: &str,
+    now: Instant,
+) -> Result<NoteFile> {
+    journal_day_from(vault, project, date, None, now)
 }
 
 /// `journal_day`, starting a new day from the template `chosen` when the
 /// vault has it, else as usual.
 pub fn journal_day_from(
     vault: &Vault,
+    project: Option<&str>,
     date: &str,
     chosen: Option<&str>,
     now: Instant,
 ) -> Result<NoteFile> {
-    let Some((day, _)) = day_and_time(date) else {
-        return Err(Error::Invalid(format!("Not a day: {date}")));
-    };
-    let path = format!("journal/{}/{day}.md", &day[..4]);
+    let path = journal_path_in(vault, project, date)?;
     if vault.exists(&path) {
         return vault.read(&path);
     }
+    let Some((day, _)) = day_and_time(date) else {
+        return Err(Error::Invalid(format!("Not a day: {date}")));
+    };
     let chosen = chosen
         .map(slugify)
         .filter(|name| !name.is_empty() && vault.exists(&format!("templates/{name}.md")));
-    let template = chosen.or_else(|| {
+    // A project's own template, written for its days, is used as written.
+    let own = (project.is_some()
+        && vault.exists(&format!("templates/{PROJECT_JOURNAL_TEMPLATE}.md")))
+    .then(|| PROJECT_JOURNAL_TEMPLATE.to_owned());
+    let template = own.or(chosen).or_else(|| {
         (vault.exists("templates/journal.md") && !old_journal_template(vault))
             .then(|| "journal".to_owned())
     });
@@ -44,7 +60,7 @@ pub fn journal_day_from(
         kind: Kind::Journal,
         title: day.to_owned(),
         date: date.to_owned(),
-        project: None,
+        project: project.map(str::to_owned),
         parent: None,
         template,
         icon: None,

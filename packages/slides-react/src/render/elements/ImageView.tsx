@@ -6,6 +6,7 @@ import type { ViewProps } from "../context.ts";
 import { isCover } from "../cover.ts";
 import { cropFrame } from "../crop.ts";
 import { clamp } from "../format.ts";
+import { adjustFilter, maskClip } from "../image-look.ts";
 import { shadowFilter, strokeWidthOf } from "../style.ts";
 
 /** The corner radius of a rounded mask when the style names none. */
@@ -59,14 +60,17 @@ export function ImageView({ element, box, cx }: ViewProps<"image">): JSX.Element
     return <EmptyImage cx={cx} box={box} prompt={prompt} />;
   }
 
-  const radius = maskRadius(element.mask, element.style?.radius, box.w, box.h);
+  // A mask of any preset shape takes the place of the three plain masks.
+  const clip = maskClip(element.style?.maskShape, box.w, box.h);
+  const radius = clip ? undefined : maskRadius(element.mask, element.style?.radius, box.w, box.h);
   const frame = cropFrame(element.crop);
   const stroke = element.style?.stroke;
   const outline = strokeWidthOf(stroke);
   const filter = shadowFilter(theme, element.style?.shadow);
+  const touched = adjustFilter(element.style?.adjust);
   const broken = url === undefined || failed === url;
-  return (
-    <div className="ks-image" style={{ borderRadius: radius, filter }}>
+  const picture = (
+    <div className="ks-image" style={{ borderRadius: radius, filter: clip ? undefined : filter, clipPath: clip }}>
       {broken ? (
         <div className="ks-image-failed" style={{ background: colorOf(theme, "text2", 0.25) }} role="img" aria-label={element.alt ?? undefined} />
       ) : (
@@ -76,11 +80,19 @@ export function ImageView({ element, box, cx }: ViewProps<"image">): JSX.Element
           alt={element.alt ?? ""}
           draggable={false}
           decoding="async"
-          style={frame ?? { left: 0, top: 0, width: "100%", height: "100%", ...(isCover(element) ? { objectFit: "cover" as const } : {}) }}
+          style={{ ...(frame ?? { left: 0, top: 0, width: "100%", height: "100%", ...(isCover(element) ? { objectFit: "cover" as const } : {}) }), filter: touched }}
           onError={() => setFailed(url)}
         />
       )}
-      {stroke && outline > 0 && <div className="ks-image-frame" style={frameOf(radius, outline, colorOf(theme, stroke.color, stroke.alpha))} />}
+      {stroke && outline > 0 && !clip && <div className="ks-image-frame" style={frameOf(radius, outline, colorOf(theme, stroke.color, stroke.alpha))} />}
     </div>
+  );
+  // A clip path would cut the shadow away, so a shaped picture's shadow is cast by a box around it.
+  return clip ? (
+    <div className="ks-image" style={{ filter }}>
+      {picture}
+    </div>
+  ) : (
+    picture
   );
 }

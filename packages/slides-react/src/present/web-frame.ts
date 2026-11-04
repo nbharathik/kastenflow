@@ -9,10 +9,11 @@
 // - slow: it has not loaded in time. The frame is kept; if it loads later, it is ready.
 // - offline: the device has no network and the address is not on this machine; the frame waits for the network.
 //
-// What cannot be known (a site that sends `X-Frame-Options` or `frame-ancestors`, a host that is down) shows as a loaded frame with
-// the browser's own error page in it: the person can always open the address outside (the callers offer that button).
+// What the frame cannot know (a site that sends `X-Frame-Options` or `frame-ancestors`, a host that is down) shows as a loaded frame with
+// the browser's own error page in it. A host that can read a site's headers says so before the frame is made (`refused`, from
+// `framePolicy`), and the card appears at once; for the rest the person can always open the address outside (the callers offer that button).
 
-export type FrameStatus = "loading" | "ready" | "blocked" | "slow" | "offline";
+export type FrameStatus = "loading" | "ready" | "blocked" | "refused" | "slow" | "offline";
 
 /** How long a page has to load before it counts as slow, in seconds. */
 export const SLOW_SECONDS = 8;
@@ -119,8 +120,10 @@ export function watchFrame(frame: HTMLIFrameElement, address: string, { seconds 
 /** What the card over a page that is not showing says, by why. `null` for a page that is loading or ready. */
 export function frameProblem(status: FrameStatus): string | null {
   switch (status) {
+    case "refused":
+      return "This site does not allow its pages to be shown inside another page, so it can't appear on the slide. Open it in your browser instead.";
     case "blocked":
-      return "This page can't be shown inside a slide here: the app's security rules do not let it load in a frame.";
+      return "This page can't be shown inside a slide here. Open it in your browser instead.";
     case "slow":
       return "This page is taking a long time to load. It may be down, or it may refuse to be shown inside a slide.";
     case "offline":

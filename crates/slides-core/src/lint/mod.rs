@@ -10,6 +10,7 @@
 //! bibliography, passed as [`Refs`]. Without them those rules are named in
 //! [`Report::skipped`], never left out silently.
 
+pub(crate) mod brand;
 pub(crate) mod color;
 pub mod estimate;
 mod fonts;
@@ -24,6 +25,7 @@ mod texts;
 #[cfg(test)]
 mod tests;
 
+pub use brand::{Brand, OFF_BRAND, off_brand};
 #[cfg(test)]
 pub(crate) use fonts::BUNDLED;
 pub use model::{Issue, Measure, Measures, Options, Refs, Report, Severity, SkippedRule};

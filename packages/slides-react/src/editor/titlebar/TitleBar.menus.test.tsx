@@ -1,11 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { newDeck } from "../../test/engine.ts";
+import { chromeOf } from "../chrome/chrome.ts";
 import { runCommand } from "../commands/index.ts";
 import type { DeckFavourite } from "../host.ts";
 import { MemoryHost } from "../memory-host.ts";
-import { button, click, nextFrame } from "../menus/testing.ts";
+import { button, click } from "../menus/testing.ts";
 import { EditorSession } from "../session/session.ts";
 import { EditorUi } from "../ui-state.ts";
 import { TitleBar } from "./TitleBar.tsx";
@@ -40,7 +41,7 @@ describe("the menus in the title bar", () => {
       await setup();
       expect(screen.queryByRole("menuitem", { name: "File" })).toBeNull();
       click(screen.getByRole("menuitem", { name: "Menu" }));
-      const menu = screen.getByRole("dialog", { name: "Menu" });
+      const menu = screen.getByRole("menu", { name: "Menu" });
       expect(within(menu).getAllByRole("menuitem").map((row) => row.textContent?.replace(/\s+/g, " ").trim())).toEqual(["File", "Edit", "View", "Insert", "Format", "Slide", "Arrange", "Tools", "Help"]);
       click(within(menu).getByRole("menuitem", { name: "File" }));
       expect(screen.getByRole("menuitem", { name: /^Page setup/ })).toBeTruthy();
@@ -51,74 +52,22 @@ describe("the menus in the title bar", () => {
   });
 });
 
-describe("the search over the menus", () => {
-  it("finds a row of any menu by its name and runs it with Enter", async () => {
+// The palette itself is drawn with the other dialogs (see dialogs/palette.test.tsx): the bar only has the button that opens it.
+describe("the search button of the bar", () => {
+  it("opens the command palette on all of it, and says the keys in its tip", async () => {
     const { ui } = await setup();
-    click(button("Search the menus"));
-    await nextFrame();
-    const box = screen.getByRole("combobox", { name: "Search the menus" });
-    expect(document.activeElement).toBe(box);
-    fireEvent.change(box, { target: { value: "page setup" } });
-    const options = screen.getAllByRole("option");
-    expect(options[0]?.textContent).toContain("Page setup");
-    expect(options[0]?.textContent).toContain("File");
-    fireEvent.keyDown(box, { key: "Enter" });
-    expect(ui.state.dialog).toBe("page");
-    expect(screen.queryByRole("combobox", { name: "Search the menus" })).toBeNull();
+    expect(ui.state.dialog).toBeNull();
+    click(button("Command palette"));
+    expect(ui.state.dialog).toBe("insert");
+    expect(chromeOf(ui).takePalette()).toBe("all");
+    expect(button("Command palette").getAttribute("data-tip")).toMatch(/Ctrl\+Shift\+P|⇧⌘P/);
   });
 
-  it("moves over what it found with the arrow keys, and runs a row clicked", async () => {
-    const { session } = await setup();
-    click(button("Search the menus"));
-    await nextFrame();
-    const box = screen.getByRole("combobox", { name: "Search the menus" });
-    fireEvent.change(box, { target: { value: "new slide" } });
-    expect(box.getAttribute("aria-activedescendant")).toBe("ks-menu-hit-0");
-    fireEvent.keyDown(box, { key: "ArrowDown" });
-    expect(box.getAttribute("aria-activedescendant")).toBe("ks-menu-hit-1");
-    fireEvent.keyDown(box, { key: "ArrowUp" });
-    expect(box.getAttribute("aria-activedescendant")).toBe("ks-menu-hit-0");
-    const slides = session.deck.slides.length;
-    fireEvent.click(screen.getAllByRole("option")[0]!);
-    expect(session.deck.slides.length).toBe(slides + 1);
-  });
-
-  it("says when nothing is called what was typed, and does not run a row that cannot be done now", async () => {
-    const { session } = await setup();
-    click(button("Search the menus"));
-    await nextFrame();
-    const box = screen.getByRole("combobox", { name: "Search the menus" });
-    fireEvent.change(box, { target: { value: "zebra" } });
-    expect(screen.queryAllByRole("option")).toHaveLength(0);
-    expect(screen.getByRole("dialog", { name: "Search the menus" }).textContent).toContain("Nothing in the menus");
-    // Undo cannot be done on a deck nothing has been done to.
-    fireEvent.change(box, { target: { value: "undo" } });
-    const [undo] = screen.getAllByRole("option");
-    expect(undo?.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.keyDown(box, { key: "Enter" });
-    expect(session.state.canUndo).toBe(false);
-    expect(screen.getByRole("combobox", { name: "Search the menus" })).toBeTruthy();
-  });
-
-  it("is opened by the command with its key, Alt+/, from anywhere", async () => {
+  it("is also opened by the command for Alt+/, on the commands, from anywhere", async () => {
     const { session, ui } = await setup();
-    expect(screen.queryByRole("combobox", { name: "Search the menus" })).toBeNull();
     await act(async () => runCommand("view.menu-search", { session, ui }));
-    await nextFrame();
-    expect(screen.getByRole("combobox", { name: "Search the menus" })).toBeTruthy();
-    expect(button("Search the menus").getAttribute("data-tip")).toMatch(/Alt\+\/|⌥\//);
-  });
-
-  it("closes on Escape and gives the focus back", async () => {
-    await setup();
-    const opener = button("Search the menus");
-    opener.focus();
-    click(opener);
-    await nextFrame();
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    expect(screen.queryByRole("combobox", { name: "Search the menus" })).toBeNull();
-    await nextFrame();
-    expect(document.activeElement).toBe(opener);
+    expect(ui.state.dialog).toBe("insert");
+    expect(chromeOf(ui).takePalette()).toBe("commands");
   });
 });
 

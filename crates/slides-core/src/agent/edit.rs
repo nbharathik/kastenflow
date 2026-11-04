@@ -74,6 +74,7 @@ fn expand_markdown(elements: &mut Value) {
 
 /// Makes an operation's input what the engine wants: slides named by their place become ids, Markdown becomes text.
 fn prepare(deck: &Deck, op: &str, input: &mut Value) -> Result<(), ToolError> {
+    super::comments::mark_as_assistants(op, input);
     if let Some(Value::String(_) | Value::Number(_)) = input.get("slide") {
         let id = slide_id(deck, &input["slide"])?;
         input["slide"] = Value::String(id);
@@ -82,6 +83,7 @@ fn prepare(deck: &Deck, op: &str, input: &mut Value) -> Result<(), ToolError> {
         && let Some(elements) = input.get_mut("elements")
     {
         expand_markdown(elements);
+        super::embeds::note_providers(elements);
     }
     Ok(())
 }

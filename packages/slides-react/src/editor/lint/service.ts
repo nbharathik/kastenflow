@@ -110,6 +110,8 @@ export class LintService {
   private cancelIdle: (() => void) | null = null;
   private disposed = false;
   private following: boolean;
+  /** How many views have asked for the background checking (`retain`). */
+  private holders = 0;
 
   constructor(session: EditorSession, options: LintOptions = {}) {
     this.session = session;
@@ -203,6 +205,22 @@ export class LintService {
       this.cancelIdle?.();
       this.cancelIdle = null;
     }
+  }
+
+  /**
+   * Asks for the checking in the background for as long as the answer is wanted. Several views can ask (the filmstrip's marks, the count
+   * in the title bar); it is on while any of them does, and off when the last lets go. The result lets go, once.
+   */
+  retain(): () => void {
+    this.holders += 1;
+    this.setBackground(true);
+    let held = true;
+    return () => {
+      if (!held) return;
+      held = false;
+      this.holders -= 1;
+      if (this.holders === 0) this.setBackground(false);
+    };
   }
 
   /** Starts (or restarts) the quiet period after which the marked slides are checked. */

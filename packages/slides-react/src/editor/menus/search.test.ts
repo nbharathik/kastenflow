@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { MenuItem } from "../ui/Menu.tsx";
-import { type MenuHit, flattenMenus, placeOf, searchMenus } from "./search.ts";
+import { flattenMenus, placeOf } from "./search.ts";
 import { barMenus } from "./bar-menus.ts";
 import { openEditor } from "./testing.ts";
 
@@ -54,64 +54,18 @@ describe("flattening the menus", () => {
   });
 });
 
-describe("searching them", () => {
-  const hits = flattenMenus(menus);
-  const labels = (found: MenuHit[]) => found.map((hit) => hit.label);
-
-  it("finds nothing for nothing", () => {
-    expect(searchMenus(hits, "")).toEqual([]);
-    expect(searchMenus(hits, "   ")).toEqual([]);
-  });
-
-  it("puts a row that starts with the words before one that only holds them", () => {
-    expect(labels(searchMenus(hits, "new"))).toEqual(["New slide", "New slide from layout"]);
-    expect(labels(searchMenus(hits, "slide"))[0]).toBe("New slide");
-  });
-
-  it("puts an exact name first", () => {
-    expect(labels(searchMenus(hits, "delete slide"))[0]).toBe("Delete slide");
-    expect(labels(searchMenus(hits, "bold"))).toEqual(["Bold"]);
-  });
-
-  it("finds a row by the menu it is in", () => {
-    expect(labels(searchMenus(hits, "format text"))).toEqual(["Bold", "Italic", "Strikethrough"]);
-  });
-
-  it("matches the start of any word, in any case", () => {
-    // A word of the row's own name comes before the rows found only through the menu they are in.
-    expect(labels(searchMenus(hits, "FORM"))).toEqual(["Clear formatting", "Bold", "Italic", "Strikethrough"]);
-    expect(labels(searchMenus(hits, "layout"))).toEqual(["New slide from layout"]);
-  });
-
-  it("lists a row that cannot be run after one that can at the same level", () => {
-    const two = flattenMenus([{ label: "A", items: () => [row("Print setup", { disabled: true }), row("Print now")] }]);
-    expect(labels(searchMenus(two, "print"))).toEqual(["Print now", "Print setup"]);
-  });
-
-  it("stops at the limit", () => {
-    const many = flattenMenus([{ label: "M", items: () => Array.from({ length: 30 }, (_, i) => row(`Item ${i}`)) }]);
-    expect(searchMenus(many, "item").length).toBe(12);
-    expect(searchMenus(many, "item", 5).length).toBe(5);
-  });
-
-  it("finds nothing for words that are nowhere", () => {
-    expect(searchMenus(hits, "zebra")).toEqual([]);
-  });
-});
-
 describe("the real menus", () => {
-  it("find Bold under Format, with its keys, and can run it", async () => {
+  it("list Bold under Format, with its keys", async () => {
     const { session, ui } = await openEditor();
-    const found = searchMenus(flattenMenus(barMenus({ session, ui })), "bold");
+    const found = flattenMenus(barMenus({ session, ui })).filter((hit) => hit.label === "Bold");
     expect(found[0]).toMatchObject({ label: "Bold", path: ["Format", "Text"] });
     expect(found[0]?.keys).toMatch(/B$/);
   });
 
-  it("find a command by a word of its name, wherever it is", async () => {
+  it("list a command wherever it is", async () => {
     const { session, ui } = await openEditor();
     const all = flattenMenus(barMenus({ session, ui }));
-    expect(searchMenus(all, "page setup").map(placeOf)).toContain("File");
-    expect(searchMenus(all, "transition").map((hit) => hit.path[0])).toEqual(expect.arrayContaining(["Slide", "View"]));
-    expect(searchMenus(all, "present").length).toBeGreaterThan(1);
+    expect(all.filter((hit) => /page setup/i.test(hit.label)).map(placeOf)).toContain("File");
+    expect(all.filter((hit) => /transition/i.test(hit.label)).length).toBeGreaterThan(0);
   });
 });

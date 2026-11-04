@@ -237,17 +237,18 @@ impl Kasten {
         })
     }
 
-    /// Adds Markdown to a journal day (made from the template if new), at
-    /// the end or under `heading`.
+    /// Adds Markdown to a journal day of the vault or of `project` (made
+    /// from the template if new), at the end or under `heading`.
     pub fn journal_append(
         &self,
         actor: &Actor,
+        project: Option<&str>,
         date: &str,
         markdown: &str,
         heading: Option<&str>,
         now: Instant,
     ) -> Result<NoteFile> {
-        let day = self.journal(actor, date, now)?;
+        let day = self.journal(actor, project, date, now)?;
         self.append(actor, &day.meta.path, markdown, heading, now)
     }
 

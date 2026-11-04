@@ -42,6 +42,7 @@ pub mod parity_words;
 mod plugins;
 mod server;
 mod setup;
+mod slides_group;
 mod smart_instructions;
 pub mod smart_kit;
 pub mod smart_words;

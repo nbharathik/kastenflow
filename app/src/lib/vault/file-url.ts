@@ -16,9 +16,24 @@ export function setFileRoot(folder: string | null): void {
   root = folder;
 }
 
+/** A web address (a video on the web, say) is its own URL. Only `http` and `https`, with no name and password in front: nothing else
+ * is a web address a window may load, and the window's content policy decides which kinds of thing may come from the web. */
+function webAddress(path: string): string | null {
+  if (!/^https?:\/\//i.test(path)) return null;
+  try {
+    const url = new URL(path);
+    return url.username === "" && url.password === "" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A URL the window can load the vault file at `path` from, or null where
- * files cannot be shown (the browser preview, or a path outside the vault). */
+ * files cannot be shown (the browser preview, or a path outside the vault).
+ * A web address is passed through as it is. */
 export function fileUrl(path: string): string | null {
+  const web = webAddress(path);
+  if (web) return web;
   // Used now: it goes to the back of the line for being freed.
   const known = touch(kept, path);
   if (known) return known;

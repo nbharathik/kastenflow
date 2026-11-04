@@ -4,7 +4,7 @@
 import type { Align, ListKind, ListStyle, Script, Text, TextFit } from "@kasten-slides/wasm";
 import type { EditorView } from "prosemirror-view";
 
-import { indent, moveParagraphs, restartNumbering, setAlign, setBulletColor, setBulletSize, setIndents, setLineSpacing, setList, setParagraphSpacing, setStartNumber, toggleList } from "./block-commands.ts";
+import { indent, moveParagraphs, restartNumbering, setAlign, setBulletColor, setBulletSize, setIndents, setLineSpacing, setList, setParagraphSpacing, setParagraphStyle, setStartNumber, toggleList } from "./block-commands.ts";
 import { type CaseMode, changeCase } from "./case-commands.ts";
 import type { MountedEditor } from "./editor.ts";
 import type { FormatState } from "./format-state.ts";
@@ -12,7 +12,8 @@ import { continuePreviousList, applyListStyle } from "./list-commands.ts";
 import { linkFromInput } from "./links.ts";
 import { type Command, clearFormatting, insertLink, setLink, setValueMark, stepFontSize, toggleFlag, toggleScript } from "./mark-commands.ts";
 import { hexOf } from "../theme/index.ts";
-import { wholeText } from "./selection-info.ts";
+import { attrsOf } from "./schema.ts";
+import { selectedParagraphs, wholeText } from "./selection-info.ts";
 
 export interface TextEditorHandle {
   focus(): void;
@@ -41,6 +42,10 @@ export interface TextEditorHandle {
   /** A theme font role (`heading`, `body`, `code`) or a family name; null takes it off. */
   setFont(font: string | null): void;
   setAlign(align: Align): void;
+  /** Sets the selected paragraphs in a named text style of the theme; null (or the box's own style) leaves them in the style of their box. */
+  setParagraphStyle(style: string | null): void;
+  /** The text style the selected paragraphs are set in: its name, or "mixed" where they differ. */
+  paragraphStyle(): string;
   /** The bullet or number button: that list on the selected paragraphs, or off if they all have it. */
   toggleList(kind: ListKind): void;
   /** One style of list (its kind goes with it) on the selected paragraphs; null takes the list off. */
@@ -193,6 +198,14 @@ export function createHandle(current: () => MountedEditor | null, fallback: () =
       run(setValueMark("font", name ? name : null));
     },
     setAlign: (align) => run(setAlign(align)),
+    setParagraphStyle: (style) => withContext((e) => setParagraphStyle(style === e.ctx.baseStyle ? null : style)),
+    paragraphStyle() {
+      const editor = current();
+      if (!editor) return "body";
+      const names = selectedParagraphs(editor.view.state).map(({ node }) => attrsOf(node).style ?? editor.ctx.baseStyle);
+      const [first = editor.ctx.baseStyle] = names;
+      return names.every((name) => name === first) ? first : "mixed";
+    },
     toggleList: (kind) => withContext((e) => toggleList(kind, e.ctx)),
     setListStyle: (style) => withContext((e) => (style === null ? setList(null, e.ctx) : applyListStyle(style, e.ctx))),
     restartNumbering: () => run(restartNumbering),

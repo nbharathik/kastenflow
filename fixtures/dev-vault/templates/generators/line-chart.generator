@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-line-chart",
+  "label": "Line chart",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.trend);\nconst width = 800, height = 450, m = { top: 30, right: 30, bottom: 60, left: 70 };\nconst x = kit.scaleLinear([rows[0].week, rows[rows.length - 1].week], [m.left, width - m.right]);\nconst y = kit.scaleLinear([0, Math.max(...rows.map(r => r.visits))], [height - m.bottom, m.top]);\nconst points = rows.map(r => [x(r.week), y(r.visits)]);\nreturn kit.svg(width, height, [\n  kit.axisLeft(y, m.left),\n  kit.axisBottom(x, height - m.bottom, { ticks: rows.length }),\n  kit.polyline(points, { stroke: kit.palette(0), strokeWidth: 3 }),\n  points.map(p => kit.circle(p[0], p[1], 5, { fill: kit.palette(0) })),\n]);",
+    "inputs": [
+      {
+        "name": "trend",
+        "kind": "data",
+        "value": "week,visits\n1,120\n2,150\n3,140\n4,190\n5,230\n6,260\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

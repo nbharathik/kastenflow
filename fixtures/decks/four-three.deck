@@ -17,6 +17,7 @@
           "id": "e-lpzn9x16",
           "placeholder": "title",
           "text": {
+            "fit": "shrink",
             "paragraphs": [
               {
                 "runs": [
@@ -33,6 +34,7 @@
           "id": "e-unsiekui",
           "placeholder": "subtitle",
           "text": {
+            "fit": "shrink",
             "paragraphs": [
               {
                 "runs": [
@@ -55,6 +57,7 @@
           "id": "e-3zc0f27y",
           "placeholder": "title",
           "text": {
+            "fit": "shrink",
             "paragraphs": [
               {
                 "runs": [
@@ -71,6 +74,7 @@
           "id": "e-lqz67hrn",
           "placeholder": "body",
           "text": {
+            "fit": "shrink",
             "paragraphs": [
               {
                 "list": "bullet",
@@ -196,7 +200,7 @@
         "name": "title-body",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -207,7 +211,7 @@
             "y": 72
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -216,7 +220,7 @@
             "valign": "top",
             "w": 624,
             "x": 48,
-            "y": 164
+            "y": 188
           }
         ]
       },
@@ -225,7 +229,7 @@
         "name": "title-only",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -242,7 +246,7 @@
         "name": "two-columns",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -253,7 +257,7 @@
             "y": 72
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -262,10 +266,10 @@
             "valign": "top",
             "w": 300,
             "x": 48,
-            "y": 164
+            "y": 188
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -274,7 +278,7 @@
             "valign": "top",
             "w": 300,
             "x": 372,
-            "y": 164
+            "y": 188
           }
         ]
       },
@@ -283,7 +287,7 @@
         "name": "title-image",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -294,7 +298,7 @@
             "y": 72
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -303,10 +307,10 @@
             "valign": "top",
             "w": 300,
             "x": 48,
-            "y": 164
+            "y": 188
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "image",
             "prompt": "Click to add image",
             "role": "image",
@@ -314,7 +318,7 @@
             "valign": "middle",
             "w": 300,
             "x": 372,
-            "y": 164
+            "y": 188
           }
         ]
       },
@@ -351,7 +355,7 @@
         "name": "code",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -362,7 +366,7 @@
             "y": 72
           },
           {
-            "h": 328,
+            "h": 304,
             "kind": "text",
             "prompt": "Click to add code",
             "role": "code",
@@ -370,7 +374,7 @@
             "valign": "top",
             "w": 624,
             "x": 48,
-            "y": 164
+            "y": 188
           }
         ]
       },
@@ -379,7 +383,7 @@
         "name": "comparison",
         "placeholders": [
           {
-            "h": 80,
+            "h": 108,
             "kind": "text",
             "prompt": "Click to add title",
             "role": "title",
@@ -398,7 +402,7 @@
             "valign": "bottom",
             "w": 300,
             "x": 48,
-            "y": 164
+            "y": 188
           },
           {
             "h": 44,
@@ -409,10 +413,10 @@
             "valign": "bottom",
             "w": 300,
             "x": 372,
-            "y": 164
+            "y": 188
           },
           {
-            "h": 276,
+            "h": 252,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -421,10 +425,10 @@
             "valign": "top",
             "w": 300,
             "x": 48,
-            "y": 216
+            "y": 240
           },
           {
-            "h": 276,
+            "h": 252,
             "kind": "text",
             "list": "bullet",
             "prompt": "Click to add text",
@@ -433,7 +437,7 @@
             "valign": "top",
             "w": 300,
             "x": 372,
-            "y": 216
+            "y": 240
           }
         ]
       },

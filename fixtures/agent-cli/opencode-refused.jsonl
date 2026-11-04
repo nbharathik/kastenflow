@@ -1,0 +1,4 @@
+{"type":"step_start","timestamp":1767036059338,"sessionID":"ses_refused0001","part":{"type":"step-start"}}
+{"type":"tool_use","timestamp":1767036061199,"sessionID":"ses_refused0001","part":{"type":"tool","callID":"call_9","tool":"bash","state":{"status":"error","input":{"command":"rm notes.md"},"error":"The user rejected permission to use this specific tool call."}}}
+{"type":"text","timestamp":1767036064268,"sessionID":"ses_refused0001","part":{"type":"text","text":"I was not allowed to run that."}}
+{"type":"error","timestamp":1767036065000,"sessionID":"ses_refused0001","error":{"name":"APIError","data":{"message":"Rate limit reached. Try again later.","statusCode":429,"isRetryable":true}}}

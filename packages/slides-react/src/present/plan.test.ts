@@ -171,12 +171,18 @@ describe("how a slide arrives", () => {
 
   it("is what the slide says, else the deck's, else nothing", () => {
     const [a, b, c] = deck.slides as [Slide, Slide, Slide];
-    expect(arrivalOf(deck, a)).toEqual({ kind: "none", duration: 0, easing: null });
-    expect(arrivalOf(deck, b)).toEqual({ kind: "fade", duration: 0.4, easing: null });
-    expect(arrivalOf(deck, c)).toEqual({ kind: "morph", duration: 1.5, easing: "ease-in-out" });
+    expect(arrivalOf(deck, a)).toEqual({ kind: "none", duration: 0, easing: null, direction: null });
+    expect(arrivalOf(deck, b)).toEqual({ kind: "fade", duration: 0.4, easing: null, direction: null });
+    expect(arrivalOf(deck, c)).toEqual({ kind: "morph", duration: 1.5, easing: "ease-in-out", direction: null });
     const withDefault = { ...deck, present: { ...deck.present, transition: { kind: "slide" as const } } };
-    expect(arrivalOf(withDefault, a)).toEqual({ kind: "slide", duration: 0.4, easing: null });
+    expect(arrivalOf(withDefault, a)).toEqual({ kind: "slide", duration: 0.4, easing: null, direction: null });
     expect(arrivalOf(withDefault, b).kind).toBe("fade");
+  });
+
+  it("keeps the side a new kind comes from and has a time for each kind", () => {
+    const pushed = deckOf(slide("a", { transition: { kind: "push", direction: "left" } }), slide("b", { transition: { kind: "cover" } }));
+    expect(arrivalOf(pushed, pushed.slides[0] as Slide)).toEqual({ kind: "push", duration: 0.5, easing: null, direction: "left" });
+    expect(arrivalOf(pushed, pushed.slides[1] as Slide).direction).toBeNull();
   });
 
   it("takes 0.6 seconds to morph when the slide does not say", () => {

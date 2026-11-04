@@ -33,6 +33,11 @@ pub fn handle(side: &dyn Side, request: Request, call: Call) -> Result<Value, St
     match call {
         Call::DiagramPng { diagram, page } => super::diagram::png(side, &diagram, page.as_deref()),
         Call::WatchSelection {} => watch_selection(side),
+        Call::SlidePng { .. }
+        | Call::SlideGrid {}
+        | Call::SlideDiff { .. }
+        | Call::SlideMeasure {} => super::slides::handle(side, &request, &call),
+        Call::RunGenerator { .. } => super::generator::handle(side, &request, &call),
         call => latex(side, request, call),
     }
 }

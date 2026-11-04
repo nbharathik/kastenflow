@@ -30,7 +30,8 @@ pub(super) struct Frame {
     pub right: f64,
     /// Where the title of a content slide starts.
     pub top: f64,
-    /// Height of that title.
+    /// Height of that title: room for two lines of the theme's title size
+    /// (about 2.2 times the size in slide units), so a title that wraps fits.
     pub title_h: f64,
     /// Space between the title and what is under it.
     pub gap: f64,
@@ -45,9 +46,9 @@ pub(super) struct Frame {
 pub(super) const PLAIN: Frame = Frame {
     left: 64.0,
     right: 64.0,
-    top: 36.0,
-    title_h: 96.0,
-    gap: 16.0,
+    top: 28.0,
+    title_h: 108.0,
+    gap: 12.0,
     bottom: 492.0,
     mid: 272.0,
 };
@@ -57,8 +58,8 @@ pub(super) const BARRED: Frame = Frame {
     left: 64.0,
     right: 64.0,
     top: 72.0,
-    title_h: 80.0,
-    gap: 12.0,
+    title_h: 108.0,
+    gap: 8.0,
     bottom: 492.0,
     mid: 288.0,
 };

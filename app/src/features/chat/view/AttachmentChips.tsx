@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../../ui/Icon";
 import { useAttachments, type Attached } from "../attach-store";
 import { capabilitiesOf, pictures } from "../capabilities";
-import { modelFor } from "../prefs";
+import { chatModelFor } from "../prefs";
 import { useChat } from "../store";
 import type { ComposerThread } from "../thread";
 import { AttachmentViewer } from "./AttachmentViewer";
@@ -24,7 +24,7 @@ export const INSERT_TEXT = "kasten:chat-insert-text";
 /** Whether the thread's model can see pictures; it reads them when that is not known to be otherwise. */
 function useSight(thread: ComposerThread): Sight {
   const providers = useChat((s) => s.providers);
-  const choice = modelFor(thread, providers);
+  const choice = chatModelFor(thread, providers);
   const provider = choice?.provider;
   const model = choice?.model;
   const [sight, setSight] = useState<Sight>("reads");

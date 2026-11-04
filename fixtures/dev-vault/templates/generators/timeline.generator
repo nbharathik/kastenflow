@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-timeline",
+  "label": "Timeline",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.events);\nconst width = 900, height = 300, pad = 60, mid = 150;\nconst step = (width - 2 * pad) / Math.max(rows.length - 1, 1);\nconst parts = [kit.line(pad, mid, width - pad, mid, { stroke: kit.theme.text2, strokeWidth: 3 })];\nrows.forEach((r, i) => {\n  const x = pad + i * step;\n  const up = i % 2 === 0;\n  parts.push(kit.circle(x, mid, 10, { fill: kit.palette(i) }));\n  parts.push(kit.line(x, mid, x, up ? mid - 40 : mid + 40, { stroke: kit.palette(i), strokeWidth: 2 }));\n  parts.push(kit.text(x, up ? mid - 70 : mid + 66, String(r.when), { anchor: \"middle\", size: 22, weight: 700, fill: kit.palette(i) }));\n  parts.push(kit.text(x, up ? mid - 48 : mid + 90, r.what, { anchor: \"middle\", size: 16 }));\n});\nreturn kit.svg(width, height, parts);",
+    "inputs": [
+      {
+        "name": "events",
+        "kind": "data",
+        "value": "when,what\n2021,Idea\n2022,Prototype\n2023,Launch\n2024,Growth\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

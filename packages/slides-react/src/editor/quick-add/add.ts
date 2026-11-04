@@ -1,8 +1,9 @@
 // The keys that add something at once: T a text box, R a rectangle, O an oval.
 // Each goes where the pointer is over the slide, or else to a free place near
 // the top left third of it, and is selected; a text box is open for typing.
-// The toolbar's buttons and the Insert menu keep arming the tool, to be placed
-// with a click or a drag; these are the quick way.
+// The toolbar's text box button and the Insert menu put a text box in the middle
+// of the slide at once; the shape and line buttons still arm the tool, to be
+// placed with a click or a drag.
 
 import { type Rect, boundsOf } from "@kasten-slides/canvas";
 
@@ -10,6 +11,7 @@ import { itemsOf } from "../canvas/geometry.ts";
 import { pointerOf } from "../canvas/pointer.ts";
 import type { CommandContext } from "../commands/types.ts";
 import { shape, textBox } from "../factory.ts";
+import { insertPlaced } from "../insert-composite.ts";
 import { masterBoxes, occupiedBy } from "../placement.ts";
 import { CLICK_SIZE } from "../shapes.ts";
 import { markFresh } from "./fresh.ts";
@@ -28,10 +30,21 @@ export function boxNow({ session, ui }: CommandContext, size: { w: number; h: nu
   return freeSpot(size, [...occupiedBy(theme, layout, elements, slide), ...masterBoxes(theme, layout, slide)], slide);
 }
 
-/** A text box, selected and open with the caret in it. If it is closed with nothing typed it goes again (see `settleFresh`). */
+/** A text box, selected and open with the caret in it. If it is closed with nothing typed it stays, with a prompt in the editor. */
 export function addTextBoxNow(context: CommandContext): void {
   const { session } = context;
   const [id] = session.elements.insert([textBox(boxNow(context, CLICK_SIZE.text))]);
+  if (!id) return;
+  markFresh(session, id);
+  session.startEditing(id);
+}
+
+/**
+ * A text box in the middle of the largest free place of the slide (its centre, on an empty slide), selected and open with the caret in
+ * it: what the toolbar button, the Insert menu and the gallery do, where there is no pointer on the slide to put it at.
+ */
+export function addTextBoxCentred({ session }: Pick<CommandContext, "session">): void {
+  const id = insertPlaced(session, textBox({ x: 0, y: 0, w: 0, h: 0 }, ""), CLICK_SIZE.text);
   if (!id) return;
   markFresh(session, id);
   session.startEditing(id);

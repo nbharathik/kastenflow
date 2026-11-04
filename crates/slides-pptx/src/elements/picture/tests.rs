@@ -91,6 +91,46 @@ fn a_picture_is_stretched_to_its_box_and_names_its_media_by_relationship() {
 }
 
 #[test]
+fn adjustments_are_effects_of_the_blip_and_a_mask_shape_is_the_geometry() {
+    let mut base = Base::new("e-1").place(0.0, 0.0, 100.0, 100.0);
+    base.style = Some(Style {
+        adjust: Some(slides_core::Adjust {
+            brightness: Some(0.1),
+            greyscale: true,
+            ..slides_core::Adjust::default()
+        }),
+        mask_shape: Some("star5".into()),
+        ..Style::default()
+    });
+    let out = run(image("assets/wide.png", base));
+    assert!(
+        out.xml.contains(
+            r#"<a:blip r:embed="rId1"><a:grayscl/><a:lum bright="10000" contrast="0"/></a:blip>"#
+        ),
+        "{}",
+        out.xml
+    );
+    assert!(
+        out.xml.contains(r#"<a:prstGeom prst="star5">"#),
+        "{}",
+        out.xml
+    );
+}
+
+#[test]
+fn a_picture_without_adjustments_writes_none() {
+    let out = run(image(
+        "assets/wide.png",
+        Base::new("e-1").place(0.0, 0.0, 100.0, 100.0),
+    ));
+    assert!(
+        !out.xml.contains("a:lum") && !out.xml.contains("a:grayscl"),
+        "{}",
+        out.xml
+    );
+}
+
+#[test]
 fn a_stretched_picture_does_not_lock_its_aspect() {
     let out = run(image(
         "assets/wide.png",

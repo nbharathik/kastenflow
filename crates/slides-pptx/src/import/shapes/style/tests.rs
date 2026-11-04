@@ -141,23 +141,37 @@ fn a_shape_can_override_part_of_the_style() {
 }
 
 #[test]
-fn a_gradient_is_drawn_as_its_average_and_said_once() {
+fn a_gradient_is_kept_with_its_stops_and_angle_and_its_average_stays_as_the_fill() {
     let node = xml(
-        r#"<p:sp><p:spPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="000000"/></a:gs><a:gs pos="100000"><a:srgbClr val="FFFFFF"/></a:gs></a:gsLst></a:gradFill></p:spPr></p:sp>"#,
+        r#"<p:sp><p:spPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="000000"/></a:gs><a:gs pos="100000"><a:srgbClr val="FFFFFF"/></a:gs></a:gsLst><a:lin ang="2700000" scaled="0"/></a:gradFill></p:spPr></p:sp>"#,
     );
-    let (fill, warned) = with_parts(&[], format(), |cx| {
+    let (style, warned) = with_parts(&[], format(), |cx| {
         let s = read(cx, &node, None, &frame());
-        let s2 = read(cx, &node, None, &frame());
-        assert_eq!(s.fill, s2.fill);
-        (s.fill, cx.imp.warnings.count())
+        (s, cx.imp.warnings.count())
     });
-    assert_eq!(fill.map(|f| f.color), Some("#808080".to_owned()));
-    assert_eq!(warned, 1);
-    // A fill the theme names as a gradient is drawn the same way.
+    assert_eq!(style.fill.map(|f| f.color), Some("#808080".to_owned()));
+    assert_eq!(warned, 0, "nothing is lost, so nothing is said");
+    let gradient = style.gradient.unwrap_or_else(|| panic!("the gradient"));
+    assert_eq!(gradient.kind, GradientKind::Linear);
+    assert_eq!(gradient.angle, Some(45.0));
+    let places: Vec<f64> = gradient.stops.iter().map(|s| s.pos).collect();
+    assert_eq!(places, [0.0, 1.0]);
+    assert!(gradient.stops[0].color.eq_ignore_ascii_case("#000000"));
+    // A fill the theme names as a gradient is kept the same way.
     let (s, _) = read_shape(
         r#"<p:sp><p:spPr/><p:style><a:fillRef idx="2"><a:schemeClr val="accent1"/></a:fillRef></p:style></p:sp>"#,
     );
     assert_eq!(s.fill.map(|f| f.color), Some("#808080".to_owned()));
+    assert_eq!(s.gradient.map(|g| g.stops.len()), Some(2));
+}
+
+#[test]
+fn a_path_gradient_is_radial() {
+    let (s, _) = read_shape(
+        r#"<p:sp><p:spPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst><a:path path="circle"/></a:gradFill></p:spPr></p:sp>"#,
+    );
+    let g = s.gradient.unwrap_or_else(|| panic!("the gradient"));
+    assert_eq!((g.kind, g.angle), (GradientKind::Radial, None));
 }
 
 #[test]

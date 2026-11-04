@@ -186,8 +186,9 @@ impl Kasten {
             AgentOp::Capture { markdown, .. } => {
                 self.no_locked_links_to_namesake(&crate::capture::split(markdown).0)?;
             }
-            AgentOp::JournalAppend { date, .. } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+            AgentOp::JournalAppend { date, project, .. } => {
+                let path =
+                    crate::journal_path::journal_path_in(&self.vault, project.as_deref(), date)?;
                 if self.vault.exists(&path) {
                     self.writable(&path)?;
                 }

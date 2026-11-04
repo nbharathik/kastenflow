@@ -70,14 +70,72 @@ when presenting and in an exported file. A new deck is made with it `false`; a
 deck that says `true` keeps its numbers. `stepLabel` is the wording of the
 step counter, with `{n}` and `{total}` filled in. `transition` is how a slide
 that names no transition of its own arrives (`{ "kind": "fade", "duration": 0.4 }`,
-and `fade`, `slide` or `morph`); a deck without one cuts from slide to slide. The
+and `fade`, `slide`, `morph`, `push`, `wipe`, `cover`, `uncover`, `zoom`, `flip` or
+`dissolve`; an optional `direction` of `left`, `right`, `up` or `down` names the side a
+push, wipe, cover, uncover or flip comes from, the right when absent); a deck without
+one cuts from slide to slide. The
 `set_present` operation changes these settings, and only the ones it is given; a
 `transition` of kind `none` takes the deck's away.
+
+`present.headerFooter` (`footer`, `date`, `hideOnTitle`) is the footer words and
+the date along the bottom of every slide; a slide's own `footer` (the same shape,
+and `hidden`) wins over it. A `date` is `{ "text": "…" }` for words written by
+hand, or `{ "format": "d MMMM yyyy" }` for today's date. `present.guides`
+(`rulers`, `showGrid`, `grid`, `lines`) holds the editor's rulers, grid and
+guides; they are never shown when presenting or exported. All of these are
+optional and left out when empty, so a deck written before them opens unchanged.
+`set_header_footer` and `set_guides` change them.
+
+A picture's `style` may hold `adjust` (`brightness`, `contrast`, `saturation`
+from -1 to 1, `greyscale`, `blur`) and `maskShape` (a preset shape name). A table
+may hold `tableStyle` (`preset`, `bandedRows`, `firstColumn`, `lastRow`) and a
+cell `borders` (`top`, `right`, `bottom`, `left`, each a line; width 0 is no line).
+
+Three more settings are optional and left out of the file when they are not
+used, so a deck that never sets them is saved exactly as before. `loop: true`
+makes the show go back to the first slide after the last. `autoAdvance` is a
+number of seconds after which the show moves on by itself, as a kiosk does.
+`shows` is a list of custom shows, each `{ "id", "name", "slides": [slide ids] }`:
+a named subset of the slides, played in the order given, chosen from the
+Slideshow menu. A slide id the deck no longer has is skipped when the show plays.
+
+Two more optional lists belong to the deck itself. `dictionary` is the words the
+spelling check leaves alone (one word each, at most 2000). `fonts` lists font files
+the deck carries, each `{ "family", "src" (a .ttf, .otf, .woff or .woff2 file under
+`assets/`), "bold", "italic", "embeddable" }`; the editor, the show and an exported
+page draw with them, and a font goes into an exported file only when `embeddable`
+says its licence allows it.
+
+### Comments and accessibility
+
+Two more settings of a slide are optional and left out of the file when they are
+not used, so a deck that never uses them is saved exactly as before (the format
+version does not change, and an older build keeps them untouched).
+
+- `comments` is a list of notes left on the slide, oldest first. Each is
+  `{ "id": "c-…", "author", "text", "created" }` (`created` is UTC text such as
+  `2026-11-02T09:30:00Z`, empty when the host gave no time), with `element` (the
+  element it is about), `pin` (`{ "x", "y" }` in slide units), `agent: true` when an
+  assistant wrote it, `resolved: true` once it is settled, and `replies` (each
+  `{ "id", "author", "text", "created", "agent"? }`). Ids are unique among all the
+  comments and replies of the deck. A comment is shown beside the slide in the editor
+  and is in no presentation and no export. A copy of a slide, or a slide brought in from
+  another deck, starts without comments. `add_deck_comment`, `reply_deck_comment`
+  and `resolve_deck_comment` change them; nothing is deleted, a comment is settled
+  and can be opened again.
+- `access` is `{ "title"?, "readingOrder"? }`. `title` is a title the slide does not
+  draw (for a slide with no heading); `readingOrder` lists element ids in the order
+  they are read, and the elements it leaves out follow in the usual order (top to bottom,
+  left to right). `set_slide_access` changes it.
+
+A picture that is only decoration has `"alt": ""` (empty on purpose; no `alt` at all
+means it was not described). A video may name a WebVTT file of captions in `captions`.
 
 ### Page size
 
 `set_page_size { preset }` or `{ w, h }` changes `size` and refits the whole deck
 as one step of undo: every slide's elements, the theme's layouts and its master.
+With `keepSize: true` only the theme (layouts, master, type) is refitted and what is on the slides keeps its place and size.
 
 - Boxes stretch with the slide: what stood at a fraction of the width stands at
   the same fraction, and the same goes for the height.
@@ -168,6 +226,13 @@ of it (`set_layout_design`), and renames, copies, orders, deletes (`delete_layou
 slides that use it move to another layout) and imports layouts (`import_layouts`). Applying a
 built-in theme (`apply_theme`) keeps the layouts a person made after the theme's own twelve.
 
+A layout copied from a host's layout library (Kasten's *My layouts*) carries `"x-library": { "id": "L-…" }`, the id
+of the library entry it is a copy of; the host uses it to offer "Update from library". It is a field like any the
+model does not list (it is kept in `extra`, so builds that do not know it keep it, and the format's version does not
+change). The deck holds the whole layout, so it opens, exports and shares without the library. A library entry is a
+file of its own, `{ "format": "kasten-layout", "formatVersion": 1, "id", "label", "size", "layout", "textStyles" }`:
+the layout as a theme holds it, the text styles its slots name and the page size it was drawn for.
+
 In a PowerPoint file a layout of your own is a layout of the file: its decoration and
 background are written on the layout, its slots are its placeholders, and slides of it
 point at it. Reading a PowerPoint file does the same the other way: what a layout draws
@@ -235,8 +300,9 @@ give the same id to an element on purpose: that is how a Morph pairs them.
 | `x`, `y`, `w`, `h` | The box in slide units. Left out when a placeholder supplies it. |
 | `rotation`, `flipH`, `flipV` | Turn (degrees) and mirror. |
 | `placeholder` | The layout slot this element fills. |
-| `style` | `fill`, `stroke`, `radius`, `shadow`, `opacity`, `startArrow`, `endArrow`. |
+| `style` | `fill`, `stroke`, `radius`, `shadow`, `opacity`, `startArrow`, `endArrow`. An optional `gradient` (`{ "kind": "linear" or "radial", "angle": 90, "stops": [{ "pos": 0, "color": "accent1", "alpha": 1 }, ...] }`, two to eight stops) paints in place of the fill's colour, which stays beside it. |
 | `stepStates` | The state (`hidden`, `dimmed`, `normal`, `highlighted`) from each step onward. |
+| `stepFx` | How the change at a step is drawn, by step number from 1: `{ "kind": "fly", "direction": "left", "duration": 0.5, "delay": 0, "start": "after" }`. Kinds: `appear`, `fade`, `fadeUp`, `grow`, `fly`, `zoom`, `wipe`, `float`, `pop`, `pulse`, `colour` (with `color`), `path` (with `dx`, `dy`: it comes in along a line from that far away; one per element). A step that names none uses the deck's effect. |
 | `name`, `alt`, `locked`, `link`, `morphId` | Layer name, alt text, lock, address, Morph link. A `link` is a web address, `slide:<id>`, or `page:<path>` for a page of the host. |
 | `source` | The page of the host the element was made from or points at (see *Pages of the host*). |
 
@@ -256,7 +322,14 @@ The types:
   host's name for that diagram (in KastenFlow a vault path such as
   `library/Login-flow.drawio`), so the host can offer to edit it. It is a field
   the model does not list and so is kept like any other; a PowerPoint file
-  carries only the picture, which is a PNG.
+  carries only the picture, which is a PNG. A picture drawn by a small program (a
+  code picture) may carry `generator`, kept the same way: `{ "language": "js",
+  "code": "…", "inputs": [{ "name": "sales", "kind": "asset" | "note" | "data",
+  "value": "…" }], "output": "svg" | "png", "lastRun": { "hash": "…", "at": 1790000000000 },
+  "madeBy": "agent" }`. Only `code` is required; `language` is `js`, `output` is `svg`, and
+  `inputs` is empty when left out, and fields the block does not list are kept. The picture the
+  program drew is the element's `src`, an ordinary picture in the image store, so an export or an
+  older build shows just that picture.
 - **`group`**: `children`, in slide coordinates; it moves and scales them.
 - **`table`**: `columns` (widths), `rows` of `cells`, and `headerRow`. Cells go left
   to right, skipping places a cell above covers; `colSpan` and `rowSpan` are 1 or
@@ -337,6 +410,12 @@ tall its line is and how large its marker is, and words typed there take them.
 A text has `valign`, `insets`, `fit` (`none`, `shrink` or `resize`: what the box
 does when its words do not fit) and `wrap` (`false` keeps each paragraph on one
 line).
+
+A text box (`type: "text"`) may run its words in `columns` (2 or 3; one column when
+absent) with `columnGap` between them in slide units; PowerPoint gets `numCol` and
+`spcCol`. A group made from a Mermaid flowchart (`add_mermaid`) keeps the text it was
+drawn from in a field `mermaid`, so the chart can be edited as text and laid out again
+(`update_mermaid`).
 
 Operations accept Markdown and turn it into runs; the file always holds runs.
 
@@ -430,9 +509,9 @@ composite looks the same in each.
 | `card-grid` | `cards` (`title`, `body`), `columns` | Rounded cards in a grid. |
 | `citation` | `keys` (BibTeX keys), `format` (`short`, `numbered`, `full`, `list`), `links` | One small text box. |
 | `step-label` | `format` | One text box that says "Step n / N". |
-| `embed` | `url`, `poster`, `title`, `design`, `zoom`, `fit`, `reader` | The poster, or a dashed panel that names the page; for a page of the host, a card with the page's words. |
-| `video` | `src`, `poster`, `autoplay`, `looped` | The poster, or a dark panel, with a play button. |
-| `chart` | `kind` (`bar`, `line`, `pie`), `title`, `categories`, `series` (`name`, `values`, `color`), `labels`, `legend` | Axes, gridlines and the bars, lines or wedges, with a legend. |
+| `embed` | `url`, `poster`, `title`, `design`, `zoom`, `fit`, `reader`, `provider`, `start`, `end`, `autoplay`, `muted`, `looped`, `controls` | The poster, or a dashed panel that names the page; for a page of the host, a card with the page's words. The last seven are for a video of a known site (YouTube, Vimeo, Loom): `provider` names the site, `start` and `end` are seconds, `controls` is on when absent. A deck without them reads and is written the same. |
+| `video` | `src` (a file in the host's store, or an `http(s)` address), `poster`, `autoplay`, `looped`, `start`, `end` | The poster, or a dark panel, with a play button. |
+| `chart` | `kind` (`bar`, `line`, `pie`), `title`, `categories`, `series` (`name`, `values`, `color`, `mark`, `x`), `labels`, `legend`, `spec` | Axes, gridlines and the bars, lines or wedges, with a legend. `spec` and the last two fields of a series are optional and say the rest: see the chart paragraph below. |
 | `timer` | `seconds`, `label`, `autostart` | The time left as `m:ss` on a rounded panel. |
 | `qr` | `data`, `caption` | The code as black runs on a white tile, with the caption under it; a note when `data` is empty or too long (213 bytes). |
 
@@ -534,8 +613,20 @@ writes the LaTeX as italic text, centred in the box, and adds a warning.
   against `categories`, on axes that start at zero and end on a round number;
   `pie` draws the first series as wedges, with a legend that names each and its
   share. Colours are the theme's accents in order unless a series names one. At
-  most 40 categories and 12 series are drawn, names are cut at 120 characters and
-  the title at 200, and a number that is not finite is a zero.
+  most 40 categories and 12 series are drawn (400 points for a scatter chart), names are
+  cut at 120 characters and the title at 200, and a number that is not finite is a zero.
+  `kind` stays one of the three, so an older build draws every chart as one of them.
+  `spec` is in the shape of a Vega-Lite spec and says more: `mark` (`bar`, `line`, `area`,
+  `arc`, `point`), `innerRadius` (0.1 to 0.9 on an `arc`: a doughnut), and
+  `encoding` with `x` and `y` (`title`, `format`, and on `y` `stack`: true piles the series up)
+  and `color.legend.orient` (`top`, `bottom`, `left`, `right`). So a stacked column chart is
+  `kind: bar` with `mark: bar` and `y.stack`; an area chart is `kind: line` with `mark: area`
+  (numbers below zero are drawn as zero); a scatter chart is `mark: point` with each series' `x`
+  (its place in the list when it has none). A chart whose series have both a `mark` of `bar`
+  and one of `line` is a combination: columns and lines on one pair of axes. `format` is a
+  number pattern: `0` and `#` are digits, a comma groups thousands, a `%` makes a share, and
+  other characters are written as they are (`#,##0`, `0.0`, `$#,##0.00`, `0%`); it is used on
+  the axis and on the marks. The titles of the axes are parts numbered after all the others.
 - **`timer`**: `seconds` (up to 24 hours less a second) is drawn as `m:ss` or
   `h:mm:ss`, with `label` over it. `autostart` is kept for a presentation that counts
   down; the editor does not offer a timer yet, so it is made by a file or an assistant.
@@ -544,7 +635,15 @@ writes the LaTeX as italic text, centred in the box, and adds a warning.
   whatever the theme), so it exports to PowerPoint as shapes.
 - **`video`**: present mode plays `src`; everywhere else it is the `poster`, or a
   dark panel with the file's name, and a play button. A `src` that is a web
-  address is also the link of every part.
+  address is also the link of every part. `start` and `end` (seconds) trim what
+  plays, `volume` (0 to 1) sets how loud, and `captions` names a WebVTT file.
+- **`audio`**: a sound that plays in the show; everywhere else it is a speaker on a
+  rounded chip with the `label` (or the file's name) under it, and every part links
+  to `src` when that is a web address. `src` is a file in the host's store or an
+  `http` or `https` address. `autoplay` starts it with its slide (otherwise a click
+  on the chip does), `looped` plays it again and again, `across` is how many slides,
+  its own included, it keeps playing over (1 when absent), `hidden` leaves the chip
+  out of the show, `volume` is 0 to 1, and `start` and `end` trim it in seconds.
 
 The `poster` of an `embed` or a `video` is a picture with `"fit": "cover"`, so a
 still that is not the shape of the box fills it without being stretched, on the
@@ -591,6 +690,7 @@ and what the deck keeps is in the element's `source`:
 | `sync` | Flag the element when the page changes, so it can be updated. |
 | `hash` | A fingerprint (16 hex digits, FNV-1a) of the Markdown it was made from; it ignores line endings and blank lines at the end. |
 | `markdown` | For an embedded page only: the page's words as read, which is what is drawn where the page cannot be read. |
+| `diagram` | For a picture drawn from a diagram of the host (a draw.io file): the diagram's path. `page` names the same file, `kind` is `link` and `hash` is the diagram's fingerprint when the picture was drawn, so the host can offer Update from diagram. |
 | `made` | How the element came to be made from the page. A storyboard writes a fingerprint of what the element said then (16 hex digits of FNV-1a over its words, pictures and looks, but not where it stands, its name, its steps or its link); an element that no longer gives it was changed by hand. Any other text is the host's own word, which the deck keeps and does not read. |
 
 A link to a page is `page:` and the page's path with spaces and the marks of

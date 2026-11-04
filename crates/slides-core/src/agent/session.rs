@@ -8,7 +8,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 
 use super::store::{DeckText, Saved, Store};
-use super::{ToolError, ToolOutput, ToolResult, create, edit, files, place, read, steps, template};
+use super::{
+    ToolError, ToolOutput, ToolResult, build, bulk, chart_tool, code_pictures, comments, create,
+    edit, figures, files, look, place, read, steps, template,
+};
 use crate::canonical;
 use crate::lint::{self, Options, Severity};
 use crate::model::Deck;
@@ -79,6 +82,7 @@ impl Agent {
             "get_theme" => read::get_theme(self, store, &args),
             "search_assets" => read::search_assets(store, &args),
             "lint_deck" => read::lint_deck(self, store, &args),
+            "list_deck_comments" => comments::list_deck_comments(self, store, &args),
             "create_deck" => create::create_deck(self, store, &args),
             "update_elements" => edit::update_elements(self, store, &args),
             "apply_layout" => edit::apply_layout(self, store, &args),
@@ -94,6 +98,16 @@ impl Agent {
             "trash_deck" => files::trash_deck(self, store, &args),
             "render_slide" => files::render(self, store, &args, false),
             "render_grid" => files::render(self, store, &args, true),
+            "render_diff" => look::render_diff(self, store, &args),
+            "set_chart_data" => chart_tool::set_chart_data(self, store, &args),
+            "place_diagram" => figures::place_diagram(self, store, &args),
+            "replace_asset" => figures::replace_asset(self, store, &args),
+            "set_notes_bulk" => bulk::set_notes_bulk(self, store, &args),
+            "build_deck" => build::build_deck(self, store, &args),
+            "slides_help" => Ok(ToolOutput::text(super::instructions::workflow())),
+            "place_code_picture" => code_pictures::place_code_picture(self, store, &args),
+            "run_code_picture" => code_pictures::run_code_picture(self, store, &args),
+            "rerun_code_pictures" => code_pictures::rerun_code_pictures(self, store, &args),
             // An operation that is not on the list is called inside `update_elements`, not by its name;
             // the person's own (`accept_marks`) is still run so it can say whose it is.
             other
@@ -159,8 +173,7 @@ impl Agent {
         name: &str,
     ) -> Result<(DeckText, Deck), ToolError> {
         let text = store.read(name)?;
-        let deck = canonical::parse(&text.text)
-            .map_err(|e| ToolError::new(format!("The deck `{name}` cannot be read: {e}")))?;
+        let deck = canonical::parse(&text.text).map_err(|e| super::newer::unreadable(name, &e))?;
         self.seen.insert(name.to_owned(), text.clone());
         Ok((text, deck))
     }
@@ -172,8 +185,7 @@ impl Agent {
             Some(seen) => seen.clone(),
             None => store.read(name)?,
         };
-        let deck = canonical::parse(&base.text)
-            .map_err(|e| ToolError::new(format!("The deck `{name}` cannot be read: {e}")))?;
+        let deck = canonical::parse(&base.text).map_err(|e| super::newer::unreadable(name, &e))?;
         Ok(Loaded {
             name: name.to_owned(),
             base,

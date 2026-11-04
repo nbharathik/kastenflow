@@ -6,7 +6,8 @@
   padding: 2px 12px 2px 8px;
   /* The bar's own width decides what is shown (the rules at the end of this file): in a narrow editor,
      such as the chat open beside the deck, the quieter parts give way before anything lies on top of
-     anything else. */
+     anything else. The menus it opens are drawn in the popover layer on the body, so this container
+     is never the frame for them. */
   container: ks-titlebar / inline-size;
 }
 .ks-title-spacer {
@@ -252,6 +253,20 @@
   }
   .ks-menu-search {
     padding: 0 8px;
+  }
+}
+.ks-editor .ks-titlebar .ks-home-btn {
+  width: auto;
+  padding: 0 10px 0 8px;
+  font-size: 13px;
+}
+@container ks-titlebar (max-width: 800px) {
+  .ks-home-btn .ks-btn-text {
+    display: none;
+  }
+  .ks-editor .ks-titlebar .ks-home-btn {
+    width: var(--ks-control);
+    padding: 0;
   }
 }
 @container ks-titlebar (max-width: 600px) {

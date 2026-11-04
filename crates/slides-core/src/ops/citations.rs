@@ -114,7 +114,7 @@ fn footer_box(deck: &Deck) -> (f64, f64, f64, f64) {
 impl Op for AddCitation {
     type Output = AddedCitation;
     const NAME: &'static str = "add_citation";
-    const ABOUT: &'static str = "Cite works on a slide by BibTeX key: the keys go in the slide's footer citation (the one named `citations`), which is made along the bottom margin when the slide has none. Keys already cited are not added twice. `format` is short (Vaswani et al., 2017 (NeurIPS); the default for a new footer), full or numbered ([1]); an existing footer keeps its format unless you give one. Use it for every figure, quote or claim taken from a paper. The keys must be in the bibliography: lint reports one that is not. For a references slide add a citation element with format list, which prints every work the deck cites.";
+    const ABOUT: &'static str = "Cite works on a slide by BibTeX key: the keys go in the slide's footer citation (the one named `citations`), made along the bottom margin when the slide has none. Keys already cited are not added twice. `format` is short (Vaswani et al., 2017 (NeurIPS); the default for a new footer), full or numbered ([1]); an existing footer keeps its format unless you give one. Use it for every figure, quote or claim taken from a paper. The keys must be in the bibliography: lint reports one that is not. For a references slide add a citation element with format list.";
 
     fn scope(&self, _: &Deck) -> Scope {
         Scope::slide(&self.slide)

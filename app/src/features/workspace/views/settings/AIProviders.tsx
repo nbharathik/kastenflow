@@ -4,7 +4,7 @@
 // with. Keys are kept in the system keychain by the backend; the window never
 // sees them again. ChatGPT takes no key: it signs in (AIChatGpt.tsx).
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { takeProvidersJump } from "../../../chat/actions";
 import { useChat } from "../../../chat/store";
@@ -19,7 +19,7 @@ import { Block, Group, Row } from "./parts";
 import { ProviderForm } from "./ProviderForm";
 import { CheckResult } from "./providers/CheckResult";
 
-const KINDS: Record<ChatKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible", chatgpt: "ChatGPT plan" };
+const KINDS: Record<ChatKind, string> = { anthropic: "Anthropic", openai: "OpenAI-compatible", chatgpt: "ChatGPT plan", cli: "Coding agent" };
 const BUTTON = "ui-btn";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -28,7 +28,9 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 const NEW = "\u0000new";
 
 export function AIProviders() {
-  const providers = useChat((s) => s.providers);
+  const everything = useChat((s) => s.providers);
+  // The coding agents are set up under Agents, not here.
+  const providers = useMemo(() => everything?.filter((p) => p.kind !== "cli") ?? null, [everything]);
   const problem = useChat((s) => s.providersError);
   const [editing, setEditing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);

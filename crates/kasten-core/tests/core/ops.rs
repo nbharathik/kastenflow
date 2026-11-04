@@ -149,7 +149,7 @@ fn creates_projects_cards_and_journal_days() {
         "inbox/quick-idea.md"
     );
 
-    let day = journal_day(&t.vault, "2026-09-24", NOW).unwrap();
+    let day = journal_day(&t.vault, None, "2026-09-24", NOW).unwrap();
     assert_eq!(day.meta.path, "journal/2026/2026-09-24.md");
     assert_eq!(day.meta.title, "2026-09-24");
     // The starter journal template is blank: a new day is an empty page.
@@ -161,12 +161,12 @@ fn creates_projects_cards_and_journal_days() {
     );
     assert!(day.text.contains("type: journal"), "{}", day.text);
     assert_eq!(
-        journal_day(&t.vault, "2026-09-24", NOW).unwrap().hash,
+        journal_day(&t.vault, None, "2026-09-24", NOW).unwrap().hash,
         day.hash
     );
-    let existing = journal_day(&t.vault, "2026-09-23", NOW).unwrap();
+    let existing = journal_day(&t.vault, None, "2026-09-23", NOW).unwrap();
     assert!(existing.text.contains("Talked to the team"));
-    assert!(journal_day(&t.vault, "24.09.2026", NOW).is_err());
+    assert!(journal_day(&t.vault, None, "24.09.2026", NOW).is_err());
 }
 
 #[test]

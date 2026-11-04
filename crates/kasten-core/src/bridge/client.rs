@@ -31,6 +31,19 @@ impl Mailbox {
     /// the vault. A request that cannot be made (too many waiting, a folder
     /// that is a link) is an error.
     pub fn ask(&self, call: &Call, session: Option<&Session>, timeout: Duration) -> Result<Answer> {
+        self.ask_with(call, session, timeout, None)
+    }
+
+    /// `ask`, with `payload` bytes sent beside the request (a deck to draw):
+    /// the app reads them with `take_payload`, and they are withdrawn with the
+    /// request if the asker gives up.
+    pub fn ask_with(
+        &self,
+        call: &Call,
+        session: Option<&Session>,
+        timeout: Duration,
+        payload: Option<&[u8]>,
+    ) -> Result<Answer> {
         call.check()?;
         let now = Instant::now().millis;
         if self.alive(now).is_none() {
@@ -43,7 +56,13 @@ impl Mailbox {
             ));
         }
         let id = self.new_id()?;
-        self.put_request(&Request::new(id.clone(), call, session, now))?;
+        if let Some(bytes) = payload {
+            self.put_payload(&id, bytes)?;
+        }
+        if let Err(err) = self.put_request(&Request::new(id.clone(), call, session, now)) {
+            self.withdraw(&id);
+            return Err(err);
+        }
         let started = Clock::now();
         let mut checked = started;
         loop {

@@ -17,6 +17,8 @@ use crate::closing::MAIN;
 
 /// The event that asks the window to draw a picture.
 const DRAW: &str = "kasten://draw-png";
+/// The event that asks the window to draw slides of a deck, or measure its text.
+pub const SLIDES: &str = "kasten://draw-slides";
 /// The most pixels a side of the picture may have, and the most bytes the PNG may come to.
 pub const MAX_SIDE_PX: u32 = 4_000;
 pub const MAX_PNG_BYTES: usize = 2 * 1024 * 1024;
@@ -76,6 +78,30 @@ pub fn draw(
     background: &str,
     wait: Duration,
 ) -> Result<String, Failed> {
+    let job = |id: &str| {
+        serde_json::to_value(Job {
+            id,
+            svg,
+            background,
+            scale: SCALE,
+            max_side: MAX_SIDE_PX,
+            max_bytes: MAX_PNG_BYTES,
+        })
+        .unwrap_or(serde_json::Value::Null)
+    };
+    ask_window(app, pictures, DRAW, job, wait)
+}
+
+/// Sends the window the event `event` with the job `make` builds from a fresh
+/// id, and waits up to `wait` for its answer (text: a PNG as base64, or JSON).
+/// The window answers with `diagram_png_answer`, whatever it was asked.
+pub fn ask_window(
+    app: &AppHandle,
+    pictures: &Pictures,
+    event: &str,
+    make: impl FnOnce(&str) -> serde_json::Value,
+    wait: Duration,
+) -> Result<String, Failed> {
     let silent = |why: &str| Failed {
         why: why.to_owned(),
         answered: false,
@@ -84,15 +110,7 @@ pub fn draw(
         .map_err(|_| silent("The app could not make an id for the picture"))?;
     let (sender, receiver) = mpsc::channel();
     pictures.held().insert(id.clone(), sender);
-    let job = Job {
-        id: &id,
-        svg,
-        background,
-        scale: SCALE,
-        max_side: MAX_SIDE_PX,
-        max_bytes: MAX_PNG_BYTES,
-    };
-    if app.emit_to(MAIN, DRAW, job).is_err() {
+    if app.emit_to(MAIN, event, make(&id)).is_err() {
         pictures.held().remove(&id);
         return Err(silent(
             "KastenFlow's window is not ready to draw the picture. Open its window and ask again",

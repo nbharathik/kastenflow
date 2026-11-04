@@ -30,6 +30,10 @@ export interface SessionEvents {
   /** Typing waits to be written, typed on the version `base`; or, with
    * null, none waits any more. */
   onUnsaved?(body: string | null, base: string): void;
+  /** The file may differ from what the editor shows (a change on disk was
+   * seen while saving, or a write brought one in) and nothing waits any
+   * more: look at the file again. */
+  onRecheck?(): void;
 }
 
 /** Whether a read failed because the note is not there, as both vaults
@@ -43,6 +47,10 @@ export class PageSession {
   private hash: string;
   private savedBody: string;
   private body: string | null = null;
+  /** The body being written right now: until it settles, the disk is about to differ from `savedBody`. */
+  private inflight: string | null = null;
+  /** Set when the file may have changed outside while edits were being written. */
+  private recheck = false;
   private readonly header = new Map<HeaderKey, string | null>();
   private title: string | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -100,7 +108,9 @@ export class PageSession {
 
   editBody(body: string): void {
     if (this.stopped) return;
-    if (body === this.savedBody && this.body === null) return;
+    // Nothing to write only when the editor already matches what is on disk,
+    // or what is about to be there.
+    if (this.body === null && body === (this.inflight ?? this.savedBody)) return;
     this.body = body;
     this.events.onUnsaved?.(body, this.hash);
     this.schedule();
@@ -118,6 +128,12 @@ export class PageSession {
     if (this.stopped) return;
     this.title = title;
     this.schedule();
+  }
+
+  /** A change on disk was seen while edits were waiting or being written:
+   * look at the file again when they are done. */
+  recheckWhenIdle(): void {
+    this.recheck = true;
   }
 
   /** Writes everything waiting now. */
@@ -169,7 +185,7 @@ export class PageSession {
         const renamed = await this.client.rename(from, title);
         title = null;
         this.notePath = renamed.note.meta.path;
-        this.hash = renamed.note.hash;
+        this.take(renamed.note);
         this.name = renamed.note.meta.title;
         this.events.onRenamed(from, renamed);
       }
@@ -178,13 +194,14 @@ export class PageSession {
         header.set(key, value);
         const note = await this.client.setMeta(this.notePath, key, value);
         header.delete(key);
-        this.hash = note.hash;
+        this.take(note);
         this.follow(note);
         this.events.onNote(note);
       }
       if (this.body !== null) {
         body = this.body;
         this.body = null;
+        this.inflight = body;
         const saved = await this.client.saveBody(this.notePath, body, this.hash);
         const written = body;
         body = null;
@@ -236,8 +253,22 @@ export class PageSession {
       this.events.onError(err instanceof Error ? err.message : String(err));
       this.tryAgainLater();
     } finally {
+      this.inflight = null;
       this.running = false;
+      if (this.recheck && !this.waiting && !this.stopped) {
+        this.recheck = false;
+        this.events.onRecheck?.();
+      }
     }
+  }
+
+  /** Takes the hash of a note a header or rename write answered with, only
+   * when its body is the one this page last saw. Otherwise the file changed
+   * outside meanwhile: keep the old base so the next body save merges (or
+   * keeps a copy) instead of overwriting it, and have the page look again. */
+  private take(note: NoteFile): void {
+    if (splitFrontmatter(note.text).body === this.savedBody) this.hash = note.hash;
+    else this.recheck = true;
   }
 
   /** Goes on at the note's path when a write answered from another one: a

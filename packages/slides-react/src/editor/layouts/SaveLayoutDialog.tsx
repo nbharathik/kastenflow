@@ -6,9 +6,11 @@ import { Dialog } from "../ui/Dialog.tsx";
 import { Icon, type IconName } from "../ui/Icon.tsx";
 import { useEditor } from "../useEditor.ts";
 import type { DialogProps } from "../dialogs/types.ts";
+import { saveSharedLayout } from "./library-ops.ts";
 import { saveSlideAsLayout } from "./ops.ts";
 import { SLOT_KINDS, type SlotKind, kindOfRole, slotLabel } from "./slots.ts";
 import "./layouts.css";
+import "./library.css";
 
 /** A line saying what an element is: its first words, or what kind of thing it is. */
 function describe(element: Element): { icon: IconName; what: string } {
@@ -59,15 +61,28 @@ export function SaveLayoutDialog({ session, onClose }: DialogProps): JSX.Element
   const [roles, setRoles] = useState<Record<string, SlotKind | "">>({});
   const [useForSlide, setUseForSlide] = useState(true);
   const [newSlideDefault, setNewSlideDefault] = useState(false);
+  // With a library, a layout is kept for every deck unless the person says it is this deck's alone.
+  const library = session.host.layoutLibrary;
+  const [where, setWhere] = useState<"all" | "deck">("all");
+  const [busy, setBusy] = useState(false);
   const nameId = useId();
-  const ok = label.trim() !== "";
+  const whereName = useId();
+  const ok = label.trim() !== "" && !busy;
 
-  const save = () => {
+  const save = async () => {
     if (!ok) return;
     const chosen = Object.fromEntries(Object.entries(roles).filter((entry): entry is [string, SlotKind] => entry[1] !== ""));
-    const made = saveSlideAsLayout(session, { label, roles: chosen, useForSlide, newSlideDefault });
+    const input = { label, roles: chosen, useForSlide, newSlideDefault };
+    let made: string | undefined;
+    if (library && where === "all") {
+      setBusy(true);
+      made = await saveSharedLayout(session, library, input);
+      setBusy(false);
+    } else {
+      made = saveSlideAsLayout(session, input);
+    }
     if (made) {
-      session.host.notify?.(`Saved the layout “${label.trim()}”. It is in the New slide menu.`);
+      session.host.notify?.(library && where === "all" ? `Saved the layout “${label.trim()}” for all your decks. It is under My layouts in every deck.` : `Saved the layout “${label.trim()}”. It is in the New slide menu.`);
       onClose();
     }
   };
@@ -80,7 +95,7 @@ export function SaveLayoutDialog({ session, onClose }: DialogProps): JSX.Element
       footer={
         <>
           <TextButton onClick={onClose}>Cancel</TextButton>
-          <TextButton primary disabled={!ok} onClick={save}>
+          <TextButton primary disabled={!ok} onClick={() => void save()}>
             Save layout
           </TextButton>
         </>
@@ -89,13 +104,26 @@ export function SaveLayoutDialog({ session, onClose }: DialogProps): JSX.Element
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          save();
+          void save();
         }}
       >
         <label className="ks-ls-field" htmlFor={nameId}>
           Name
           <input id={nameId} className="ks-input" value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} data-autofocus="" />
         </label>
+        {library ? (
+          <fieldset className="ks-ls-where">
+            <legend>Keep it for</legend>
+            <label className="ks-toggle">
+              <input type="radio" name={whereName} checked={where === "all"} onChange={() => setWhere("all")} />
+              <span>All my decks</span>
+            </label>
+            <label className="ks-toggle">
+              <input type="radio" name={whereName} checked={where === "deck"} onChange={() => setWhere("deck")} />
+              <span>This deck only</span>
+            </label>
+          </fieldset>
+        ) : null}
         <p className="ks-ls-hint">What is on this slide becomes part of the layout. Make something a slot when each new slide should fill it in with its own words or picture.</p>
         <ul className="ks-ls-list" aria-label="What is on the slide">
           {slide.elements.length === 0 ? <li className="ks-ls-hint">The slide is empty, so the layout will be too.</li> : null}

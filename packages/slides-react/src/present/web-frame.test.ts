@@ -164,9 +164,16 @@ describe("which addresses are on this machine", () => {
 describe("what the card says", () => {
   it("is a sentence for a page that is refused, slow or offline, and nothing while it loads or shows", () => {
     expect(frameProblem("blocked")).toMatch(/can't be shown inside a slide/);
+    expect(frameProblem("refused")).toMatch(/does not allow its pages to be shown inside another page/);
     expect(frameProblem("slow")).toMatch(/long time to load/);
     expect(frameProblem("offline")).toMatch(/offline/);
     expect(frameProblem("loading")).toBeNull();
     expect(frameProblem("ready")).toBeNull();
+  });
+
+  it("never blames the app's own rules for a page that refuses to be framed", () => {
+    for (const status of ["blocked", "refused", "slow", "offline"] as const) {
+      expect(frameProblem(status), status).not.toMatch(/security rules|app's/i);
+    }
   });
 });

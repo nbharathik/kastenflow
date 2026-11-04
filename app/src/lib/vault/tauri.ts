@@ -13,6 +13,7 @@ import type { ClipOutcome } from "./collection-types";
 import { tauriCollections } from "./collections-tauri";
 import { tauriDiagrams } from "./diagrams-tauri";
 import { tauriHealth } from "./health-tauri";
+import { tauriJournals } from "./journal-tauri";
 import { tauriProjects } from "./projects-tauri";
 import { tauriReferences } from "./references-tauri";
 import { tauriRevisions } from "./revisions-tauri";
@@ -42,6 +43,11 @@ import type {
   Digest,
   Highlight,
   Hit,
+  LibraryLayout,
+  BrandKitFile,
+  BrandKitSaved,
+  LibraryLayoutFile,
+  LibraryLayoutSaved,
   NewNote,
   NoteFile,
   NoteMatches,
@@ -105,7 +111,7 @@ export function tauriVault(label: string): VaultClient {
     convert: (path, kind) => invoke<Placed>("convert_note", { path, kind }),
     duplicate: (path) => invoke<NoteFile>("duplicate_note", { path }),
     trash: (path) => invoke<string>("trash_note", { path }),
-    journal: (date) => invoke<NoteFile>("journal_day", { date }),
+    journal: (date, project) => invoke<NoteFile>("journal_day", project ? { date, project } : { date }),
     applyTemplate: (path, template, date) => invoke<NoteFile>("apply_template", { path, template, date }),
     search: (query, limit) => invoke<Hit[]>("search_notes", { query, limit }),
     backlinks: (path) => invoke<Backlink[]>("note_backlinks", { path }),
@@ -183,6 +189,12 @@ export function tauriVault(label: string): VaultClient {
     saveDecks: (request) => invoke<DecksSaved>("save_decks", { request }),
     deckTemplates: () => invoke<DeckInfo[]>("list_deck_templates"),
     createDeckTemplate: (title, text) => invoke<string>("create_deck_template", { title, text }),
+    layoutLibrary: () => invoke<LibraryLayout[]>("list_layout_library"),
+    libraryLayout: (path) => invoke<LibraryLayoutFile>("read_library_layout", { path }),
+    saveLibraryLayout: (text) => invoke<LibraryLayoutSaved>("save_library_layout", { text }),
+    removeLibraryLayout: (path) => invoke<string>("remove_library_layout", { path }),
+    brandKit: (project) => invoke<BrandKitFile | null>("read_brand_kit", { project }),
+    saveBrandKit: (project, text) => invoke<BrandKitSaved>("save_brand_kit", { project, text }),
     proposals: () => invoke<Proposal[]>("list_proposals"),
     acceptProposal: (id) => invoke<unknown>("accept_proposal", { id }),
     acceptProposalHunks: (id, body) => invoke<unknown>("accept_proposal_hunks", { id, body }),
@@ -216,6 +228,7 @@ export function tauriVault(label: string): VaultClient {
     ...tauriHealth,
     ...tauriAgentModes,
     ...tauriBatch,
+    ...tauriJournals,
     ...tauriRevisions,
     watch: watchVault,
   };

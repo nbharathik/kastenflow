@@ -17,6 +17,7 @@ import {
   selectionBounds,
 } from "@kasten-slides/canvas";
 
+import { snapAidsOf } from "../aids/snap-aids.ts";
 import type { EditorSession } from "../session/session.ts";
 import type { Placement } from "../session/elements.ts";
 import type { Place } from "../table/cells.ts";
@@ -25,8 +26,9 @@ import type { EditorUi } from "../ui-state.ts";
 import { doubleClickAt } from "./double-click.ts";
 import { drawEnd, finishDraw } from "./drawing.ts";
 import { isEmptyPlaceholder } from "./empty.ts";
-import { hitAt, itemsOf } from "./geometry.ts";
+import { hitAt, itemsOf, stackAt } from "./geometry.ts";
 import { endPoint, endPreview, finishEnd } from "./line-end.ts";
+import { below } from "./stack.ts";
 
 export { boxOfPoints, lineBox, snapAngle } from "./drawing.ts";
 
@@ -86,13 +88,18 @@ type Gesture =
   | { kind: "cells"; table: string; anchor: Place }
   | { kind: "draw"; tool: string; from: Point };
 
-const placementOf = (item: Item, point: Point): Placement => ({ x: point.x, y: point.y, w: item.w, h: item.h });
+/** The kinds of element whose proportions a resize keeps unless Shift is held. */
+const KEEPS_SHAPE: ReadonlySet<string> = new Set(["image", "video", "embed"]);
+
+const placementOf =(item: Item, point: Point): Placement => ({ x: point.x, y: point.y, w: item.w, h: item.h });
 
 export class CanvasController {
   private gesture: Gesture | null = null;
   private current: Preview = NONE;
   private readonly listeners = new Set<() => void>();
   private readonly gestureListeners = new Set<() => void>();
+  /** Where the last plain press landed and on what, for a click again at the same point (see `stepDown`). */
+  private lastClick: { x: number; y: number; id: string } | null = null;
 
   constructor(
     private readonly session: EditorSession,
@@ -141,7 +148,9 @@ export class CanvasController {
 
   private get frame() {
     const { w, h } = this.session.deck.size;
-    return { width: w, height: h, margin: 0 };
+    // The guides and the grid saved with the deck are lines to snap to as well.
+    const { lines, grid } = snapAidsOf(this.session.deck.present.guides);
+    return { width: w, height: h, margin: 0, lines, grid };
   }
 
   private snapOn(mods: { alt: boolean }): boolean {
@@ -154,6 +163,8 @@ export class CanvasController {
     if (this.gesture || p.button !== 0) return;
     const at = { x: p.x, y: p.y };
     const tool = this.session.state.tool;
+    // Any press that is not a plain click on the slide breaks the run of clicks that steps down a pile.
+    if (target.kind !== "surface" || tool !== "select") this.lastClick = null;
     if (target.kind === "handle") return this.startResize(at, target.handle);
     if (target.kind === "rotate") return this.startRotate(at);
     if (target.kind === "end") return this.startEnd(at, target.end);
@@ -164,16 +175,21 @@ export class CanvasController {
       return this.show({ ...NONE, drawing: { tool, from: at, to: at }, gesture: "draw" });
     }
     const items = itemsOf(this.session);
-    const id = hitAt(items, at, this.zoom());
     const extend = p.shift || p.mod;
+    const earlier = this.lastClick;
+    this.lastClick = null;
+    const top = hitAt(items, at, this.zoom());
+    const id = top === null || extend || p.alt || p.detail > 1 ? top : this.stepDown(items, top, at, earlier);
     // A press outside what the group they went into holds comes out of the group, and goes on as a press at the level above.
     if (id === null && this.session.state.inside.length > 0) {
       this.session.leaveGroups();
       return this.down(p, target);
     }
-    // A slot nothing is in covers much of the slide, so a press on it is no press on something: a drag from it is a selection
-    // rectangle, and a click that goes nowhere selects the slot.
-    const slot = id !== null && !this.session.state.selection.includes(id) && isEmptyPlaceholder(this.session.scope.find((e) => e.id === id)) ? id : null;
+    if (id !== null && !extend) this.lastClick = { x: at.x, y: at.y, id };
+    // A slot nothing is in covers much of the slide, and a locked element cannot be moved, so a press on either is no press on something
+    // to drag: a drag from it is a selection rectangle, and a click that goes nowhere selects it.
+    const hit = id === null ? undefined : this.session.scope.find((e) => e.id === id);
+    const slot = id !== null && (hit?.locked || (!this.session.state.selection.includes(id) && isEmptyPlaceholder(hit))) ? id : null;
     if (id === null || slot !== null) {
       this.session.stopEditing();
       return this.startMarquee(items, at, p, slot);
@@ -197,6 +213,19 @@ export class CanvasController {
     if (ids.length === 0 || !this.session.state.selection.includes(id)) return;
     if (this.session.state.editing === id) return;
     this.beginMove(items, ids, at, { clicked: id, wasSelected, extend, grab: false, ctrl });
+  }
+
+  /**
+   * A click again at the point of the last one, on what that click selected, steps down to the element under it (and round to the top
+   * after the last). Not for a box that a second click opens for writing: there the second click is for the words.
+   */
+  private stepDown(items: Item[], top: string, at: Point, earlier: { x: number; y: number; id: string } | null): string {
+    const selection = this.session.state.selection;
+    if (!earlier || selection.length !== 1 || selection[0] !== earlier.id) return top;
+    if (Math.hypot(at.x - earlier.x, at.y - earlier.y) * this.zoom() > 3) return top;
+    const element = this.session.scope.find((e) => e.id === earlier.id);
+    if (!element || (!element.locked && (element.type === "text" || element.type === "table"))) return top;
+    return below(stackAt(items, at, this.zoom()), earlier.id) ?? top;
   }
 
   /** The selection rectangle from a press at `at`; `click` is the empty slot the press was on, which a click that goes nowhere selects. */
@@ -257,7 +286,9 @@ export class CanvasController {
     const items = itemsOf(this.session);
     const chosen = items.filter((i) => this.session.state.selection.includes(i.id) && !i.locked);
     if (chosen.length === 0) return;
-    this.gesture = { kind: "resize", session: ResizeSession.start({ items: chosen, handle, all: items, frame: this.frame, grabbed: at, snapThreshold: 6 / this.zoom() }) };
+    // A picture, a video or a web page is never meant to be squashed: it keeps its shape unless Shift is held.
+    const keepByDefault = chosen.every((i) => KEEPS_SHAPE.has(this.session.scope.find((e) => e.id === i.id)?.type ?? ""));
+    this.gesture = { kind: "resize", session: ResizeSession.start({ items: chosen, handle, all: items, frame: this.frame, grabbed: at, snapThreshold: 6 / this.zoom(), keepByDefault }) };
   }
 
   private startRotate(at: Point): void {
@@ -314,12 +345,14 @@ export class CanvasController {
   }
 
   /**
-   * A click on a text box that went nowhere, with nothing held, is a click to write in it, as in every editor of slides: the box
-   * opens with the caret where the pointer was. A shape opens on a double click, and a box that is locked does not open.
+   * A click that went nowhere, with nothing held, on a text box that was selected already is a click to write in it: the box opens
+   * with the caret where the pointer was. (The first click only selects it, so Delete removes the box and not its words.) A shape
+   * opens on a double click, and a box that is locked does not open.
    */
   private writeIn(id: string, p: PointerInfo): void {
     const element = this.session.scope.find((e) => e.id === id);
-    if (element?.type !== "text" || element.locked || p.alt || p.shift || p.mod) return;
+    // A double click is the double click's own (it takes the word under the pointer), so the second press of one does not open the box twice.
+    if (element?.type !== "text" || element.locked || p.alt || p.shift || p.mod || p.detail > 1) return;
     this.session.startEditing(id, p.client ? { at: p.client } : undefined);
   }
 
@@ -338,6 +371,7 @@ export class CanvasController {
     if (g.kind === "move") {
       const result = g.session.end(at, { shift: p.shift, noSnap: !this.ui.state.snap });
       if (result.moved) {
+        this.lastClick = null;
         const placements = new Map<string, Placement>();
         for (const item of g.items) {
           const to = result.moves.get(item.id);
@@ -354,8 +388,9 @@ export class CanvasController {
       // A press that did not move: on one of several selected, it picks that one. A Ctrl press on one that was selected takes it out.
       if (g.wasSelected && !g.extend && !g.grab && g.ids.length > 1) this.session.select([g.clicked]);
       else if (g.ctrl && g.wasSelected) this.session.select([g.clicked], "toggle");
-      // A click on a table picks the cell under it; a click on a text box is a click to write in it.
-      else if (!g.extend && !g.grab && g.ids.length === 1 && !pickCell(this.session, g.clicked, at)) this.writeIn(g.clicked, p);
+      // The first click on a box only selects it. A click on one that was selected already picks the cell of a table under it, or is a
+      // click to write in a text box.
+      else if (g.wasSelected && !g.extend && !g.grab && g.ids.length === 1 && !pickCell(this.session, g.clicked, at)) this.writeIn(g.clicked, p);
     } else if (g.kind === "resize") {
       const result = g.session.end(at, { shift: p.shift, alt: p.alt, noSnap: !this.ui.state.snap });
       this.show(NONE);
@@ -369,12 +404,14 @@ export class CanvasController {
     } else if (g.kind === "marquee") {
       const state = g.session.end(at);
       g.moved ||= Math.hypot(at.x - g.from.x, at.y - g.from.y) * this.zoom() >= 3;
-      // A click on an empty slot that went nowhere selects the slot (with Shift or Ctrl it is added or taken away, as for any element).
+      // A click on an empty slot, or on a locked element, that went nowhere selects it (with Shift or Ctrl it is added or taken away, as
+      // for any element). The click after it, on the slot now selected, is the one to write in it.
       if (!g.moved && g.click !== null) {
         this.session.select([g.click], g.extend ? "toggle" : "replace");
-        // A click on a slot with nothing in it is a click to write in it.
-        if (!g.extend) this.writeIn(g.click, p);
-      } else this.session.select(state.ids);
+      } else {
+        this.lastClick = null;
+        this.session.select(state.ids);
+      }
     } else if (g.kind === "end") {
       finishEnd(this.session, this.zoom(), g, endPoint(this.session, this.zoom(), g, at, p.shift));
     } else if (g.kind === "cells") {

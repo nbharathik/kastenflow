@@ -13,6 +13,7 @@ fn out(content: &str, is_error: bool) -> ToolOutput {
         id: "c".into(),
         content: content.into(),
         is_error,
+        images: Vec::new(),
     }
 }
 

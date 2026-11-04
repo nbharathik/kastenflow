@@ -2,8 +2,10 @@ import type { JSX } from "react";
 
 import { colorOf } from "../../theme/index.ts";
 import type { ViewProps } from "../context.ts";
+import { cellBorders } from "../table-borders.ts";
 import { layoutTable } from "../table-layout.ts";
-import { boldText } from "../text-props.ts";
+import { cellLook } from "../table-style.ts";
+import { boldText, dressedText } from "../text-props.ts";
 import { TextArea } from "./TextArea.tsx";
 import { Upright } from "./Upright.tsx";
 
@@ -15,6 +17,7 @@ export function TableView({ element, box, cx, hideText, hideCell }: ViewProps<"t
   const { theme } = cx;
   const layout = layoutTable(element, box.w, box.h);
   const grid = colorOf(theme, "text2", GRID_ALPHA);
+  const style = element.tableStyle ?? undefined;
   const table = (
     <table className="ks-table" style={{ width: box.w, height: box.h }}>
       <colgroup>
@@ -25,25 +28,24 @@ export function TableView({ element, box, cx, hideText, hideCell }: ViewProps<"t
       <tbody>
         {layout.cells.map((cells, r) => (
           <tr key={r} style={{ height: layout.rows[r] }}>
-            {cells.map((laid) => (
-              <td
-                key={laid.col}
-                colSpan={laid.colSpan}
-                rowSpan={laid.rowSpan}
-                style={{ borderColor: grid, background: laid.cell.fill ? colorOf(theme, laid.cell.fill.color, laid.cell.fill.alpha) : undefined }}
-              >
-                {!hideText && !(hideCell && hideCell.row === laid.row && hideCell.col === laid.col) && (
-                  <TextArea
-                    cx={cx}
-                    text={laid.header ? boldText(laid.cell.text) : laid.cell.text}
-                    baseStyle="body"
-                    width={laid.width}
-                    height={laid.height}
-                    valign={laid.cell.text.valign ?? "top"}
-                  />
-                )}
-              </td>
-            ))}
+            {cells.map((laid) => {
+              // What the table's style makes of this cell; the cell's own fill and lines win over it.
+              const look = style ? cellLook(style, Boolean(element.headerRow), layout.rows.length, layout.columns.length, laid.row, laid.col) : undefined;
+              const fill = laid.cell.fill ?? look?.fill;
+              const text = look ? dressedText(laid.cell.text, laid.header || look.bold, look.text) : laid.header ? boldText(laid.cell.text) : laid.cell.text;
+              return (
+                <td
+                  key={laid.col}
+                  colSpan={laid.colSpan}
+                  rowSpan={laid.rowSpan}
+                  style={{ borderColor: grid, background: fill ? colorOf(theme, fill.color, fill.alpha) : undefined, ...cellBorders(theme, look, laid.cell.borders) }}
+                >
+                  {!hideText && !(hideCell && hideCell.row === laid.row && hideCell.col === laid.col) && (
+                    <TextArea cx={cx} text={text} baseStyle="body" width={laid.width} height={laid.height} valign={laid.cell.text.valign ?? "top"} />
+                  )}
+                </td>
+              );
+            })}
           </tr>
         ))}
       </tbody>

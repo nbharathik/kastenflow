@@ -11,6 +11,7 @@ import { noteAt } from "../../workspace/tree";
 import type { Part } from "../thread";
 import { describeCall, nameOf } from "../transcript";
 import { useChatLinks } from "./links";
+import { ToolPictures } from "./ToolPictures";
 import { Icon } from "../../../ui/Icon";
 
 const REVIEW = /waiting for review/i;
@@ -43,6 +44,7 @@ export const ToolRow = memo(function ToolRow({ part, live }: { part: ToolPart; l
   const open = (path: string) => (event: MouseEvent) => links.openPath(path, howFrom(event));
 
   return (
+    <>
     <div className={enters ? "kasten-chat-tool is-entering" : "kasten-chat-tool"} data-state={state} data-flip={part.call.id || undefined}>
       <span className="kasten-chat-tool-icon" aria-hidden="true">
         {state === "working" ? <span className="kasten-chat-spinner" /> : state === "done" ? <Icon name="check" className="size-3.5" /> : state === "failed" ? <Icon name="alert" className="size-3.5" /> : "–"}
@@ -77,5 +79,7 @@ export const ToolRow = memo(function ToolRow({ part, live }: { part: ToolPart; l
         );
       })}
     </div>
+    <ToolPictures pictures={part.pictures} />
+    </>
   );
 });

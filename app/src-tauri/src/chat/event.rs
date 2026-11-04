@@ -50,6 +50,38 @@ pub enum EventKind {
     Waiting,
     /// A turn that was `waiting` left the line and began.
     Started,
+    /// A coding-agent CLI asks whether it may do something, or a question
+    /// it asked is over: `approval` is the card, and the turn waits for the
+    /// person's answer (chat/cli).
+    Approval,
+}
+
+/// Where a question from an agent CLI stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ApprovalState {
+    /// Waiting for the person.
+    Asking,
+    Allowed,
+    Denied,
+    /// Withdrawn by the CLI, or the run ended before an answer.
+    Over,
+}
+
+/// A question from an agent CLI, as a card with Allow and Deny.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Approval {
+    /// What the answer names (`chat_agent_answer`).
+    pub id: String,
+    /// The agent's name, such as "Claude Code".
+    pub agent: String,
+    pub tool: String,
+    /// "Allow Claude Code to run a command?"
+    pub question: String,
+    /// The command, the file or the input, shortened.
+    pub detail: String,
+    pub state: ApprovalState,
 }
 
 /// A tool the model called.
@@ -102,6 +134,10 @@ pub struct ChatEvent {
     pub tool: Option<ToolUse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<ToolResultInfo>,
+    /// For `tool_result`: the pictures the tool drew (a slide), as `data:` URLs small enough to
+    /// show as thumbnails in the tool's step.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pictures: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stopped: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,6 +169,9 @@ pub struct ChatEvent {
     /// For `queued`: whether the turn has taken the message up.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivered: Option<bool>,
+    /// For `approval`: the question and where it stands.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval: Option<Approval>,
 }
 
 impl ChatEvent {
@@ -145,6 +184,7 @@ impl ChatEvent {
             text: None,
             tool: None,
             result: None,
+            pictures: None,
             stopped: None,
             error: None,
             error_kind: None,
@@ -156,6 +196,7 @@ impl ChatEvent {
             calls: None,
             code: None,
             delivered: None,
+            approval: None,
         }
     }
 }

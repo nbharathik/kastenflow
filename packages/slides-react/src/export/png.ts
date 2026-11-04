@@ -5,7 +5,6 @@
 
 import type { Deck } from "@kasten-slides/wasm";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import { SlideView } from "../render/index.ts";
 // Formulas are drawn as the markup is made, so KaTeX is loaded with this file.
@@ -101,6 +100,8 @@ export interface PngResult {
 export async function slidePictures(deck: Deck, options: PngOptions, tools: PngTools = {}): Promise<PngResult> {
   const { images = new Map<string, Uint8Array>(), current, raster = rasterize, styles = slideStyles, katex = katexStyles, progress } = tools;
   const pages = pngPages(deck, options, current);
+  // The server renderer is large and only this export needs it, so it is loaded when the first picture is asked for.
+  const { renderToStaticMarkup } = await import("react-dom/server");
   const shown = deck.slides.filter((slide) => !slide.hidden).length;
   const urls = new Map([...images].map(([path, bytes]) => [path, dataUrlOf(path, bytes)]));
   const imageUrl = (src: string): string | undefined => urls.get(src);

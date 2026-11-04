@@ -7,7 +7,7 @@ import { newDeck } from "../../test/engine.ts";
 import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
 import { type DialogName, EditorUi } from "../ui-state.ts";
-import { Dialogs } from "./Dialogs.tsx";
+import { Dialogs, preloadDialogs } from "./Dialogs.tsx";
 
 export interface Kit {
   engine: DeckEngine;
@@ -34,6 +34,8 @@ interface Options {
 }
 
 export async function mountDialogs({ theme = "Light", elements = [], select, dialog = null, prepare, blank = true }: Options = {}): Promise<Kit> {
+  // The dialogs are loaded on first use; a test that opens one expects it drawn at once.
+  await preloadDialogs();
   const engine = await newDeck("Dialogs", theme);
   prepare?.(engine);
   const host = new MemoryHost();

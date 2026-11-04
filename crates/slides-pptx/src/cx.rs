@@ -101,6 +101,8 @@ pub struct Cx<'a, 'm> {
     pub number: u32,
     /// The step being drawn; None draws every element as it is styled.
     pub step: Option<u32>,
+    /// Whether the clicks of the slide are written as animations (`StepsMode::Animate`).
+    pub animate: bool,
     /// How much of its colour the element being written keeps after the steps around it
     /// dim it: 1 for one that is not dimmed, the theme's dimmed opacity for one that is (and
     /// what a dimmed group holds is dimmed twice over if it is dimmed itself). A file has no
@@ -130,6 +132,7 @@ impl<'a, 'm> Cx<'a, 'm> {
             master: false,
             number: 1,
             step: None,
+            animate: false,
             dim: 1.0,
             backing: Backings::default(),
             under: Behind::Page,

@@ -36,11 +36,26 @@ const NAMES: Readonly<Record<string, string>> = {
   merge_cells: "Merge cells",
   unmerge_cells: "Unmerge cells",
   set_cell_fill: "Fill cells",
+  set_table_style: "Change table style",
+  set_cell_borders: "Change borders",
+  distribute_table: "Make even",
+  resize_table_column: "Resize column",
+  set_header_footer: "Change header and footer",
+  set_guides: "Change guides",
+  set_dictionary: "Change the deck’s dictionary",
+  set_deck_fonts: "Change the deck’s fonts",
+  add_mermaid: "Add Mermaid diagram",
+  update_mermaid: "Change Mermaid diagram",
+  replace_picture: "Replace picture",
   replace_all: "Replace text",
   // Slides that were pasted, dragged in with Alt, or imported: they were all added.
   add_slides: "Add slides",
   replace_deck: "Import slides",
   collapse_slides: "Collapse slides",
+  add_deck_comment: "Add comment",
+  reply_deck_comment: "Answer comment",
+  resolve_deck_comment: "Resolve comment",
+  set_slide_access: "Change accessibility",
 };
 
 /** A step of history in words: "Move elements"; undefined when there is no step. */

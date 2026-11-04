@@ -40,7 +40,9 @@ describe("the command list", () => {
 
   it("shows the first key of a command as it reads on this system", () => {
     expect(keysOf("text.bold")).toMatch(/^(Ctrl\+B|⌘B)$/);
-    expect(keysOf("view.full-screen")).toMatch(/^(Ctrl\+Shift\+F|⇧⌘F)$/);
+    expect(keysOf("view.full-screen")).toMatch(/^(Ctrl\+Alt\+F|⌘⌥F)$/);
+    // Ctrl+Shift+F is KastenFlow's own search, so the editor's full screen leaves it alone.
+    expect(keysOf("view.full-screen")).not.toMatch(/Shift/);
     expect(keysOf("insert.text-box")).toBe("T");
     expect(keysOf("insert.shape.triangle")).toBeUndefined();
     expect(() => keysOf("nope")).toThrow("No editor command");
@@ -160,7 +162,7 @@ describe("keys", () => {
 
   it("lets a chord made for fields work in a field, and no other key", async () => {
     const c = await context();
-    const chord = { ctrlKey: true, shiftKey: true };
+    const chord = { ctrlKey: true, altKey: true };
     expect(dispatchKey(press("F", chord), c, "field")).toBe(true);
     expect(c.ui.state.fullScreen).toBe(true);
     // Undo, select all and the rest belong to the field, and a plain F is typing.

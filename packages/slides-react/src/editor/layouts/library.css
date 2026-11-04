@@ -1,0 +1,35 @@
+/* My layouts: the layouts kept for every deck, in the New slide menu, the manager and the save dialog. Tokens come from the editor. */
+
+/* Under the deck's own layouts in the New slide menu: a shorter grid, so the menu stays within the window. */
+.ks-lp-library {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ks-line);
+}
+.ks-lp-library .ks-lp {
+  max-height: min(30vh, 240px);
+}
+
+/* Under the manager's list. */
+.ks-lm-library {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ks-line);
+}
+
+/* "Keep it for" in the save dialog. */
+.ks-ls-where {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+.ks-ls-where legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ks-muted);
+}

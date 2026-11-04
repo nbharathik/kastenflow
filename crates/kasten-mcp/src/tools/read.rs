@@ -237,7 +237,8 @@ pub(crate) fn query_tag(k: &Kasten, args: QueryTagArgs) -> Result<Value> {
 
 pub(crate) fn get_journal(k: &Kasten, args: JournalArgs) -> Result<Value> {
     let date = args.date.unwrap_or_else(today);
-    let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+    let project = args.project.as_deref().filter(|p| !p.trim().is_empty());
+    let path = kasten_core::journal_path_in(k.vault(), project, &date)?;
     if !k.vault().exists(&path) {
         return Ok(json!({ "date": date, "exists": false }));
     }

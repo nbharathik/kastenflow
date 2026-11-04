@@ -11,6 +11,12 @@ import "./dialogs.css";
 /** The word for a choice that is none of the presets. */
 const CUSTOM = "custom";
 
+/** What happens to the things already on the slides. */
+const CONTENT_CHOICES = [
+  { keep: false, label: "Scale content", text: "Fit to the new page" },
+  { keep: true, label: "Keep size", text: "Leave as it is" },
+] as const;
+
 /** How big a drawn ratio is at most, in pixels, in the dialog. */
 const SHAPE = 56;
 
@@ -33,8 +39,13 @@ export function PageSetupDialog({ session, onClose }: DialogProps): JSX.Element 
 
   const picked = choice === CUSTOM ? custom : (presets.find((preset) => preset.name === choice) ?? custom);
   const unchanged = Math.abs(picked.w - size.w) < 0.01 && Math.abs(picked.h - size.h) < 0.01;
+  // What is on the slides is scaled with the page, or left as it is (same place and size) and only the theme is refitted.
+  const [keep, setKeep] = useState(false);
   const apply = () => {
-    if (!unchanged) session.slides.setPageSize(choice === CUSTOM ? { w: custom.w, h: custom.h } : { preset: choice });
+    if (!unchanged) {
+      const size = choice === CUSTOM ? { w: custom.w, h: custom.h } : { preset: choice };
+      session.slides.setPageSize(keep ? { ...size, keepSize: true } : size);
+    }
     onClose();
   };
 
@@ -78,8 +89,25 @@ export function PageSetupDialog({ session, onClose }: DialogProps): JSX.Element 
             <NumberField label="Height" unit="in" min={LEAST_INCHES} max={MOST_INCHES} step={0.25} decimals={2} width={80} value={inchesOf(custom.h)} onCommit={(inches) => setCustom({ ...custom, h: unitsOf(inches) })} />
           </div>
         ) : null}
+        <div className="ks-dg-ratios" role="radiogroup" aria-label="Existing content">
+          {CONTENT_CHOICES.map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              role="radio"
+              aria-checked={keep === option.keep}
+              className={`ks-btn ks-dg-ratio-card${keep === option.keep ? " is-on" : ""}`}
+              onClick={() => setKeep(option.keep)}
+            >
+              <span className="ks-dg-ratio-name">{option.label}</span>
+              <span className="ks-dg-ratio-size">{option.text}</span>
+            </button>
+          ))}
+        </div>
         <p className="ks-sp-hint">
-          Every slide and the theme are refitted: boxes stretch with the slide, type follows its width, and pictures, turned things and circles keep their shape. Going to another size and back can leave pictures a little smaller. You can undo it.
+          {keep
+            ? "What is on the slides stays where it is and as big as it is; only the theme is refitted, so new slides fit. Things may end up off the slide when it gets smaller. You can undo it."
+            : "Every slide and the theme are refitted: boxes stretch with the slide, type follows its width, and pictures, turned things and circles keep their shape. Going to another size and back can leave pictures a little smaller. You can undo it."}
         </p>
       </div>
     </Dialog>

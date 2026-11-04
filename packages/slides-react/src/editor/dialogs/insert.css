@@ -47,6 +47,31 @@
 .ks-pl-input::placeholder {
   color: var(--ks-faint);
 }
+/* The parts of the palette: all of it, the commands, the things to insert, the slides. */
+.ks-pl-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px 2px;
+}
+.ks-pl-mode {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--ks-muted);
+  box-shadow: inset 0 0 0 1px var(--ks-line-strong);
+  font-size: 12px;
+}
+.ks-pl-mode.is-on {
+  color: var(--ks-ink);
+  background: var(--ks-selected);
+}
+.ks-pl-tip {
+  margin-left: auto;
+  color: var(--ks-faint);
+  font-size: 11.5px;
+}
 .ks-pl-list {
   max-height: min(56vh, 420px);
   margin-top: 6px;

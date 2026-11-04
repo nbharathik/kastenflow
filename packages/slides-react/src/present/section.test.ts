@@ -23,6 +23,19 @@ describe("what reveal.js is told about a slide", () => {
     expect(of("b")).toMatchObject({ "data-slide": "b", "data-transition": "slide", style: { transitionDuration: "0.5s" } });
   });
 
+  it("hands the kinds reveal.js has no name for to the runtime: reveal.js cuts, the attributes say how", () => {
+    const own = planOf(deckOf(slide("a"), slide("p", { transition: { kind: "push", duration: 0.7, direction: "up" } }), slide("w", { transition: { kind: "wipe" } })));
+    const pushing = arrivalsOf(own);
+    const attrs = (id: string) => {
+      const found = own.deck.slides.find((s) => s.id === id) as Slide;
+      return sectionAttributes(found, pushing.arrival(found), undefined);
+    };
+    expect(attrs("p")).toMatchObject({ "data-transition": "none", "data-ks-fx": "push", "data-ks-dir": "up", "data-ks-seconds": "0.7", style: { transitionDuration: "0s" } });
+    expect(attrs("w")).toMatchObject({ "data-ks-fx": "wipe", "data-ks-seconds": "0.5" });
+    expect(attrs("w")["data-ks-dir"]).toBeUndefined();
+    expect(attrs("p")["data-ks-fx"]).toBe("push");
+  });
+
   it("makes a morph an auto-animate with the id of the run, its duration and its easing", () => {
     expect(of("c")).toMatchObject({ "data-transition": "fade", "data-auto-animate": "", "data-auto-animate-id": "morph-b", "data-auto-animate-duration": "0.9", "data-auto-animate-easing": "ease-in-out" });
     // The slide it morphs from is in the run.

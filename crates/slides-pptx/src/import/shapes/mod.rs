@@ -3,6 +3,7 @@
 //! hold).
 
 mod base;
+mod chart;
 mod cxn;
 pub mod frame;
 mod group;

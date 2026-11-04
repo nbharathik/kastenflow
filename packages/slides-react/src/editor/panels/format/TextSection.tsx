@@ -9,6 +9,7 @@ import { Icon, type IconName } from "../../ui/Icon.tsx";
 import { useUiState } from "../../useUi.ts";
 import { Cluster, Row, SelectField, ShortNumber, TriToggle } from "./controls.tsx";
 import { PanelSection } from "./PanelSection.tsx";
+import { TextColumns } from "./TextColumns.tsx";
 import { SIDES, insetsOf, textFacts, withList, withParagraphs } from "./text-facts.ts";
 import type { SectionProps } from "./types.ts";
 import type { Mixed } from "./values.ts";
@@ -113,6 +114,7 @@ export function TextSection({ session, ui, elements, theme }: SectionProps) {
         <SelectField<TextFit> label="Text fitting" value={view.format.fit} options={FITS.map(({ fit, label }) => ({ value: fit, label }))} onPick={(fit) => textExtras.setFit(context, fit)} />
       </Row>
       <TriToggle label="Wrap text" on={view.format.wrap} onChange={(on) => textExtras.setWrap(context, on)} />
+      <TextColumns session={session} context={context} elements={elements} />
       <div className="ks-sp-field" role="group" aria-label="Text insets">
         <span className="ks-sp-label">Space around the text</span>
         <div className="ks-sp-grid">

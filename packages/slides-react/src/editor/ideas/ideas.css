@@ -1,0 +1,76 @@
+/* The Design ideas tab: layouts for the slide as small pictures, then the blocks. */
+.ks-ideas {
+  display: flex;
+  flex-direction: column;
+}
+.ks-ideas-head {
+  margin: 0;
+  padding: 12px 14px 4px;
+  color: var(--ks-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ks-ideas-note {
+  margin: 0;
+  padding: 4px 14px 8px;
+  color: var(--ks-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ks-ideas-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 4px 14px 12px;
+}
+.ks-ideas-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius);
+  background: transparent;
+  cursor: pointer;
+}
+.ks-ideas-item:hover {
+  background: var(--ks-hover);
+}
+.ks-ideas-item:focus-visible,
+.ks-ideas-block:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -1px;
+}
+.ks-ideas-name {
+  color: var(--ks-ink);
+  font-size: 12px;
+}
+.ks-ideas-sub {
+  color: var(--ks-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.ks-ideas-blocks {
+  margin: 0;
+  padding: 0 8px 14px;
+  list-style: none;
+}
+.ks-ideas-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--ks-radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.ks-ideas-block:hover {
+  background: var(--ks-hover);
+}

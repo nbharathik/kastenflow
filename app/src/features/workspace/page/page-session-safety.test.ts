@@ -11,7 +11,7 @@ const NOW = Date.UTC(2026, 8, 24, 8, 0, 0);
 
 function setup() {
   const vault = new MemoryVault({ "library/notes.md": PAGE }, undefined, () => NOW);
-  const events = { onState: vi.fn(), onNote: vi.fn(), onRenamed: vi.fn(), onConflict: vi.fn(), onMerged: vi.fn(), onError: vi.fn(), onRecovered: vi.fn() } satisfies SessionEvents;
+  const events = { onState: vi.fn(), onNote: vi.fn(), onRenamed: vi.fn(), onConflict: vi.fn(), onMerged: vi.fn(), onError: vi.fn(), onRecovered: vi.fn(), onRecheck: vi.fn() } satisfies SessionEvents;
   return { vault, events, open: async () => new PageSession(vault, "library/notes.md", await vault.read("library/notes.md"), events, 10_000) };
 }
 
@@ -37,6 +37,78 @@ describe("PageSession keeps every version", () => {
     const copies = (await vault.list()).filter((n) => n.path.includes("(conflict"));
     const texts = await Promise.all(copies.map(async (n) => (await vault.read(n.path)).text));
     expect(texts.some((t) => t.includes("Mine, and more\n"))).toBe(true);
+  });
+
+  it("does not write over a change made elsewhere that a header write brought in", async () => {
+    const { vault, events, open } = setup();
+    const session = await open();
+    await vault.saveBody("library/notes.md", "Theirs\n", (await vault.read("library/notes.md")).hash);
+    session.editHeader("icon", "🚀");
+    await session.flush();
+    session.editBody("First line\nmine\n");
+    await session.flush();
+    await session.close();
+    // Their text survives in the page, or both edits were kept, or a copy was made.
+    expect((await vault.read("library/notes.md")).text).toContain("Theirs");
+    expect(events.onMerged.mock.calls.length + events.onConflict.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("does not write over a change made elsewhere that a rename brought in", async () => {
+    const { vault, events, open } = setup();
+    const session = await open();
+    await vault.saveBody("library/notes.md", "Theirs\n", (await vault.read("library/notes.md")).hash);
+    session.rename("Other name");
+    await session.flush();
+    session.editBody("First line\nmine\n");
+    await session.flush();
+    await session.close();
+    expect((await vault.read(session.path)).text).toContain("Theirs");
+    expect(events.onMerged.mock.calls.length + events.onConflict.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("asks the page to look at the disk again when a header write shows a change made elsewhere", async () => {
+    const { vault, events, open } = setup();
+    const session = await open();
+    await vault.saveBody("library/notes.md", "Theirs\n", (await vault.read("library/notes.md")).hash);
+    session.editHeader("icon", "🚀");
+    await session.flush();
+    expect(events.onRecheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not ask the page to look again after a header write that found nothing new", async () => {
+    const { events, open } = setup();
+    const session = await open();
+    session.editHeader("icon", "🚀");
+    await session.flush();
+    expect(events.onRecheck).not.toHaveBeenCalled();
+  });
+
+  it("looks at the disk again once saving ends, when a change on disk was seen while it was busy", async () => {
+    const { events, open } = setup();
+    const session = await open();
+    session.editBody("First line\nmine\n");
+    session.recheckWhenIdle();
+    expect(events.onRecheck).not.toHaveBeenCalled();
+    await session.flush();
+    expect(events.onRecheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes typing undone to the saved text while a save is in flight", async () => {
+    const { vault, events, open } = setup();
+    const session = await open();
+    const save = vault.saveBody.bind(vault);
+    vi.spyOn(vault, "saveBody").mockImplementationOnce(async (...args) => {
+      // Undone back to the text on disk while the first save is on its way.
+      session.editBody("First line\n");
+      return save(...args);
+    });
+    session.editBody("First line\nB\n");
+    await session.flush();
+    expect(events.onState).toHaveBeenLastCalledWith("edited");
+    await session.flush();
+    expect((await vault.read("library/notes.md")).text).toContain("First line\n");
+    expect((await vault.read("library/notes.md")).text).not.toContain("B\n");
+    expect(events.onState).toHaveBeenLastCalledWith("saved");
   });
 
   it("keeps typing whose file went away as a page of its own, and stops trying", async () => {

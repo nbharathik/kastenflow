@@ -1,5 +1,5 @@
 // What the editor's chrome keeps besides the deck and the window state in `EditorUi`: how roomy the bars are, how wide the side panel
-// is, which sections of the format options the person folded, and whether the menu search is open. The choices that are about taste
+// is, which sections of the format options the person folded, and which part of the command palette is asked for. The choices that are about taste
 // are kept in this browser (see storage.ts); each editor has one `Chrome`, found with `chromeOf(ui)`.
 
 import { useSyncExternalStore } from "react";
@@ -17,8 +17,10 @@ export interface ChromeState {
   readonly panelWidth: number;
   /** Sections the person folded (true) or opened (false) against their default; a section not named is as it starts. */
   readonly folds: Readonly<Record<string, boolean>>;
-  readonly menuSearch: boolean;
 }
+
+/** Which part of the command palette it opens on: all of it, or only the commands, the things to insert, or the slides. */
+export type PaletteMode = "all" | "commands" | "insert" | "slides";
 
 export const clampPanelWidth = (width: number): number => Math.round(Math.min(Math.max(width, PANEL_WIDTH.min), PANEL_WIDTH.max));
 
@@ -29,9 +31,10 @@ export class Chrome {
     density: readStored<Density>("density", "comfortable", isDensity),
     panelWidth: clampPanelWidth(readStored("panel-width", PANEL_WIDTH.start, isNumber)),
     folds: readStored<Record<string, boolean>>("folds", {}, isFlagMap),
-    menuSearch: false,
   };
   private readonly listeners = new Set<() => void>();
+  /** What the command that opens the palette asked it to start on; read once by the palette as it opens. */
+  private paletteAsked: PaletteMode = "all";
 
   get state(): ChromeState {
     return this.current;
@@ -78,8 +81,16 @@ export class Chrome {
     this.patch({ folds });
   }
 
-  openMenuSearch(open = true): void {
-    if (open !== this.current.menuSearch) this.patch({ menuSearch: open });
+  /** Says which part of the palette the next opening starts on. */
+  askPalette(mode: PaletteMode): void {
+    this.paletteAsked = mode;
+  }
+
+  /** The part the palette was asked to start on, and back to all of it for the next opening. */
+  takePalette(): PaletteMode {
+    const mode = this.paletteAsked;
+    this.paletteAsked = "all";
+    return mode;
   }
 }
 

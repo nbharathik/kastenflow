@@ -5,6 +5,7 @@ import { PanelSection } from "./PanelSection.tsx";
 import { addAtEnd, canShrink, removeAtEnd } from "./table-edit.ts";
 import type { SectionProps } from "./types.ts";
 import { agree, only } from "./values.ts";
+import { TableStyleGallery } from "./TableStyleGallery.tsx";
 import { patchEach } from "./write.ts";
 
 /**
@@ -56,6 +57,7 @@ export function TableSection({ session, elements }: SectionProps) {
       {stepper("row", rows)}
       {stepper("column", columns)}
       <TriToggle label="Header row" on={header} onChange={(next) => patchEach(session, tables, (t) => (Boolean(t.headerRow) === next ? null : { headerRow: next }))} />
+      <TableStyleGallery session={session} tables={tables} picked={here ? here.cells : null} />
       {here ? (
         <Row label="Cells" wide>
           <div className="ks-sp-cellbar" role="group" aria-label="Cells picked">

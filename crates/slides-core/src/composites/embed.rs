@@ -321,5 +321,7 @@ pub fn expand(cx: &Ctx, element: &EmbedEl) -> Vec<Element> {
     addressed(parts.finish(), link.as_deref(), &alt_of(element))
 }
 
+pub mod provider;
+
 #[cfg(test)]
 mod tests;

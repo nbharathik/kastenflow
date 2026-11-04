@@ -87,6 +87,9 @@ pub struct ImportOptions {
     /// Keep, on each slide, the marker its notes carried (`extra.pptxMarker`), which a merge
     /// into an existing deck matches slides by.
     pub markers: bool,
+    /// Read bar, line and pie charts as charts of the deck (which export as charts PowerPoint can edit) instead of keeping
+    /// them as objects shown by a picture. A chart of another kind is kept either way.
+    pub native_charts: bool,
     pub limits: Limits,
 }
 
@@ -97,6 +100,7 @@ impl Default for ImportOptions {
             title: None,
             name: None,
             markers: false,
+            native_charts: false,
             limits: Limits::default(),
         }
     }
@@ -199,6 +203,7 @@ fn read_masters(
 pub fn import(bytes: &[u8], options: &ImportOptions) -> Result<Imported, ImportError> {
     let pkg = Package::open(bytes, options.limits)?;
     let mut imp = Importer::new(pkg, options.seed);
+    imp.native_charts = options.native_charts;
     for name in std::mem::take(&mut imp.pkg.ignored) {
         imp.warnings.warn(
             None,

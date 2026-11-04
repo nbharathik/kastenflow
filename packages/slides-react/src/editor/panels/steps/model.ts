@@ -5,6 +5,7 @@
 import { type Element, type Slide, type StepState, type Theme, readingOrder } from "@kasten-slides/wasm";
 
 import { stateAt } from "../../../render/steps.ts";
+import { withStored } from "../../access/reading-order.ts";
 import { boxOf } from "../../../theme/index.ts";
 import { bodyOf } from "../../session/steps.ts";
 import { describe } from "../format/values.ts";
@@ -76,10 +77,16 @@ function itemsOf(element: Element): { index: number; text: string; step: number 
   );
 }
 
-/** The elements in the order a build takes them: rows from top to bottom, each from left to right. */
-export function inReadingOrder(elements: readonly Element[], theme: Theme, layout: string): Element[] {
+/**
+ * The elements in the order a build takes them: rows from top to bottom, each from left to right, unless the slide was given a reading
+ * order of its own (`stored`, the ids it names first; Accessibility panel), which the build follows too.
+ */
+export function inReadingOrder(elements: readonly Element[], theme: Theme, layout: string, stored?: readonly string[]): Element[] {
   const order = readingOrder(elements.map((element) => boxOf(theme, layout, element)));
-  return order.flatMap((at) => (elements[at] ? [elements[at]] : []));
+  return withStored(
+    order.flatMap((at) => (elements[at] ? [elements[at]] : [])),
+    stored,
+  );
 }
 
 /** The steps the composites of a slide ask for: a code block with three entries in focus needs three. */
@@ -91,7 +98,7 @@ export function stepsNeeded(elements: readonly Element[]): number {
 export function rowsOf(slide: Slide, theme: Theme, open: ReadonlySet<string>): StepRow[] {
   const rows: StepRow[] = [];
   const visit = (elements: readonly Element[], depth: number, top: string | null): void => {
-    for (const element of inReadingOrder(elements, theme, slide.layout)) {
+    for (const element of inReadingOrder(elements, theme, slide.layout, depth === 0 ? slide.access?.readingOrder : undefined)) {
       const own = top ?? element.id;
       const group = element.type === "group";
       rows.push({ kind: "element", key: element.id, element, depth, top: own, label: labelOf(element), group, open: group && open.has(element.id) });

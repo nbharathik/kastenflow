@@ -18,6 +18,14 @@ describe("fileUrl", () => {
     expect(fileUrl("images/map.png")).toBe(`asset://localhost/${encodeURIComponent("C:\\Users\\me\\Kasten\\images\\map.png")}`);
   });
 
+  it("passes a web address through, in the preview and in the app, and nothing that is not one", () => {
+    expect(fileUrl("https://example.com/media/talk.mp4")).toBe("https://example.com/media/talk.mp4");
+    expect(fileUrl("HTTP://example.com/a b.mp4")).toBe("http://example.com/a%20b.mp4");
+    setFileRoot("/home/me/Kasten");
+    expect(fileUrl("https://example.com/talk.mp4")).toBe("https://example.com/talk.mp4");
+    for (const not of ["https://user:pw@example.com/talk.mp4", "ftp://example.com/talk.mp4", "file:///etc/passwd", "https://","//example.com/talk.mp4"]) expect(fileUrl(not), not).toBeNull();
+  });
+
   it("will not leave the vault", () => {
     setFileRoot("/home/me/Kasten");
     for (const bad of ["../secret.png", "/etc/passwd", "a//b.png", "a/./b.png", ""]) expect(fileUrl(bad)).toBeNull();

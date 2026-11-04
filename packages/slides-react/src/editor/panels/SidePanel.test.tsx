@@ -10,9 +10,9 @@ afterEach(cleanup);
 const tab = (name: string) => screen.getByRole("tab", { name });
 
 describe("SidePanel", () => {
-  it("has a tab for format options, themes, transitions, steps and the assistant, and shows the one that is open", async () => {
+  it("has a tab for format options, themes, transitions, steps, comments, accessibility, design ideas, the undo history and the assistant, and shows the one that is open", async () => {
     const kit = await mount({ panel: "format" });
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Format options", "Themes", "Transitions", "Steps", "Assistant"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Format options", "Themes", "Transitions", "Steps", "Comments", "Accessibility", "Design ideas", "Undo history", "Assistant"]);
     expect(tab("Format options").getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tab("Steps"));
     expect(kit.ui.state.panel).toBe("steps");
@@ -39,6 +39,14 @@ describe("SidePanel", () => {
     fireEvent.keyDown(tab("Transitions"), { key: "ArrowRight" });
     expect(kit.ui.state.panel).toBe("steps");
     fireEvent.keyDown(tab("Steps"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("comments");
+    fireEvent.keyDown(tab("Comments"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("access");
+    fireEvent.keyDown(tab("Accessibility"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("ideas");
+    fireEvent.keyDown(tab("Design ideas"), { key: "ArrowRight" });
+    expect(kit.ui.state.panel).toBe("history");
+    fireEvent.keyDown(tab("Undo history"), { key: "ArrowRight" });
     expect(kit.ui.state.panel).toBe("ai");
     fireEvent.keyDown(tab("Assistant"), { key: "ArrowRight" });
     expect(kit.ui.state.panel).toBe("format");
@@ -62,10 +70,12 @@ describe("SidePanel", () => {
     expect(panel.querySelector("input, textarea, button")).toBeNull();
   });
 
-  it("says something quiet about a panel it has no tab for", async () => {
+  it("shows the comments tab: a place to write one, and a quiet word when the deck has none", async () => {
     await mount({ panel: "comments" });
-    expect(screen.getByRole("tabpanel").textContent).toContain("Comments");
-    expect(screen.getAllByRole("tab").every((t) => t.getAttribute("aria-selected") === "false")).toBe(true);
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByRole("textbox", { name: "Comment" })).toBeTruthy();
+    expect(panel.textContent).toContain("No comments yet");
+    expect(tab("Comments").getAttribute("aria-selected")).toBe("true");
   });
 
   it("follows the selection: the slide's options, then an element's, and back", async () => {

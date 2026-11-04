@@ -13,7 +13,7 @@ import type { AdoptFailure, Binding, DeletedArchived, ThreadSummary } from "./ag
 import { forgetCapabilities } from "./capabilities";
 import { autoApplyIfSmall } from "./changes/auto";
 import { connectChat, type ChatClient } from "./client";
-import { keepModel, keepSettings, modelFor } from "./prefs";
+import { chatModelFor, keepModel, keepSettings } from "./prefs";
 import { outcomeOf, touched } from "./store-events";
 import { fieldActions } from "./store-fields";
 import { historyActions } from "./store-history";
@@ -361,7 +361,7 @@ export const useChat = create<ChatState>()((set, get, api) => {
 
     setSettings(id, settings) {
       const thread = get().threads[id];
-      const choice = thread && modelFor(thread, get().providers);
+      const choice = thread && chatModelFor(thread, get().providers);
       if (!thread || !choice) return;
       update(id, (t) => ({ ...t, settings }));
       keepSettings(choice.provider, choice.model, settings);

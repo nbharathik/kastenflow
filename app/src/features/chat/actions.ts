@@ -59,6 +59,11 @@ export function openProviders(how: OpenHow = "here"): void {
   openSettingsAt({ group: "ai", row: "ai.providers" }, how);
 }
 
+/** Opens Settings at "Coding agents in the chat", under Agents. */
+export function openAgents(how: OpenHow = "here"): void {
+  openSettingsAt({ group: "agents", row: "agents.cli" }, how);
+}
+
 /** Whether Settings should scroll to the providers now; asks once. */
 export function takeProvidersJump(): boolean {
   const wanted = jump;

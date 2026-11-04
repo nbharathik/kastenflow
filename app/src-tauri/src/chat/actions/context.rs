@@ -94,20 +94,8 @@ fn fenced(text: &str) -> String {
 
 /// The journal page of `date`, if the day is well formed and it exists.
 fn journal(kasten: &Kasten, date: &str) -> Option<String> {
-    let shaped = date.len() == 10
-        && date.bytes().enumerate().all(|(i, b)| {
-            if i == 4 || i == 7 {
-                b == b'-'
-            } else {
-                b.is_ascii_digit()
-            }
-        });
-    if !shaped {
-        return None;
-    }
-    let note = kasten
-        .read(&format!("journal/{}/{date}.md", &date[..4]))
-        .ok()?;
+    let path = kasten_core::journal_path(None, date).ok()?;
+    let note = kasten.read(&path).ok()?;
     let body = kasten_core::frontmatter::split(&note.text).body.trim();
     Some(body.to_owned())
 }

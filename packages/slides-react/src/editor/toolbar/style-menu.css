@@ -1,0 +1,15 @@
+/* The text style list: each style's name, and the same few words in its own face, weight and slant. */
+.ks-tb-style {
+  min-width: 76px;
+  justify-content: space-between;
+}
+.ks-style-sample {
+  flex: none;
+  max-width: 128px;
+  margin-left: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ks-muted);
+  line-height: 1.2;
+}

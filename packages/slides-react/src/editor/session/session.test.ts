@@ -289,6 +289,36 @@ describe("saving", () => {
     expect(session.state.saving.status).toBe("saved");
   });
 
+  it("keeps showing the conflict through further changes, until it is settled", async () => {
+    const { session, host } = await open();
+    host.answer = { status: "conflict", theirs: "THEIRS", copy: "library/talk (conflict).deck" };
+    session.slides.setNotes("mine");
+    await session.flush();
+    const conflict = { status: "conflict", theirs: "THEIRS", copy: "library/talk (conflict).deck" };
+    expect(session.state.saving).toEqual(conflict);
+    session.slides.setNotes("mine again");
+    expect(session.state.saving).toEqual(conflict);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(session.state.saving).toEqual(conflict);
+    // Keeping the editor's version still works, and writes the latest text.
+    host.answer = { status: "saved" };
+    await session.overwrite();
+    expect(host.saved.at(-1)).toContain('"notes": "mine again"');
+    expect(session.state.saving.status).toBe("saved");
+  });
+
+  it("keeps a change made outside beside the work, and does not write over it with the next change", async () => {
+    const { session, host } = await open();
+    session.slides.setNotes("mine");
+    const other = await newDeck("Other");
+    session.receive(other.save());
+    expect(session.state.saving.status).toBe("conflict");
+    session.slides.setNotes("mine again");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(session.state.saving.status).toBe("conflict");
+    expect(host.saved).toHaveLength(0);
+  });
+
   it("reports a failed save and tries again on the next change", async () => {
     const { session, host } = await open();
     host.save = async () => {

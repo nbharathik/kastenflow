@@ -53,8 +53,9 @@ fn steps_mode(args: &Args) -> Result<StepsMode, Failure> {
     match args.value("steps") {
         None | Some("expand") => Ok(StepsMode::Expand),
         Some("final") => Ok(StepsMode::Final),
+        Some("animate") => Ok(StepsMode::Animate),
         Some(other) => Err(Failure::Usage(format!(
-            "--steps is `expand` (a slide for each state) or `final` (the last state only), not `{other}`"
+            "--steps is `expand` (a slide for each state), `final` (the last state only) or `animate` (one slide with PowerPoint animations), not `{other}`"
         ))),
     }
 }

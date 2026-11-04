@@ -22,6 +22,11 @@ export interface ResizeStart {
   grabbed?: Point;
   /** How near a guide must be to snap to it, in slide units. Default 6. */
   snapThreshold?: number;
+  /**
+   * The proportions are kept unless Shift is held (a picture, a video: they are never meant to be squashed). Left out, the
+   * reverse holds: Shift keeps them.
+   */
+  keepByDefault?: boolean;
 }
 
 export interface ResizedBox {
@@ -100,7 +105,9 @@ export class ResizeSession {
     const { base, init } = this;
     if (!base) return { boxes: new Map(), guides: [] };
     const total = { dx: pointer.x - this.grabbed.x, dy: pointer.y - this.grabbed.y };
-    const opts = { keepRatio: mods.shift, fromCentre: mods.alt };
+    // Shift toggles what the drag does with the proportions: it keeps them, or (for a picture) lets them go.
+    const keep = init.keepByDefault ? !mods.shift : !!mods.shift;
+    const opts = { keepRatio: keep, fromCentre: mods.alt };
 
     let out = resizeBox(base, init.handle, total, opts);
     let guides: Guide[] = [];
@@ -108,7 +115,7 @@ export class ResizeSession {
     if (normaliseAngle(base.rotation ?? 0) === 0 && !mods.noSnap) {
       // Past the opposite edge the dragged edge is on the other side of the box.
       const dragged = (o: ResizeOutcome): Handle => mirrorHandle(init.handle, { h: o.flipH, v: o.flipV });
-      const snap = snapResize(out.box, dragged(out), this.targets, init.frame, { threshold: init.snapThreshold, keepRatio: mods.shift });
+      const snap = snapResize(out.box, dragged(out), this.targets, init.frame, { threshold: init.snapThreshold, keepRatio: keep });
       // Feeding the offset back through resizeBox lets snapping combine with the ratio and the centre.
       if (snap.dx !== 0 || snap.dy !== 0) out = resizeBox(base, init.handle, { dx: total.dx + snap.dx, dy: total.dy + snap.dy }, opts);
       // Asked afresh of the finished box: keeping the ratio can leave one of the edges off its line.

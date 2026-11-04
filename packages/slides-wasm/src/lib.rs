@@ -100,6 +100,7 @@ impl slides_pptx::Media for Pictures {
 enum StepsOption {
     Expand,
     Final,
+    Animate,
 }
 
 #[derive(Deserialize, Default)]
@@ -355,6 +356,7 @@ impl SlidesEngine {
                 steps: match options.steps {
                     Some(StepsOption::Expand) => slides_pptx::StepsMode::Expand,
                     Some(StepsOption::Final) => slides_pptx::StepsMode::Final,
+                    Some(StepsOption::Animate) => slides_pptx::StepsMode::Animate,
                     None => defaults.steps,
                 },
                 ..defaults

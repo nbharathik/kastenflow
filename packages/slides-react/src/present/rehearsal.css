@@ -107,6 +107,24 @@
   color: #ffb454;
 }
 
+/* The run against the plan: a line for the whole, then the slides that left it. */
+.ks-pv-pace {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ks-pv-pace-head {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ks-pv-pace-list {
+  margin: 0;
+  padding-left: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
 .ks-pv-saved {
   align-self: center;
   color: #6fd08c;

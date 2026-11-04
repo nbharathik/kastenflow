@@ -1,15 +1,15 @@
-import type { TransitionKind } from "@kasten-slides/wasm";
+import type { MotionDirection, TransitionKind } from "@kasten-slides/wasm";
 import { type JSX, useEffect } from "react";
 
 import { TextButton } from "../../ui/Button.tsx";
-import { NumberField } from "../../ui/Fields.tsx";
+import { NumberField, Segmented } from "../../ui/Fields.tsx";
 import { Icon } from "../../ui/Icon.tsx";
 import { useEditorValue } from "../../useEditor.ts";
 import { useUiState } from "../../useUi.ts";
 import { PanelSection } from "../format/PanelSection.tsx";
 import { stopAt, walkOptions } from "../format/roving.ts";
 import type { PanelProps } from "../format/types.ts";
-import { KINDS, LONGEST, USUAL, arrivesWith, chosen, said } from "./transitions.ts";
+import { DIRECTIONS, KINDS, LONGEST, USUAL, USUAL_SIDE, arrivesWith, chosen, hasDirection, said } from "./transitions.ts";
 import "./transitions.css";
 
 /**
@@ -35,8 +35,9 @@ export function TransitionsPanel({ session, ui }: PanelProps): JSX.Element {
   }, [preview?.id, preview?.duration, ui, preview]);
   useEffect(() => () => ui.endTransitionPreview(), [ui]);
 
-  const set = (nextKind: TransitionKind, nextSeconds: number) => {
-    session.slides.setTransition(chosen(nextKind, nextSeconds), [slideId]);
+  const side: MotionDirection = now?.direction ?? USUAL_SIDE;
+  const set = (nextKind: TransitionKind, nextSeconds: number, nextSide: MotionDirection = side) => {
+    session.slides.setTransition(chosen(nextKind, nextSeconds, nextSide), [slideId]);
     ui.playTransition(nextKind, nextSeconds);
   };
   const steps = slide?.steps ?? 0;
@@ -74,13 +75,21 @@ export function TransitionsPanel({ session, ui }: PanelProps): JSX.Element {
             <NumberField label="Duration" unit="seconds" min={0} max={LONGEST} step={0.1} decimals={2} width={72} value={seconds} onCommit={(value) => set(kind, value)} />
           </div>
         ) : null}
+        {hasDirection(kind) ? (
+          <Segmented<MotionDirection>
+            label="Direction"
+            value={side}
+            options={DIRECTIONS.map((d) => ({ value: d.value, label: d.label.replace("From ", ""), title: d.label }))}
+            onPick={(picked) => set(kind, seconds, picked)}
+          />
+        ) : null}
         {inherited && fallback ? <p className="ks-sp-hint">This slide follows the deck: {said(fallback)}.</p> : null}
         <div className="ks-sp-actions">
           <TextButton className="ks-tr-play" disabled={kind === "none"} onClick={() => ui.playTransition(kind, seconds)}>
             <Icon name="play" size={13} />
             Play
           </TextButton>
-          <TextButton onClick={() => session.slides.setTransition(chosen(kind, seconds), deck.slides.map((s) => s.id))}>Apply to all slides</TextButton>
+          <TextButton onClick={() => session.slides.setTransition(chosen(kind, seconds, side), deck.slides.map((s) => s.id))}>Apply to all slides</TextButton>
         </div>
       </PanelSection>
 
@@ -89,7 +98,7 @@ export function TransitionsPanel({ session, ui }: PanelProps): JSX.Element {
           Slides that name no transition of their own arrive with: <strong>{fallback ? said(fallback) : "None"}</strong>.
         </p>
         <div className="ks-sp-actions">
-          <TextButton onClick={() => session.slides.setDeckTransition(chosen(kind, seconds))}>Use this for the deck</TextButton>
+          <TextButton onClick={() => session.slides.setDeckTransition(chosen(kind, seconds, side))}>Use this for the deck</TextButton>
         </div>
       </PanelSection>
 

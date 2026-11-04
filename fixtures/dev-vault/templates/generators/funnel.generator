@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-funnel",
+  "label": "Funnel",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.stages);\nconst width = 700, rowH = 70, gap = 8;\nconst height = rows.length * (rowH + gap) + gap;\nconst top = rows[0].count;\nconst parts = rows.map((r, i) => {\n  const w = Math.max(width * r.count / top, 120);\n  const x = (width - w) / 2, y = gap + i * (rowH + gap);\n  return [\n    kit.rect(x, y, w, rowH, { fill: kit.palette(i), rx: 6 }),\n    kit.text(width / 2, y + rowH / 2 + 7, r.stage + \" - \" + kit.format(r.count), { anchor: \"middle\", size: 20, weight: 600, fill: kit.theme.bg1 }),\n  ];\n});\nreturn kit.svg(width, height, parts);",
+    "inputs": [
+      {
+        "name": "stages",
+        "kind": "data",
+        "value": "stage,count\nVisitors,1000\nSign-ups,400\nTrials,150\nCustomers,60\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

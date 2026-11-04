@@ -21,11 +21,17 @@ pub(crate) fn signature(config: &Config) -> String {
     plugins(config).to_string()
 }
 
+/// How often the vault is looked at for its first deck (the deck tools that edit are listed once it has one).
+const DECKS_EVERY: Duration = Duration::from_secs(4);
+
 /// Remembers what the tools depended on when last asked.
 pub(crate) struct ToolsWatch {
     kasten: Arc<Kasten>,
     generation: u64,
     signature: String,
+    /// Whether the vault had a deck when last looked, and when that was.
+    decks: bool,
+    looked: std::time::Instant,
 }
 
 impl ToolsWatch {
@@ -33,13 +39,27 @@ impl ToolsWatch {
         ToolsWatch {
             generation: kasten.config_generation(),
             signature: signature(&kasten.config()),
+            decks: crate::slides_group::has_decks_now(&kasten),
+            looked: std::time::Instant::now(),
             kasten,
         }
     }
 
-    /// Whether the set of tools changed since the last call. Costs a stat at
-    /// most, unless the config changed.
+    /// Whether the set of tools changed since the last call: a plugin came on or went off, or the vault got its first
+    /// deck (or lost its last). Costs a stat at most, unless the config changed or it is time to look for decks.
     pub(crate) fn changed(&mut self) -> bool {
+        let config = self.config_changed();
+        if self.looked.elapsed() < DECKS_EVERY {
+            return config;
+        }
+        self.looked = std::time::Instant::now();
+        let decks = crate::slides_group::has_decks_now(&self.kasten);
+        let moved = decks != self.decks;
+        self.decks = decks;
+        config || moved
+    }
+
+    fn config_changed(&mut self) -> bool {
         let generation = self.kasten.config_generation();
         if generation == self.generation {
             return false;

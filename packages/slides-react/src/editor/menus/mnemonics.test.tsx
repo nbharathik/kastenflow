@@ -33,7 +33,7 @@ describe("Alt and a letter", () => {
     await setup();
     alt("F");
     await nextFrame();
-    const menu = screen.getByRole("dialog", { name: "File" });
+    const menu = screen.getByRole("menu", { name: "File" });
     expect(menu).toBeTruthy();
     expect(menu.contains(document.activeElement)).toBe(true);
   });
@@ -41,12 +41,12 @@ describe("Alt and a letter", () => {
   it("moves to another menu when another letter is pressed, and the letters are those of Google Slides", async () => {
     await setup();
     alt("O");
-    expect(screen.getByRole("dialog", { name: "Format" })).toBeTruthy();
+    expect(screen.getByRole("menu", { name: "Format" })).toBeTruthy();
     alt("D");
-    expect(screen.getByRole("dialog", { name: "Slide" })).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "Format" })).toBeNull();
+    expect(screen.getByRole("menu", { name: "Slide" })).toBeTruthy();
+    expect(screen.queryByRole("menu", { name: "Format" })).toBeNull();
     alt("A");
-    expect(screen.getByRole("dialog", { name: "Arrange" })).toBeTruthy();
+    expect(screen.getByRole("menu", { name: "Arrange" })).toBeTruthy();
   });
 
   it("is left to the page when the focus is outside the editor, or Shift or Control is held, or it is another letter", async () => {
@@ -54,15 +54,15 @@ describe("Alt and a letter", () => {
     alt("F", { shiftKey: true });
     alt("F", { ctrlKey: true });
     alt("Q");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
     const outside = document.body.appendChild(document.createElement("button"));
     outside.focus();
     alt("F");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
     outside.remove();
     stage.focus();
     act(() => void alt("F"));
-    expect(screen.getByRole("dialog", { name: "File" })).toBeTruthy();
+    expect(screen.getByRole("menu", { name: "File" })).toBeTruthy();
   });
 
   it("claims the key, so the page does not use it", async () => {

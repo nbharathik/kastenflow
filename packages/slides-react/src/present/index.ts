@@ -1,7 +1,8 @@
 export { PresentMode, imagesOf } from "./PresentMode.tsx";
 export type { PresentModeProps } from "./PresentMode.tsx";
 export { openPresentation, presenting } from "./open.tsx";
-export { readControls, writeControls } from "./options.ts";
+export { readControls, readKeepInk, writeControls, writeKeepInk } from "./options.ts";
+export { customShows, showDeck, slidesOfShow } from "./custom-show.ts";
 export { showScreen } from "./screen.ts";
 export type { ShowScreen } from "./screen.ts";
 export type { PresentRequest, Presentation } from "./open.tsx";

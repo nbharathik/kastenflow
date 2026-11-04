@@ -15,8 +15,14 @@ import { usePrefs } from "../workspace/prefs";
 import { contentHash } from "../workspace/preview/vault-text";
 import { AiTab } from "./AiTab";
 import { deckAiSource } from "./ai-status";
+import { brandHost } from "./brand-host";
+import { deckHistory } from "./deck-history";
+import { editorAi } from "./editor-ai";
+import { embedHost } from "./embed-host";
 import { galleryHost } from "./gallery-host";
+import { generatorHost } from "./generator/editor-host";
 import { onBibFiles } from "./events";
+import { layoutLibraryHost } from "./layout-library-host";
 import { pageHost } from "./page-host";
 import { allowEmbeds, embeddedPages, openTauriPresenter } from "./presenter-link";
 import { rehearsalStore } from "./rehearse/store";
@@ -64,6 +70,11 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
         return (await client.deck(id)).text;
       },
     },
+    // My layouts: layouts kept for every deck in the vault's `templates/layouts/`, shown in each deck's layout picker and copied into a deck when used.
+    ...layoutLibraryHost(client),
+    // The brand kit (logo, colours, fonts) of the vault or the project the deck is in, and help from the assistant inside the editor's menus.
+    ...brandHost(client, path),
+    ...editorAi(path),
     // Diagrams: Insert → Diagram… and Edit diagram, on the vault's diagrams; and, for a picture whose diagram changed since it was drawn,
     // the diagram's version now, a fresh picture without opening its editor, and hearing that a diagram changed.
     pickDiagram: () => pickDiagramPicture(client, path),
@@ -71,6 +82,8 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
     diagramRevision: (source) => diagramRevision(client, source),
     drawDiagram: (source) => drawDiagramPicture(client, source),
     watchDiagrams,
+    // Code pictures: the code is run in the window's sandbox (no network, no vault), and what an agent wrote waits for Allow to run.
+    ...(inTauri() ? generatorHost(client, path) : {}),
     // The star beside the deck's name is the sidebar's favourite: the same list, so each shows what the other did.
     favourite: {
       isOn: () => usePrefs.getState().favourites.includes(path),
@@ -79,6 +92,8 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
       },
       watch: (onChange) => usePrefs.subscribe((now, before) => now.favourites !== before.favourites && onChange()),
     },
+    // Deck → History…: the versions of the deck's file are the vault's own history (a restore is a new version the editor saves).
+    history: deckHistory(client, path),
     get baseHash() {
       return base;
     },
@@ -116,6 +131,8 @@ export function kastenHost(client: VaultClient, path: string, hash: string, noti
           fillScreen: fillShowScreen,
           screens: presentScreens,
           webPreview: webPreviewHost(),
+          // Embedded pages and videos: whether a site lets itself be framed, a video's picture, and the editor's frames while one plays.
+          ...embedHost(),
           // Rehearsals are a person's practice, kept on this computer in the app's data folder, not in the vault.
           rehearsals: rehearsalStore(),
           async willPresent(deck: unknown) {

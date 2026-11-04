@@ -7,34 +7,34 @@
 pub fn guidance(kind: &str) -> Option<&'static str> {
     Some(match kind {
         "code" => {
-            "Source code in a rounded panel with syntax colours, as text that stays editable in PowerPoint. `language` is a name or extension (python, rust, ts, sh, sql, json, yaml, html, css, markdown, diff ...); unknown is plain. `theme` is dark (default) or light; `lineNumbers` and `firstLine` number the lines. `fontSize` is the most, in points: the type shrinks to fit, down to 10. Keep to about 25 lines of 60 columns. `focus` walks through the code, one entry per step (\"1\", \"2-3\", \"4,6-10\"; line 1 is the first line of `code`): other lines dim at that step, and the slide gets that many steps."
+            "Source code in a rounded panel with syntax colours, editable in PowerPoint. `language` is a name or extension (python, rust, ts, sh, sql, json, yaml, html, css, markdown, diff ...); unknown is plain. `theme` is dark (default) or light; `lineNumbers` and `firstLine` number the lines. Keep to about 25 lines of 60 columns. `focus` walks through the code, one entry per step (\"1\", \"2-3\", \"4,6-10\"; lines count from 1): other lines dim, and the slide gets that many steps."
         }
         "math" => {
-            "A formula in LaTeX, without the surrounding $: `\\frac{a}{b}`, `E = mc^2`. The editor typesets it; PowerPoint gets a picture of it, or the LaTeX as plain text when the host could not make one. `fontSize` is in points (32 by default), `color` a theme colour or #rrggbb, and `inline` sets it smaller and tighter. Keep formulas short, and size the box like the formula: the picture fills the box."
+            "A formula in LaTeX, without the surrounding $: `\\frac{a}{b}`, `E = mc^2`. The editor typesets it; PowerPoint gets a picture, or the LaTeX as plain text if none could be made. `fontSize` is in points (32 default), `color` a theme colour or #rrggbb, and `inline` sets it smaller and tighter. Keep formulas short; the picture fills the box, so size the box like the formula."
         }
         "chat" => {
-            "A conversation as bubbles. `messages` is a list of {role, text}. Roles: system (full width), user (right, in the accent colour), assistant (left), toolCall (write `name(args)`; an arrow is added) and toolResult (both in the code font). Five or six short messages fit a slide; the type shrinks to fit down to 12 pt and then runs past the box, so trim messages rather than cram them."
+            "A conversation as bubbles. `messages` is a list of {role, text}. Roles: system (full width), user (right, accent colour), assistant (left), toolCall (write `name(args)`; an arrow is added) and toolResult (both in the code font). Five or six short messages fit a slide; the type shrinks to 12 pt, then runs past the box, so trim messages."
         }
         "token-probs" => {
-            "How a language model picks its next word. `tokens` are the words so far, shown as chips; `next` lists {token, p} with p from 0 to 1, drawn as bars in the order given (most likely first); `chosen` is the index in `next` of the one picked, drawn in the accent colour. Spaces show as dots, so write tokens as the model does (\" cat\"). At most 8 candidates show; the rest are counted."
+            "How a language model picks its next word. `tokens` are the words so far, shown as chips; `next` lists {token, p} with p from 0 to 1, drawn as bars in the order given; `chosen` is the index in `next` of the one picked, in the accent colour. Spaces show as dots, so write tokens as the model does (\" cat\"). At most 8 candidates show."
         }
         "card-grid" => {
-            "Cards in a grid, each a `title` and an optional one-line `body`. `columns` is optional: 1 to 3 cards make one row, 4 make two columns, 5 to 9 three, more four. Three to six cards read best; keep a title to a few words and a body to a sentence. All cards are set at one size, the largest at which the fullest fits."
+            "Cards in a grid, each a `title` and an optional one-line `body`. `columns` is optional: 1 to 3 cards make one row, 4 two columns, 5 to 9 three, more four. Three to six cards read best; keep a title to a few words and a body to a sentence. All cards share one size."
         }
         "citation" => {
-            "References by BibTeX key: `keys`, and `format`: short (\"Vaswani et al., 2017 (NeurIPS)\", the default), numbered (\"[1]\", the deck's own numbers), full (a whole reference a line) or list (every work the deck cites, numbered; give it no keys and put it on a references slide). It is set small, in the citation style, so put it in a strip at the bottom of the slide; add_citation adds a key to a slide's footer. A key that is not in the bibliography is a lint error."
+            "References by BibTeX key: `keys`, and `format`: short (\"Vaswani et al., 2017 (NeurIPS)\", the default), numbered (\"[1]\"), full (a whole reference a line) or list (every work the deck cites, numbered; give it no keys, on a references slide). It is set small, so put it in a strip at the bottom; add_citation adds a key to a slide's footer. A key not in the bibliography is a lint error."
         }
         "step-label" => {
             "\"Step n / N\", kept up to date as the slide is stepped through, in the deck's wording (`present.stepLabel`). `format`, with {n} and {total}, changes only the sample shown while editing. Put one, small, in a corner of a slide that has steps."
         }
         "embed" => {
-            "A live web page in present mode, and a picture with a link everywhere else, PowerPoint included. `url` should be a web address (http or https). Give a `poster` snapshot sized like the box so the slide is never blank; without one a panel names the page and its address. The page is laid out at a window of `design` ({w, h}, 1280 by 800 by default) and scaled to the box, so size the box like that window; `zoom` (0.25 to 3) and `fit` (width, page, fill) say how it is seen."
+            "A live web page when presenting, a picture with a link elsewhere. `url` is any web link; YouTube, Vimeo and Loom become their player (box 16:9; optional `start`, `end` seconds, `autoplay`, `muted`, `looped`, `controls`), Google Slides and Figma their embed. Give a `poster` sized like the box. A page is laid out at `design` ({w, h}, 1280x800) scaled to the box; `zoom` (0.25-3) and `fit` (width, page, fill)."
         }
         "video" => {
-            "A video file from the image store, or a web address, with a `poster` still: that is what shows in the editor and in PowerPoint, with a play button over it, and the video plays in present mode. Size the box like the poster. `autoplay` and `looped` are optional."
+            "A video file from the image store or a web address, with a `poster` still shown in the editor and PowerPoint under a play button; it plays when presenting. Size the box like the poster. Optional `autoplay`, `looped`, `start`, `end` (seconds). YouTube and Vimeo links are embeds."
         }
         "chart" => {
-            "A chart of a small table of numbers, drawn from shapes so that it follows the theme. `kind` is bar, line or pie; `categories` names the bar groups, points or slices; `series` is a list of {name, values (a number for each category), color?}. A pie draws the first series only. `title` sits above, `labels` writes the numbers on the marks, `legend` forces the legend on or off. Keep to about eight categories and a few series."
+            "A chart of a small table of numbers, drawn from shapes in the theme's colours. Fill it with set_chart_data, which also sets the kind (column, stackedColumn, line, area, stackedArea, pie, doughnut, scatter, combo), axis titles, a number format such as `$#,##0`, labels and the legend. In the element: `kind` is bar, line or pie; `categories` names the groups, points or slices; `series` is a list of {name, values, color?}; a pie draws the first only; `title` sits above. Keep to about eight categories."
         }
         "timer" => {
             "A countdown that runs while presenting: `seconds` to count from (up to a day), an optional `label` over it, and `autostart` to begin when the slide shows; otherwise a click starts it. Elsewhere (a picture, PowerPoint) it shows the time it starts at. A box about 2:1 reads well."

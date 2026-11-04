@@ -10,6 +10,7 @@
 //! them inside the box, and `measure.rs` estimates how much room text takes so
 //! that sizes are chosen to fit.
 
+mod audio;
 mod build;
 mod card_grid;
 mod chart;
@@ -30,6 +31,7 @@ mod video;
 
 pub use build::{Parts, plain_text};
 pub use code::warm_up;
+pub use embed::provider::provider_of;
 pub use guide::guidance;
 pub use math::math_image_path;
 
@@ -90,6 +92,7 @@ pub fn expand_with(
         Element::Chart(e) => chart::expand(&cx, e),
         Element::Timer(e) => timer::expand(&cx, e),
         Element::Qr(e) => qr::expand(&cx, e),
+        Element::Audio(e) => audio::expand(&cx, e),
         _ => return None,
     })
 }
@@ -106,6 +109,7 @@ fn identity(element: &Element) -> (Option<String>, Option<String>) {
         Element::Chart(e) => (None, Some(chart::alt_of(e))),
         Element::Timer(e) => (None, Some(timer::alt_of(e))),
         Element::Qr(e) => (None, Some(qr::alt_of(e))),
+        Element::Audio(e) => (audio::link_of(e).map(str::to_owned), Some(audio::alt_of(e))),
         _ => (None, None),
     }
 }

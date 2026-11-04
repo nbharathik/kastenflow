@@ -96,6 +96,12 @@ fn checked(input: ProviderInput) -> Result<Provider, String> {
     if name.chars().count() > 60 {
         return Err("A provider's name is at most 60 characters".to_owned());
     }
+    // The names a thread picks a coding agent's program by.
+    if super::cli::Agent::of_provider(name).is_some() {
+        return Err(format!(
+            "“{name}” is the name of a coding agent in the chat; choose another name"
+        ));
+    }
     let kind = Kind::of(&input.kind)?;
     let base_url = input.base_url.trim().trim_end_matches('/');
     if !base_url.is_empty() && !base_url.starts_with("http://") && !base_url.starts_with("https://")

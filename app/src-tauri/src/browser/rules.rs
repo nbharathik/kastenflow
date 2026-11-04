@@ -49,6 +49,8 @@ fn a_browser_webview_calls_nothing_and_no_other_window_calls_the_browser() {
             "web_title",
             "chat_send",
             "allow_embeds",
+            "frame_policy",
+            "fetch_poster",
         ]) {
             assert!(!may_call(window, command), "{window} {command}");
         }

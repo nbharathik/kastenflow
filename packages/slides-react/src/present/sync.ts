@@ -3,11 +3,22 @@
 // is reveal.js's own state (`getState()` and `setState()`), the deck once when the presenter's window asks for it,
 // and a word when a window closes.
 
-import type { Deck } from "@kasten-slides/wasm";
+import type { Deck, Slide } from "@kasten-slides/wasm";
 
+import type { DeckPatch } from "./deck-patch.ts";
+import { type InkEvent, type LaserAt, readInk, readPointer } from "./ink/model.ts";
+import { type MediaEvent, readMedia } from "./media.ts";
 import type { RevealState } from "./plan.ts";
 
 export type PresentMessage =
+  /** The deck was edited while the show runs: what changed since the deck the presenter's window has (`since` names the talk). */
+  | { type: "edit"; since: number; patch: DeckPatch }
+  /** A video played, paused or sought in one window: the same video in the other follows. */
+  | { type: "media"; media: MediaEvent }
+  /** Where the laser is on the slide (fractions of its width and height), or null when it is off. */
+  | { type: "pointer"; at: LaserAt | null }
+  /** Something was drawn, taken back or cleared. */
+  | { type: "ink"; ink: InkEvent }
   /** The presenter's window has opened and wants the deck. */
   | { type: "hello" }
   /** The deck as the audience sees it, the addresses of its pictures, and where the audience is. `since` is when the presentation began (milliseconds). */
@@ -49,6 +60,22 @@ export function readMessage(data: unknown): PresentMessage | null {
       const state = readState(message.state);
       return state ? { type: "state", state } : null;
     }
+    case "media": {
+      const media = readMedia(message.media);
+      return media ? { type: "media", media } : null;
+    }
+    case "ink": {
+      const ink = readInk(message.ink);
+      return ink ? { type: "ink", ink } : null;
+    }
+    case "pointer": {
+      const at = readPointer(message.at);
+      return at === undefined ? null : { type: "pointer", at };
+    }
+    case "edit": {
+      const patch = readPatch(message.patch);
+      return patch && isNumber(message.since) ? { type: "edit", since: message.since, patch } : null;
+    }
     case "deck": {
       const state = readState(message.state);
       const deck = message.deck as Deck | undefined;
@@ -58,6 +85,23 @@ export function readMessage(data: unknown): PresentMessage | null {
     default:
       return null;
   }
+}
+
+function readPatch(value: unknown): DeckPatch | null {
+  if (typeof value !== "object" || value === null) return null;
+  const patch = value as Record<string, unknown>;
+  if (!Array.isArray(patch.order) || !patch.order.every((id) => typeof id === "string")) return null;
+  if (!Array.isArray(patch.slides) || !patch.slides.every((slide) => typeof slide === "object" && slide !== null && typeof (slide as Slide).id === "string")) return null;
+  const head = patch.head;
+  const images = patch.images;
+  if (head !== undefined && (typeof head !== "object" || head === null)) return null;
+  if (images !== undefined && (typeof images !== "object" || images === null)) return null;
+  return {
+    order: patch.order as string[],
+    slides: patch.slides as Slide[],
+    ...(head ? { head: head as NonNullable<DeckPatch["head"]> } : {}),
+    ...(images ? { images: images as Record<string, string> } : {}),
+  };
 }
 
 function readState(value: unknown): RevealState | null {

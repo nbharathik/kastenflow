@@ -37,6 +37,7 @@ fn thread() -> Vec<Message> {
         id: id.to_owned(),
         content: content.to_owned(),
         is_error,
+        images: Vec::new(),
     };
     vec![
         Message::User("Capture this".to_owned()),

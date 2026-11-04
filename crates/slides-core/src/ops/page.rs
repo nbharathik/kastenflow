@@ -7,7 +7,7 @@ use ts_rs::TS;
 use super::{Cx, Op, Scope, op_types};
 use crate::error::{Error, Result};
 use crate::model::Deck;
-use crate::resize::{PAGE_SIZES, checked, scale_deck};
+use crate::resize::{PAGE_SIZES, checked, keep_deck, scale_deck};
 
 op_types! {
     /// Changes the size of every slide. Name a `preset` (`16:9`, `16:10`, `4:3` or `1:1`) or give
@@ -22,6 +22,9 @@ op_types! {
         /// Height in slide units (1/96 inch).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub h: Option<f64>,
+        /// `true` leaves what is on the slides as it is (same place, same size) and refits only the theme, so a new slide fits the page. Left out or `false`, everything is scaled with the page.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub keep_size: Option<bool>,
     }
 
     pub struct PageSize {
@@ -71,7 +74,11 @@ impl Op for SetPageSize {
 
     fn run(self, cx: &mut Cx) -> Result<PageSize> {
         let (w, h) = self.target()?;
-        scale_deck(cx.deck, w, h);
+        if self.keep_size == Some(true) {
+            keep_deck(cx.deck, w, h);
+        } else {
+            scale_deck(cx.deck, w, h);
+        }
         Ok(PageSize { w, h })
     }
 }

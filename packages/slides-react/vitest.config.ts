@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test/preload-parts.ts"],
     // Style sheets are left empty in tests, except the ones a test reads as text (`?raw`): the exported page carries them.
     css: { include: [/\?raw/] },
     // reveal.js fits text on a timer it never clears. In a test file that ends sooner, the timer fires after the

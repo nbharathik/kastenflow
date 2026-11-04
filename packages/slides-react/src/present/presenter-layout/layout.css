@@ -1,0 +1,156 @@
+/* The arrangeable presenter's view: how a slide fits its panel, the splitters between panels, the "Then" strip and the Layout menu.
+   Colours are the presenter's own (--ks-pv-*, set in presenter.css). */
+
+/* A panel's slide: the panel is a size container, so the slide is as large as the panel's width and height both allow at the deck's
+   proportions, centred, and never cropped or scrolled. */
+.ks-pv-fit {
+  display: grid;
+  flex: 1 1 0;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+}
+
+.ks-presenter .ks-pv-fit .ks-show-scroll-frame {
+  width: min(100cqw, calc(100cqh * var(--ks-ratio, 1.7778)));
+  border: 1px solid var(--ks-pv-line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* The next two steps or slides, small, in a row under the next one. */
+.ks-pv-then {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: clamp(48px, 24%, 120px);
+  min-width: 0;
+}
+
+.ks-pv-then-label {
+  color: var(--ks-pv-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ks-pv-fit.is-strip {
+  align-self: stretch;
+  height: 100%;
+}
+
+/* The bar between two panels: a track of 12px with a grip that shows on hover, focus and while dragging. */
+.ks-pv-splitter {
+  position: relative;
+  z-index: 1;
+  touch-action: none;
+  outline: none;
+}
+
+.ks-pv-splitter.is-vertical {
+  width: 12px;
+  cursor: col-resize;
+}
+
+.ks-pv-splitter.is-horizontal {
+  height: 12px;
+  cursor: row-resize;
+}
+
+.ks-pv-splitter::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ks-pv-splitter::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: var(--ks-pv-line);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.12s, background-color 0.12s;
+}
+
+.ks-pv-splitter.is-vertical::after {
+  width: 4px;
+  height: 48px;
+}
+
+.ks-pv-splitter.is-horizontal::after {
+  width: 48px;
+  height: 4px;
+}
+
+.ks-pv-splitter:hover::after,
+.ks-pv-splitter:focus-visible::after,
+.ks-pv-splitter.is-dragging::after {
+  background: var(--ks-pv-dim);
+  opacity: 1;
+}
+
+.ks-pv-splitter:focus-visible::after,
+.ks-pv-splitter.is-dragging::after {
+  background: var(--ks-pv-accent);
+}
+
+/* The Layout menu. */
+.ks-pv-layout {
+  position: relative;
+}
+
+.ks-pv-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid var(--ks-pv-line);
+  border-radius: 8px;
+  background: var(--ks-pv-panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
+}
+
+.ks-pv-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ks-pv-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ks-pv-menu-item:hover,
+.ks-pv-menu-item:focus-visible {
+  background: var(--ks-pv-line);
+  outline: none;
+}
+
+.ks-pv-menu-item[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ks-pv-menu-mark {
+  width: 1em;
+  color: var(--ks-pv-accent);
+}
+
+.ks-pv-menu-rule {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--ks-pv-line);
+}

@@ -18,20 +18,24 @@ fn open() -> (TempDir, Kasten, Session) {
     (v, k, s)
 }
 
-/// A program without the render feature says in one sentence that it does not draw slides.
+/// A program without the render feature, with the app closed, says in a sentence to open KastenFlow;
+/// the tools are listed all the same, since the app's window draws when it is open.
 #[cfg(not(feature = "render"))]
 #[test]
-fn a_program_that_does_not_draw_says_so_and_does_not_list_the_tools() {
+fn a_program_that_draws_no_slides_itself_says_to_open_the_app_and_still_lists_the_tools() {
     let (_v, k, s) = open();
     let (path, ids) = deck_of_eight(&k, &s);
     for tool in ["render_slide", "render_grid"] {
         let err = call(&k, &s, tool, json!({"deck": path, "slide": ids[1]})).unwrap_err();
         assert!(
-            err.contains("Drawing slides is not part of this program")
-                && err.contains("command-line download"),
+            err.contains("open KastenFlow") && err.contains("lint_deck"),
             "{tool}: {err}"
         );
-        assert!(!specs().iter().any(|t| t.name == tool), "{tool} is listed");
+        assert!(!err.contains("not part of this program"), "{tool}: {err}");
+        assert!(
+            specs().iter().any(|t| t.name == tool),
+            "{tool} is not listed"
+        );
     }
 }
 

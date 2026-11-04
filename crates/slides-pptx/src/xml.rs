@@ -135,8 +135,7 @@ impl Xml {
         xml.out.into_inner()
     }
 
-    /// The finished markup as text, for tests.
-    #[cfg(test)]
+    /// The finished markup as text, for a fragment written inside another element's markup.
     pub fn into_string(self) -> String {
         String::from_utf8(self.finish()).unwrap_or_default()
     }

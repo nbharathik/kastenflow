@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 
 import { inTauri } from "../../lib/api";
-import { tauriLink } from "./presenter-link";
 import { rehearsalStore } from "./rehearse/store";
 
 /**
@@ -17,7 +16,8 @@ export default function PresenterApp({ name }: { name: string }) {
     document.title = "Presenter view";
     let live = true;
     let made: PresentSync | null = null;
-    void (inTauri() ? tauriLink() : Promise.resolve(broadcastSync(name))).then((next) => {
+    // The desktop link (the window API and the frame guard) is loaded once the page is up, not with it.
+    void (inTauri() ? import("./presenter-link").then((m) => m.tauriLink()) : Promise.resolve(broadcastSync(name))).then((next) => {
       if (!live) {
         next.close();
         return;

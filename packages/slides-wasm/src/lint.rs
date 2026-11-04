@@ -85,6 +85,18 @@ impl SlidesEngine {
             .and_then(|report| json(&report))
     }
 
+    /// The `off-brand-colour` problems of the deck for a brand of these colours (a JSON array of
+    /// `#rrggbb` strings), as JSON (`Issue[]`). Not part of `lintDeck`: only a host with a brand kit asks.
+    #[wasm_bindgen(js_name = lintBrand)]
+    pub fn lint_brand(&self, colors: &str) -> Result<String, JsValue> {
+        let colors: Vec<String> = serde_json::from_str(colors)
+            .map_err(|e| fail(slides_core::Error::bad_input("brand colours", e)))?;
+        json(&lint::off_brand(
+            self.inner.deck(),
+            &lint::Brand::new(colors),
+        ))
+    }
+
     /// The problems of every slide, as JSON (`Report`).
     #[wasm_bindgen(js_name = lintDeck)]
     pub fn lint_deck(

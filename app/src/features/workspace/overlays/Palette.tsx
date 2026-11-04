@@ -37,6 +37,9 @@ interface ByMeaning {
 
 export { score } from "./match";
 
+/** One empty list, so the rows are not rebuilt on every render while no hits apply. */
+const NO_HITS: Hit[] = [];
+
 /** Ctrl+K: open any page, search every word, or run a command. */
 export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
   const setPalette = useShell((s) => s.setPalette);
@@ -45,19 +48,21 @@ export function Palette({ meaning = meaningApi }: { meaning?: MeaningApi }) {
   const recent = useWorkspace((s) => s.recent);
   const client = useWorkspace((s) => s.client);
   const [query, setQuery] = useState(() => useShell.getState().paletteQuery);
-  const [hits, setHits] = useState<Hit[]>([]);
+  // The hits are kept with the query they answer, and shown only for it.
+  const [found, setFound] = useState<{ query: string; hits: Hit[] }>({ query: "", hits: [] });
+  const hits = found.query === query.trim() ? found.hits : NO_HITS;
   const [selected, setSelected] = useState(0);
   const list = useRef<HTMLDivElement>(null);
   const close = () => setPalette(false);
 
   useEffect(() => {
     const q = query.trim();
-    if (!client || q.length < 2) return setHits([]);
+    if (!client || q.length < 2) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       client.search(q, 12).then(
-        (found) => !cancelled && setHits(found),
-        () => {},
+        (result) => !cancelled && setFound({ query: q, hits: result }),
+        () => !cancelled && setFound({ query: q, hits: [] }),
       );
     }, 120);
     return () => {

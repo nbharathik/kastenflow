@@ -11,7 +11,7 @@ use super::store::Store;
 use super::{ToolError, ToolResult};
 use crate::lint::estimate::text_size;
 use crate::lint::is_blank;
-use crate::model::{Deck, Element, Slide, VAlign};
+use crate::model::{Deck, Element, PageSource, Slide, VAlign};
 use crate::resolve::placeholder_of;
 use crate::resolve::{Rect, box_in};
 
@@ -199,6 +199,17 @@ fn number(v: &Value, key: &str) -> Result<f64, ToolError> {
 }
 
 pub fn place_image(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolResult {
+    place_image_with(agent, store, args, None)
+}
+
+/// `place_image`, and with a `generator` block (a code picture's program) the picture carries it in
+/// the same change, so one undo takes the picture and its program away together.
+pub(super) fn place_image_with(
+    agent: &mut Agent,
+    store: &mut dyn Store,
+    args: &Value,
+    generator: Option<&Value>,
+) -> ToolResult {
     let name = agent.deck_name(store, args)?;
     let src = args.get("src").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).ok_or_else(|| ToolError::new("`src` is the picture's path, such as `assets/figure.png`; search_assets lists the pictures and add_asset adds one."))?;
     let bytes = store.read_asset(src).map_err(|_| ToolError::new(format!("There is no picture `{src}`. search_assets lists the pictures there are; add_asset puts a new one in the store.")))?;
@@ -209,6 +220,18 @@ pub fn place_image(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> To
     })?;
     let aspect = f64::from(pw) / f64::from(ph);
     let alt = args.get("alt").and_then(Value::as_str).map(str::to_owned);
+    // `place_diagram` says which diagram the picture was drawn from, so the picture remembers it.
+    let source = args
+        .get("diagram")
+        .and_then(Value::as_str)
+        .filter(|d| !d.is_empty())
+        .and_then(|path| {
+            let hash = args
+                .get("diagramHash")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            serde_json::to_value(PageSource::of_diagram(path, hash)).ok()
+        });
     let edited = agent.edit(store, &name, None, |engine| {
         let slide_key = slide_id(engine.deck(), args.get("slide").unwrap_or(&Value::Null))?;
         let deck = engine.deck();
@@ -244,6 +267,12 @@ pub fn place_image(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> To
         if let Some(alt) = &alt {
             patch["alt"] = json!(alt);
         }
+        if let Some(block) = generator {
+            patch["generator"] = block.clone();
+        }
+        if let Some(source) = &source {
+            patch["source"] = source.clone();
+        }
         let (operations, element) = match existing {
             Some(id) => (
                 vec![
@@ -256,6 +285,12 @@ pub fn place_image(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> To
                 let mut image = json!({ "type": "image", "src": src, "x": placed.x, "y": placed.y, "w": placed.w, "h": placed.h });
                 if let Some(alt) = &alt {
                     image["alt"] = json!(alt);
+                }
+                if let Some(block) = generator {
+                    image["generator"] = block.clone();
+                }
+                if let Some(source) = &source {
+                    image["source"] = source.clone();
                 }
                 (vec![("add_elements".to_owned(), json!({ "slide": slide_key, "elements": [image] }))], None)
             }

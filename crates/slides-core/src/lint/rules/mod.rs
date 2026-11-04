@@ -37,7 +37,7 @@ const fn rule(name: &'static str, severity: Severity, summary: &'static str) -> 
 }
 
 /// Every rule, errors first: the order issues are reported in.
-pub const RULES: [RuleInfo; 15] = [
+pub const RULES: [RuleInfo; 17] = [
     rule(
         "text-overflow",
         Severity::Error,
@@ -46,22 +46,22 @@ pub const RULES: [RuleInfo; 15] = [
     rule(
         "off-slide",
         Severity::Error,
-        "An element sits partly outside the slide (a full-slide picture or shape, or an element named `bleed`, may).",
+        "An element sticks out of the slide (a full-slide picture or shape, or one named `bleed`, may).",
     ),
     rule(
         "unresolved-citation",
         Severity::Error,
-        "A citation names a key that is not in the reference list (needs the list).",
+        "A citation key is not in the reference list (needs the list).",
     ),
     rule(
         "font-missing",
         Severity::Error,
-        "Text names a font that is neither a theme font nor one of the bundled families.",
+        "Text names a font that is not a theme font or a bundled family.",
     ),
     rule(
         "broken-link",
         Severity::Error,
-        "A link goes to a slide that is not in the deck, or to an address that cannot be opened (no host, a space, a scheme that is not web, mail or phone).",
+        "A link goes to a slide not in the deck, or to an address that cannot be opened.",
     ),
     rule(
         "overlap",
@@ -71,7 +71,7 @@ pub const RULES: [RuleInfo; 15] = [
     rule(
         "min-font",
         Severity::Warning,
-        "Body text is under 14 pt, or citation text under 8 pt (in proportion on a slide narrower than 960 units).",
+        "Body text is under 14 pt, or citation text under 8 pt (scaled on narrower slides).",
     ),
     rule(
         "contrast",
@@ -89,6 +89,11 @@ pub const RULES: [RuleInfo; 15] = [
         "A slot of the layout was left empty.",
     ),
     rule(
+        "empty-text-box",
+        Severity::Warning,
+        "A text box of its own is empty.",
+    ),
+    rule(
         "step-orphan",
         Severity::Warning,
         "An element changes at a step the slide does not have.",
@@ -96,7 +101,12 @@ pub const RULES: [RuleInfo; 15] = [
     rule(
         "pptx-unsafe",
         Severity::Warning,
-        "Something has no form PowerPoint or Google Slides reads: a Morph transition, an embedded page without a snapshot, a video, a timer, an imported object with nothing to draw, inline math.",
+        "PowerPoint or Google Slides cannot read it: Morph, an embed with no snapshot, a video, a timer, an empty import, inline math.",
+    ),
+    rule(
+        "media-url",
+        Severity::Warning,
+        "A video or sound address with a ? or # part can carry data out.",
     ),
     rule(
         "near-miss-align",
@@ -221,11 +231,13 @@ pub fn run(scene: &Scene, options: &Options, sink: &mut Sink) -> Outcome {
     }
     families::missing(scene, sink);
     links::broken_links(scene, sink);
+    links::media_addresses(scene, sink);
     overlap::overlap(scene, sink);
     text::min_font(scene, sink);
     contrast::contrast(scene, sink);
     layout::margin(scene, sink);
     content::empty_placeholders(scene, sink);
+    content::empty_text_boxes(scene, sink);
     content::step_orphans(scene, sink);
     content::pptx_unsafe(scene, sink);
     overlap::near_miss(scene, sink);

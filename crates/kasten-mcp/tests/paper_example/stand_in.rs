@@ -102,6 +102,12 @@ pub fn app(root: &Path, asked: &Arc<Mutex<Vec<String>>>, selected: Snippet) -> S
                     .map_err(|e| e.to_string())?;
                 Ok(json!({"shared": true}))
             }
+            // Drawing slides is not part of the paper example.
+            Call::SlidePng { .. }
+            | Call::SlideGrid {}
+            | Call::SlideDiff { .. }
+            | Call::SlideMeasure {}
+            | Call::RunGenerator { .. } => Err("not asked in this test".to_owned()),
         }
     });
     serve(mailbox, "1.2.2", handler).unwrap()

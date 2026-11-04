@@ -189,6 +189,9 @@ describe("the words of the view", () => {
     expect(moveOfKey({ key: "ArrowRight", shiftKey: false })).toBe("right");
     expect(moveOfKey({ key: " ", shiftKey: true })).toBe("left");
     expect(moveOfKey({ key: "q", shiftKey: false })).toBeNull();
+    // P is the pen, not "back a slide".
+    expect(moveOfKey({ key: "p", shiftKey: false })).toBeNull();
+    expect(moveOfKey({ key: "PageUp", shiftKey: false })).toBe("left");
   });
 });
 

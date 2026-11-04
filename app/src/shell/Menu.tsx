@@ -29,6 +29,8 @@ interface MenuProps {
    * sideways to stay inside it: for menus in a scrolling list, such as the
    * sidebar's rows, which would otherwise be cut off by the list. */
   float?: boolean;
+  /** The button's place in the Tab order; -1 takes it out (a list that moves between its rows with the arrows, and opens this menu with the context-menu key). */
+  buttonTabIndex?: number;
 }
 
 /** Room kept between a floating menu and its button, and the window's edges. */
@@ -49,7 +51,7 @@ function floatAt(anchor: DOMRect, menu: DOMRect, align: "left" | "right"): CSSPr
 /** A button with a small dropdown of actions, closed by Escape or a click
  * outside. The arrows move between its items; opened from the keyboard,
  * the first item has the focus, and Escape gives it back to the button. */
-export function Menu({ label, items, children, buttonClass = "", wrapClass = "", align = "right", header, float = false }: MenuProps) {
+export function Menu({ label, items, children, buttonClass = "", wrapClass = "", align = "right", header, float = false, buttonTabIndex }: MenuProps) {
   const [open, setOpen] = useState<false | "pointer" | "keys">(false);
   const [at, setAt] = useState<CSSProperties | null>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -120,6 +122,7 @@ export function Menu({ label, items, children, buttonClass = "", wrapClass = "",
         title={label}
         aria-haspopup="menu"
         aria-expanded={Boolean(open)}
+        tabIndex={buttonTabIndex}
         className={buttonClass}
         onClick={(event) => {
           event.stopPropagation();

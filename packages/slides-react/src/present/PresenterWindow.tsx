@@ -5,6 +5,9 @@
 import type { Deck } from "@kasten-slides/wasm";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { applyPatch } from "./deck-patch.ts";
+import { InkStore } from "./ink/store.ts";
+import { createMediaLink } from "./media.ts";
 import { type Position, type RevealState, fromState, planOf, toState } from "./plan.ts";
 import { Presenter } from "./Presenter.tsx";
 import { type RehearsalStore, localRehearsals } from "./rehearsal-store.ts";
@@ -44,6 +47,18 @@ export interface PresenterWindowProps {
 
 export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: PresenterWindowProps): JSX.Element {
   const [talk, setTalk] = useState<Talk | null>(null);
+  // The talk as it is now, for an edit that arrives before the window has drawn the last one.
+  const held = useRef<Talk | null>(null);
+  const put = useCallback((next: Talk | null) => {
+    held.current = next;
+    setTalk(next);
+  }, []);
+  // The ink and the videos of this window, told to the show through the link (which is the same for the life of the window). The
+  // videos here play without sound: the show's window has it.
+  const link = useRef(sync);
+  link.current = sync;
+  const [ink] = useState(() => new InkStore({ ink: (event) => link.current.post({ type: "ink", ink: event }), laser: (at) => link.current.post({ type: "pointer", at }) }));
+  const [media] = useState(() => createMediaLink((event) => link.current.post({ type: "media", media: event }), true));
   const [state, setState] = useState<RevealState>({ indexh: 0, indexv: 0 });
   const [ended, setEnded] = useState(false);
   const [rehearse, setRehearse] = useState(false);
@@ -64,11 +79,11 @@ export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: Pres
       setEnded(true);
     } else {
       having.current = null;
-      setTalk(null);
+      put(null);
       setEnded(false);
     }
     sync.post({ type: "hello" });
-  }, [sync]);
+  }, [sync, put]);
 
   // The show was heard from: it is there for another while.
   const heard = useCallback(() => {
@@ -89,11 +104,31 @@ export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: Pres
           rehearsing.current = false;
           setRehearse(false);
           setState(message.state);
-          setTalk({ deck: message.deck, images: message.images, since: message.since });
+          put({ deck: message.deck, images: message.images, since: message.since });
         }
       } else if (message.type === "state") {
         heard();
         setState(message.state);
+      } else if (message.type === "edit") {
+        heard();
+        const now = held.current;
+        if (!now || now.since !== message.since) return;
+        const deck = applyPatch(now.deck, message.patch);
+        if (deck) put({ ...now, deck, images: message.patch.images ?? now.images });
+        else {
+          // Out of step with the show (a patch for slides this window never had): ask for the whole deck again.
+          having.current = null;
+          sync.post({ type: "hello" });
+        }
+      } else if (message.type === "media") {
+        heard();
+        media.receive(message.media);
+      } else if (message.type === "ink") {
+        heard();
+        ink.receive(message.ink);
+      } else if (message.type === "pointer") {
+        heard();
+        ink.receiveLaser(message.at);
       } else if (message.type === "beat") {
         heard();
         setEnded(false);
@@ -114,7 +149,7 @@ export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: Pres
       alive.current = null;
       sync.post({ type: "bye" });
     };
-  }, [sync, heard, lost]);
+  }, [sync, heard, lost, put, media, ink]);
 
   const waiting = talk === null || ended;
   useEffect(() => {
@@ -153,7 +188,7 @@ export function PresenterWindow({ sync, onClose, swapScreens, rehearsals }: Pres
   }
   return (
     <>
-      <Presenter key={talk.since} deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} onEnd={end} rehearsal={rehearsal} {...(onClose ? { onClose } : {})} {...(swapScreens ? { onSwapScreens: swap } : {})} />
+      <Presenter key={talk.since} deck={talk.deck} imageUrl={imageUrl} position={fromState(plan, state)} paused={state.paused ?? false} since={talk.since} onGo={go} onEnd={end} rehearsal={rehearsal} ink={ink} media={media.channel}{...(onClose ? { onClose } : {})} {...(swapScreens ? { onSwapScreens: swap } : {})} />
       {ended ? (
         <p className="ks-pv-ended" role="status">
           The presentation has ended.

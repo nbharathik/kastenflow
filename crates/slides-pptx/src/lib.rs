@@ -10,6 +10,7 @@
 mod allow;
 mod b64;
 mod backing;
+mod chart;
 mod color;
 mod cx;
 mod elements;
@@ -37,6 +38,8 @@ mod style;
 mod testing;
 mod text;
 mod theme;
+mod timing;
+mod transition;
 mod units;
 mod xml;
 
@@ -143,7 +146,9 @@ pub fn export_with(
 ) -> Result<Exported, Error> {
     check(deck)?;
     // Composites (code, math, a chat ...) are written as the primitives they are drawn with.
-    let expanded = slides_core::composites::expand_deck_with(deck, refs);
+    // A chart goes out as a chart PowerPoint can edit, not as the shapes it is drawn with.
+    let with_charts = chart::native(deck);
+    let expanded = slides_core::composites::expand_deck_with(&with_charts, refs);
     let deck = &expanded;
     let pages = pages(deck, options);
     let layouts = layouts_of(deck);
@@ -213,6 +218,7 @@ pub fn export_with(
             cx.layout = layout_name;
             cx.number = number as u32;
             cx.step = page.step;
+            cx.animate = options.steps == StepsMode::Animate;
             cx.rels.add(
                 rels::SLIDE_LAYOUT,
                 &format!("../slideLayouts/slideLayout{}.xml", index + 1),

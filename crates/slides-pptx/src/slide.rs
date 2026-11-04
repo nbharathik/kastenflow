@@ -76,11 +76,26 @@ pub fn write(cx: &mut Cx, slide: &Slide, hidden: bool) -> Vec<u8> {
     x.open("p:spTree");
     write_tree_header(&mut x);
     write_all(&mut x, cx, &slide.elements, &Env::default());
+    // The footer and the date go along the bottom, over the slide's own elements.
+    let footer = slides_core::footer_elements(cx.deck, slide);
+    if !footer.is_empty() {
+        cx.ids.assign(&footer);
+        write_all(&mut x, cx, &footer, &Env::default());
+    }
     x.close();
     x.close();
     x.open("p:clrMapOvr");
     x.open("a:masterClrMapping").close();
     x.close();
+    // A slide arrives once, however many pages it is written as: with its first.
+    if cx.step.is_none_or(|step| step == 0)
+        && let Some(transition) = crate::transition::arrival(slide, cx.deck)
+    {
+        crate::transition::write(&mut x, transition);
+    }
+    if cx.animate {
+        crate::timing::write(&mut x, cx, slide);
+    }
     x.close();
     x.finish()
 }
@@ -159,6 +174,36 @@ mod tests {
             xml.find("Results").unwrap_or(usize::MAX) < xml.find("<a:t>one</a:t>").unwrap_or(0)
         );
         assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn the_footer_and_the_date_are_text_after_the_slides_own_elements() {
+        let (mut deck, id) = deck_with(json!({ "title": "Results" }));
+        deck.present.header_footer = Some(slides_core::HeaderFooter {
+            footer: Some("Quarterly review".into()),
+            date: Some(slides_core::DateSpec {
+                text: None,
+                format: Some("d MMMM yyyy".into()),
+                extra: slides_core::Extra::new(),
+            }),
+            ..slides_core::HeaderFooter::default()
+        });
+        let (xml, warnings) = written(&deck, &id, &MapMedia::default(), false);
+        assert!(xml.contains("<a:t>Quarterly review</a:t>"), "{xml}");
+        assert!(xml.contains(r#"type="datetime3""#), "{xml}");
+        assert!(
+            xml.find("Results").unwrap_or(usize::MAX) < xml.find("Quarterly review").unwrap_or(0),
+            "{xml}"
+        );
+        assert!(warnings.is_empty(), "{warnings:?}");
+        deck.slide_mut(&id)
+            .unwrap_or_else(|| panic!("slide"))
+            .footer = Some(slides_core::HeaderFooter {
+            hidden: true,
+            ..slides_core::HeaderFooter::default()
+        });
+        let (hidden, _) = written(&deck, &id, &MapMedia::default(), false);
+        assert!(!hidden.contains("Quarterly review"), "{hidden}");
     }
 
     #[test]

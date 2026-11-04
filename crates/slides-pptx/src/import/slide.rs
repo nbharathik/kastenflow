@@ -1,7 +1,7 @@
 //! A slide part turned into a slide of the deck: the shapes it draws over the
 //! shapes of its layout, its background, notes, transition and whether it is hidden.
 
-use slides_core::{Background, Element, Slide, Transition, TransitionKind};
+use slides_core::{Background, Element, Slide, Transition};
 
 use super::color::ColorMap;
 use super::cx::{Cx, Env, Importer, PartCx};
@@ -204,12 +204,8 @@ fn find<'a>(node: &'a Node, name: &str) -> Option<&'a Node> {
 
 fn transition(root: &Node) -> Option<Transition> {
     let t = find(root, "p:transition")?;
-    let kind = match t.elements().next()?.name.as_str() {
-        "p:fade" => TransitionKind::Fade,
-        "p:cut" | "p:none" => return None,
-        "p159:morph" => TransitionKind::Morph,
-        _ => TransitionKind::Slide,
-    };
+    let first = t.elements().next()?;
+    let (kind, direction) = crate::transition::read(first.name.as_str(), first.attr("dir"))?;
     let seconds = t
         .int("p14:dur")
         .map(|ms| ms as f64 / 1000.0)
@@ -222,6 +218,7 @@ fn transition(root: &Node) -> Option<Transition> {
     Some(Transition {
         kind,
         duration: seconds,
+        direction,
         easing: None,
         extra: slides_core::Extra::new(),
     })

@@ -24,6 +24,7 @@ pub mod cache;
 pub mod capabilities;
 pub mod chatgpt;
 pub mod check;
+pub mod cli;
 pub mod clients;
 pub mod commands;
 pub mod compact;

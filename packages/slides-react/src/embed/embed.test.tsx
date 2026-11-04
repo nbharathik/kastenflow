@@ -2,13 +2,14 @@
 // box, and how it is looked at in a presentation: click to use it, Ctrl plus, minus and zero to zoom it, Esc to give the keys back.
 
 import type { Element, Theme } from "@kasten-slides/wasm";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { HostPageText } from "../editor/host.ts";
 import { withPages } from "../pages/fake-pages.ts";
 import { newDeck } from "../test/engine.ts";
 import { EmbedFrame, isPageEmbed } from "../present/Live.tsx";
+import { EMBED_SANDBOX } from "../present/live-url.ts";
 import { plainDeck } from "../render/testing/decks.ts";
 import { EmbedBox } from "./EmbedBox.tsx";
 import { PageView } from "./PageView.tsx";
@@ -24,14 +25,15 @@ const stageOf = (container: HTMLElement) => container.querySelector<HTMLElement>
 describe("a page of the host, drawn from its words", () => {
   const MD = "# Title\n\nWords with **bold**, a [[Other page|link]] and a [site](https://example.com).\n\n- one\n- two\n\n1. first\n2. second\n\n> [!tip]\n> A callout.\n\n```py\nprint(1)\n```\n\n$$x^2$$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n---\n";
 
-  it("has a heading, words, lists with their marks and numbers, a callout, code, a formula, a table and a rule", () => {
+  it("has a heading, words, lists with their marks and numbers, a callout, code, a formula, a table and a rule", async () => {
     const { container } = render(<PageView markdown={MD} theme={theme} />);
+    // The formula is drawn once KaTeX has loaded, which the first formula asks for.
+    await waitFor(() => expect(container.querySelector(".ks-pv-math .katex")).toBeTruthy());
     expect(container.querySelector("h1")?.textContent).toBe("Title");
     expect(container.querySelector("span[style*='font-weight']")?.textContent).toBe("bold");
     expect([...container.querySelectorAll(".ks-pv-item")].map((i) => i.textContent)).toEqual(["•one", "•two", "1.first", "2.second"]);
     expect(container.querySelector("blockquote[data-callout=tip]")?.textContent).toBe("A callout.");
     expect(container.querySelector("pre code")?.textContent).toBe("print(1)");
-    expect(container.querySelector(".ks-pv-math .katex")).toBeTruthy();
     expect([...container.querySelectorAll("th, td")].map((c) => c.textContent)).toEqual(["a", "b", "1", "2"]);
     expect(container.querySelector("hr")).toBeTruthy();
   });
@@ -121,7 +123,7 @@ describe("a web page in a presentation", () => {
     const stage = stageOf(container);
     expect(stage.style.width).toBe("1280px");
     expect(stage.style.transform).toBe("scale(0.25)");
-    expect(container.querySelector("iframe")?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin");
+    expect(container.querySelector("iframe")?.getAttribute("sandbox")).toBe(EMBED_SANDBOX);
   });
 
   it("takes the window the deck names, and a zoom the deck holds", async () => {

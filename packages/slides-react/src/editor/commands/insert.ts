@@ -1,7 +1,7 @@
 import { fitted, image } from "../factory.ts";
 import { pickFiles, readImage } from "../files.ts";
 import { pastedName } from "../gallery/files.ts";
-import { addShapeNow, addTextBoxNow } from "../quick-add/add.ts";
+import { addShapeNow, addTextBoxCentred, addTextBoxNow } from "../quick-add/add.ts";
 import { LINES, SHAPE_GROUPS } from "../shapes.ts";
 import type { Command, CommandContext } from "./types.ts";
 
@@ -76,10 +76,10 @@ export const insertCommands: Command[] = [
     id: "insert.text-box",
     label: "Text box",
     icon: "type",
-    // The button and the menu arm the tool, to place the box with a click or a drag; the key adds one at the pointer at once.
+    // The button and the menu put a box in the middle of the slide at once, ready to type; the key adds one at the pointer.
     keys: ["T"],
     scope: "stage",
-    run: ({ session }) => session.setTool("text"),
+    run: (context) => addTextBoxCentred(context),
     byKey: (context) => addTextBoxNow(context),
   },
   {

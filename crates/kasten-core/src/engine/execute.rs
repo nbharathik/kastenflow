@@ -109,7 +109,15 @@ impl Kasten {
                 date,
                 markdown,
                 heading,
-            } => note_ref(&self.journal_append(actor, date, markdown, heading.as_deref(), now)?),
+                project,
+            } => note_ref(&self.journal_append(
+                actor,
+                project.as_deref(),
+                date,
+                markdown,
+                heading.as_deref(),
+                now,
+            )?),
             AgentOp::Trash { path, .. } => json!({ "trashed": self.trash(actor, path, now)? }),
             AgentOp::Edit {
                 path, body, base, ..

@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 const FILE: &str = "smart-pages.json";
 
@@ -31,6 +32,10 @@ struct Stored {
     web_images_code: BTreeMap<String, String>,
     /// Ids of the pages a person allowed to run after an agent made them.
     allowed: BTreeSet<String>,
+    /// What a person allowed to run of the code pictures an agent wrote: a deck's vault path and the
+    /// hash of the code they saw, as `<path>\n<hash>`. An allow given before it named the code (a
+    /// deck's path alone) is not read: it let any later code run unseen.
+    generator_code: BTreeSet<String>,
 }
 
 fn file(dir: &Path) -> PathBuf {
@@ -115,4 +120,41 @@ pub fn allowed(dir: Option<&Path>, id: &str) -> bool {
 /// A person's "Allow to run" for the page with this id.
 pub fn set_allowed(dir: &Path, id: &str) -> Result<(), String> {
     update(dir, |stored| stored.allowed.insert(id.to_owned()))
+}
+
+/// The hash of a code picture's code (SHA-256, in hex): what a person's "Allow to run" is kept for,
+/// and what they are shown beside the code.
+pub fn code_hash(code: &str) -> String {
+    Sha256::digest(code.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// The key an allow is kept under; none for a code picture in no deck, or a hash that is not one.
+fn code_key(deck: &str, hash: &str) -> Result<String, String> {
+    let deck = deck.trim();
+    if deck.is_empty() {
+        return Err("A code picture that is not in a deck is asked about every time, so this choice cannot be kept.".to_owned());
+    }
+    if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("The code could not be identified, so this choice cannot be kept.".to_owned());
+    }
+    Ok(format!("{deck}\n{}", hash.to_ascii_lowercase()))
+}
+
+/// Whether a person allowed this code (by its hash) to run in the deck at this vault path. Missing
+/// or unread says no, and so does a code picture in no deck.
+pub fn generator_allowed(dir: Option<&Path>, deck: &str, hash: &str) -> bool {
+    let Ok(key) = code_key(deck, hash) else {
+        return false;
+    };
+    read(dir, false, |stored| stored.generator_code.contains(&key))
+}
+
+/// A person's "Allow to run" for this code (by its hash) in the deck at this vault path. Nothing is
+/// kept for a code picture in no deck.
+pub fn set_generator_allowed(dir: &Path, deck: &str, hash: &str) -> Result<(), String> {
+    let key = code_key(deck, hash)?;
+    update(dir, |stored| stored.generator_code.insert(key))
 }

@@ -10,9 +10,16 @@ const kind = (name: string) => screen.getByRole("option", { name: new RegExp(`^$
 const button = (name: string) => screen.getByRole("button", { name }) as HTMLButtonElement;
 
 describe("what the panel says about transitions", () => {
-  it("has the four kinds, with the usual time of each", () => {
-    expect(KINDS.map((k) => k.value)).toEqual(["none", "fade", "slide", "morph"]);
-    expect(USUAL).toEqual({ none: 0, fade: 0.4, slide: 0.4, morph: 0.6 });
+  it("has the kinds, with the usual time of each", () => {
+    expect(KINDS.map((k) => k.value)).toEqual(["none", "fade", "slide", "morph", "push", "wipe", "cover", "uncover", "zoom", "flip", "dissolve"]);
+    expect(USUAL).toEqual({ none: 0, fade: 0.4, slide: 0.4, morph: 0.6, push: 0.5, wipe: 0.5, cover: 0.5, uncover: 0.5, zoom: 0.5, flip: 0.7, dissolve: 0.8 });
+  });
+
+  it("keeps a side only for the kinds that come from one", () => {
+    expect(chosen("push", 0.5, "left")).toEqual({ kind: "push", duration: 0.5, direction: "left" });
+    expect(chosen("zoom", 0.5, "left")).toEqual({ kind: "zoom", duration: 0.5 });
+    expect(chosen("none", 0.5, "left")).toEqual({ kind: "none" });
+    expect(said({ kind: "push", duration: 0.5, direction: "left" })).toBe("Push from left, 0.5 seconds");
   });
 
   it("tells a transition in words, and has no time for none", () => {
@@ -107,6 +114,17 @@ describe("the transitions panel", () => {
     fireEvent.keyDown(none, { key: "ArrowDown" });
     expect(document.activeElement).toBe(kind("Fade"));
     fireEvent.keyDown(document.activeElement!, { key: "End" });
-    expect(document.activeElement).toBe(kind("Morph"));
+    expect(document.activeElement).toBe(kind("Dissolve"));
+  });
+
+  it("offers a side for a push, and keeps it on the slide", async () => {
+    const kit = await mount({ panel: "transitions" });
+    expect(screen.queryByRole("radiogroup", { name: "Direction" })).toBeNull();
+    fireEvent.click(kind("Push"));
+    expect(screen.getByRole("radiogroup", { name: "Direction" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "From left" }));
+    expect(kit.session.slide.transition).toMatchObject({ kind: "push", direction: "left" });
+    fireEvent.click(kind("Zoom"));
+    expect(screen.queryByRole("radiogroup", { name: "Direction" })).toBeNull();
   });
 });

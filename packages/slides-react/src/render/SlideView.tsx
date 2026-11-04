@@ -4,6 +4,8 @@ import { type CSSProperties, type JSX, memo, useMemo, useSyncExternalStore } fro
 import { colorOf, fontStack, layoutOf } from "../theme/index.ts";
 import type { HiddenCell, ImageUrl, RenderCx, SlideMode } from "./context.ts";
 import { ElementView } from "./ElementView.tsx";
+import { footerElements } from "./footer.ts";
+import { withoutHiddenAudio } from "./hidden-audio.ts";
 import { classes } from "./format.ts";
 import "../theme/fonts.css";
 import "./SlideView.css";
@@ -37,7 +39,7 @@ function stepLabelOf(deck: Deck, slide: Slide, step: number | undefined): string
 }
 
 /** The composites that are drawn as the primitives they expand to. A formula is not one of them: KaTeX draws it (see `MathView`). */
-const EXPANDED = new Set(["code", "chat", "token-probs", "card-grid", "citation", "step-label", "embed", "video", "chart", "timer", "qr"]);
+const EXPANDED = new Set(["code", "chat", "token-probs", "card-grid", "citation", "step-label", "embed", "video", "chart", "timer", "qr", "audio"]);
 
 /** The elements with each composite (code, a chat ...) replaced by the group of the primitives it is drawn with, in groups too. */
 function drawn(elements: readonly Element[], slide: Slide, theme: Deck["theme"], order: readonly string[] | undefined): Element[] {
@@ -56,7 +58,7 @@ function drawn(elements: readonly Element[], slide: Slide, theme: Deck["theme"],
   });
 }
 
-const drawnElements = (slide: Slide, theme: Deck["theme"], order: readonly string[] | undefined): Element[] => drawn(slide.elements, slide, theme, order);
+const drawnElements = (slide: Slide, theme: Deck["theme"], order: readonly string[] | undefined, mode: SlideMode): Element[] => drawn(withoutHiddenAudio(slide.elements, mode), slide, theme, order);
 
 /** Whether a citation is among these elements, in groups too. */
 const holdsCitation = (elements: readonly Element[]): boolean => elements.some((element) => element.type === "citation" || (element.type === "group" && holdsCitation(element.children)));
@@ -98,13 +100,17 @@ export const SlideView = memo(function SlideView({ deck, slide, number, count, s
   // A citation is written from the page's bibliography and numbered as the whole deck numbers its works: it is drawn again when either changes.
   const references = useSyncExternalStore(subscribeReferences, referencesVersion, referencesVersion);
   const order = holdsCitation(slide.elements) ? citationOrder(deck) : undefined;
-  const elements = useMemo(() => drawnElements(slide, theme, order), [slide, theme, order, references]);
+  const elements = useMemo(() => drawnElements(slide, theme, order, mode), [slide, theme, order, references, mode]);
 
   const backgroundImage = background?.image ? (imageUrl ? imageUrl(background.image) : background.image) : undefined;
   // The slide number the theme draws is the deck's choice (Slide > Slide numbers), in the editor as much as for the audience.
   const master = layout?.hideMaster ? [] : (theme.master ?? []).filter((element) => deck.present.slideNumbers || !showsSlideNumber(element));
   // What a layout a person made draws behind every slide of it, over the master and under the slide's own elements.
   const decoration = useMemo(() => (layout?.elements ?? []).filter((element) => deck.present.slideNumbers || !showsSlideNumber(element)), [layout, deck.present.slideNumbers]);
+
+  // The footer and the date the deck or this slide asks for, along the bottom edge over the slide's own elements.
+  const today = useMemo(() => new Date(), []);
+  const footers = useMemo(() => footerElements(deck, slide, today), [deck, slide, today]);
 
   return (
     <div
@@ -131,6 +137,9 @@ export const SlideView = memo(function SlideView({ deck, slide, number, count, s
       ))}
       {elements.map((element) => (
         <ElementView key={element.id} element={element} cx={cx} hideTextOf={hideTextOf} hideCell={hideCell} />
+      ))}
+      {footers.map((element) => (
+        <ElementView key={`footer:${element.id}`} element={element} cx={masterCx} hideTextOf={null} />
       ))}
     </div>
   );

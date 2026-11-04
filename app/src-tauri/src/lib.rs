@@ -17,7 +17,9 @@ mod desktop_prefs;
 mod diagrams;
 mod downloads;
 mod drops;
+mod embed_hosts;
 mod extension;
+mod framing;
 mod git_host;
 mod guard;
 mod handlers;
@@ -27,6 +29,8 @@ mod meaning;
 mod notify;
 mod open_vault;
 mod plugins;
+mod popups;
+mod poster;
 mod presenter;
 mod presenter_move;
 mod presenter_screen;
@@ -171,6 +175,8 @@ pub fn run() {
             if let Ok(dir) = app.path().app_cache_dir() {
                 chat::cache::use_folder(dir.join("chat"));
             }
+            // The main window is made here, hidden, with the handler for the windows a page in a frame asks for (it opens the browser).
+            popups::build_main(app)?;
             main_window::prepare(app.handle(), settings.as_deref());
             tray::start(app.handle());
             shortcut::start(app.handle());

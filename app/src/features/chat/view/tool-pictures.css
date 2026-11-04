@@ -1,0 +1,49 @@
+.tool-pictures {
+  margin-top: 6px;
+}
+
+.tool-pictures-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-picture,
+.tool-picture-large {
+  padding: 0;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.4));
+  border-radius: 6px;
+  background: transparent;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.tool-picture:focus-visible,
+.tool-picture-large:focus-visible {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: 2px;
+}
+
+.tool-picture img {
+  display: block;
+  width: 120px;
+  height: auto;
+  max-height: 80px;
+  object-fit: cover;
+}
+
+.tool-picture-large {
+  display: block;
+  margin-top: 6px;
+  max-width: 100%;
+  cursor: zoom-out;
+}
+
+.tool-picture-large img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}

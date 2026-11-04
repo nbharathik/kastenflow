@@ -1,0 +1,195 @@
+/* The code panel: the code in a monospace field with its line numbers, what the code may read, how a run came out, and
+   the way to begin. Colours are the editor's own tokens, so it follows light and dark. */
+
+.ks-cp-editor {
+  position: relative;
+  display: flex;
+  min-height: 220px;
+  max-height: 46vh;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: var(--ks-canvas);
+  overflow: hidden;
+}
+.ks-cp-margin {
+  flex: none;
+  min-width: 38px;
+  padding: 8px 6px 8px 4px;
+  overflow: hidden;
+  text-align: right;
+  font: 12px/1.5 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--ks-faint);
+  background: var(--ks-panel);
+  border-right: 1px solid var(--ks-line);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ks-cp-margin .is-error {
+  color: var(--ks-danger);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--ks-danger) 14%, transparent);
+}
+.ks-cp-code {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  resize: none;
+  overflow: auto;
+  white-space: pre;
+  font: 13px/1.5 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--ks-ink);
+  background: transparent;
+  tab-size: 2;
+}
+.ks-cp-code:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -2px;
+}
+.ks-cp-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  font-size: 11px;
+  color: var(--ks-faint);
+  pointer-events: none;
+}
+
+.ks-cp-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ks-cp-inputs > legend {
+  padding: 0;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-cp-input {
+  display: grid;
+  grid-template-columns: 110px 96px 1fr auto;
+  gap: 6px;
+  align-items: start;
+}
+.ks-cp-input input,
+.ks-cp-input select,
+.ks-cp-input textarea,
+.ks-cp-name {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: var(--ks-panel);
+  color: var(--ks-ink);
+  font: 12px/1.4 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+}
+.ks-cp-input textarea {
+  resize: vertical;
+  min-height: 52px;
+}
+.ks-cp-hint-line {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+
+.ks-cp-output {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.ks-cp-output label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ks-cp-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.ks-cp-error {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--ks-radius);
+  color: var(--ks-danger);
+  background: color-mix(in srgb, var(--ks-danger) 10%, transparent);
+  white-space: pre-wrap;
+}
+.ks-cp-notes {
+  margin: 0;
+  padding-left: 18px;
+  font: 12px/1.4 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--ks-muted);
+}
+.ks-cp-ok {
+  margin: 0;
+  color: var(--ks-muted);
+}
+.ks-cp-preview {
+  max-width: 100%;
+  max-height: 160px;
+  align-self: flex-start;
+  object-fit: contain;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius);
+  background: var(--ks-canvas);
+}
+.ks-cp-allow {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--ks-radius);
+  color: var(--ks-warning);
+  background: color-mix(in srgb, var(--ks-warning) 12%, transparent);
+}
+
+.ks-cp-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ks-cp-template {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius-md);
+  background: var(--ks-panel);
+  color: var(--ks-ink);
+}
+.ks-cp-template:hover {
+  background: var(--ks-hover);
+}
+.ks-cp-template:focus-visible {
+  outline: 2px solid var(--ks-accent);
+}
+.ks-cp-template > span:first-child {
+  font-weight: 600;
+}
+.ks-cp-template > span:last-child {
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-cp-group {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-cp-section-code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

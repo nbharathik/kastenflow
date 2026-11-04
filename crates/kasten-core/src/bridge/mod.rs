@@ -10,6 +10,9 @@
 //!   and when it was made.
 //! - `replies/<id>.json`: written by the app. A [`Reply`] is `ok` with a
 //!   result, or not, with one plain sentence. It is read once and removed.
+//! - `payloads/<id>.bin`: bytes that travel beside a request too big for its
+//!   file (a deck to draw); written by the asker before the request, read once
+//!   by the app, removed with the request.
 //! - `app-alive.json`: the app writes its time and version every few seconds;
 //!   an asker calls the app closed when it is missing or older than 15 s.
 //! - `selection.json`: what the person has selected, shared by the app for two
@@ -32,6 +35,7 @@ mod alive;
 mod call;
 mod client;
 mod files;
+mod generator;
 mod selection;
 mod server;
 mod sharing;
@@ -41,9 +45,14 @@ use std::io;
 use std::path::Path;
 
 pub use alive::Alive;
-pub use call::{Call, MAX_WAIT_MS, Reply, Request};
+pub use call::{Call, Decks, MAX_WAIT_MS, Reply, Request, SCALE_RANGE};
 pub use client::Answer;
 pub use files::Mailbox;
+pub use generator::{
+    DEFAULT_RUN_MS, GeneratorInputText, GeneratorOutput, GeneratorPayload, LANGUAGE_JS,
+    MAX_CODE_BYTES, MAX_GENERATED_PNG, MAX_GENERATED_SIDE, MAX_GENERATED_SVG, MAX_INPUT_BYTES,
+    MAX_INPUTS, MAX_INPUTS_TOTAL, MAX_RUN_MS, clamp_run_ms, is_input_name,
+};
 pub use selection::{Published, SOURCES, Seen, Snippet, Span};
 pub use server::{Handler, Server, serve};
 pub use sharing::{Sharing, Tick};
@@ -54,6 +63,9 @@ pub const DIR: &str = ".kasten/cache/bridge";
 pub const MAX_REQUEST_BYTES: u64 = 64 * 1024;
 /// The most a reply file may hold (a diagram's PNG comes back in one, as base64).
 pub const MAX_REPLY_BYTES: u64 = 3 * 1024 * 1024;
+/// The most bytes may travel beside a request (`payloads/<id>.bin`): the deck a
+/// slide is drawn from. A request itself is too small to hold one.
+pub const MAX_PAYLOAD_BYTES: u64 = 16 * 1024 * 1024;
 /// The most the app's own file may hold.
 pub const MAX_ALIVE_BYTES: u64 = 1024;
 /// The most requests that may wait at once.

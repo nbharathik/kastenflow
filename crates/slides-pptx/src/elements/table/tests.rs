@@ -93,6 +93,46 @@ fn the_first_row_is_bold_when_it_is_the_header_and_only_then() {
 }
 
 #[test]
+fn a_table_style_dresses_the_header_and_leaves_the_other_lines_out() {
+    let rows = json!([{ "cells": [cell("H")] }, { "cells": [cell("B")] }]);
+    let out = written(&table(json!({
+        "columns": [100], "rows": rows, "headerRow": true,
+        "tableStyle": { "preset": "accent", "bandedRows": true }
+    })));
+    let (head, body) = out
+        .split_once("<a:tr ")
+        .and_then(|(_, rest)| rest.split_once("<a:tr "))
+        .unwrap_or_default();
+    // The header takes the first accent as its fill, and its words the paper colour.
+    assert!(head.contains(r#"<a:schemeClr val="accent1"/>"#), "{head}");
+    assert!(
+        head.contains(r#"b="1""#) && head.contains(r#"val="bg1""#),
+        "{head}"
+    );
+    // The lines are the style's (the accent), not the plain grid's second text colour.
+    assert!(!body.contains("tx2") && body.contains("accent1"), "{body}");
+}
+
+#[test]
+fn a_cells_own_borders_win_and_a_width_of_nothing_is_no_line() {
+    let mut c = cell("x");
+    c["borders"] = json!({
+        "top": { "color": "accent2", "width": 3 },
+        "left": { "color": "text1", "width": 0 }
+    });
+    let out = written(&table(
+        json!({ "columns": [100], "rows": [{ "cells": [c] }] }),
+    ));
+    assert!(out.contains(r#"<a:lnL w="0"><a:noFill/></a:lnL>"#), "{out}");
+    assert!(
+        out.contains(r#"<a:lnT w="28575"><a:solidFill><a:schemeClr val="accent2"/>"#),
+        "{out}"
+    );
+    // The sides it does not name stay the thin grid.
+    assert!(out.contains(r#"<a:lnR w="9525">"#), "{out}");
+}
+
+#[test]
 fn every_cell_has_thin_borders_of_the_second_text_colour_and_its_own_fill() {
     let mut c = cell("x");
     c["fill"] = json!({ "color": "accent1", "alpha": 0.2 });

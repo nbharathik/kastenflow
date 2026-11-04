@@ -48,7 +48,7 @@ import { dayMentionsIn } from "./day-mentions";
 import { dueAt } from "./day-times";
 import { tasksIn } from "../tasks";
 import { deckHead } from "./memory-decks";
-import { MemoryReferences } from "./memory-references";
+import { MemoryJournals } from "./memory-journals";
 import { filesOf, graphIn, linkRowsOf } from "./memory-graph";
 import { findUnderIn, planReplace } from "./memory-replace";
 import { appendUnder, parseSchema, propsBlock, replaceSection } from "./memory-extras";
@@ -80,7 +80,7 @@ const PREVIEW_BATCH = "Making many changes as one needs the desktop app; the bro
 
 const PREVIEW_IMPORT = "Importing reads a folder on your computer, so it needs the desktop app. The browser preview keeps its notes in the browser.";
 
-export class MemoryVault extends MemoryReferences implements VaultClient {
+export class MemoryVault extends MemoryJournals implements VaultClient {
   /** Each note's to-dos, with the text they were read from. */
   private taskCache = new Map<string, { text: string; found: Omit<TaskRow, "path" | "title" | "icon">[] }>();
 

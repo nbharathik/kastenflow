@@ -136,6 +136,36 @@ describe("Embedded page", () => {
     expect(the<"embed">(kit).url).toBe("https://example.net");
   });
 
+  it("notes the site of an address, and drops the note for an address of no known site", async () => {
+    const kit = await mount({ elements: [embed()] });
+    expect(the<"embed">(kit).provider).toBeUndefined();
+    enter(address(), "https://youtu.be/dQw4w9WgXcQ");
+    expect(the<"embed">(kit)).toMatchObject({ url: "https://youtu.be/dQw4w9WgXcQ", provider: "youtube" });
+    enter(address(), "https://example.net/page");
+    expect(the<"embed">(kit).provider).toBeUndefined();
+  });
+
+  it("has no playback options for an ordinary page", async () => {
+    await mount({ elements: [embed()] });
+    expect(within(section("embed")).queryByLabelText("Start at (seconds)")).toBeNull();
+  });
+
+  it("sets where a video starts and stops, and how it plays, and clears them again", async () => {
+    const kit = await mount({ elements: [embed({ url: "https://youtu.be/dQw4w9WgXcQ" })] });
+    const panel = within(section("embed"));
+    enter(panel.getByLabelText("Start at (seconds)"), "90");
+    enter(panel.getByLabelText("Stop at (seconds)"), "120");
+    fireEvent.click(panel.getByLabelText("Play by itself"));
+    fireEvent.click(panel.getByLabelText("Without sound"));
+    fireEvent.click(panel.getByLabelText("Play again and again"));
+    fireEvent.click(panel.getByLabelText("Show the player's controls"));
+    expect(the<"embed">(kit)).toMatchObject({ start: 90, end: 120, autoplay: true, muted: true, looped: true, controls: false });
+    enter(panel.getByLabelText("Start at (seconds)"), "0");
+    fireEvent.click(panel.getByLabelText("Show the player's controls"));
+    expect(the<"embed">(kit).start).toBeUndefined();
+    expect(the<"embed">(kit).controls).toBeUndefined();
+  });
+
   it("sets a title, and an empty one takes it away", async () => {
     const kit = await mount({ elements: [embed()] });
     enter(within(section("embed")).getByLabelText("Page title"), "The docs");
@@ -223,12 +253,12 @@ describe("Video", () => {
     expect(the<"video">(kit).src).toBe("clip.mp4");
   });
 
-  it("takes the name of the file that is chosen", async () => {
+  it("keeps the file that is chosen with the deck, and takes the path it has there", async () => {
     const kit = await mount({ elements: [video()] });
     await act(async () => {
       fireEvent.click(within(section("video")).getByRole("button", { name: "Choose file…" }));
     });
-    await waitFor(() => expect(the<"video">(kit).src).toBe("my talk.mp4"));
+    await waitFor(() => expect(the<"video">(kit).src).toBe("assets/my-talk.mp4"));
   });
 
   it("plays by itself and again and again when asked to", async () => {

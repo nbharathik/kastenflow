@@ -13,6 +13,7 @@ import { BUNDLE_RULES } from "../../lib/vault/bundle-types";
 import { COLLECTION_RULES } from "../../lib/vault/collection-types";
 import type { DraftRule as Rule } from "../../lib/vault/draft-rule";
 import { HEALTH_RULES } from "../../lib/vault/health-types";
+import { JOURNAL_RULES } from "../../lib/vault/journal-types";
 import { PROJECT_RULES } from "../../lib/vault/project-types";
 import { REFERENCE_RULES } from "../../lib/vault/reference-types";
 import { REVISION_RULES } from "../../lib/vault/revision-types";
@@ -101,6 +102,12 @@ const RULES = {
   saveDecks: "pass",
   deckTemplates: "pass",
   createDeckTemplate: "pass",
+  layoutLibrary: "pass",
+  libraryLayout: "pass",
+  saveLibraryLayout: "pass",
+  removeLibraryLayout: "pass",
+  brandKit: "pass",
+  saveBrandKit: "pass",
   diagrams: "pass",
   diagram: "pass",
   diagramPreview: "pass",
@@ -160,6 +167,7 @@ const RULES = {
   ...HEALTH_RULES,
   ...AGENT_MODE_RULES,
   ...BATCH_RULES,
+  ...JOURNAL_RULES,
   ...REVISION_RULES,
 } satisfies Record<MethodName, Rule>;
 

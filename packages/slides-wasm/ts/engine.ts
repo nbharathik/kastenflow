@@ -226,6 +226,16 @@ export class DeckEngine {
     return JSON.parse(guard(() => this.raw.lintSlide(slide, measures, refs))) as Report;
   }
 
+  /**
+   * The elements that use a `#rrggbb` colour that is neither one of `colors` (a brand kit's) nor one of the theme's: one `off-brand-colour`
+   * warning for each. Not part of `lintDeck`, since the deck cannot say what its brand is. An engine built before this existed answers none.
+   */
+  lintBrand(colors: readonly string[]): Report["issues"] {
+    const call = (this.raw as unknown as { lintBrand?: (colors: string) => string }).lintBrand;
+    if (typeof call !== "function") return [];
+    return JSON.parse(guard(() => call.call(this.raw, JSON.stringify(colors)))) as Report["issues"];
+  }
+
   /** The problems of every slide. */
   lintDeck(options: LintOptions = {}): Report {
     const [measures, refs] = lintArguments(options);

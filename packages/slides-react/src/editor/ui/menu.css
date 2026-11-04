@@ -1,8 +1,29 @@
 /* Popovers and the menus in them. A popover is measured before it is shown, then fades and scales in over the fast motion token, from the
-   corner it opens from, so it never jumps. Menus, dropdowns and context menus are all this one component. */
+   corner it opens from, so it never jumps. Menus, dropdowns and context menus are all this one component.
+   They are drawn in a layer on the page's body (not inside the bar or pane they open from, whose container or overflow would move or clip
+   a fixed box); the scope round each carries the colours and settings copied from where it opened. A sub-menu is a sibling of its menu,
+   so the parent's animation and scrolling never clip it. */
+.ks-popover-scope {
+  display: contents;
+}
+.ks-popover-scope,
+.ks-popover-scope *,
+.ks-popover-scope *::before,
+.ks-popover-scope *::after {
+  box-sizing: border-box;
+}
+/* The fields in a popover stay text, as the editor's own do (WebKit takes typing away from an input inside text that cannot be selected). */
+.ks-popover-scope input,
+.ks-popover-scope textarea,
+.ks-popover-scope select {
+  -webkit-user-select: text;
+  user-select: text;
+}
 .ks-popover {
   position: fixed;
-  z-index: 50;
+  /* Above a full-screen editor and a show, which are fixed over the whole window. */
+  z-index: var(--ks-popover-z, 2147483001);
+  font: 13px/1.4 var(--ks-font);
   background: var(--ks-raised);
   color: var(--ks-ink);
   border-radius: var(--ks-radius-md);
@@ -47,7 +68,8 @@
 }
 
 .ks-menu {
-  min-width: 200px;
+  /* Wide enough that a label and its keys do not touch. */
+  min-width: 224px;
   padding: 4px;
 }
 .ks-menu-list {
@@ -116,6 +138,9 @@
   font: 11.5px var(--ks-font);
   color: var(--ks-faint);
   white-space: nowrap;
+}
+.ks-menu .ks-kbd {
+  margin-left: 24px;
 }
 .ks-menu-sep {
   height: 1px;

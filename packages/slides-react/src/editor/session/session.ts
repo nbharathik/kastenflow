@@ -11,13 +11,17 @@ import { Clipboard } from "./clipboard.ts";
 import { ElementCommands } from "./elements.ts";
 import { Exports } from "./exporting.ts";
 import { Imports } from "./importing.ts";
+import { AccessCommands } from "./access.ts";
 import { MarkCommands } from "./marks.ts";
+import { PageAids } from "./page-aids.ts";
+import { ReviewCommands } from "./review.ts";
 import { followReferences } from "./references.ts";
 import { SaveQueue } from "./save.ts";
 import { scopeOf, validPath } from "./scope.ts";
 import { SlideClipboard } from "./slide-clipboard.ts";
 import { SlideCommands } from "./slides.ts";
 import { StepCommands } from "./steps.ts";
+import { StepLog } from "../undo-history/step-log.ts";
 import { type CellSelection, cellsAfter, isTableIn, sameSelection } from "../table/cells.ts";
 import { TableCommands } from "../table/commands.ts";
 import { TextCommands } from "./text-commands.ts";
@@ -48,6 +52,14 @@ export class EditorSession {
   readonly exports = new Exports(this);
   readonly imports = new Imports(this);
   readonly marks = new MarkCommands(this);
+  /** Footer and date, rulers and guides, and the touching up of pictures and tables. */
+  readonly aids = new PageAids(this);
+  /** Comments on slides and elements: leave, answer, settle. */
+  readonly review = new ReviewCommands(this);
+  /** What a slide tells a person who cannot see it, and the fixes the accessibility panel makes. */
+  readonly access = new AccessCommands(this);
+  /** The steps of undo as a list of names, for the undo history panel. */
+  readonly stepLog = new StepLog();
   private readonly saver: SaveQueue;
   private readonly onError: (message: string) => void;
   private readonly listeners = new Set<() => void>();
@@ -184,6 +196,8 @@ export class EditorSession {
     const kept = before.slideSelection.filter((id) => alive.has(id));
     const slideSelection = slideId === before.slideId ? (kept.includes(slideId) ? kept : [slideId, ...kept]) : [slideId];
     this.revision += 1;
+    const nothing = Object.keys(changes.slides).length === 0 && !changes.order && !changes.theme && !changes.meta;
+    this.stepLog.note(this.replaying, this.engine.undoLabel, nothing);
     this.patch({
       deck,
       slideId,
@@ -193,7 +207,8 @@ export class EditorSession {
       editing,
       cells,
       ...this.history(),
-      saving: { status: "unsaved" },
+      // A change never settles a conflict: only loading their version or keeping the editor's does.
+      saving: this.saver.conflicted ? before.saving : { status: "unsaved" },
       revision: this.revision,
       settle: this.replaying ?? (this.gliding ? "glide" : null),
     });
@@ -358,7 +373,7 @@ export class EditorSession {
   receive(text: string): void {
     if (this.saver.isOwn(text)) return;
     if (this.current.saving.status === "saved") this.load(text);
-    else this.patch({ saving: { status: "conflict", theirs: text } });
+    else this.saver.hold(text);
   }
 
   /** Replaces the deck with the text of a file (theirs after a conflict, or a change made outside). */
@@ -377,6 +392,7 @@ export class EditorSession {
     const kept = slideId === this.current.slideId ? this.current.selection.filter((id) => onSlide.has(id)) : [];
     this.saver.markClean(text);
     this.host.synced?.(text);
+    this.stepLog.reset();
     this.revision += 1;
     this.patch({
       deck: next.deck,

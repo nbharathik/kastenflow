@@ -111,7 +111,7 @@ impl KastenServer {
     }
 
     #[tool(
-        description = "Adds Markdown to a day's journal, today (UTC) by default, creating the day if needed."
+        description = "Adds Markdown to a day's journal, today (UTC) by default, creating the day if needed. With `project`, that project's journal."
     )]
     async fn journal_append(
         &self,

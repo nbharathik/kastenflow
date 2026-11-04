@@ -1,0 +1,25 @@
+/* The Master dialog: the layouts, each with the switch for the theme's graphics, how many slides follow it, and the way to edit it. */
+.ks-dg-master-layouts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ks-dg-master-layouts li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.ks-dg-master-layouts .ks-toggle {
+  flex: 1;
+  min-width: 0;
+}
+.ks-dg-master-used {
+  flex: none;
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

@@ -12,8 +12,69 @@ fn embed(url: &str, poster: Option<&str>, title: Option<&str>, w: f64, h: f64) -
         zoom: None,
         fit: None,
         reader: false,
+        provider: None,
+        start: None,
+        end: None,
+        autoplay: false,
+        muted: false,
+        looped: false,
+        controls: None,
         extra: Extra::new(),
     }
+}
+
+fn element_from(json: serde_json::Value) -> Element {
+    serde_json::from_value(json).expect("an element")
+}
+
+#[test]
+fn an_embed_with_none_of_the_playback_fields_reads_the_same_and_is_written_the_same() {
+    let old = serde_json::json!({
+        "type": "embed", "id": "e-old", "x": 10.0, "y": 20.0, "w": 640.0, "h": 400.0,
+        "url": "https://example.com/talk", "title": "Talk", "zoom": 1.5, "reader": true,
+    });
+    let Element::Embed(el) = element_from(old.clone()) else {
+        panic!("an embed")
+    };
+    assert_eq!(
+        (
+            el.provider.as_deref(),
+            el.start,
+            el.end,
+            el.autoplay,
+            el.muted,
+            el.looped,
+            el.controls
+        ),
+        (None, None, None, false, false, false, None)
+    );
+    assert_eq!(
+        serde_json::to_value(Element::Embed(el)).expect("json"),
+        old,
+        "no key is added for what was never set"
+    );
+}
+
+#[test]
+fn the_playback_fields_of_an_embed_are_kept_and_a_field_from_a_later_version_survives() {
+    let new = serde_json::json!({
+        "type": "embed", "id": "e-new", "x": 10.0, "y": 20.0, "w": 640.0, "h": 360.0,
+        "url": "https://youtu.be/dQw4w9WgXcQ", "provider": "youtube",
+        "start": 90.0, "end": 120.5, "autoplay": true, "muted": true, "looped": true, "controls": false,
+        "futureField": { "kept": [1, 2, 3] },
+    });
+    let Element::Embed(el) = element_from(new.clone()) else {
+        panic!("an embed")
+    };
+    assert_eq!(el.provider.as_deref(), Some("youtube"));
+    assert_eq!((el.start, el.end), (Some(90.0), Some(120.5)));
+    assert!(el.autoplay && el.muted && el.looped);
+    assert_eq!(el.controls, Some(false));
+    assert_eq!(
+        serde_json::to_value(Element::Embed(el)).expect("json"),
+        new,
+        "written as it was read, with the field no build here knows"
+    );
 }
 
 /// An embedded page of the host: no address, and the page it shows in the source.

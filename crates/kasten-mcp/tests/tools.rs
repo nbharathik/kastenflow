@@ -104,24 +104,16 @@ fn lists_every_tool_with_an_object_schema() {
     // structure tools (save_project_setup, list_setups and set_view_order among them), the twenty parity tools, the three diagram file tools, the seven typed diagram tools and
     // the twelve LaTeX tools among them; tests/parity_tools.rs and tests/latex_tools.rs name each one), slides-core's
     // tools for decks, and the one that makes a deck from a note.
-    // A program that cannot draw slides does not list the two that draw them.
+    // The tools that draw slides are listed in every program: with no browser they draw in the app's window.
     let decks = slides_core::agent::tools();
-    let drawing = ["render_slide", "render_grid"];
-    let hidden = if cfg!(feature = "render") {
-        0
-    } else {
-        drawing.len()
-    };
-    assert_eq!(specs.len(), 99 + decks.len() + 1 - hidden, "{names:?}");
+    assert_eq!(specs.len(), 99 + decks.len() + 1, "{names:?}");
     assert!(
         names.contains(&"deck_from_note"),
         "missing deck_from_note in {names:?}"
     );
     for deck_tool in &decks {
-        let listed = cfg!(feature = "render") || !drawing.contains(&deck_tool.name.as_str());
-        assert_eq!(
+        assert!(
             names.contains(&deck_tool.name.as_str()),
-            listed,
             "{} in {names:?}",
             deck_tool.name
         );

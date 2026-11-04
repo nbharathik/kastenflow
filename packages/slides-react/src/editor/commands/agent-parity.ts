@@ -18,6 +18,7 @@ export const UI_ONLY: readonly { pattern: RegExp; why: string }[] = [
   { pattern: /^page\.open$/, why: "opens the page a slide was made from" },
   { pattern: /^text\.paint-copy$/, why: "copies a look to paste later" },
   { pattern: /^deck\.save-template$/, why: "writes a template file; the deck is not changed" },
+  { pattern: /^ai\./, why: "asks the host's assistant, which changes the deck through its own tools; the editor applies nothing" },
   { pattern: /^file\.(print|export-.+)$/, why: "makes a file from the deck (the export tool for an agent)" },
 ];
 
@@ -32,7 +33,6 @@ export const DECK_PREFIXES: readonly string[] = ["arrange", "text", "slide", "ta
  */
 export const NOT_APPLIED_BY_THE_EDITOR: Readonly<Record<string, string>> = {
   add_diagram: "the editor draws a diagram in the draw.io window and puts it on the slide as a picture (add_elements); an agent lays out boxes and arrows",
-  replace_deck: "for a host that loads a whole deck at once; the editor opens a deck rather than replacing its slides",
   format_paragraphs: "the editor changes lists and alignment with the text commands, which save as set_rich_text",
   add_storyboard_slides: "applied by the app's storyboard (Present, Storyboard), not by the package",
 };

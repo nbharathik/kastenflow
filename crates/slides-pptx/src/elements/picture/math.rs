@@ -69,6 +69,8 @@ pub fn write_source(x: &mut Xml, cx: &mut Cx, base: &Base, site: &Site, latex: &
             ..base.clone()
         },
         text,
+        columns: None,
+        column_gap: None,
         extra: Extra::new(),
     };
     write_text(x, cx, &element, site);

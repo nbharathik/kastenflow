@@ -214,6 +214,8 @@ impl Op for DuplicateSlides {
             }
             let mut copy = cx.deck.slides[i].clone();
             copy.id = cx.ids.fresh(SLIDE, |c| taken.contains(c));
+            // The notes stay with the slide they were left on; a copy starts without them.
+            copy.comments.clear();
             taken.insert(copy.id.clone());
             made.push(copy.id.clone());
             let at = if copy.backup {

@@ -16,7 +16,10 @@ describe("the link menu's colours", () => {
     document.body.append(host);
     const root = createRoot(host);
     act(() => root.render(<LinkMenu anchor={{ left: 10, top: 10, right: 10, bottom: 10 }} onClose={vi.fn()} onChoose={vi.fn()} />));
-    expect(document.querySelector(".ks-link-menu .ks-popover")).not.toBeNull();
+    // The menu is drawn in the popover layer, wearing the colours of the scope it was opened from.
+    const scope = document.querySelector<HTMLElement>(".ks-popover-layer .ks-popover-scope");
+    expect(scope?.querySelector(".ks-popover")).not.toBeNull();
+    expect(document.querySelector(".ks-link-menu")).not.toBeNull();
     act(() => root.unmount());
     host.remove();
   });

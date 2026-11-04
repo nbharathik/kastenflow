@@ -3,7 +3,7 @@
 // black screen, morphs); everything a slide looks like is the renderer's. Nothing is fetched: it all runs offline.
 
 import { Deck as RevealDeck, type DeckProps } from "@revealjs/react";
-import { type Deck, picturePaths } from "@kasten-slides/wasm";
+import type { Deck } from "@kasten-slides/wasm";
 import type { RevealApi } from "reveal.js";
 import { type CSSProperties, type JSX, type MouseEvent, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
@@ -11,24 +11,33 @@ import { flushSync } from "react-dom";
 import type { PreviewMode } from "../editor/web-preview-host.ts";
 import { type Anchor, anchorOf, pointAnchor } from "../editor/ui/Popover.tsx";
 import type { PageAccess } from "../embed/usePageText.ts";
-import { posterPaths } from "../export/posters.ts";
 import { type LinkWays, followLink, kindOfLink, linkAt, linkHint, openInWindow } from "../pages/follow.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { PresentContext } from "./context.ts";
 import { DeckTree } from "./DeckTree.tsx";
+import { inkExtras } from "./ink/extras.ts";
+import { InkTools } from "./ink/InkTools.tsx";
+import { InkStore } from "./ink/store.ts";
 import { type LinkChoice, LinkMenu, copyLink, isWebPage } from "./link-menu.tsx";
+import { createMediaLink } from "./media.ts";
 import { PagePanel } from "./PagePanel.tsx";
+import { readKeepInk, writeKeepInk } from "./options.ts";
 import { readPreviewMode, writePreviewMode } from "./preview-mode.ts";
 import { type Matte, matteColor } from "./matte.ts";
-import { type Plan, type Position, fromState, planOf, startPosition } from "./plan.ts";
+import { type Plan, type Position, clampPosition, fromState, planOf, samePosition, spotAt, startPosition } from "./plan.ts";
 import { installRevealCss } from "./reveal-css.ts";
 import { attachChrome } from "./runtime/chrome.js";
 import type { ShowScreens } from "./runtime/chrome.js";
 import { revealConfig } from "./runtime/config.js";
 import { animateMorph, matchSlides } from "./runtime/morph.js";
+import { transitionListener } from "./runtime/transitions.js";
 import { ScrollView } from "./ScrollView.tsx";
+import { BEAT_MS, imagesOf } from "./show-images.ts";
 import { PresentStore } from "./store.ts";
 import type { PresentSync } from "./sync.ts";
+import { useShowSync } from "./useShowSync.ts";
+import { AudioLayer } from "./audio/AudioLayer.tsx";
+import { DeckFontStyle } from "../editor/fonts/DeckFonts.tsx";
 import { WebPreviewPanel } from "./WebPreviewPanel.tsx";
 import "./present.css";
 
@@ -65,18 +74,7 @@ export interface PresentModeProps {
   pages?: Partial<PageAccess>;
 }
 
-/** The addresses of the pictures a deck names, for a window that cannot ask the host itself. */
-export function imagesOf(deck: Deck, imageUrl: ImageUrl): Record<string, string> {
-  const found: Record<string, string> = {};
-  for (const path of new Set([...picturePaths(deck), ...posterPaths(deck)])) {
-    const url = imageUrl(path);
-    if (url) found[path] = url;
-  }
-  return found;
-}
-
-/** How often the show tells the presenter's window it is there. */
-export const BEAT_MS = 2000;
+export { BEAT_MS, imagesOf };
 
 /** The events of reveal.js that change where the person is. */
 const MOVES = ["ready", "slidechanged", "fragmentshown", "fragmenthidden", "overviewshown", "overviewhidden", "paused", "resumed"] as const;
@@ -88,7 +86,8 @@ function locator(plan: Plan): (number: number) => [number, number] | null {
 
 function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse, fullscreen, matte = "black", controls = false, toolbar = false, screens, pages }: PresentModeProps): JSX.Element {
   const plan = useMemo(() => planOf(deck), [deck]);
-  const store = useMemo(() => new PresentStore(startPosition(plan, start)), [plan, start]);
+  // One store for the whole show: an edit of the deck makes a new plan, and the show stays where it is (kept inside the new plan).
+  const [store] = useState(() => new PresentStore(startPosition(plan, start)));
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
   // Slides near the one on the screen are drawn a moment after it, so that getting to a slide is never held up by them.
   const around = useDeferredValue(snapshot.position.h);
@@ -98,12 +97,39 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
   const tools = useRef<HTMLDivElement>(null);
   const applying = useRef(false);
   const since = useRef(Date.now());
-  const latest = useRef({ onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar });
+  // Ink and videos: each window keeps its own and tells the other what changes (through the link, which may come and go).
+  const [ink] = useState(() => {
+    const made = new InkStore({
+      ink: (event) => latest.current.sync?.post({ type: "ink", ink: event }),
+      laser: (at) => latest.current.sync?.post({ type: "pointer", at }),
+    });
+    made.setKeep(readKeepInk(), true);
+    return made;
+  });
+  const [media] = useState(() => createMediaLink((event) => latest.current.sync?.post({ type: "media", media: event })));
+  // Read when used: reveal.js's handlers are made once, and the plan, the store and the link change under them.
+  const latest = useRef({ onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar, ink });
   useEffect(() => {
-    latest.current = { onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar };
+    latest.current = { onExit, onPresenter, fullscreen, sync, plan, store, screens, toolbar, ink };
   });
 
   useLayoutEffect(() => installRevealCss(), []);
+
+  // The deck was edited: the plan is new, and the place stays inside it. The ink follows the slide the place is on.
+  useEffect(() => {
+    const now = store.getSnapshot();
+    const kept = clampPosition(plan, now.position);
+    if (!samePosition(kept, now.position)) store.set({ ...now, position: kept });
+    ink.setSlide(spotAt(plan, kept)?.slide.id ?? null);
+  }, [plan, store, ink]);
+  // The choice to keep ink is the person's, for the next show too.
+  useEffect(() => {
+    let kept = ink.getSnapshot().keep;
+    return ink.subscribe(() => {
+      const now = ink.getSnapshot().keep;
+      if (now !== kept) writeKeepInk((kept = now));
+    });
+  }, [ink]);
 
   // The links of the slides: to another slide, to a page of the host (a calm panel at the side, which Esc puts away), or out to the web
   // (a peek the host draws at the side, which Esc steps back out of; or the person's own browser where the host has no peek).
@@ -166,7 +192,7 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     setLinkMenu({ url: href, anchor });
   };
   const follow = useCallback((href: string) => followLink(href, ways), [ways]);
-  const context = useMemo(() => ({ pages, onLink: follow }), [pages, follow]);
+  const context = useMemo(() => ({ pages, onLink: follow, media: media.channel, ink }), [pages, follow, media, ink]);
 
   // The words that link are reached by Tab too, and say where they go.
   useEffect(() => {
@@ -190,18 +216,33 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
   }, []);
 
   // The pointer goes after 2 s at rest; the arrows and the progress bar are the person's choice (off to begin with).
+  // The deck's own choices: go back to the first slide after the last, and move on by itself after some seconds (a kiosk).
+  const looped = deck.present.loop === true;
+  const seconds = deck.present.autoAdvance ?? 0;
+  // (Rust calls the first `looped`, the file and the types `loop`.)
   const config = useMemo(
-    () => revealConfig(deck.size, { autoAnimateMatcher: matchSlides, controls, progress: controls, hideCursorTime: 2000 }) as DeckProps["config"],
-    [deck.size.w, deck.size.h, controls],
+    () =>
+      revealConfig(deck.size, {
+        autoAnimateMatcher: matchSlides,
+        controls,
+        progress: controls,
+        hideCursorTime: 2000,
+        loop: looped,
+        autoSlide: seconds > 0 ? Math.round(seconds * 1000) : 0,
+      }) as DeckProps["config"],
+    [deck.size.w, deck.size.h, controls, looped, seconds],
   );
 
   // Once reveal.js is up: follow it, give it the presentation's keys and morphs, and take it to where the person asked to begin.
   const teardown = useRef<(() => void) | null>(null);
   const ready = useCallback((instance: RevealApi) => {
-    const { plan: current, store: held } = latest.current;
+    // The plan and the store are read each time they are used: the deck may be edited, and the plan made again, while the show runs.
     const commit = () => {
+      const { plan: current, store: held, ink: drawn } = latest.current;
       const state = instance.getState();
       const next = { position: fromState(current, state), overview: Boolean(state.overview), paused: Boolean(state.paused) };
+      // The ink goes with the slide (or waits for it, when it is kept), before the new slide is drawn.
+      drawn.setSlide(spotAt(current, next.position)?.slide.id ?? null);
       // In step with reveal.js, before it goes on (a morph measures the slides as they are drawn by then). The time it takes is
       // measured (`ks-present:draw`), for a check that a step or a slide starts to show within 50 ms.
       const began = performance.now();
@@ -211,8 +252,12 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     };
     for (const type of MOVES) instance.on(type, commit);
     instance.on("autoanimate", animateMorph as unknown as EventListener);
+    // The transitions reveal.js has no name for (push, wipe, cover ...) are played from the slide the person arrives on.
+    const arrives = transitionListener() as unknown as EventListener;
+    instance.on("slidechanged", arrives);
     const chrome = attachChrome(instance, tools.current as HTMLElement, {
-      locate: locator(current),
+      locate: (number) => locator(latest.current.plan)(number),
+      extras: inkExtras(latest.current.ink),
       onExit: () => latest.current.onExit(),
       onPresenter: () => latest.current.onPresenter?.(),
       ...(latest.current.fullscreen ? { fullscreen: () => latest.current.fullscreen?.() } : {}),
@@ -230,11 +275,26 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
           }
         : {}),
     });
+    // The pen's button shows pressed while it is in hand; a pen and the laser are not in hand together.
+    const shown = latest.current.ink;
+    let last: string | null = null;
+    const showTool = () => {
+      const { tool } = shown.getSnapshot();
+      if (tool === last) return;
+      last = tool;
+      chrome.setPressed("pen", tool === "pen");
+      chrome.setPressed("highlighter", tool === "highlighter");
+      if (tool) chrome.laser(false);
+    };
+    const stopTool = shown.subscribe(showTool);
     teardown.current = () => {
       for (const type of MOVES) instance.off(type, commit);
       instance.off("autoanimate", animateMorph as unknown as EventListener);
+      instance.off("slidechanged", arrives);
+      stopTool();
       chrome.destroy();
     };
+    const held = latest.current.store;
     const at: Position = held.getSnapshot().position;
     instance.slide(at.h, at.v, at.f);
     setReveal(instance);
@@ -248,41 +308,8 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
     [],
   );
 
-  // The presenter's window: it gets the deck (and the addresses of its pictures, worked out once) when it comes and when it asks, and
-  // after that only where the talk is. The two follow each other, and the show says every 2 s that it is there.
-  useEffect(() => {
-    if (!reveal || !sync) return;
-    const images = imagesOf(deck, imageUrl);
-    const introduce = () => {
-      sync.post({ type: "deck", deck, images, state: reveal.getState(), since: since.current });
-      // Said with every deck: the presenter's window may open after the talk began, and hears it when it asks.
-      if (rehearse) sync.post({ type: "rehearse" });
-    };
-    const beat = setInterval(() => sync.post({ type: "beat" }), BEAT_MS);
-    const stop = sync.subscribe((message) => {
-      if (message.type === "hello") introduce();
-      else if (message.type === "end") latest.current.onExit();
-      // The presenter's window asks to change screens: the window moves, this page stays (slide, step and timer are kept).
-      else if (message.type === "screen") {
-        const where = latest.current.screens;
-        if (message.target === "swap") where?.swap();
-        else where?.moveTo(message.target);
-      } else if (message.type === "state") {
-        applying.current = true;
-        try {
-          // reveal.js takes a state with any part left out; its typing says every part is there.
-          reveal.setState(message.state as unknown as Parameters<RevealApi["setState"]>[0]);
-        } finally {
-          applying.current = false;
-        }
-      }
-    });
-    introduce();
-    return () => {
-      clearInterval(beat);
-      stop();
-    };
-  }, [reveal, sync, deck, imageUrl, rehearse]);
+  // The presenter's window: the deck when it comes, then where the talk is and what changed in the deck (useShowSync.ts).
+  useShowSync({ reveal, sync, deck, imageUrl, rehearse, since, applying, media, ink, latest });
 
   // The slide is whole and centred at its own proportions whatever the screen is; what is left round it is the matte.
   const bars = useMemo(() => matteColor(deck, matte), [deck.theme, matte]);
@@ -320,6 +347,9 @@ function SlideShow({ deck, start, imageUrl, onExit, sync, onPresenter, rehearse,
         </RevealDeck>
       </PresentContext.Provider>
       <div ref={tools} className="ks-show-chrome" />
+      <InkTools store={ink} />
+      <AudioLayer plan={plan} position={snapshot.position} imageUrl={imageUrl} />
+      <DeckFontStyle fonts={deck.present.fonts} imageUrl={imageUrl} />
       {panel && pages?.pagePanel ? (
         <PagePanel
           Panel={pages.pagePanel}

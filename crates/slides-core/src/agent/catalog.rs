@@ -4,7 +4,7 @@
 
 use serde_json::{Value, json};
 
-use super::specs::{ToolSpec, deck_property, object, slide_property};
+use super::specs::{ToolSpec, box_property, deck_property, object, slide_property};
 
 pub(super) fn custom() -> Vec<ToolSpec> {
     let tool = |name: &str, read_only: bool, description: &str, input_schema: Value| ToolSpec {
@@ -43,7 +43,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "list_layouts",
             true,
-            "The layouts the deck's theme offers, each with its slots (role, kind, box, text style, prompt). add_slide fills slots by role. A layout the deck's owner made is marked `custom`; it may draw decoration behind its slides (`decoration`) or have a background of its own, and prefer it to a built-in one when it fits.",
+            "The layouts the deck's theme offers, each with its slots (role, kind, box, text style, prompt). add_slide fills slots by role. A layout the deck's owner made is marked `custom` (it may draw `decoration` or have a background); prefer it to a built-in one when it fits. Layouts the person keeps for every deck follow under `library`; they are not in the deck until the person uses one.",
             object(deck(), &[]),
         ),
         tool(
@@ -68,9 +68,18 @@ pub(super) fn custom() -> Vec<ToolSpec> {
             ),
         ),
         tool(
+            "list_deck_comments",
+            true,
+            "The comments left on the deck's slides, with their answers: id, slide, what it is pinned to, author (an assistant's are marked `agent`), words, when, and whether it is settled. `slide` keeps one slide's; `status` is open, resolved or all (the default). Read them before you change a slide; settle one with resolve_deck_comment when done.",
+            object(
+                json!({ "deck": deck_property(), "slide": slide_property(), "status": { "type": "string", "enum": ["open", "resolved", "all"] } }),
+                &[],
+            ),
+        ),
+        tool(
             "create_deck",
             false,
-            "Makes a new deck from a Markdown outline and returns what was made. `# Title` names the deck and each `## Slide title` starts a slide; under it, blocks separated by blank lines are laid out in a layout chosen for what is there (one block: title and body; two: two columns; a picture `![alt](assets/x.png)`: title and image; a fenced block: code; a `>` quote: quote; nothing: a section slide). `<!-- layout: name -->` after a title picks a layout; `Notes:` starts speaker notes. A deck is not replaced if it exists.",
+            "Makes a new deck from a Markdown outline. `# Title` names the deck and each `## Slide title` starts a slide; under it, blocks separated by blank lines get a layout chosen for what is there (one block: title and body; two: two columns; a picture `![alt](assets/x.png)`: title and image; a fenced block: code; a `>` quote: quote; nothing: a section slide). `<!-- layout: name -->` after a title picks a layout; `Notes:` starts speaker notes. A deck is not replaced if it exists.",
             object(
                 json!({
                     "outline": { "type": "string", "description": "The deck as Markdown." },
@@ -84,7 +93,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "update_elements",
             false,
-            "Applies several operations to a deck together: all of them take effect, or none does and nothing changes. Each is {\"op\": name, \"input\": {...}} with any operation's name (add_slide, add_elements, patch_elements, transform_elements, set_text, add_diagram, delete_elements, group_elements, align_elements, set_transition ...) and the input its own tool takes, without `deck`. A later operation may use what an earlier one returned: \"$1.slide\" is the `slide` that operation 1 returned, \"$1.elements.body\" the id of its body slot. Use it to build a slide in one call.",
+            "Applies several operations to a deck together: all take effect, or none does. Each is {\"op\": name, \"input\": {...}} with any operation's name (add_slide, add_elements, patch_elements, transform_elements, set_text, add_diagram, delete_elements, group_elements, align_elements, set_transition ...) and the input its own tool takes, without `deck`. A later operation may use what an earlier one returned: \"$1.slide\" is the `slide` operation 1 returned, \"$1.elements.body\" the id of its body slot. Use it to build a slide in one call.",
             object(
                 json!({
                     "deck": deck_property(),
@@ -96,13 +105,13 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "place_image",
             false,
-            "Puts a picture from the store on a slide at its own proportions, never stretched. Where: `placeholder` (a picture slot of the layout, by role; by default the slide's empty one), `box` ({x, y, w, h}: the picture is fitted and centred in it), or `auto` (the largest free space that avoids the other elements). `id` replaces the picture of an element that is there. Give `alt` words for a person who cannot see it.",
+            "Puts a picture from the store on a slide at its own proportions, never stretched. Where: `placeholder` (a picture slot, by role; by default the empty one), `box` ({x, y, w, h}: fitted and centred in it), or `auto` (the largest free space). `id` replaces the picture of an element there. Give `alt` words.",
             object(
                 json!({
                     "deck": deck_property(), "slide": slide_property(),
                     "src": { "type": "string", "description": "The picture's path, such as assets/figure.png." },
                     "placeholder": { "type": "string" },
-                    "box": object(json!({ "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number" }, "h": { "type": "number" } }), &["x", "y", "w", "h"]),
+                    "box": box_property(),
                     "auto": { "type": "boolean" },
                     "id": { "type": "string" },
                     "alt": { "type": "string" }
@@ -153,7 +162,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "set_steps",
             false,
-            "Gives a slide clicks: things appearing, being highlighted or dimmed as the presenter clicks. `recipe`: reveal (the `ids` appear one by one in reading order; one text box with a list shows an item at a time), walkthrough (each is highlighted in turn while the others dim), spotlight (each stays as it is in turn while the others dim) or clear. `ids` default to every element but the title and the lines. Or give `states`: for an element id, its state at steps, {\"e-1\": {\"0\": \"hidden\", \"2\": \"normal\"}} (hidden, dimmed, normal, highlighted), or `steps`: how many clicks the slide has.",
+            "Gives a slide clicks: things appearing, highlighted or dimmed as the presenter clicks. `recipe`: reveal (the `ids` appear one by one in reading order; a text box with a list shows an item at a time), walkthrough (each is highlighted in turn, the others dim), spotlight (each stays as it is in turn, the others dim) or clear. `ids` default to every element but the title and the lines. Or give `states`: an element id's state at steps, {\"e-1\": {\"0\": \"hidden\", \"2\": \"normal\"}} (hidden, dimmed, normal, highlighted), or `steps`: how many clicks the slide has.",
             object(
                 json!({
                     "deck": deck_property(), "slide": slide_property(),
@@ -186,7 +195,7 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "export",
             false,
-            "Writes the deck as a file beside it: `pptx` (an editable PowerPoint file with native shapes, text and pictures; warnings say what could not be written exactly) or `markdown` (the outline). PDF, PNG and HTML are not available in this build.",
+            "Writes the deck as a file beside it: `pptx` (editable PowerPoint with native shapes, text and pictures; warnings say what could not be written exactly), `markdown` (the outline) or `png` (a picture of each slide, up to 20, as render_slide draws them, so it needs a browser or the open KastenFlow app). PDF and HTML are written by KastenFlow Slides itself (File, Download).",
             object(
                 json!({ "deck": deck_property(), "format": { "type": "string", "enum": ["pptx", "markdown", "pdf", "png", "html"] } }),
                 &[],
@@ -210,12 +219,30 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "render_slide",
             true,
-            "Draws one slide as a picture for you to look at: the slide as a person sees it, laid out and coloured by a browser. Look at what you build, slide by slide, after each batch of changes: lint cannot tell you that a slide is dull, crowded or unbalanced. `step` draws it as it stands at a click (from 0; the last state when left out); `scale` is the pixels to each unit of the slide (0.25 to 4; 1 by default). Needs Chrome or Chromium on this machine; without one it says so, and lint_deck is what is left to see with.",
+            "Draws one slide as a picture for you to look at. Look at what you build after each batch of changes: lint cannot tell you a slide is dull, crowded or unbalanced. `step` draws it at a click (from 0; the end state when left out); `scale` is pixels to each unit (0.25 to 4; 1 by default). To see a change before you write it, give `elements` (as add_elements takes them) or `operations` (as update_elements takes them): nothing is written. Needs a browser on this machine or the open KastenFlow app; without either, lint_deck is what is left.",
             object(
                 json!({
                     "deck": deck_property(), "slide": slide_property(),
-                    "step": { "type": "integer", "minimum": 0, "description": "The click to draw the slide at, from 0. Left out, the slide as it ends." },
-                    "scale": { "type": "number", "minimum": 0.25, "maximum": 4, "description": "Pixels to each unit of the slide; 1 by default." }
+                    "step": { "type": "integer", "minimum": 0, "description": "The click to draw at, from 0." },
+                    "scale": { "type": "number", "minimum": 0.25, "maximum": 4 },
+                    "elements": { "type": "array", "items": { "type": "object" }, "description": "Elements to draw as if added." },
+                    "operations": { "type": "array", "items": { "type": "object" }, "description": "Operations to draw as if applied: {op, input}." }
+                }),
+                &["slide"],
+            ),
+        ),
+        tool(
+            "render_diff",
+            true,
+            "Draws one slide before (left) and after a change, changed areas outlined. Give `elements` or `operations` (as render_slide takes) to see a change before you write it, or `before`, a deck hash (from get_deck or a write tool): the slide as it was then and as it is now. With neither, it is compared with the version before the latest this server read. Needs the open KastenFlow app.",
+            object(
+                json!({
+                    "deck": deck_property(), "slide": slide_property(),
+                    "before": { "type": "string", "description": "A deck hash, or a render id from render_slide." },
+                    "elements": { "type": "array", "items": { "type": "object" } },
+                    "operations": { "type": "array", "items": { "type": "object" } },
+                    "step": { "type": "integer", "minimum": 0 },
+                    "scale": { "type": "number", "minimum": 0.25, "maximum": 4 }
                 }),
                 &["slide"],
             ),
@@ -223,8 +250,105 @@ pub(super) fn custom() -> Vec<ToolSpec> {
         tool(
             "render_grid",
             true,
-            "Draws every slide as a labelled thumbnail in one picture, to see the whole deck at once: the rhythm of layouts, what repeats, what is crowded, whether the slides look like one deck. Needs Chrome or Chromium on this machine; without one it says so.",
+            "Draws every slide as a labelled thumbnail in one picture, to see the whole deck at once: the rhythm of layouts, what repeats, what is crowded, whether the slides look like one deck. Draws in a browser on this machine or in the open KastenFlow app; without either it says so.",
             object(deck(), &[]),
+        ),
+        tool(
+            "build_deck",
+            false,
+            "Makes a whole new deck from one spec, in one change (one undo): `title`, `theme` and `slides`, each slide {layout, slots (Markdown by role, as add_slide takes), image {src, alt}, elements (as add_elements takes them), notes, steps (clicks, or a recipe: reveal, walkthrough, spotlight), hidden, backup}. Give each slide a layout and its slots, not raw positions. Everything is checked first and every problem is told at once; if there is one, nothing is written. create_deck is for a Markdown outline.",
+            object(
+                json!({
+                    "title": { "type": "string" },
+                    "theme": { "type": "string", "description": "Light (default), Dark, Serif, Lecture, Minimal, Bold, Modern, Academic, Pitch, Dark Studio or Warm Paper." },
+                    "slides": { "type": "array", "items": {
+                        "type": "object",
+                        "properties": {
+                            "layout": { "type": "string", "description": "A layout of the theme (list_layouts); title-body when left out." },
+                            "slots": { "type": "object", "description": "The words for each slot of the layout, by role, in Markdown." },
+                            "image": { "type": "object", "description": "{src, alt?}: the picture of the layout's image slot." },
+                            "elements": { "type": "array", "items": { "type": "object" } },
+                            "notes": { "type": "string" },
+                            "steps": { "description": "A number of clicks, a recipe (reveal, walkthrough, spotlight), or {recipe, ids?}." },
+                            "hidden": { "type": "boolean" },
+                            "backup": { "type": "boolean" }
+                        }
+                    } }
+                }),
+                &["title", "slides"],
+            ),
+        ),
+        tool(
+            "set_chart_data",
+            false,
+            "Fills a chart (an element of type `chart`, made with add_elements) with numbers and sets how it looks, in one change. Give the table once: `csv` (a header row, then a row for each category: its name, then a number for each series; for a scatter chart the first column is the horizontal number), or `rows` (the same as lists), or `categories` with `series`. `kind` is column, stackedColumn, line, area, stackedArea, pie, doughnut, scatter or combo (`lines` names the series a combo draws as lines). `xTitle`, `yTitle`, `format` (a number pattern such as `#,##0` or `0.0%`, on the axis and the marks), `labels`, `legend` and `legendPosition` set the rest. What you leave out stays. A mistake names the field and changes nothing.",
+            object(
+                json!({
+                    "deck": deck_property(), "slide": slide_property(),
+                    "id": { "type": "string", "description": "The chart element's id." },
+                    "kind": { "type": "string" },
+                    "title": { "type": "string" },
+                    "csv": { "type": "string", "description": "The table as CSV, header row first." },
+                    "rows": { "type": "array", "items": { "type": "array" } },
+                    "categories": { "type": "array", "items": { "type": "string" } },
+                    "series": { "type": "array", "items": { "type": "object" }, "description": "Each {name, values, color?, x?, mark?}." },
+                    "lines": { "type": "array", "items": { "type": "string" } },
+                    "xTitle": { "type": "string" }, "yTitle": { "type": "string" },
+                    "format": { "type": "string" },
+                    "labels": { "type": "boolean" }, "legend": { "type": "boolean" },
+                    "legendPosition": { "type": "string", "enum": ["top", "bottom", "left", "right"] },
+                    "innerRadius": { "type": "number", "description": "For a doughnut: 0.1 to 0.9." }
+                }),
+                &["slide", "id"],
+            ),
+        ),
+        tool(
+            "place_diagram",
+            false,
+            "Puts a draw.io diagram of the vault on a slide as a picture kept in the assets, at its own proportions; it remembers the diagram so the editor can offer Update from diagram. `diagram` is its path or title. Where: `placeholder`, `box` or `auto` (the default), as place_image takes them. Give `alt` words.",
+            object(
+                json!({
+                    "deck": deck_property(), "slide": slide_property(),
+                    "diagram": { "type": "string", "description": "The diagram's path or title." },
+                    "placeholder": { "type": "string" },
+                    "box": box_property(),
+                    "auto": { "type": "boolean" },
+                    "id": { "type": "string" },
+                    "alt": { "type": "string" }
+                }),
+                &["slide", "diagram"],
+            ),
+        ),
+        tool(
+            "replace_asset",
+            false,
+            "Swaps a picture for another everywhere a deck uses it, in one change: slides (groups too), stills of videos and web pages, and backgrounds. Each element keeps its box, crop, mask and words. The old picture is kept. Uses in the master or a layout are counted, not changed.",
+            object(
+                json!({
+                    "deck": deck_property(),
+                    "from": { "type": "string", "description": "The picture to replace, such as assets/old.png." },
+                    "to": { "type": "string", "description": "The picture to use instead, already in the store." }
+                }),
+                &["from", "to"],
+            ),
+        ),
+        tool(
+            "set_notes_bulk",
+            false,
+            "Writes the speaker notes of many slides in one change. Every entry is checked first; if one is wrong, none is written. Markdown; an empty note clears the slide's notes.",
+            object(
+                json!({
+                    "deck": deck_property(),
+                    "notes": { "type": "array", "items": object(json!({ "slide": slide_property(), "notes": { "type": "string" } }), &["slide", "notes"]) }
+                }),
+                &["notes"],
+            ),
+        ),
+        tool(
+            "slides_help",
+            true,
+            "How to build a deck that reads well, in a few lines: the order of work (outline, build, render, lint, fix) and the tool for each step. Read it before you start one.",
+            object(json!({}), &[]),
         ),
     ]
 }

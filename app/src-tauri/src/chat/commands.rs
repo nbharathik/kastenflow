@@ -57,6 +57,8 @@ pub fn interrupt_chats(app: &AppHandle) {
     if let Some(state) = app.try_state::<ChatState>() {
         state.chats.interrupt_all();
     }
+    // An agent's program does not outlive the app.
+    super::cli::process::kill_all();
 }
 
 /// The providers with whether each one's address is confirmed here.
@@ -75,7 +77,10 @@ pub async fn chat_providers(
     let kasten = vault.require()?;
     let keys = state.keys();
     let list = blocking(move || Ok(providers::list(&kasten, keys.as_ref()))).await?;
-    Ok(marked(&state, list))
+    let mut list = marked(&state, list);
+    // The coding agents the person can have a thread use, after the providers.
+    list.extend(blocking(|| Ok(super::cli::commands::providers())).await?);
+    Ok(list)
 }
 
 /// Saves a provider as Settings shows it, which confirms its address.
@@ -147,6 +152,16 @@ pub async fn chat_send(
     request: ChatRequest,
 ) -> Result<ChatTurn, String> {
     let kasten = vault.require()?;
+    // A thread answered by a coding agent's own program (Claude Code, OpenCode).
+    if let Some(agent) = super::cli::Agent::of_provider(&request.provider) {
+        let setup = super::cli::commands::setup(&app, &state, agent)?;
+        let events: Arc<dyn Events> = Arc::new(Window(app));
+        let chats = state.chats.clone();
+        let (turn, work) =
+            blocking(move || threads::send_cli(&chats, kasten, events, request, setup)).await?;
+        tauri::async_runtime::spawn(work);
+        return Ok(turn);
+    }
     let model = state
         .model(&kasten, &request.provider, &request.model)
         .await?;
@@ -185,6 +200,22 @@ pub async fn chat_continue(
         })
         .await?
     };
+    // An agent's thread goes on by telling the agent to carry on; it keeps its own conversation.
+    if let Some(agent) = super::cli::Agent::of_provider(&facts.provider) {
+        let setup = super::cli::commands::setup(&app, &state, agent)?;
+        let request = ChatRequest {
+            chat: id,
+            provider: facts.provider,
+            text: super::turn::RESUME.to_owned(),
+            writes: facts.writes,
+            ..ChatRequest::default()
+        };
+        let events: Arc<dyn Events> = Arc::new(Window(app));
+        let (turn, work) =
+            blocking(move || threads::send_cli(&chats, kasten, events, request, setup)).await?;
+        tauri::async_runtime::spawn(work);
+        return Ok(turn);
+    }
     let model = state.model(&kasten, &facts.provider, &facts.model).await?;
     let refused = state.chatgpt().effort_refused(model.model_name());
     let model = capabilities::apply(model, facts.settings.as_ref(), refused)?;

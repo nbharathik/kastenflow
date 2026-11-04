@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { DEFAULT_DESIGN, DESIGNS, FITS, type Fit, MAX_DESIGN, MAX_ZOOM, MIN_DESIGN, MIN_ZOOM, PAGE_DESIGN, boxFor, presetOf, viewOf } from "../../../../embed/scale.ts";
+import { providerOf, toEmbedUrl } from "../../../../embed/embed-url.ts";
 import { isPageEmbedElement } from "../../../../embed/kinds.ts";
 import { pageAddress } from "../../../dialogs/source-address.ts";
 import { TextButton } from "../../../ui/Button.tsx";
@@ -10,6 +11,7 @@ import type { SectionProps } from "../types.ts";
 import { agree, only, shared } from "../values.ts";
 import { patchEach } from "../write.ts";
 import { CompositeSection } from "./CompositeSection.tsx";
+import { EmbedPlayback } from "./EmbedPlayback.tsx";
 import { PageSourceRows } from "./PageSourceRows.tsx";
 import { PosterField } from "./PosterField.tsx";
 
@@ -23,7 +25,9 @@ export function EmbedSection({ session, ui, elements }: SectionProps) {
   const pages = only(elements, "embed");
   const web = pages.filter((p) => !isPageEmbedElement(p));
   const hosted = pages.filter(isPageEmbedElement);
-  const url = shared(web.map((p) => p.url), "");
+  // The ones that are a video of a known site play at once and have playback options.
+  const videos = web.filter((p) => toEmbedUrl(p.url)?.kind === "video");
+  const url =shared(web.map((p) => p.url), "");
   const title = shared(pages.map((p) => p.title ?? ""), "");
   const poster = agree<string | null>(pages.map((p) => p.poster ?? null), null);
   const ids = pages.map((p) => p.id);
@@ -55,7 +59,8 @@ export function EmbedSection({ session, ui, elements }: SectionProps) {
                 onCommit={(typed) => {
                   const address = pageAddress(typed);
                   setBad(address === null);
-                  if (address !== null) patchEach(session, web, () => ({ url: address }));
+                  // The site is noted with the address (a link of no known site clears it).
+                  if (address !== null) patchEach(session, web, () => ({ url: address, provider: providerOf(address) }));
                 }}
               />
             </div>
@@ -65,6 +70,7 @@ export function EmbedSection({ session, ui, elements }: SectionProps) {
               Use a web address such as https://example.com.
             </p>
           ) : null}
+          {videos.length > 0 && videos.length === web.length ? <EmbedPlayback session={session} videos={videos} /> : null}
         </>
       ) : null}
       <Row label="Window" wide>

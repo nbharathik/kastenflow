@@ -100,10 +100,37 @@ describe("Continue", () => {
     expect(state().place).toEqual({ view: "slides", path: A });
   });
 
-  it("is not there with nothing to continue", () => {
+  it("is not there with no deck in the vault", () => {
+    useDecks.setState({ list: [] });
     show(initialLayout({ view: "slides" }));
     render(<ContinueRow />);
     expect(screen.queryByRole("button", { name: /Continue/ })).toBeNull();
+  });
+
+  it("offers the decks edited last when none is open or was opened, newest first, the open one ahead of them", () => {
+    useDecks.setState({
+      list: [
+        { path: A, title: "Talk A", slides: 3, modified: 100, problem: null },
+        { path: B, title: "Talk B", slides: 1, modified: 300, problem: null },
+        { path: "decks/c.deck", title: "Talk C", slides: 2, modified: 200, problem: null },
+      ] as never,
+    });
+    show(initialLayout({ view: "slides" }));
+    const { unmount } = render(<ContinueRow />);
+    const names = () => screen.getAllByRole("button", { name: /^Continue: / }).map((b) => b.getAttribute("aria-label"));
+    expect(names()).toEqual(["Continue: Talk B", "Continue: Talk C", "Continue: Talk A"]);
+    expect(screen.getByRole("button", { name: "Continue: Talk B" }).textContent).toContain("1 slide");
+    unmount();
+    show(openTab(initialLayout({ view: "slides" }), { view: "slides", path: A }));
+    render(<ContinueRow />);
+    expect(names()[0]).toBe("Continue: Talk A");
+  });
+
+  it("shows no more than four", () => {
+    useDecks.setState({ list: Array.from({ length: 7 }, (_, i) => ({ path: `decks/${i}.deck`, title: `Talk ${i}`, slides: 1, modified: i, problem: null })) as never });
+    show(initialLayout({ view: "slides" }));
+    render(<ContinueRow />);
+    expect(screen.getAllByRole("button", { name: /^Continue: / })).toHaveLength(4);
   });
 
   it("says when the assistant works on the deck", () => {

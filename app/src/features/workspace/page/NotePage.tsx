@@ -47,6 +47,7 @@ import { usePageLinks } from "./use-page-links";
 import { keepLayout, readLayout, setLayout, shownLayout, usePageLayouts } from "./page-layout";
 import { inProject, placeLabel } from "./place-label";
 import { SourcePanel } from "./SourcePanel";
+import { TodayStrip } from "../../journal/project/TodayStrip";
 import { pageFontSize } from "./text-size";
 import { inTauri } from "../../../lib/api";
 import { useSmartRunning } from "../../smart/run-switch";
@@ -246,6 +247,7 @@ function LoadedPage({ client, loaded, session, conflict, onDismissConflict, onRe
         <div ref={bodyRoot} className="kasten-page-column kasten-page-body" data-editor-gutter="" spellCheck={spellcheck}>
           <PageEditor body={loaded.body} onChange={onBody} onReady={onReady} links={links} files={files} marks={marks} agent={agent} title={titleOf(live)} onTemplate={journal || compact ? undefined : pickTemplate} pageKey={pageKey} smart={smart} onSmartPage={keepSmart} subPageFind={compact || headless ? undefined : subPages} />
           <div className="kasten-page-tail" aria-hidden="true" />
+          {journal && !compact && <TodayStrip path={session.path} />}
           {!compact && <PageFooter note={live} notes={notes} client={client} />}
         </div>
       </div>

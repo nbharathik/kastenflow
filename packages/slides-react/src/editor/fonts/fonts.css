@@ -1,0 +1,51 @@
+/* The font browser. */
+.ks-fonts-list,
+.ks-fonts-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ks-fonts-list {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius);
+}
+
+.ks-fonts-row,
+.ks-fonts-file {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.6fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+}
+
+.ks-fonts-file {
+  grid-template-columns: minmax(120px, 1fr) auto auto;
+}
+
+.ks-fonts-name {
+  display: grid;
+}
+
+.ks-fonts-where {
+  color: var(--ks-muted);
+  font-size: 0.85em;
+}
+
+.ks-fonts-preview {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1.15em;
+}
+
+.ks-fonts-allow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

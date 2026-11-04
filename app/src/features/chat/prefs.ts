@@ -2,6 +2,7 @@
 // preference of this window, kept in the browser's storage like the panel's
 // tab; stored values are checked, since anything may be there.
 
+import { isAgentProvider } from "./agents/names";
 import type { Learned } from "./capabilities";
 import { isSet, readSettings } from "./settings";
 import type { ChatProvider, GenerationSettings } from "./types";
@@ -29,6 +30,8 @@ export function lastModel(): ModelChoice | null {
 }
 
 export function keepModel(choice: ModelChoice): void {
+  // A coding agent is picked for one thread; it is not what new chats start with.
+  if (isAgentProvider(choice.provider)) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(choice));
   } catch {
@@ -93,12 +96,21 @@ export function learnEffort(provider: string, model: string, found: Learned): vo
 /** The provider and model a thread uses: its own choice while that provider
  * exists, else the last one used, else the first provider's; null when no
  * provider is set up. An empty model means the provider's own. */
-export function modelFor(thread: { provider: string | null; model: string | null }, providers: readonly ChatProvider[] | null, last: ModelChoice | null = lastModel()): ModelChoice | null {
-  if (!providers || providers.length === 0) return null;
-  const pick = (name: string | null | undefined) => (name ? providers.find((p) => p.name === name) : undefined);
+export function modelFor(thread: { provider: string | null; model: string | null }, providers: readonly ChatProvider[] | null, last: ModelChoice | null = lastModel(), agents = false): ModelChoice | null {
+  // The coding agents (Claude Code, OpenCode) are a thread's own choice, in the chat only: the page editor,
+  // brainstorms and the rest ask a model, and never fall back to one of them.
+  const pool = agents ? providers : (providers?.filter((p) => !isAgentProvider(p.name)) ?? null);
+  if (!pool || pool.length === 0) return null;
+  const pick = (name: string | null | undefined) => (name ? pool.find((p) => p.name === name) : undefined);
   const own = pick(thread.provider);
   if (own) return { provider: own.name, model: thread.model?.trim() || own.model };
-  const kept = pick(last?.provider);
+  // A model that was used last is one the person set up; an agent is chosen for a thread, never inherited.
+  const kept = isAgentProvider(last?.provider) ? undefined : pick(last?.provider);
   if (kept) return { provider: kept.name, model: last!.model.trim() || kept.model };
-  return { provider: providers[0]!.name, model: providers[0]!.model };
+  // With no provider at all, a chat falls to an agent that is installed.
+  const first = pool.find((p) => !isAgentProvider(p.name)) ?? pool.find((p) => p.hasKey);
+  return first ? { provider: first.name, model: first.model } : null;
 }
+
+/** `modelFor` for the chat's own views, where a coding agent can be the choice. */
+export const chatModelFor = (thread: { provider: string | null; model: string | null }, providers: readonly ChatProvider[] | null): ModelChoice | null => modelFor(thread, providers, lastModel(), true);

@@ -13,6 +13,7 @@ import { useShell } from "../lib/store";
 import type { NoteMeta } from "../lib/vault/types";
 import { keyTitle } from "../features/shortcuts/store";
 import { JournalActions, JournalCrumbs } from "../features/journal/JournalBar";
+import { ProjectJournalButton } from "../features/journal/project/JournalButton";
 import { journalPath } from "../features/journal/feed";
 import { isoDay } from "../lib/dates";
 import { AutonomousMark } from "./AutonomousMark";
@@ -208,6 +209,7 @@ function PageActions({ note, paneId }: { note: NoteMeta; paneId: string }) {
       >
         <Icon name="star" className={favourite ? "fill-current" : ""} />
       </button>
+      {note.kind === "project" && <ProjectJournalButton project={note} />}
       <button type="button" aria-label="Outline and details" title={keyTitle("Outline and details", "panel")} aria-pressed={panelOpen} onClick={() => shell.togglePanel(paneId)} className={`${iconButton} ${panelOpen ? "bg-line/60 text-ink" : ""}`}>
         <Icon name="panel" />
       </button>

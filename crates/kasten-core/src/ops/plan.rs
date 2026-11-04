@@ -8,6 +8,7 @@ use super::{Kind, NewNote, eol_of, folder_of, free_path_besides, template_text};
 use crate::error::{Error, Result};
 use crate::frontmatter::{Front, join, set_key, split, yaml_ok};
 use crate::id::ulid_at;
+use crate::journal_path::journal_path_in;
 use crate::slug::slugify;
 use crate::template_vars::{day_and_time, fill};
 use crate::time::Instant;
@@ -72,8 +73,13 @@ pub(crate) fn plan_note(
     }
     let project = new.project.as_deref().map(slugify);
     let free = |dir: &str, name: &str| free_path_besides(vault, dir, name, taken);
+    // A journal day is in the vault's journal, or in its project's.
+    let journal = match new.kind {
+        Kind::Journal => Some(journal_path_in(vault, new.project.as_deref(), day)?),
+        _ => None,
+    };
     let path = match (new.kind, &new.parent, &project) {
-        (Kind::Journal, _, _) => format!("journal/{}/{day}.md", &day[..4]),
+        (Kind::Journal, _, _) => journal.unwrap_or_default(),
         (Kind::Chat, _, _) => free("chats", &format!("{day}-{}", slugify(&title))),
         (Kind::Project, _, _) => {
             let mut folder = slugify(&title);

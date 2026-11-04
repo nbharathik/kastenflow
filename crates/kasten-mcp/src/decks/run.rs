@@ -133,7 +133,9 @@ pub(crate) fn call_in(
     }
     let sent = args.to_string().len();
     let project = match (name, args.as_object_mut()) {
-        ("create_deck" | "import_pptx" | "deck_from_note", Some(map)) => map.remove("project"),
+        ("create_deck" | "import_pptx" | "deck_from_note" | "build_deck", Some(map)) => {
+            map.remove("project")
+        }
         _ => None,
     }
     .and_then(|p| p.as_str().map(|p| p.trim().to_owned()))
@@ -152,6 +154,10 @@ pub(crate) fn call_in(
         "deck_from_note" => super::from_note::run(kasten, &mut store, &args),
         _ => agent::call(&mut store, name, args),
     };
+    if !spec.read_only {
+        // A change may have made the vault's first deck, which makes more of the deck tools listed.
+        crate::slides_group::forget(kasten);
+    }
     if let Some(review) = store.review.take() {
         return Ok(waiting(review, session));
     }

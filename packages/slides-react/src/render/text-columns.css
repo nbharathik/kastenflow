@@ -1,0 +1,19 @@
+/* A text box set in columns: the first fills to the bottom of the box, then the next, as in PowerPoint. */
+.ks-text .ks-cols-wrap {
+  display: contents;
+}
+
+.ks-text.ks-cols-2,
+.ks-text.ks-cols-3 {
+  display: block !important;
+  column-fill: auto;
+  column-gap: var(--ks-col-gap, 32px);
+}
+
+.ks-text.ks-cols-2 {
+  column-count: 2;
+}
+
+.ks-text.ks-cols-3 {
+  column-count: 3;
+}

@@ -14,15 +14,15 @@ fn untouched_daily_planner_starts_blank_but_preserves_written_content() {
     let template = t.vault.root().join("templates/journal.md");
     let old = include_str!("../../defaults/legacy/daily-journal.md");
     fs::write(&template, old).unwrap();
-    let day = journal_day(&t.vault, "2026-10-08", NOW).unwrap();
+    let day = journal_day(&t.vault, None, "2026-10-08", NOW).unwrap();
     assert!(frontmatter::split(&day.text).body.trim().is_empty());
     let own = format!("{old}\nMy plans.\n");
     fs::write(&template, &own).unwrap();
-    let written = journal_day(&t.vault, "2026-10-09", NOW).unwrap();
+    let written = journal_day(&t.vault, None, "2026-10-09", NOW).unwrap();
     assert!(written.text.contains("My plans."));
     fs::write(&template, old).unwrap();
     assert_eq!(
-        journal_day(&t.vault, "2026-10-09", NOW).unwrap().text,
+        journal_day(&t.vault, None, "2026-10-09", NOW).unwrap().text,
         written.text
     );
 }
@@ -34,7 +34,7 @@ fn a_journal_template_left_as_the_old_default_starts_days_blank() {
     // Vaults made before new days started blank kept this template.
     let old = "---\ntitle: \"{{date}}\"\ntype: journal\n---\n## Morning\n\n## Notes\n";
     fs::write(&template, old).unwrap();
-    let day = journal_day(&t.vault, "2026-09-24", NOW).unwrap();
+    let day = journal_day(&t.vault, None, "2026-09-24", NOW).unwrap();
     assert_eq!(
         frontmatter::split(&day.text).body.trim(),
         "",
@@ -43,7 +43,7 @@ fn a_journal_template_left_as_the_old_default_starts_days_blank() {
     );
     // The same, checked out with Windows line endings.
     fs::write(&template, old.replace('\n', "\r\n")).unwrap();
-    let windows = journal_day(&t.vault, "2026-09-25", NOW).unwrap();
+    let windows = journal_day(&t.vault, None, "2026-09-25", NOW).unwrap();
     assert_eq!(
         frontmatter::split(&windows.text).body.trim(),
         "",
@@ -52,7 +52,7 @@ fn a_journal_template_left_as_the_old_default_starts_days_blank() {
     );
     // A template someone wrote is theirs, and is kept.
     fs::write(&template, old.replace("## Notes", "## Grateful for")).unwrap();
-    let own = journal_day(&t.vault, "2026-09-26", NOW).unwrap();
+    let own = journal_day(&t.vault, None, "2026-09-26", NOW).unwrap();
     assert!(
         own.text.contains("## Morning\n\n## Grateful for"),
         "{}",
@@ -67,7 +67,7 @@ fn any_old_journal_template_with_only_its_two_headings_starts_days_blank() {
     let front = "---\ntitle: \"{{date}}\"\ntype: journal\n---\n";
     let blank = |text: &str, day: &str| {
         fs::write(&template, text).unwrap();
-        let made = journal_day(&t.vault, day, NOW).unwrap();
+        let made = journal_day(&t.vault, None, day, NOW).unwrap();
         frontmatter::split(&made.text).body.trim().is_empty()
     };
     // Other blank lines, heading levels, a byte order mark: still the old default.
@@ -135,7 +135,7 @@ fn the_journal_can_start_days_from_another_template() {
         .find(|l| l.starts_with('#'))
         .unwrap()
         .to_owned();
-    let day = f.k.journal(&Actor::Human, "2026-10-05", NOW).unwrap();
+    let day = f.k.journal(&Actor::Human, None, "2026-10-05", NOW).unwrap();
     assert!(day.text.contains(&first_heading), "{}", day.text);
     assert_eq!(day.meta.path, "journal/2026/2026-10-05.md");
     assert!(day.text.contains("type: journal"), "{}", day.text);
@@ -145,15 +145,19 @@ fn the_journal_can_start_days_from_another_template() {
 fn a_missing_or_unsafe_journal_template_falls_back_to_the_usual_one() {
     use kasten_core::history::Actor;
     let f = fresh();
-    let usual = frontmatter::split(&f.k.journal(&Actor::Human, "2026-10-01", NOW).unwrap().text)
-        .body
-        .to_owned();
+    let usual = frontmatter::split(
+        &f.k.journal(&Actor::Human, None, "2026-10-01", NOW)
+            .unwrap()
+            .text,
+    )
+    .body
+    .to_owned();
     for name in ["gone", "../templates/journal", "templates/journal", ""] {
         let mut config = f.k.config();
         config.journal_template = Some(name.into());
         f.k.set_config(config).unwrap();
         let date = format!("2026-10-{:02}", 10 + name.len() % 20);
-        let day = f.k.journal(&Actor::Human, &date, NOW).unwrap();
+        let day = f.k.journal(&Actor::Human, None, &date, NOW).unwrap();
         assert_eq!(
             frontmatter::split(&day.text).body,
             usual,

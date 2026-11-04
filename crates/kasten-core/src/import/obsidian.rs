@@ -26,6 +26,7 @@ use super::walk::SourceFile;
 use crate::error::Result;
 use crate::frontmatter::split;
 use crate::id::ulid_at;
+use crate::journal_path::day_file;
 
 /// A page to make: from a note, or for a folder without a note of its own.
 struct Page<'a> {
@@ -136,10 +137,7 @@ pub(crate) fn plan(ctx: &Context, files: &[SourceFile]) -> Result<Plan> {
     }
     for (f, date, _) in &days {
         resolver.add_note(&f.rel, date);
-        moved.insert(
-            f.rel.to_lowercase(),
-            format!("journal/{}/{date}.md", &date[..4]),
-        );
+        moved.insert(f.rel.to_lowercase(), day_file(None, date));
     }
     let boards: Vec<(&SourceFile, String)> = canvases
         .into_iter()
@@ -312,7 +310,7 @@ fn journal_days(
 ) -> Vec<Day> {
     let mut out: Vec<Day> = Vec::new();
     for (f, date, text) in days {
-        let path = format!("journal/{}/{date}.md", &date[..4]);
+        let path = day_file(None, date);
         let body = without_title(split(text).body, f.stem());
         let body = rewrite_body(&body, &path, f.folder(), resolver);
         let tags = inline_tags(&body);

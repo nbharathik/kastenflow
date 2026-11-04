@@ -9,8 +9,9 @@
 //!
 //! One exception to "own pages only": a frame is a navigation too, and the
 //! window cannot tell one from the window's own. While a deck is being
-//! presented, the pages it embeds may load in their frames: the origins the
-//! presenting window named (`allow_embeds`), and no others.
+//! presented, or played in the editor, the pages it embeds may load in their
+//! frames: the origins the window named (`allow_embeds`), the few helper
+//! origins of a known video or document site (`embed_hosts`), and no others.
 //!
 //! The browser tab's webviews (`web-*`) are the opposite case: the open web.
 //! They call no command at all, and go only where the browser's policy
@@ -61,12 +62,29 @@ const MAX_EMBEDS: usize = 64;
 #[derive(Default)]
 pub struct Embeds(Mutex<HashSet<String>>);
 
+/// Whether the host of `url` is one the app serves its own pages from, or is written to look like one: any
+/// `*.localhost` (Windows serves the app as `tauri.localhost`, the editor of diagrams as `diagrams.localhost`
+/// and its commands as `ipc.localhost`, in any capitals), a name with a trailing dot (`tauri.localhost.` is the
+/// same host to the network and another to a comparison), and the dev server's own port. A page the app serves
+/// is never an embed: it would be framed with the permissions of a site of its own.
+fn app_host(url: &Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return true;
+    };
+    let host = host.to_ascii_lowercase();
+    let bare = host.trim_end_matches('.');
+    host.ends_with('.')
+        || bare.ends_with(".localhost")
+        || (bare == "localhost" && url.port_or_known_default() == Some(DEV_PORT))
+}
+
 /// The origin of a web address, `scheme://host:port` with the port always written; None for anything but `http` and `https`
-/// without a name and password.
+/// without a name and password, and for a page of the app itself (`app_host`).
 pub fn origin_of(url: &Url) -> Option<String> {
     if !matches!(url.scheme(), "http" | "https")
         || !url.username().is_empty()
         || url.password().is_some()
+        || app_host(url)
     {
         return None;
     }
@@ -80,14 +98,21 @@ pub fn origin_of(url: &Url) -> Option<String> {
 
 impl Embeds {
     /// Takes the addresses of the embedded pages of a presentation in place of the last ones; the ones that are not web addresses are
-    /// left out. Returns how many origins are now allowed.
+    /// left out. A page of a site with helper addresses of its own (a video player) brings them (`embed_hosts`). Returns how many
+    /// origins are now allowed.
     pub fn set(&self, addresses: &[String]) -> usize {
-        let origins: HashSet<String> = addresses
+        let named: HashSet<String> = addresses
             .iter()
             .filter_map(|text| Url::parse(text).ok())
             .filter_map(|url| origin_of(&url))
             .take(MAX_EMBEDS)
             .collect();
+        let mut origins = named.clone();
+        origins.extend(
+            named
+                .iter()
+                .flat_map(|origin| crate::embed_hosts::helpers_for(origin)),
+        );
         let mut held = self.0.lock().unwrap_or_else(|e| e.into_inner());
         *held = origins;
         held.len()
@@ -168,11 +193,12 @@ pub(crate) fn may_navigate(window: &str, url: &Url, embeds: Option<&Embeds>) -> 
     // the diagram editor's pages may load, in the main window only. Nothing
     // that shows one is a page of Kasten's, so it can call no command. The
     // same holds for a smart page's sandboxed frame (the `smart` scheme).
+    // The presenter's window shows the same embeds live (muted) beside the notes, so it may load the origins the show named; it gets no
+    // other frame, and no more commands.
     own_page(url)
         || (window == MAIN
-            && (diagrams_page_on(url, cfg!(windows))
-                || crate::smart::guard::smart_page(url)
-                || embeds.is_some_and(|embeds| embeds.allows(url))))
+            && (diagrams_page_on(url, cfg!(windows)) || crate::smart::guard::smart_page(url)))
+        || (matches!(window, MAIN | PRESENTER) && embeds.is_some_and(|embeds| embeds.allows(url)))
 }
 
 /// The app's commands, each answered only for a window that may call it.
@@ -212,18 +238,40 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 }
 
 #[cfg(test)]
+mod embed_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn embedded_origins_never_extend_capture_or_presenter_navigation() {
+    fn embedded_origins_extend_the_main_and_presenter_windows_only() {
         let embeds = Embeds::default();
         embeds.set(&["https://example.com/talk".into()]);
         let url = Url::parse("https://example.com/talk").unwrap();
-        assert!(may_navigate(MAIN, &url, Some(&embeds)));
-        for window in [CAPTURE, PRESENTER, "unknown"] {
-            assert!(!may_navigate(window, &url, Some(&embeds)));
+        for window in [MAIN, PRESENTER] {
+            assert!(may_navigate(window, &url, Some(&embeds)), "{window}");
         }
+        for window in [CAPTURE, "unknown", "diagrams"] {
+            assert!(!may_navigate(window, &url, Some(&embeds)), "{window}");
+        }
+        // Only the origins the show named, and nothing once it is over.
+        let other = Url::parse("https://evil.example/").unwrap();
+        assert!(!may_navigate(PRESENTER, &other, Some(&embeds)));
+        embeds.set(&[]);
+        assert!(!may_navigate(PRESENTER, &url, Some(&embeds)));
+        assert!(!may_navigate(PRESENTER, &url, None));
+    }
+
+    #[test]
+    fn the_presenter_window_gets_embeds_but_no_diagram_or_smart_frames_and_no_more_commands() {
+        let diagram = if cfg!(windows) {
+            Url::parse("http://diagrams.localhost/index.html").unwrap()
+        } else {
+            Url::parse("diagrams://localhost/index.html").unwrap()
+        };
+        assert!(!may_navigate(PRESENTER, &diagram, None));
+        assert!(!may_call(PRESENTER, "allow_embeds"));
     }
 
     #[test]

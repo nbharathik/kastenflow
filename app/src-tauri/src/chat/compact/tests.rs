@@ -22,6 +22,7 @@ fn result(len: usize) -> Message {
         id: "c0".into(),
         content: "r".repeat(len),
         is_error: false,
+        images: Vec::new(),
     }])
 }
 

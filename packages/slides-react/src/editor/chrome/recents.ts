@@ -19,6 +19,18 @@ export function noteFont(family: string): void {
   writeStored("recent-fonts", pushRecent(recentFonts(), family, RECENT_FONTS_MAX));
 }
 
+export const RECENT_PALETTE_MAX = 6;
+
+/** The ids of the rows of the command palette that were chosen lately, the newest first. */
+export function recentPalette(): string[] {
+  return readStored("recent-palette", [], isStringList);
+}
+
+/** Remembers a row of the palette that was chosen, so that it is listed first the next time. */
+export function notePalette(id: string): void {
+  writeStored("recent-palette", pushRecent(recentPalette(), id, RECENT_PALETTE_MAX));
+}
+
 export function recentColours(): string[] {
   return readStored("recent-colours", [], isStringList);
 }

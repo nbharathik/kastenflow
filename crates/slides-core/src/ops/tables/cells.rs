@@ -129,7 +129,7 @@ fn plural(n: usize, what: &str) -> String {
 impl Op for SetCells {
     type Output = TableSize;
     const NAME: &'static str = "set_cells";
-    const ABOUT: &'static str = "Put words in a block of cells of a table. `cells` is a list of rows, each a list of {text} or {markdown} values, and `at` is the row and column of the first, counted from 0. Markdown keeps the cell's alignment and insets; a value with neither is skipped. When the values reach past the table, rows and columns are added at the bottom and right (`grow`, on by default) as big as the last ones, and the table's box grows with them while it stays on the slide. A value on a place that a merged cell covers is refused unless it is empty, and so is a block that takes in only part of a merged cell. Returns the table's rows and columns.";
+    const ABOUT: &'static str = "Put words in a block of cells of a table. `cells` is a list of rows, each a list of {text} or {markdown} values, and `at` is the row and column of the first, counted from 0. Markdown keeps the cell's alignment and insets; a value with neither is skipped. When the values reach past the table, rows and columns are added at the bottom and right (`grow`, on by default) as big as the last ones, and the box grows with them while it stays on the slide. A value on a place a merged cell covers is refused unless empty, and so is a block that takes in only part of a merged cell. Returns the table's rows and columns.";
 
     fn scope(&self, _: &crate::model::Deck) -> Scope {
         Scope::slide(&self.slide)

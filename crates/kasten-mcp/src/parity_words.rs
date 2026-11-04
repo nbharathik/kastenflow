@@ -127,10 +127,16 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
             "fill {note} from the template “{}”",
             text(input, "template")
         ),
-        "journal_day" => match text(input, "date") {
-            "" => "open today's journal".to_owned(),
-            day => format!("open the journal for {day}"),
-        },
+        "journal_day" => {
+            let of = match text(input, "project") {
+                "" => String::new(),
+                project => format!(" of {project}"),
+            };
+            match text(input, "date") {
+                "" => format!("open today's journal{of}"),
+                day => format!("open the journal{of} for {day}"),
+            }
+        }
         "set_task" => format!(
             "{} a to-do in {note}",
             if input["done"] == false {

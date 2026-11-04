@@ -84,6 +84,8 @@ pub fn import_pptx(bytes: &[u8], options: &str) -> Result<ImportedFile, JsValue>
             title: options.title,
             name: options.name,
             markers: options.markers.unwrap_or(defaults.markers),
+            // The editor draws and edits charts, and exports them as charts PowerPoint can edit.
+            native_charts: true,
             ..defaults
         },
     )

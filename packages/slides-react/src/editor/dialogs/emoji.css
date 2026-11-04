@@ -1,0 +1,54 @@
+/* The emoji picker: a search box over a scrolling grid, by category. */
+.ks-em {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ks-em-search {
+  width: 100%;
+}
+.ks-em-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.ks-em-title {
+  margin: 8px 2px 4px;
+  color: var(--ks-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ks-em-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+.ks-em-cell {
+  appearance: none;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ks-radius);
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ks-em-cell:hover {
+  background: var(--ks-hover);
+}
+.ks-em-cell:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -1px;
+}
+.ks-em-none {
+  margin: 16px 2px;
+  color: var(--ks-muted);
+  text-align: center;
+}
+.ks-em-hint {
+  margin: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+}

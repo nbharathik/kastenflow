@@ -92,10 +92,19 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
         "get_theme" => format!("read the theme of {deck}"),
         "search_assets" => "look for pictures".to_owned(),
         "lint_deck" => format!("check {deck}"),
-        "create_deck" => match text(input, "title") {
+        "list_deck_comments" => format!("read the comments of {deck}"),
+        "add_deck_comment" => format!("comment on slide {} of {deck}", text(input, "slide")),
+        "reply_deck_comment" => format!("answer a comment in {deck}"),
+        "resolve_deck_comment" => format!("settle a comment in {deck}"),
+        "create_deck" | "build_deck" => match text(input, "title") {
             "" => "create a deck".to_owned(),
             title => format!("create the deck {}", quoted(title)),
         },
+        "slides_help" => "read the guide to making a deck".to_owned(),
+        "set_chart_data" => format!("fill a chart in {deck}"),
+        "place_diagram" => format!("place a diagram in {deck}"),
+        "replace_asset" => format!("swap a picture everywhere in {deck}"),
+        "set_notes_bulk" => format!("write the speaker notes of {deck}"),
         "deck_from_note" => format!("make a deck from {}", quoted(text(input, "note"))),
         "trash_deck" => format!("move {deck} to the trash"),
         "add_asset" => "add a picture".to_owned(),
@@ -103,7 +112,14 @@ pub fn action(name: &str, input: &Value) -> Option<String> {
         "export" => format!("export {deck} as {}", text(input, "format")),
         "render_slide" => format!("draw slide {} of {deck}", text(input, "slide")),
         "render_grid" => format!("draw all the slides of {deck}"),
+        "render_diff" => format!(
+            "draw slide {} of {deck} before and after",
+            text(input, "slide")
+        ),
         "place_image" => format!("place a picture in {deck}"),
+        "place_code_picture" => format!("draw a picture with code in {deck}"),
+        "run_code_picture" => format!("run the code of a picture in {deck}"),
+        "rerun_code_pictures" => format!("run the code pictures of {deck} again"),
         "delete_slides" => format!("delete slides from {deck}"),
         "add_slide" => format!("add a slide to {deck}"),
         "set_cells" => format!("fill cells in {deck}"),
@@ -150,8 +166,15 @@ fn verb(name: &str) -> &'static str {
         "merge_cells" => "Merged cells in",
         "unmerge_cells" => "Split merged cells in",
         "place_image" => "Placed a picture in",
+        "place_diagram" => "Placed a diagram in",
+        "replace_asset" => "Swapped a picture in",
+        "set_chart_data" => "Filled a chart in",
+        "set_notes_bulk" => "Changed the notes of",
         "apply_theme" | "apply_deck_template" | "edit_theme" | "set_logo" => "Changed the look of",
         "reorder_slides" | "move_slides" | "reorder_elements" => "Reordered",
+        "add_deck_comment" => "Commented on",
+        "reply_deck_comment" => "Answered a comment in",
+        "resolve_deck_comment" => "Settled a comment in",
         _ => "Changed",
     }
 }
@@ -212,10 +235,11 @@ pub fn told(kasten: &Kasten, name: &str, input: &Value, value: &Value) -> Option
                 vec![],
             )
         }
-        "get_outline" | "list_layouts" | "get_theme" => {
+        "get_outline" | "list_layouts" | "get_theme" | "list_deck_comments" => {
             let what = match name {
                 "get_outline" => "the outline of",
                 "list_layouts" => "the layouts of",
+                "list_deck_comments" => "the comments of",
                 _ => "the theme of",
             };
             (
@@ -244,7 +268,8 @@ pub fn told(kasten: &Kasten, name: &str, input: &Value, value: &Value) -> Option
                 vec![],
             )
         }
-        "create_deck" => {
+        "slides_help" => ("Read the guide to making a deck".to_owned(), vec![]),
+        "create_deck" | "build_deck" => {
             let path = deck_path(done);
             (
                 format!(

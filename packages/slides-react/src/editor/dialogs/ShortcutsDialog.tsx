@@ -4,6 +4,7 @@ import { BIG_NUDGE, NUDGE } from "../canvas/nudge.ts";
 import { COMMANDS, showCombo } from "../commands/index.ts";
 import { TextButton } from "../ui/Button.tsx";
 import { Dialog } from "../ui/Dialog.tsx";
+import { presentingKeys } from "./presenting-keys.ts";
 import type { DialogProps } from "./types.ts";
 import "./dialogs.css";
 
@@ -46,12 +47,15 @@ export function ShortcutsDialog({ onClose }: DialogProps): JSX.Element {
   const groups = useMemo(() => shortcutGroups(), []);
   const wanted = query.trim().toLowerCase();
   const shown = groups.map((group) => ({ ...group, rows: group.rows.filter((row) => row.label.toLowerCase().includes(wanted)) })).filter((group) => group.rows.length > 0);
+  // The keys of a show are the show's own list, not commands of the editor: they follow the others.
+  const presenting = useMemo(() => presentingKeys(), []);
+  const showKeys = presenting.filter((row) => `${row.what} ${row.keys} presenting`.toLowerCase().includes(wanted));
   return (
     <Dialog title="Keyboard shortcuts" width={560} onClose={onClose} footer={<TextButton onClick={onClose}>Close</TextButton>}>
       <input className="ks-input" type="search" aria-label="Search shortcuts" placeholder="Search shortcuts" data-autofocus="" value={query} onChange={(event) => setQuery(event.target.value)} />
       <p className="ks-dg-note">{`Drag the move handle to move a block; arrow keys nudge by ${NUDGE}, Shift+arrow by ${BIG_NUDGE}`}</p>
       <div className="ks-dg-keys">
-        {shown.length === 0 ? <p className="ks-dg-note">No shortcut has that name.</p> : null}
+        {shown.length === 0 && showKeys.length === 0 ? <p className="ks-dg-note">No shortcut has that name.</p> : null}
         {shown.map((group) => (
           <section key={group.area} className="ks-dg-keys-group" aria-label={group.area}>
             <h3 className="ks-dg-keys-area">{group.area}</h3>
@@ -72,6 +76,21 @@ export function ShortcutsDialog({ onClose }: DialogProps): JSX.Element {
             </ul>
           </section>
         ))}
+        {showKeys.length > 0 ? (
+          <section className="ks-dg-keys-group" aria-label="Presenting">
+            <h3 className="ks-dg-keys-area">Presenting</h3>
+            <ul>
+              {showKeys.map((row) => (
+                <li key={row.what}>
+                  <span className="ks-dg-keys-label">{row.what}</span>
+                  <span className="ks-dg-keys-combos">
+                    <kbd className="ks-kbd ks-dg-kbd">{row.keys}</kbd>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
     </Dialog>
   );

@@ -246,6 +246,7 @@ fn appends_to_a_journal_day_and_writes_tag_schemas() {
     let day = k
         .journal_append(
             &Actor::Human,
+            None,
             "2026-09-30",
             "- [ ] Pack the charger",
             None,

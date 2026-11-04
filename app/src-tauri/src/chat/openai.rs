@@ -87,7 +87,11 @@ pub fn messages(system: &str, thread: &[Message]) -> Vec<Value> {
     if !system.is_empty() {
         out.push(json!({"role": "system", "content": system}));
     }
-    for message in thread {
+    // Pictures a tool drew go to the model once, with the latest results.
+    let latest = thread
+        .iter()
+        .rposition(|m| matches!(m, Message::Results(_)));
+    for (at, message) in thread.iter().enumerate() {
         match message {
             Message::User(text) => out.push(json!({"role": "user", "content": text})),
             Message::UserImages { text, images } => out.push(
@@ -121,6 +125,14 @@ pub fn messages(system: &str, thread: &[Message]) -> Vec<Value> {
                     };
                     out.push(
                         json!({"role": "tool", "tool_call_id": result.id, "content": content}),
+                    );
+                }
+                // A tool message holds only text here, so the pictures follow as the user's.
+                let drawn: Vec<_> = results.iter().flat_map(|r| r.images.clone()).collect();
+                if latest == Some(at) && !drawn.is_empty() {
+                    let words = "The pictures the tools above drew, in the order of the calls.";
+                    out.push(
+                        json!({"role": "user", "content": super::parts::chat_completions(words, &drawn)}),
                     );
                 }
             }

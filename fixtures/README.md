@@ -27,6 +27,10 @@ Everything tests read lives here. Tests never touch a real vault.
   the `mcpServers` entry, the HTTP command, the address and the token's place), for a
   few programs and vaults. `kasten-mcp --setup` and Settings → AI agents are both
   tested against it, so what the program prints and what the app shows cannot drift.
+- `agent-cli/`: lines as Claude Code (`claude -p --output-format stream-json`) and OpenCode
+  (`opencode run --format json`) print them, one JSON object per line: an answer with a tool
+  call, a question, a sign-in failure, a run and a refused call. The tests of the coding
+  agents in the chat read them; no test starts either program.
 - `oidc/`: two throwaway RSA key pairs (private halves as DER, public halves as
   JWKS) that the tests of Sign in with ChatGPT sign and check ID tokens with, in
   place of OpenAI's keys. For tests only; see its README.

@@ -1,5 +1,5 @@
-//! The rules about what is on the slide: empty-placeholder, missing-alt,
-//! unresolved-citation, step-orphan and pptx-unsafe; and composites.
+//! The rules about what is on the slide: empty-placeholder, empty-text-box,
+//! missing-alt, unresolved-citation, step-orphan and pptx-unsafe; and composites.
 
 use serde_json::json;
 
@@ -44,6 +44,55 @@ fn empty_placeholder_finds_slots_left_empty() {
         first.message
     );
     assert!(second.hint.as_deref().unwrap_or("").contains("place_image"));
+}
+
+#[test]
+fn empty_text_box_reports_a_box_of_its_own_with_nothing_in_it() {
+    let mut b = bench();
+    let mut filled = text("filled", 64.0, 300.0, 200.0, 40.0, "");
+    filled["style"] = json!({ "fill": { "color": "accent1" } });
+    b.add(json!([
+        text("blank", 64.0, 100.0, 300.0, 40.0, ""),
+        text("spaces", 64.0, 160.0, 300.0, 40.0, "   "),
+        text("words", 64.0, 220.0, 300.0, 40.0, "Hello there"),
+        filled,
+    ]));
+    let report = b.report();
+    assert_eq!(
+        found(&report),
+        expect(&[
+            ("empty-text-box", Warning, Some("blank")),
+            ("empty-text-box", Warning, Some("spaces")),
+        ])
+    );
+    let first = &report.issues[0];
+    assert!(first.message.contains("no words"), "{}", first.message);
+    assert!(
+        first
+            .hint
+            .as_deref()
+            .is_some_and(|h| h.contains("set_text")),
+        "{:?}",
+        first.hint
+    );
+}
+
+#[test]
+fn empty_text_box_leaves_a_layout_slot_to_its_own_rule() {
+    let mut b = bench();
+    let (bodyless, slots) = b.add_slide("title-body", json!({ "title": "A title" }));
+    let report = b.report();
+    assert!(
+        of_rule(&report, "empty-text-box").is_empty(),
+        "{:?}",
+        found(&report)
+    );
+    let body = slots["body"].as_str().unwrap().to_owned();
+    assert_eq!(
+        found(&report),
+        vec![("empty-placeholder".to_owned(), Warning, Some(body))]
+    );
+    assert_eq!(report.issues[0].slide, bodyless);
 }
 
 #[test]
@@ -159,6 +208,24 @@ fn step_orphan_finds_changes_at_steps_the_slide_does_not_have() {
 }
 
 #[test]
+fn a_sound_plays_only_in_the_show_and_gets_its_icon_elsewhere() {
+    let mut b = bench();
+    b.add(json!([
+        { "type": "audio", "id": "tune", "x": 64, "y": 320, "w": 160, "h": 140, "src": "assets/theme.mp3" },
+    ]));
+    let report = crate::lint::lint_deck(b.deck(), None);
+    let issues = of_rule(&report, "pptx-unsafe");
+    let who: Vec<Option<&str>> = issues.iter().map(|i| i.element.as_deref()).collect();
+    assert_eq!(who, [Some("tune")]);
+    assert!(
+        issues[0].message.contains("plays only when presenting"),
+        "{}",
+        issues[0].message
+    );
+    assert!(issues[0].message.contains("icon"), "{}", issues[0].message);
+}
+
+#[test]
 fn pptx_unsafe_names_what_powerpoint_and_google_slides_cannot_read() {
     let mut b = bench();
     let mut math = text("inline", 64.0, 420.0, 400.0, 40.0, "x");
@@ -174,6 +241,7 @@ fn pptx_unsafe_names_what_powerpoint_and_google_slides_cannot_read() {
         deck.slide_mut(&b.slide).unwrap().transition = Some(crate::model::Transition {
             kind: TransitionKind::Morph,
             duration: None,
+            direction: None,
             easing: None,
             extra: crate::model::Extra::new(),
         });

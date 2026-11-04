@@ -1,0 +1,50 @@
+/* Custom shows: the list of shows beside the one being edited. */
+.ks-cs {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  min-height: 240px;
+}
+.ks-cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-inline-end: 12px;
+  border-inline-end: 1px solid var(--ks-line);
+}
+.ks-cs-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: start;
+}
+.ks-cs-item.is-on {
+  background: var(--ks-selected);
+  border-color: var(--ks-line-strong);
+}
+.ks-cs-count {
+  color: var(--ks-faint);
+  font-size: 12px;
+}
+.ks-cs-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.ks-cs-slides {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+@media (max-width: 520px) {
+  .ks-cs {
+    grid-template-columns: 1fr;
+  }
+  .ks-cs-list {
+    padding-inline-end: 0;
+    border-inline-end: 0;
+  }
+}

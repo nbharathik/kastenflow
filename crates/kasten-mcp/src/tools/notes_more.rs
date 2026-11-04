@@ -42,6 +42,7 @@ pub(crate) fn apply_template(k: &dyn Lookup, a: ApplyTemplateArgs) -> Result<Age
 pub(crate) fn journal_day(_: &dyn Lookup, a: JournalDayArgs) -> Result<AgentOp> {
     Ok(AgentOp::JournalDay {
         date: a.date.unwrap_or_else(today),
+        project: a.project.filter(|p| !p.trim().is_empty()),
     })
 }
 
