@@ -171,6 +171,7 @@ describe("tree", () => {
     expect(built).toBeLessThan(250);
     const again = performance.now();
     for (const n of notes.slice(0, 1000)) childrenOf(notes, n);
-    expect(performance.now() - again).toBeLessThan(20);
+    // About 10 ms on a laptop; a shared CI machine took 22 ms. Something that grows with the square of the notes would take seconds.
+    expect(performance.now() - again).toBeLessThan(100);
   });
 });
