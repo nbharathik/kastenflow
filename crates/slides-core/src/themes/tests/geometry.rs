@@ -123,6 +123,33 @@ fn the_body_of_a_title_and_body_slide_fills_the_room_under_the_title() {
     }
 }
 
+/// Slide units in a point, and the height of a line as a multiple of its type size, as the lint measures.
+const UNITS_PER_POINT: f64 = 4.0 / 3.0;
+const LINE_HEIGHT: f64 = 1.1;
+
+#[test]
+fn the_title_box_has_room_for_a_title_that_wraps_to_two_lines() {
+    for theme in all() {
+        let size = theme.text_styles.get("title").expect("a title style").size;
+        let needed = 2.0 * size * UNITS_PER_POINT * LINE_HEIGHT;
+        for layout in &theme.layouts {
+            let Some(title) = layout.placeholder("title") else {
+                continue;
+            };
+            if title.style.as_deref() != Some("title") {
+                continue;
+            }
+            assert!(
+                title.h >= needed,
+                "{} / {}: the title box is {} tall and two lines need {needed:.1}",
+                theme.name,
+                layout.name,
+                title.h
+            );
+        }
+    }
+}
+
 #[test]
 fn a_cover_is_centred_on_the_slide_with_its_subtitle_under_its_title() {
     for theme in all() {

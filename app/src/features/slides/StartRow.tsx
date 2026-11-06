@@ -1,37 +1,54 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
-import { Icon } from "../../ui/Icon";
-import { DeckThumb } from "./DeckThumb";
+import type { NoteMeta } from "../../lib/vault/types";
+import { Icon, type IconName } from "../../ui/Icon";
+import { ImportButton } from "./ImportButton";
+import { NotePicker } from "./NotePicker";
 import { startDeck } from "./make-deck";
-import { useTemplates } from "./TemplateGallery";
-
-/** The templates the row offers first, when the engine has them: a light one, a dark one, and a few designed ones. */
-const FEATURED = ["Light", "Dark", "Minimal", "Modern", "Pitch"];
+import { startFromNote, startFromOutline } from "./start-from";
+import { TemplateCards } from "./TemplateCards";
 
 const SIZE = { w: 960, h: 540 };
 
-/** The cards' edge and lift: the same as the deck cards' under it. */
-const CARD = "group block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-60";
-const FRAME = "overflow-hidden rounded-lg border border-line bg-canvas shadow-card transition ease-standard group-hover:border-line-hover group-hover:shadow-hover motion-reduce:transition-none";
+/** The ways to begin share one look: a mark, a name and one line on what happens. */
+const WAY = "sh-way group flex items-center gap-3 rounded-xl border border-line bg-canvas p-3 text-left shadow-card outline-none transition ease-standard hover:border-line-hover hover:shadow-hover focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-60 motion-reduce:transition-none";
+
+function WayFace({ icon, name, hint }: { icon: IconName; name: string; hint: string }): ReactNode {
+  return (
+    <>
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-well text-muted group-hover:text-ink">
+        <Icon name={icon} className="size-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-14 font-semibold">{name}</span>
+        <span className="block truncate text-12 text-muted">{hint}</span>
+      </span>
+    </>
+  );
+}
 
 /**
- * "Start a new presentation": a blank one, and the first of the templates, each a card that makes the deck at once and opens it, with
- * the gallery (a name, a shape, the example slides) one press away. The deck is called "Untitled presentation" until it is named in the
- * editor, so starting one never asks a question first.
+ * "Start a new presentation": a blank one, one from a page or an outline, a PowerPoint file brought in, and the templates as a gallery
+ * with their first slides drawn. Each card makes the deck at once and opens it, with the New deck form (a name, a shape, your own
+ * templates) one press away. The deck is called "Untitled presentation" until it is named in the editor, so starting one never asks
+ * a question first.
  */
 export function StartRow({ onGallery }: { onGallery(): void }) {
-  const { names, decks } = useTemplates(SIZE);
   const [making, setMaking] = useState<string | null>(null);
-  const shown = FEATURED.filter((name) => names.includes(name)).concat(names.filter((name) => !FEATURED.includes(name))).slice(0, FEATURED.length);
+  const [picking, setPicking] = useState(false);
 
-  const make = async (key: string, template: string, examples: boolean) => {
+  const make = async (key: string, job: () => Promise<unknown>) => {
     if (making) return;
     setMaking(key);
     try {
-      await startDeck({ template, examples, size: SIZE });
+      await job();
     } finally {
       setMaking(null);
     }
+  };
+  const fromNote = (note: NoteMeta) => {
+    setPicking(false);
+    void make("note", () => startFromNote(note));
   };
 
   return (
@@ -43,22 +60,22 @@ export function StartRow({ onGallery }: { onGallery(): void }) {
           <Icon name="chevron" className="size-3.5" />
         </button>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-3">
-        <button type="button" disabled={making !== null} onClick={() => void make("blank", "Light", false)} className={CARD} aria-label="Blank presentation">
-          <div className={`${FRAME} grid aspect-video place-items-center text-muted`}>
-            <Icon name="plus" className="size-7" />
-          </div>
-          <div className="px-0.5 pt-1.5 text-13 font-medium">Blank</div>
+      <div className="sh-ways">
+        <button type="button" disabled={making !== null} onClick={() => void make("blank", () => startDeck({ template: "Light", examples: false, size: SIZE }))} className={WAY} aria-label="Blank presentation">
+          <WayFace icon="plus" name="Blank" hint="One empty slide" />
         </button>
-        {shown.map((name) => (
-          <button key={name} type="button" disabled={making !== null} onClick={() => void make(name, name, true)} className={CARD} aria-label={`${name} presentation`}>
-            <div className={FRAME}>
-              <DeckThumb deck={decks.get(name) ?? null} />
-            </div>
-            <div className="px-0.5 pt-1.5 text-13 font-medium">{name}</div>
-          </button>
-        ))}
+        <button type="button" disabled={making !== null} aria-expanded={picking} onClick={() => setPicking((on) => !on)} className={WAY}>
+          <WayFace icon="page" name="From a note" hint="A page, a slide for each section" />
+        </button>
+        <button type="button" disabled={making !== null} onClick={() => void make("outline", startFromOutline)} className={WAY}>
+          <WayFace icon="list" name="From an outline" hint="Type a list, get the slides" />
+        </button>
+        <ImportButton project={null} className={WAY}>
+          <WayFace icon="import" name="Import PowerPoint" hint="Bring in a .pptx file" />
+        </ImportButton>
       </div>
+      {picking && <NotePicker onPick={fromNote} onClose={() => setPicking(false)} />}
+      <TemplateCards busy={making !== null} onMake={(name) => void make(name, () => startDeck({ template: name, examples: true, size: SIZE }))} />
     </section>
   );
 }

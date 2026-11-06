@@ -77,7 +77,7 @@ fn the_status_tool_says_the_version_the_vault_the_history_the_session_and_whethe
             render["message"]
                 .as_str()
                 .unwrap()
-                .contains("not part of this program")
+                .contains("Open KastenFlow")
         );
         assert_eq!(status["problems"], json!([]), "not drawing is no problem");
     }

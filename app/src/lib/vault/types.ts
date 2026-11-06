@@ -10,10 +10,11 @@ import type { AssetOps } from "./asset-types";
 import type { BoardAdded, BoardApplied, BoardChange, BoardInfo, BoardView } from "./board-types";
 import type { BundleOps } from "./bundle-types";
 import type { CollectionOps } from "./collection-types";
-import type { DeckFile, DeckInfo, DeckSaved, DecksSaved, SaveDecksRequest } from "./deck-types";
+import type { BrandKitFile, BrandKitSaved, DeckFile, DeckInfo, DeckSaved, DecksSaved, LibraryLayout, LibraryLayoutFile, LibraryLayoutSaved, SaveDecksRequest } from "./deck-types";
 import type { DiagramOps } from "./diagram-types";
 import type { GraphOps } from "./graph-types";
 import type { HealthOps } from "./health-types";
+import type { JournalOps } from "./journal-types";
 import type { ImportOps } from "./import-types";
 import type {
   Backlink,
@@ -67,9 +68,10 @@ export { AGENT_MODES } from "./agent-mode-types";
 // A batch the person runs, as one commit and one Undo: see batch-types.ts.
 export type { BatchAnswer, BatchChange, BatchOps, BatchRef, BatchRun, PageBlock, PageBlocks } from "./batch-types";
 export { BATCH_LIMITS } from "./batch-types";
+export type { JournalOps, ProjectJournalDay, ProjectJournalPage, ProjectJournalRef } from "./journal-types";
 
 // Slide decks: see deck-types.ts.
-export type { DeckEdit, DeckFile, DeckInfo, DeckSaved, DecksSaved, SaveDecksRequest } from "./deck-types";
+export type { BrandKitFile, BrandKitSaved, DeckEdit, DeckFile, DeckInfo, DeckSaved, DecksSaved, LibraryLayout, LibraryLayoutFile, LibraryLayoutSaved, SaveDecksRequest } from "./deck-types";
 export { saveDecksWasStale } from "./deck-types";
 
 // Diagrams (a `.drawio` source and its `.drawio.svg` picture): see diagram-types.ts.
@@ -121,6 +123,7 @@ export interface VaultClient
     HealthOps,
     AgentModeOps,
     BatchOps,
+    JournalOps,
     RevisionOps {
   /** `vault` for a folder on disk through the core, `preview` in a plain browser. */
   readonly kind: "vault" | "preview";
@@ -166,7 +169,8 @@ export interface VaultClient
   /** Copies a page beside itself as "<title> (copy)" with a new id. */
   duplicate(path: string): Promise<NoteFile>;
   trash(path: string): Promise<string>;
-  journal(date: string): Promise<NoteFile>;
+  /** The vault's day, or with `project` that project's day (made if new). */
+  journal(date: string, project?: string | null): Promise<NoteFile>;
   applyTemplate(path: string, template: string, date: string): Promise<NoteFile>;
   search(query: string, limit?: number): Promise<Hit[]>;
   /** Notes whose links go to the note at `path`. */
@@ -260,6 +264,18 @@ export interface VaultClient
   deckTemplates(): Promise<DeckInfo[]>;
   /** Saves a deck's look as a template (the Slides engine makes `text`); resolves to its path. Only a person does this: an assistant cannot write a template. */
   createDeckTemplate(title: string, text: string): Promise<string>;
+  /** The layouts kept for every deck (`templates/layouts/`), by name. Left out in the browser preview, which keeps none. */
+  layoutLibrary?(): Promise<LibraryLayout[]>;
+  /** One library layout as its file holds it. */
+  libraryLayout?(path: string): Promise<LibraryLayoutFile>;
+  /** Keeps a layout in the library (the Slides editor writes `text`); the file with the same id is replaced. */
+  saveLibraryLayout?(text: string): Promise<LibraryLayoutSaved>;
+  /** Takes a layout out of the library by moving its file to the trash; resolves to where it went. */
+  removeLibraryLayout?(path: string): Promise<string>;
+  /** The brand kit decks of `project` start from: the project's own, else the vault's; null when there is none. Left out in the browser preview. */
+  brandKit?(project: string | null): Promise<BrandKitFile | null>;
+  /** Keeps a brand kit (the Slides editor writes `text`) for `project`, or for the vault when null. */
+  saveBrandKit?(project: string | null, text: string): Promise<BrandKitSaved>;
   proposals(): Promise<Proposal[]>;
   acceptProposal(id: string): Promise<unknown>;
   /** Accepts a change to a page's text with only the hunks the person kept: `body` is the text they put together. Merged with edits made since, and refused where those overlap. */

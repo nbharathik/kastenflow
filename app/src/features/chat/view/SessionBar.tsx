@@ -1,5 +1,8 @@
-// Below a thread whose session changed the vault: undo everything the chat
-// did (after asking), or look at it in History. Undo reverts the session's
+// After the latest answer that changed notes: a quiet one-line chip, "Changed
+// 3 notes", to undo everything the chat did (after asking) or look at it in
+// History. It can be hidden until the chat changes something new, and is not
+// there while an answer streams; the thread's "…" menu always offers both.
+// Undo reverts the session's
 // commits newest first as new commits, as the History view's "Undo
 // session" does, and shows what it did the same way. (How a thread's writes
 // reach the vault is chosen in the chat's "…" menu: view/WriteMenu.tsx.)
@@ -7,7 +10,7 @@
 import "../../review/review.css";
 import "../changes/changes.css";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../../ui/Icon";
 import type { Undone, VaultClient } from "../../../lib/vault/types";
@@ -17,9 +20,11 @@ import { useReview } from "../../review/store";
 import { ConfirmBar } from "../../review/ui";
 import { deckFilesChanged } from "../../slides/events";
 import { useWorkspace } from "../../workspace/store";
+import { isAgentProvider } from "../agents/names";
 import { useChat } from "../store";
 import type { Thread } from "../thread";
 import { useChatLinks } from "./links";
+import { changedLabel, lastChange, useSessionUi } from "./session-ui";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -29,20 +34,24 @@ const decksOf = (thread: Thread): string[] => [
 ];
 
 export function SessionBar({ thread }: { thread: Thread }) {
-  return <Undo thread={thread} />;
+  // A coding agent changes notes in a session of its own (its MCP connection), which the chat's undo does
+  // not hold: those changes are undone from History, where the agent's sessions are listed.
+  return thread.changed && thread.session && !isAgentProvider(thread.provider) ? <Undo thread={thread} session={thread.session} /> : null;
 }
 
-function Undo({ thread }: { thread: Thread }) {
+function Undo({ thread, session }: { thread: Thread; session: string }) {
   const links = useChatLinks();
   /** How many changes the question names; null when it is not asked. */
   const [asking, setAsking] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const session = thread.session;
+  const { key, notes } = lastChange(thread);
+  const hidden = useSessionUi((s) => s.dismissed[thread.id] === key);
+  const asked = useSessionUi((s) => s.undoAsked[thread.id] ?? 0);
+  const handled = useRef(asked);
   // A new answer while asking puts the question away: the chat may change
   // more, and the undo would not take that in.
   if (asking !== null && thread.streaming) setAsking(null);
-  if (!thread.changed || !session) return null;
 
   const run = async (act: (client: VaultClient) => Promise<Undone>, whenDone: (undone: Undone) => void) => {
     const { client, refresh } = useWorkspace.getState();
@@ -92,20 +101,30 @@ function Undo({ thread }: { thread: Thread }) {
       },
     );
 
+  // "Undo this chat's changes" in the thread's "…" menu does what the chip's button does.
+  useEffect(() => {
+    if (asked === handled.current) return;
+    handled.current = asked;
+    if (!thread.undone && !thread.streaming && !busy) void start();
+    // `start` reads the store and `session`, which a new ask finds as they are.
+  }, [asked]);
+
   const reverted = outcome && !("error" in outcome) && !outcome.conflict && thread.undone ? outcome.reverted : null;
+  const chip = !hidden && !thread.streaming && asking === null;
+  if (!outcome && !(reverted && reverted.length > 0) && asking === null && !chip) return null;
 
   return (
     <section className="kasten-chat-session" aria-label="This chat's changes">
       {outcome && <UndoOutcome outcome={outcome} />}
       {reverted && reverted.length > 0 && (
-        <div className="kasten-chat-session-bar">
-          <button type="button" disabled={busy} onClick={() => void redo(reverted)}>
+        <div className="kasten-chat-session-chip">
+          <button type="button" className="kasten-chat-session-text-button" disabled={busy} onClick={() => void redo(reverted)}>
             <Icon name="undo" className="size-3.5" />
             Undo the undo
           </button>
         </div>
       )}
-      {asking !== null ? (
+      {asking !== null && (
         <ConfirmBar
           title={asking > 0 ? `Undo ${asking} changes from this chat?` : "Undo this chat's changes?"}
           detail="Puts back everything this chat changed, newest first. Edits you made since are kept; if one conflicts, the undo stops and says where. You can take it back with Undo the undo."
@@ -113,19 +132,21 @@ function Undo({ thread }: { thread: Thread }) {
           onConfirm={() => void undo()}
           onCancel={() => setAsking(null)}
         />
-      ) : (
-        <div className="kasten-chat-session-bar">
-          <Icon name="agent" className="size-4" />
-          <span className="kasten-chat-session-text">{thread.undone ? "This chat's changes were undone." : "This chat changed your notes."}</span>
+      )}
+      {chip && (
+        <div className="kasten-chat-session-chip">
+          <Icon name="agent" className="size-3.5" />
+          <span className="kasten-chat-session-text">{thread.undone ? "Changes undone" : changedLabel(notes)}</span>
           {!thread.undone && (
-            <button type="button" disabled={busy || thread.streaming} onClick={() => void start()} title={thread.streaming ? "Wait for the answer to finish" : undefined}>
+            <button type="button" className="kasten-chat-session-icon" aria-label="Undo this chat's changes" title={busy ? "Undoing…" : "Undo this chat's changes"} disabled={busy} onClick={() => void start()}>
               <Icon name="undo" className="size-3.5" />
-              {busy ? "Undoing…" : "Undo this chat's changes"}
             </button>
           )}
-          <button type="button" onClick={() => links.showSession(session)}>
+          <button type="button" className="kasten-chat-session-icon" aria-label="See in History" title="See in History" onClick={() => links.showSession(session)}>
             <Icon name="history" className="size-3.5" />
-            See in History
+          </button>
+          <button type="button" className="kasten-chat-session-icon" aria-label="Hide this" title="Hide this until the chat changes something new" onClick={() => useSessionUi.getState().dismiss(thread.id, key)}>
+            <Icon name="close" className="size-3.5" />
           </button>
         </div>
       )}

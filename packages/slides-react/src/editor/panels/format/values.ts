@@ -80,6 +80,7 @@ export function describe(elements: readonly Element[]): string {
     chart: ["Chart", "charts"],
     timer: ["Timer", "timers"],
     qr: ["QR code", "QR codes"],
+    audio: ["Audio", "audio clips"],
   };
   const first = elements[0];
   if (!first) return "";

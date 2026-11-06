@@ -5,8 +5,10 @@ import bootSource from "./html-boot.js?raw";
 import { inScript } from "./html-page.ts";
 import chromeSource from "../present/runtime/chrome.js?raw";
 import configSource from "../present/runtime/config.js?raw";
+import fxSource from "../present/runtime/fx.js?raw";
 import morphSource from "../present/runtime/morph.js?raw";
 import stepfxSource from "../present/runtime/stepfx.js?raw";
+import transitionsSource from "../present/runtime/transitions.js?raw";
 
 const EXPORTED = /^export (?=(?:async )?(?:function|const|let|class)\b)/gm;
 const NAME = /^export (?:async )?(?:function|const|let|class) ([A-Za-z_$][\w$]*)/gm;
@@ -33,6 +35,8 @@ export function pageScript(revealSource: string): string {
       `var Reveal = ${wrapReveal(revealSource)};`,
       `var config = ${wrapModule(configSource)};`,
       `var stepfx = ${wrapModule(stepfxSource)};`,
+      `var fx = ${wrapModule(fxSource)};`,
+      `var transitions = ${wrapModule(transitionsSource)};`,
       `var morph = ${wrapModule(morphSource)};`,
       `var chrome = ${wrapModule(chromeSource)};`,
       bootSource,

@@ -30,6 +30,10 @@ export interface LoadedNote {
 
 export { flushOpenPage };
 
+/** Sessions being closed, by the path they were writing to: a page opened
+ * again meanwhile reads the note only after the write has landed. */
+const closing = new Map<string, Promise<void>>();
+
 export function useNoteSession(client: VaultClient, path: string) {
   const [loaded, setLoaded] = useState<LoadedNote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +46,16 @@ export function useNoteSession(client: VaultClient, path: string) {
   const finish = useCallback(
     (last: PageSession | null, leaving: boolean) => {
       if (!last) return;
-      void last.close().then(() => {
+      const path = last.path;
+      const done = last.close().then(() => {
         // The lists (dashboard, calendar, cards) take in the new counts now, not up to 2 s after.
         settleStats();
         if (leaving) void client.commitEdits().catch(() => {});
       });
+      const landed = done.catch(() => {}).finally(() => {
+        if (closing.get(path) === landed) closing.delete(path);
+      });
+      closing.set(path, landed);
     },
     [client],
   );
@@ -92,6 +101,7 @@ export function useNoteSession(client: VaultClient, path: string) {
           useWorkspace.getState().toast("This page also changed outside KastenFlow; both edits were kept");
         },
         onError: (message) => useWorkspace.getState().toast(`Could not save: ${message}`),
+        onRecheck: () => check(),
         onRecovered: (kept, title) => {
           const ws = useWorkspace.getState();
           ws.noteChanged(kept.meta);
@@ -103,10 +113,11 @@ export function useNoteSession(client: VaultClient, path: string) {
       });
       session.current = next;
       /** Reloads when the file changed on disk and no edits are waiting; a
-       * save with edits waiting merges instead. */
+       * save with edits waiting merges instead. A change seen while busy is
+       * looked at again when the session has written everything. */
       const check = () => {
         passTyping(next);
-        if (next.busy) return;
+        if (next.busy) return next.recheckWhenIdle();
         client.read(next.path).then(
           (fresh) => {
             if (session.current === next && !next.busy && fresh.hash !== next.currentHash) {
@@ -141,7 +152,8 @@ export function useNoteSession(client: VaultClient, path: string) {
     if (session.current && nowAt(session.current.path) === nowAt(path)) return;
     setConflict(null);
     let cancelled = false;
-    client.read(path).then(
+    const closed = closing.get(path);
+    (closed ? closed.then(() => client.read(path)) : client.read(path)).then(
       (note) => !cancelled && start(note),
       (err: unknown) => !cancelled && setError(err instanceof Error ? err.message : String(err)),
     );

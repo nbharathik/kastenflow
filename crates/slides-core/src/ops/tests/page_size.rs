@@ -113,7 +113,7 @@ fn a_taller_slide_stretches_boxes_and_keeps_the_type() {
     // The slots stretch like everything else, and so does the master.
     assert_eq!(
         slot(theme, "title-body", "title"),
-        (64.0, 48.0, 832.0, 128.0)
+        (64.0, 37.33, 832.0, 144.0)
     );
     let number = theme
         .master
@@ -254,6 +254,75 @@ fn a_group_with_a_picture_is_the_box_that_holds_its_children() {
     assert_eq!(y, pic.1.min(cap.1));
     assert!((x + w - (pic.0 + pic.2).max(cap.0 + cap.2)).abs() < 0.02);
     assert!((y + h - (pic.1 + pic.3).max(cap.1 + cap.3)).abs() < 0.02);
+}
+
+#[test]
+fn every_preset_to_every_other_refits_the_slides_and_the_theme_and_comes_back() {
+    let wide: Vec<(&str, f64, f64)> = PAGE_SIZES
+        .iter()
+        .copied()
+        .filter(|(name, _, _)| *name != "1:1")
+        .collect();
+    for &(from, w, h) in &wide {
+        for &(to, tw, th) in &wide {
+            let (mut e, s) = stretchy();
+            e.apply("set_page_size", json!({ "preset": from })).unwrap();
+            e.apply("set_page_size", json!({ "preset": to })).unwrap();
+            assert_eq!(size_of(&e), (tw, th), "{from} to {to}");
+            // A box that stretched stays inside the new page.
+            let (x, y, bw, bh) = rect(&e, &s, "sh2");
+            assert!(x + bw <= tw + 0.01 && y + bh <= th + 0.01, "{from} to {to}");
+            e.apply("set_page_size", json!({ "preset": from })).unwrap();
+            assert_eq!(size_of(&e), (w, h), "back to {from}");
+        }
+    }
+}
+
+#[test]
+fn keeping_the_size_changes_the_page_and_the_theme_but_not_what_is_on_the_slides() {
+    let (mut e, s) = stretchy();
+    let boxes_before: Vec<_> = ["t1", "sh1", "sh2", "tb"]
+        .map(|id| rect(&e, &s, id))
+        .to_vec();
+    e.apply(
+        "set_page_size",
+        json!({ "preset": "4:3", "keepSize": true }),
+    )
+    .unwrap();
+    assert_eq!(size_of(&e), (960.0, 720.0));
+    let boxes_after: Vec<_> = ["t1", "sh1", "sh2", "tb"]
+        .map(|id| rect(&e, &s, id))
+        .to_vec();
+    assert_eq!(
+        boxes_after, boxes_before,
+        "the slide's own boxes stay as they were"
+    );
+    // The theme is refitted, so a new slide fits the page.
+    assert_eq!(
+        slot(&e.deck().theme, "title-body", "title"),
+        (64.0, 37.33, 832.0, 144.0)
+    );
+}
+
+#[test]
+fn keeping_the_size_is_one_step_of_undo_and_off_means_scaling() {
+    let (mut e, s) = stretchy();
+    let before = bytes(e.deck());
+    e.apply(
+        "set_page_size",
+        json!({ "w": 1280, "h": 720, "keepSize": true }),
+    )
+    .unwrap();
+    assert_ne!(bytes(e.deck()), before);
+    e.undo().unwrap();
+    assert_eq!(bytes(e.deck()), before);
+
+    e.apply(
+        "set_page_size",
+        json!({ "preset": "4:3", "keepSize": false }),
+    )
+    .unwrap();
+    assert_eq!(rect(&e, &s, "sh2"), (500.0, 400.0, 200.0, 120.0));
 }
 
 #[test]

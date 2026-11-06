@@ -5,10 +5,13 @@
 
 use std::collections::HashSet;
 
+use serde::Deserialize;
 use serde_json::{Number, Value};
 
 use crate::error::{Error, Result};
 use crate::model::{Deck, Element, FORMAT_NAME};
+
+mod newer;
 
 /// The newest version of the deck format this build reads. A deck is written with the oldest
 /// version that holds what it uses (see [`version_needed`]).
@@ -23,7 +26,10 @@ pub fn parse(text: &str) -> Result<Deck> {
 /// Reads a deck from JSON already parsed.
 pub fn from_value(value: Value) -> Result<Deck> {
     let value = migrate(value)?;
-    let deck: Deck = serde_json::from_value(value).map_err(Error::malformed)?;
+    let deck = Deck::deserialize(&value).map_err(|error| {
+        let message = error.to_string();
+        Error::malformed(newer::explain(&message, &value).unwrap_or(message))
+    })?;
     check_structure(&deck)?;
     Ok(deck)
 }

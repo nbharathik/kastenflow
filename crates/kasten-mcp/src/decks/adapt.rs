@@ -32,7 +32,7 @@ const REWORDED: [(&str, &str); 5] = [
 const REMOVING_NOTE: &str = " In KastenFlow a call that takes slides out of decks (removes them, or leaves them with nothing on them) waits, as a whole, for the person's review once the slides you have taken out in the last 10 minutes come to more than 3 (the person sets the number).";
 
 /// Said of the tool that writes a deck out: a Markdown outline is not kept as a file, since a vault reads every `.md` file as a note.
-const EXPORT_NOTE: &str = " In a vault only pptx is kept as a file; get_outline gives the outline as Markdown, and create_note keeps it as a note.";
+const EXPORT_NOTE: &str = " In a vault pptx and png files are kept (in assets/); get_outline gives the outline as Markdown, and create_note keeps it as a note.";
 
 /// Said of the tool that puts a deck in the trash.
 const TRASH_DECK_NOTE: &str = " In KastenFlow this always waits for the person to accept it.";
@@ -49,6 +49,10 @@ const LEFT_OUT: &[(&str, &str)] = &[
     ("duplicate_slides", "duplicate_slide does the same"),
     ("set_step_states", "set_steps takes the states"),
     ("build_steps", "set_steps builds them with a recipe"),
+    (
+        "set_step_fx",
+        "how a step is drawn is the editor's choice; the operation still runs inside update_elements, and a tool of its own would only add to the size of the tool list",
+    ),
     (
         "paste_elements",
         "add_elements puts the same elements on a slide",
@@ -129,6 +133,23 @@ const LEFT_OUT: &[(&str, &str)] = &[
         "acknowledge_source",
         "the person says a changed page is fine as it is",
     ),
+    // The editor's own dialogs.
+    (
+        "set_dictionary",
+        "the spelling check's word list is kept in the editor's own dialog",
+    ),
+    (
+        "set_deck_fonts",
+        "a deck's font files are chosen in the editor's own dialog",
+    ),
+    (
+        "add_mermaid",
+        "a Mermaid chart is written in the editor's Insert dialog; add_diagram draws a flow",
+    ),
+    (
+        "update_mermaid",
+        "a Mermaid chart is changed in the editor's Insert dialog; add_diagram draws a flow",
+    ),
 ];
 
 fn adapt(mut spec: ToolSpec) -> ToolSpec {
@@ -139,7 +160,7 @@ fn adapt(mut spec: ToolSpec) -> ToolSpec {
         spec.description = spec.description.replace(was, now);
     }
     match spec.name.as_str() {
-        "create_deck" | "import_pptx" => {
+        "create_deck" | "import_pptx" | "build_deck" => {
             if let Some(Value::Object(properties)) = spec.input_schema.get_mut("properties") {
                 properties.insert(
                     "project".to_owned(),
@@ -155,7 +176,7 @@ fn adapt(mut spec: ToolSpec) -> ToolSpec {
             spec.description = spec.description.replace(" or `markdown` (the outline)", "");
             spec.description.push_str(EXPORT_NOTE);
             if let Some(format) = spec.input_schema.pointer_mut("/properties/format") {
-                format["enum"] = json!(["pptx"]);
+                format["enum"] = json!(["pptx", "png"]);
             }
         }
         _ => {}
@@ -249,11 +270,11 @@ mod tests {
     }
 
     #[test]
-    fn a_deck_is_exported_only_as_powerpoint() {
+    fn a_deck_is_exported_as_powerpoint_or_pictures_and_never_as_an_outline_file() {
         let export = spec("export");
         assert_eq!(
             export.input_schema["properties"]["format"]["enum"],
-            json!(["pptx"])
+            json!(["pptx", "png"])
         );
         assert!(
             export.description.contains("get_outline"),

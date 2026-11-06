@@ -17,7 +17,7 @@ import { sentOf, useAttachments } from "../attach-store";
 import { noteChip } from "../context";
 import { requestEdit } from "../edit-request";
 import { drafts } from "../message-drafts";
-import { modelFor } from "../prefs";
+import { chatModelFor } from "../prefs";
 import { useChat } from "../store";
 import { composerOf, lastQuestion, type ComposerThread } from "../thread";
 import type { AiAction } from "../types";
@@ -52,7 +52,7 @@ export const Composer = memo(function Composer({ id, ...rest }: Props) {
   return thread ? <Box thread={thread} started={started} {...rest} /> : null;
 });
 
-function Box({ thread, started, page, autoFocus = false, ask = "Ask about your notes…", showFollow = true, ref }: Omit<Props, "id"> & { thread: ComposerThread; started: boolean }) {
+function Box({ thread, started, page, autoFocus = false, ask = "Ask, search or change your notes…", showFollow = true, ref }: Omit<Props, "id"> & { thread: ComposerThread; started: boolean }) {
   const providers = useChat((s) => s.providers);
   const [text, setText] = useState(() => drafts.get(thread.id) ?? "");
   const box = useRef<HTMLTextAreaElement>(null);
@@ -62,7 +62,7 @@ function Box({ thread, started, page, autoFocus = false, ask = "Ask about your n
   const [mention, setMention] = useState<{ at: number; length: number } | null>(null);
   // The AI actions of the chat, listed after a "/" typed into an empty box.
   const [slash, setSlash] = useState<{ actions: AiAction[] | null } | null>(null);
-  const choice = modelFor(thread, providers);
+  const choice = chatModelFor(thread, providers);
   const off = choice ? null : providers === null ? "Reading your AI providers…" : "Add an AI provider in Settings to chat";
   // Files still being read are waited for; while the model works a message is queued, not refused.
   const reading = useAttachments((s) => s.byThread[thread.id]?.some((a) => a.state === "busy") ?? false);

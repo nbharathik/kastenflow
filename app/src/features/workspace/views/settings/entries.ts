@@ -165,6 +165,13 @@ export const ENTRIES: SettingEntry[] = [
     ],
     ["modeUntil", "How long Autonomous lasts", "1 hour, 8 hours, or until you turn it off. When the time is up, agents are on Balanced again.", "autonomous time box hour duration expire end", { card: "How much agents may do", quiet: true }],
     ["modeProjects", "Projects with a mode of their own", "A project can be stricter or looser than everything else. Agents working in it follow its mode.", "project override per project autonomous review", { card: "How much agents may do" }],
+    [
+      "cli",
+      "Coding agents",
+      "Claude Code and OpenCode, if they are installed on this computer. A chat can use one instead of an AI provider: it answers with the program you already signed in to, so its own account, plan and limits apply. KastenFlow keeps no key for them and signs in to nothing; it gives them your notes through its own tools, so changes keep history, review and undo, and it asks you before they do anything else.",
+      "claude code opencode cli terminal subscription install sign in login test version coding agent chat program",
+      { card: "Coding agents in the chat", only: "desktop" },
+    ],
     ["claude", "Connect Claude Code", "Run this once in a terminal.", "mcp command cli claude code"],
     ["config", "Claude Desktop, Cursor and other MCP apps", "Add this to the app's MCP settings (its mcpServers).", "mcp json config cursor"],
     ["url", "Clients that connect by URL", "Start the server with the command, then connect to its address with the token as a bearer. It answers this computer only.", "http token bearer server address"],

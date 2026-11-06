@@ -4,7 +4,8 @@
 import { useRef, useState, type ElementType, type FormEvent, type KeyboardEvent } from "react";
 
 import { Icon } from "../../../ui/Icon";
-import { modelFor, savedSettings } from "../prefs";
+import { isAgentProvider } from "../agents/names";
+import { chatModelFor, savedSettings } from "../prefs";
 import { describe } from "../settings";
 import { useChat } from "../store";
 import { threadTitle, type Thread } from "../thread";
@@ -93,12 +94,14 @@ export function ArchiveButton({ thread, compact = false }: { thread: Thread; com
  * and what is set for it. */
 export function ThreadModel({ thread }: { thread: Thread }) {
   const providers = useChat((s) => s.providers);
-  const choice = modelFor(thread, providers);
+  const choice = chatModelFor(thread, providers);
   if (!choice) return null;
-  const settings = describe(thread.settings ?? savedSettings(choice.provider, choice.model));
+  const agent = isAgentProvider(choice.provider);
+  // A coding agent has its own model and settings; the chip is its name.
+  const settings = agent ? "" : describe(thread.settings ?? savedSettings(choice.provider, choice.model));
   const line = [choice.provider, choice.model, settings].filter(Boolean).join(" · ");
   return (
-    <span className="kasten-chat-meta" title={`Answers with ${line}`}>
+    <span className="kasten-chat-meta" data-agent={agent || undefined} title={agent ? `Answered by ${choice.provider}, with its own account and limits` : `Answers with ${line}`}>
       {line}
     </span>
   );

@@ -2,6 +2,7 @@
 import type { Crop } from "./Crop";
 import type { Mask } from "./Mask";
 import type { PageSource } from "./PageSource";
+import type { StepFx } from "./StepFx";
 import type { StepState } from "./StepState";
 import type { Style } from "./Style";
 
@@ -30,6 +31,10 @@ placeholder?: string | null, style?: Style | null,
  * The state from each step onward.
  */
 stepStates?: { [key in number]: StepState }, 
+/**
+ * How the change at a step is drawn, by step number: the deck's effect for a step that names none.
+ */
+stepFx?: { [key in number]: StepFx }, 
 /**
  * The layer's name in the Steps panel and the selection list.
  */

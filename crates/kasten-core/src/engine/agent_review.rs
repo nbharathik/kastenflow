@@ -51,8 +51,9 @@ impl Kasten {
             AgentOp::Trash { path, .. } => (self.with_sub_pages(path)?, 0),
             // A page is built of many files; code edits are not counted as notes changed.
             AgentOp::SmartWrite { .. } | AgentOp::SmartDelete { .. } => (vec![], 0),
-            AgentOp::JournalAppend { date, .. } => {
-                let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+            AgentOp::JournalAppend { date, project, .. } => {
+                let path =
+                    crate::journal_path::journal_path_in(&self.vault, project.as_deref(), date)?;
                 if self.vault.exists(&path) {
                     (vec![path], 0)
                 } else {

@@ -25,6 +25,26 @@ describe("messages between the two windows", () => {
     const message = readMessage({ type: "state", state: { indexh: 1, indexv: 0, indexf: "x", paused: "yes", extra: 1 } });
     expect(message).toEqual({ type: "state", state: { indexh: 1, indexv: 0 } });
   });
+
+  it("reads a video's word, the laser and the ink", () => {
+    expect(readMessage({ type: "media", media: { key: "s/e", action: "play", time: 3 } })).toEqual({ type: "media", media: { key: "s/e", action: "play", time: 3 } });
+    expect(readMessage({ type: "media", media: { key: "s/e", action: "jump", time: 3 } })).toBeNull();
+    expect(readMessage({ type: "pointer", at: { slide: "s1", x: 0.5, y: 0.5 } })).toEqual({ type: "pointer", at: { slide: "s1", x: 0.5, y: 0.5 } });
+    expect(readMessage({ type: "pointer", at: null })).toEqual({ type: "pointer", at: null });
+    expect(readMessage({ type: "pointer", at: "here" })).toBeNull();
+    expect(readMessage({ type: "pointer" })).toBeNull();
+    expect(readMessage({ type: "ink", ink: { op: "clear", slide: "s1" } })).toEqual({ type: "ink", ink: { op: "clear", slide: "s1" } });
+    expect(readMessage({ type: "ink", ink: { op: "add", slide: "s1", stroke: { id: "x", tool: "pen", color: "teal", width: 0.01, points: [0, 0] } } })).toBeNull();
+    expect(readMessage({ type: "ink" })).toBeNull();
+  });
+
+  it("reads an edit of the deck, and refuses one that is not made of slides", () => {
+    const patch = { order: ["a"], slides: [{ id: "a", layout: "blank", elements: [] }] };
+    expect(readMessage({ type: "edit", since: 4, patch })).toMatchObject({ type: "edit", since: 4, patch: { order: ["a"] } });
+    for (const bad of [{ type: "edit", patch }, { type: "edit", since: 4 }, { type: "edit", since: 4, patch: { order: [1], slides: [] } }, { type: "edit", since: 4, patch: { order: [], slides: [3] } }, { type: "edit", since: 4, patch: { ...patch, head: 4 } }, { type: "edit", since: 4, patch: { ...patch, images: null } }]) {
+      expect(readMessage(bad), JSON.stringify(bad)).toBeNull();
+    }
+  });
 });
 
 describe("a link between two ends", () => {

@@ -11,6 +11,26 @@ export function screenLabel(info: ScreenInfo, index: number): string {
 }
 
 /**
+ * The displays attached now, asked for once: a host that describes them (`list`) says it all in that one answer, one that only names
+ * them (`displays`) is asked for the names. Never rejects: a host that fails has no choice to offer.
+ */
+export async function loadScreens(screens: PresentScreens): Promise<{ names: string[]; info: ScreenInfo[] }> {
+  if (screens.list) {
+    try {
+      const info = (await screens.list()) ?? [];
+      if (info.length > 0) return { names: info.map((one) => one.label), info };
+    } catch {
+      // Fall through to the names.
+    }
+  }
+  try {
+    return { names: await screens.displays(), info: [] };
+  } catch {
+    return { names: [], info: [] };
+  }
+}
+
+/**
  * The rows of the choice: automatic, the screen the window is on, and each display (by place and name when the host says which is the
  * main one, by name alone when it does not), and a way to flash the numbers. None where there is only one display.
  */

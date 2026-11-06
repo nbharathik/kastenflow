@@ -265,21 +265,45 @@ server offers them; each has its own description in the server's list.
 
 - **Look:** `list_decks`, `get_deck`, `get_slide`, `get_outline`, `list_layouts`, `get_theme`,
   `search_assets`, `lint_deck`
-- **Make:** `create_deck`, `deck_from_note` (a deck from one of your notes), `import_pptx`
+- **Make:** `create_deck`, `build_deck` (a whole deck from one checked spec: a layout, slots,
+  elements, notes and steps for each slide, written as one change), `deck_from_note` (a deck from
+  one of your notes), `import_pptx`, and `slides_help` (the order of work)
 - **Slides:** `add_slide`, `duplicate_slide`, `delete_slides`, `reorder_slides`, `move_slides`,
   `apply_layout`, `apply_theme`, `apply_deck_template`, `edit_theme`, `set_title`, `set_present`,
-  `set_page_size`, `set_notes`, `set_background`, `set_slide_flags`
+  `set_page_size`, `set_notes`, `set_notes_bulk`, `set_background`, `set_slide_flags`
 - **Text and tables:** `set_text`, `set_rich_text`, `format_paragraphs`, `set_cells`, `clear_cells`,
   `insert_rows`, `delete_rows`, `insert_columns`, `delete_columns`, `merge_cells`,
   `unmerge_cells`, `set_cell_fill`
+- **Charts and pictures:** `set_chart_data` (numbers from CSV text, rows or series; columns, stacked
+  columns, lines, areas, pies, doughnuts, scatter and combinations; axis titles, number format and
+  legend place; a mistake names the field), `place_diagram` (a draw.io diagram of the vault on a
+  slide in one call, remembered by the picture; the Diagrams plugin must be on) and
+  `replace_asset` (a picture swapped everywhere a deck uses it)
 - **Elements:** `add_diagram`, `place_image`, `add_elements`, `update_elements`, `patch_elements`,
   `transform_elements`, `delete_elements`, `reorder_elements`, `group_elements`,
   `ungroup_element`, `duplicate_elements`, `align_elements`, `distribute_elements`,
   `expand_composite`, `replace_all`, `set_logo`
 - **Steps and motion:** `set_steps`, `set_slide_steps`, `set_transition`, `set_morph`
-- **Files:** `add_asset`, `export` (PowerPoint), `trash_deck` (always waits for review)
-- **Pictures of slides** (only in the `kasten-mcp` program from the command-line download, not
-  the installed app): `render_slide`, `render_grid`
+- **Files:** `add_asset`, `export` (PowerPoint, or a PNG picture of each slide drawn by the app;
+  PDF and HTML are File, Download in the editor), `trash_deck` (always waits for review)
+- **Pictures of slides:** `render_slide`, `render_grid` and `render_diff` (one slide before and
+  after a change, side by side, with what changed outlined). The installed app draws them in its
+  own window, so KastenFlow must be open on the vault; the `kasten-mcp` program from the
+  command-line download also draws them in Chrome, Chromium or Edge. `render_slide` and
+  `render_diff` take proposed `elements` to show a change before it is written, and `lint_deck`
+  measures text in the window when it can. The pictures come back as images, in an MCP client
+  and in KastenFlow's own chat.
+- **Code pictures:** `place_code_picture` (the assistant writes a small JavaScript program; KastenFlow
+  runs it in a sandbox in its own window, with no network, no files and no access to the vault except
+  the inputs the picture names, and the picture it draws goes on a slide with the program kept inside
+  it), `run_code_picture` (run one again, optionally with new code) and `rerun_code_pictures` (run
+  every code picture of a deck again when its data changed). KastenFlow must be open on the vault. A
+  program an assistant wrote waits for you to press Allow to run, once for each deck; errors come back
+  to the assistant with the line of the code.
+
+Until the vault has a deck, an outside AI is offered only the tools that start one
+(`list_decks`, `create_deck`, `build_deck`, `deck_from_note`, `import_pptx`) and `slides_help`;
+the rest are offered once there is a deck. KastenFlow's own chat is offered all of them.
 
 Taking slides out of decks, or leaving them empty, waits for your review once more than 3
 are taken out in ten minutes (a limit you can change).

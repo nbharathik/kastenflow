@@ -25,8 +25,11 @@ const HEIGHT: f64 = 780.0;
 
 /// The kinds of message the two windows exchange: the presenter asking for the deck, the deck, a position, the talk being a rehearsal,
 /// the show's heartbeat, the presenter asking for the show to end, the presenter asking for the show to change screens, and a window closing.
-const KINDS: [&str; 8] = [
-    "hello", "deck", "state", "rehearse", "beat", "end", "screen", "bye",
+/// Also an edit of the deck while the show runs (what changed, not the whole deck), a video that played, paused or sought, the laser's
+/// place on the slide, and ink drawn, taken back or cleared.
+const KINDS: [&str; 12] = [
+    "hello", "deck", "state", "rehearse", "beat", "end", "screen", "bye", "edit", "media",
+    "pointer", "ink",
 ];
 
 /// The most one message may weigh: a deck with its pictures' addresses, and nothing like a picture itself.
@@ -327,6 +330,17 @@ mod tests {
         for kind in ["beat", "end", "screen"] {
             assert!(KINDS.contains(&kind), "{kind}");
         }
+    }
+
+    #[test]
+    fn edits_videos_the_laser_and_ink_pass_between_the_windows() {
+        for kind in ["edit", "media", "pointer", "ink"] {
+            assert!(KINDS.contains(&kind), "{kind}");
+        }
+        assert!(is_message(
+            &json!({ "type": "pointer", "at": { "slide": "s1", "x": 0.5, "y": 0.25 } })
+        ));
+        assert!(is_message(&json!({ "type": "pointer", "at": null })));
     }
 
     #[test]

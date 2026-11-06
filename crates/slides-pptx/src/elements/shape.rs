@@ -130,6 +130,7 @@ pub fn write_text(x: &mut Xml, cx: &mut Cx, el: &TextEl, site: &Site) {
     } else {
         "rect"
     };
+    let columned = text::columns::with_columns(el);
     write_sp(
         x,
         cx,
@@ -141,7 +142,7 @@ pub fn write_text(x: &mut Xml, cx: &mut Cx, el: &TextEl, site: &Site) {
             geometry,
             adjust: adjust(geometry, radius, &site.frame),
             text: Some((
-                &el.text,
+                columned.as_ref().unwrap_or(&el.text),
                 Look {
                     style: &style,
                     valign,

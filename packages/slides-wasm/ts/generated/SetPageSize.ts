@@ -16,4 +16,8 @@ w?: number | null,
 /**
  * Height in slide units (1/96 inch).
  */
-h?: number | null, };
+h?: number | null, 
+/**
+ * `true` leaves what is on the slides as it is (same place, same size) and refits only the theme, so a new slide fits the page. Left out or `false`, everything is scaled with the page.
+ */
+keepSize?: boolean | null, };

@@ -49,7 +49,7 @@ describe("the context menu", () => {
     const { open } = await setup();
     expect(screen.queryByRole("menu")).toBeNull();
     open("canvas", 120, 80);
-    const popover = screen.getByRole("dialog", { name: "Context menu" });
+    const popover = screen.getByRole("menu", { name: "Context menu" }).closest<HTMLElement>(".ks-popover")!;
     expect(popover.style.left).toBe("120px");
     expect(popover.style.top).toBe("80px");
   });

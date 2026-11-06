@@ -95,12 +95,11 @@ impl Kasten {
                 template,
                 date,
             } => self.template_refusals(path, template, date.as_deref()),
-            AgentOp::JournalDay { date } => {
-                if crate::dates::is_real_day(date) {
-                    Ok(())
-                } else {
-                    Err(bad(format!("Not a day: “{date}”. Write it YYYY-MM-DD")))
+            AgentOp::JournalDay { date, project } => {
+                if !crate::dates::is_real_day(date) {
+                    return Err(bad(format!("Not a day: “{date}”. Write it YYYY-MM-DD")));
                 }
+                self.journal_refusals(project.as_deref(), date)
             }
             AgentOp::SetTask {
                 path,

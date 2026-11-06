@@ -92,8 +92,10 @@ export function reductionsFor(deck: Deck, format: PreflightFormat): Reduction[] 
       break;
     case "html":
       found.push(
-        reduction("embeds", "Embedded web pages", "live when there is a network, else their poster", facts.embeds),
-        reduction("videos", "Videos", "played from the file, else their poster", facts.videos),
+        // The page's script gives each embedded page's frame its address when the slide is shown and there is a network (a YouTube
+        // player only when the file is opened from a web address); otherwise the poster stays.
+        reduction("embeds", "Embedded web pages", "live in the page when it is opened with a network (a YouTube video only from a web address), else their poster", facts.embeds),
+        reduction("videos", "Videos", "their poster: a video file is not put in the page", facts.videos),
         reduction("page-links", "Links to pages of your notes", "words that link nowhere: the page is not in the file", facts.pageLinks),
       );
       break;

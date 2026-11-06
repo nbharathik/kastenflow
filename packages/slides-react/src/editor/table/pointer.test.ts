@@ -55,10 +55,12 @@ describe("the place under a point", () => {
 });
 
 describe("a click on a table", () => {
-  it("selects it and picks the cell under the pointer", async () => {
+  it("selects it whole the first time, and picks the cell under the pointer when it is clicked selected", async () => {
     const { session, grid, click } = await open();
     click(210, 160);
     expect(session.state.selection).toEqual([grid]);
+    expect(session.state.cells).toBeNull();
+    click(210, 160);
     expect(session.state.cells).toEqual(selectionAt(grid, { row: 1, col: 1 }));
     expect(session.state.editing).toBeNull();
   });
@@ -82,6 +84,7 @@ describe("a click on a table", () => {
 
   it("with Shift extends from the cell that was picked", async () => {
     const { session, grid, click } = await open();
+    session.select([grid]);
     click(110, 110);
     click(410, 160, { shift: true });
     expect(session.state.cells).toEqual({ table: grid, anchor: { row: 0, col: 0 }, focus: { row: 1, col: 3 } });
@@ -98,6 +101,7 @@ describe("a click on a table", () => {
 describe("a drag on a table whose cells are picked", () => {
   it("picks the cells between, moving nothing", async () => {
     const { session, grid, controller, click } = await open();
+    session.select([grid]);
     click(110, 110);
     controller.down(at(110, 110), { kind: "surface" });
     controller.move(at(360, 160));
@@ -110,6 +114,7 @@ describe("a drag on a table whose cells are picked", () => {
 
   it("keeps the nearest cell when the pointer leaves the table", async () => {
     const { session, grid, controller, click } = await open();
+    session.select([grid]);
     click(110, 110);
     controller.down(at(110, 110), { kind: "surface" });
     controller.move(at(900, 700));
@@ -118,7 +123,8 @@ describe("a drag on a table whose cells are picked", () => {
   });
 
   it("is called off by Escape, which leaves the cells as they were last picked", async () => {
-    const { session, controller, click } = await open();
+    const { session, grid, controller, click } = await open();
+    session.select([grid]);
     click(110, 110);
     controller.down(at(110, 110), { kind: "surface" });
     controller.move(at(260, 160));

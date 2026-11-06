@@ -1,0 +1,4 @@
+{"type":"step_start","timestamp":1767036059338,"sessionID":"ses_abc123def456","part":{"type":"step-start","snapshot":"0a1b2c"}}
+{"type":"tool_use","timestamp":1767036061199,"sessionID":"ses_abc123def456","part":{"type":"tool","callID":"call_1","tool":"kasten_read_note","state":{"status":"completed","input":{"path":"inbox/hotel-ideas.md"},"output":"{\"path\":\"inbox/hotel-ideas.md\",\"title\":\"Hotel ideas\",\"body\":\"Three hotels near the station.\"}","title":"kasten_read_note","metadata":{},"time":{"start":1,"end":2}}}}
+{"type":"text","timestamp":1767036064268,"sessionID":"ses_abc123def456","part":{"type":"text","text":"It lists three hotels.","time":{"start":1,"end":2}}}
+{"type":"step_finish","timestamp":1767036064300,"sessionID":"ses_abc123def456","part":{"type":"step-finish","reason":"stop","snapshot":"0a1b2c","cost":0.001,"tokens":{"input":10,"output":5,"reasoning":0,"cache":{"read":0,"write":0}}}}

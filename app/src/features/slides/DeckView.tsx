@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../ui/Icon";
 import { Wait } from "../../ui/Wait";
+import { registerFlusher } from "../workspace/page/open-page";
 import { useWorkspace } from "../workspace/store";
 import { useDeckFocus } from "./deck-focus";
 import { deckUi, keepDeckUi, setLiveDeck } from "./deck-ui";
 import { onDeckFiles } from "./events";
 import { type KastenHost, kastenHost } from "./kasten-host";
 import { PagePickerHost } from "./PagePicker";
+import { DECK_ACTIONS } from "./deck-actions";
 import "./slides.css";
 
 type Loaded = { status: "loading" } | { status: "failed"; message: string } | { status: "ready"; text: string; host: KastenHost };
@@ -19,6 +21,15 @@ export function DeckView({ path }: { path: string }) {
   const toast = useWorkspace((s) => s.toast);
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const editing = useRef<{ session: EditorSession; ui: EditorUi } | null>(null);
+  // Quit, restart, a vault switch, a backup or a restore write the open pages first: the deck's waiting changes go with them.
+  const forgetFlusher = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      forgetFlusher.current?.();
+      forgetFlusher.current = null;
+    },
+    [],
+  );
   // The deck has the keys when it is shown and whenever its pane comes back into use, so Delete, Undo, Copy and Paste work without a click.
   const { autoFocus, focusKey, routeOrphanKeys } = useDeckFocus(path);
 
@@ -61,6 +72,7 @@ export function DeckView({ path }: { path: string }) {
         key={path}
         text={loaded.text}
         host={loaded.host}
+        actions={DECK_ACTIONS}
         autoFocus={autoFocus}
         focusKey={focusKey}
         routeOrphanKeys={routeOrphanKeys}
@@ -70,6 +82,8 @@ export function DeckView({ path }: { path: string }) {
         onError={(message) => toast(message)}
         onSession={(session, ui) => {
           editing.current = session && ui ? { session, ui } : null;
+          forgetFlusher.current?.();
+          forgetFlusher.current = session ? registerFlusher(() => session.flush()) : null;
           setLiveDeck(path, ui);
           // Browser checks and scripts reach the editor through this, in development builds and in the preview with sample data.
           if (import.meta.env.DEV || new URLSearchParams(location.search).has("samples")) Object.assign(window, { __ks: session && ui ? { session, ui, host: loaded.host } : undefined });

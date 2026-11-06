@@ -1,0 +1,160 @@
+/* Rulers, grid and guides: editor chrome over the slide, never part of it. */
+/* The handles on the lines between the columns of the selected table. */
+.ks-table-edges {
+  position: absolute;
+  width: 0;
+  pointer-events: none;
+}
+.ks-table-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+.ks-table-edge:hover,
+.ks-table-edge:focus-visible {
+  background: var(--ks-accent);
+  opacity: 0.45;
+}
+/* Crop mode: the box of the picture with a handle on each edge. */
+.ks-crop {
+  position: absolute;
+  outline: 2px solid var(--ks-accent);
+  outline-offset: -1px;
+}
+.ks-crop-handle {
+  position: absolute;
+  background: var(--ks-accent);
+  touch-action: none;
+}
+.ks-crop-handle[data-side="left"],
+.ks-crop-handle[data-side="right"] {
+  top: 25%;
+  height: 50%;
+  width: 6px;
+  cursor: ew-resize;
+}
+.ks-crop-handle[data-side="top"],
+.ks-crop-handle[data-side="bottom"] {
+  left: 25%;
+  width: 50%;
+  height: 6px;
+  cursor: ns-resize;
+}
+.ks-crop-handle[data-side="left"] {
+  left: -3px;
+}
+.ks-crop-handle[data-side="right"] {
+  right: -3px;
+}
+.ks-crop-handle[data-side="top"] {
+  top: -3px;
+}
+.ks-crop-handle[data-side="bottom"] {
+  bottom: -3px;
+}
+.ks-aids {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ks-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, var(--ks-line-strong) 1px, transparent 1px), linear-gradient(to bottom, var(--ks-line-strong) 1px, transparent 1px);
+}
+.ks-guideline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  background: var(--ks-accent);
+  touch-action: none;
+}
+.ks-guideline[data-axis="vertical"] {
+  width: 1px;
+  cursor: col-resize;
+}
+.ks-guideline[data-axis="horizontal"] {
+  height: 1px;
+  cursor: row-resize;
+}
+/* A wider place to grab than the line itself. */
+.ks-guideline::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.ks-guideline.is-new {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.ks-ruler {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: auto;
+  background: var(--ks-panel);
+  color: var(--ks-muted);
+  font-size: 9px;
+  line-height: 1;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ks-ruler[data-along="x"] {
+  left: 0;
+  border-bottom: 1px solid var(--ks-line-strong);
+  cursor: row-resize;
+}
+.ks-ruler[data-along="y"] {
+  top: 0;
+  border-right: 1px solid var(--ks-line-strong);
+  cursor: col-resize;
+}
+.ks-tick {
+  position: absolute;
+  background: var(--ks-muted);
+}
+.ks-ruler[data-along="x"] .ks-tick {
+  bottom: 0;
+  width: 1px;
+  height: 4px;
+  padding-left: 2px;
+}
+.ks-ruler[data-along="y"] .ks-tick {
+  right: 0;
+  height: 1px;
+  width: 4px;
+}
+.ks-ruler .ks-tick.is-major {
+  background: var(--ks-ink);
+}
+.ks-ruler[data-along="x"] .ks-tick.is-major {
+  height: 8px;
+}
+.ks-ruler[data-along="y"] .ks-tick.is-major {
+  width: 8px;
+}
+/* The number sits beside its mark, in the ruler's own colour rather than the mark's. */
+.ks-ruler[data-along="x"] .ks-tick {
+  color: var(--ks-muted);
+  font-size: 9px;
+  top: 2px;
+  height: auto;
+  background: none;
+  border-left: 1px solid var(--ks-muted);
+}
+.ks-ruler[data-along="y"] .ks-tick {
+  color: var(--ks-muted);
+  font-size: 9px;
+  left: 2px;
+  width: auto;
+  height: auto;
+  background: none;
+  border-top: 1px solid var(--ks-muted);
+  writing-mode: vertical-rl;
+}

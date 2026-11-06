@@ -2,12 +2,14 @@ import type { Element } from "@kasten-slides/wasm";
 import { describe, expect, it } from "vitest";
 
 import { newDeck } from "../../test/engine.ts";
+import { chromeOf } from "../chrome/chrome.ts";
 import { COMPOSITES, COMPOSITE_TYPES, INSERTABLE, newComposite } from "../composite-kinds.ts";
 import { textBox } from "../factory.ts";
 import { insertComposite } from "../insert-composite.ts";
 import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
 import { EditorUi } from "../ui-state.ts";
+import { SAMPLE_QR_ADDRESS } from "./composites.ts";
 import { COMMANDS, dispatchKey, isEnabled, keysOf, runCommand } from "./index.ts";
 import type { CommandContext } from "./types.ts";
 
@@ -22,10 +24,10 @@ const press = (key: string, extra: Partial<KeyboardEventInit> = {}): KeyboardEve
 const composites = (c: CommandContext): Element[] => c.session.slide.elements.filter((e) => COMPOSITE_TYPES.includes(e.type as never));
 
 describe("the kinds of composite", () => {
-  it("are the twelve the format has; the nine the editor can make each have a command, a name and a size that fits the slide", () => {
+  it("are the twelve the format has, all of which the editor can make: each has a command, a name and a size that fits the slide", () => {
     expect(COMPOSITES.map((c) => c.kind)).toEqual(COMPOSITE_TYPES);
     expect(COMPOSITES).toHaveLength(12);
-    expect(INSERTABLE).toHaveLength(9);
+    expect(INSERTABLE).toHaveLength(12);
     for (const spec of COMPOSITES) {
       expect(spec.size.w).toBeLessThanOrEqual(960);
       expect(spec.size.h).toBeLessThanOrEqual(540);
@@ -33,12 +35,12 @@ describe("the kinds of composite", () => {
     for (const spec of INSERTABLE) expect(COMMANDS.get(`insert.${spec.kind}`)?.label, spec.kind).toBe(spec.label);
   });
 
-  it("leave out of the menus what the editor cannot make or change yet: a chart, a timer, a QR code", () => {
+  it("offer a chart, a timer and a QR code, each by a command of its own", () => {
     for (const kind of ["chart", "timer", "qr"]) {
-      expect(INSERTABLE.map((c) => c.kind)).not.toContain(kind);
-      expect(COMMANDS.has(`insert.${kind}`), kind).toBe(false);
+      expect(INSERTABLE.map((c) => c.kind)).toContain(kind);
+      expect(COMMANDS.has(`insert.${kind}`), kind).toBe(true);
     }
-    // They are still elements a deck may hold, and new ones can be made for what writes decks.
+    expect(["insert.chart.line", "insert.chart.pie", "insert.emoji"].every((id) => COMMANDS.has(id))).toBe(true);
     expect(newComposite("chart").type).toBe("chart");
     expect(newComposite("timer").type).toBe("timer");
     expect(newComposite("qr", { address: "https://example.com" })).toMatchObject({ type: "qr", data: "https://example.com" });
@@ -86,6 +88,50 @@ describe("inserting a composite", () => {
     expect(composites(c)).toHaveLength(0);
     c.session.redo();
     expect(composites(c)).toHaveLength(1);
+  });
+
+  it("puts a chart, a timer and a QR code on the slide, each one step of undo", async () => {
+    for (const [id, type] of [["insert.chart", "chart"], ["insert.timer", "timer"], ["insert.qr", "qr"]] as const) {
+      const c = await context();
+      await runCommand(id, c);
+      expect(composites(c).map((e) => e.type)).toEqual([type]);
+      expect(c.session.state.selection).toEqual([composites(c)[0]?.id]);
+      expect(c.errors).toEqual([]);
+      c.session.undo();
+      expect(composites(c)).toHaveLength(0);
+    }
+  });
+
+  it("makes a line chart and a pie chart from their own commands, with data to look at", async () => {
+    const c = await context();
+    await runCommand("insert.chart", c);
+    await runCommand("insert.chart.line", c);
+    await runCommand("insert.chart.pie", c);
+    const charts = composites(c) as Extract<Element, { type: "chart" }>[];
+    expect(charts.map((e) => e.kind)).toEqual(["bar", "line", "pie"]);
+    for (const chart of charts) {
+      expect(chart.categories.length).toBeGreaterThan(1);
+      for (const series of chart.series) expect(series.values).toHaveLength(chart.categories.length);
+    }
+    // No colours are fixed: the theme's accents are used in turn, so a new theme recolours the chart.
+    expect(charts[0]?.series.every((s) => !s.color)).toBe(true);
+  });
+
+  it("starts a QR code from the web address the slide links to, and from an example when it links to none", async () => {
+    const empty = await context();
+    await runCommand("insert.qr", empty);
+    expect(composites(empty)[0]).toMatchObject({ type: "qr", data: SAMPLE_QR_ADDRESS });
+    const linked = await context();
+    linked.session.elements.insert([{ ...textBox({ x: 40, y: 40, w: 200, h: 40 }, "Docs"), link: "https://example.org/docs" } as Element]);
+    await runCommand("insert.qr", linked);
+    expect(composites(linked)[0]).toMatchObject({ type: "qr", data: "https://example.org/docs" });
+  });
+
+  it("opens the emoji picker from its command", async () => {
+    const c = await context();
+    await runCommand("insert.emoji", c);
+    expect(c.ui.state.dialog).toBe("emoji");
+    expect(composites(c)).toHaveLength(0);
   });
 
   it("asks which works to cite, in a dialog of its own, instead of putting an empty citation on the slide", async () => {
@@ -161,9 +207,12 @@ describe("inserting a composite", () => {
   });
 });
 
-describe("the insert palette's keys", () => {
-  it("are Ctrl+/, Ctrl+Shift+P, and the slash", async () => {
-    expect(COMMANDS.get("insert.palette")?.keys).toEqual(["Mod+/", "Mod+Shift+P", "/"]);
+describe("the command palette's keys", () => {
+  it("are Ctrl+Shift+P and Ctrl+K for all of it, Alt+/ for its commands, Ctrl+/ and the slash for what to insert", async () => {
+    expect(COMMANDS.get("view.palette")?.keys).toEqual(["Mod+Shift+P"]);
+    expect(COMMANDS.get("view.palette-k")?.keys).toEqual(["Mod+K"]);
+    expect(COMMANDS.get("view.menu-search")?.keys).toEqual(["Alt+/"]);
+    expect(COMMANDS.get("insert.palette")?.keys).toEqual(["Mod+/", "/"]);
     expect(keysOf("insert.palette")).toMatch(/^(Ctrl\+\/|⌘\/)$/);
     // The keyboard shortcuts are one Shift away.
     expect(COMMANDS.get("help.shortcuts")?.keys).toEqual(["Mod+Shift+?", "Mod+Shift+/"]);
@@ -177,6 +226,36 @@ describe("the insert palette's keys", () => {
     expect(dispatchKey(press("/"), c, "filmstrip")).toBe(true);
     c.ui.openDialog(null);
     expect(dispatchKey(press("p", { ctrlKey: true, shiftKey: true }), c, "text")).toBe(true);
+    expect(c.ui.state.dialog).toBe("insert");
+  });
+
+  it("ask the palette to start on the part each key is for", async () => {
+    const c = await context();
+    expect(dispatchKey(press("/", { altKey: true }), c, "canvas")).toBe(true);
+    expect(chromeOf(c.ui).takePalette()).toBe("commands");
+    c.ui.openDialog(null);
+    expect(dispatchKey(press("/"), c, "canvas")).toBe(true);
+    expect(chromeOf(c.ui).takePalette()).toBe("insert");
+    c.ui.openDialog(null);
+    expect(dispatchKey(press("p", { ctrlKey: true, shiftKey: true }), c, "canvas")).toBe(true);
+    expect(chromeOf(c.ui).takePalette()).toBe("all");
+  });
+
+  it("give Ctrl+K to the palette, except where it is Insert link: a text box open, or something selected", async () => {
+    const c = await context();
+    // Nothing selected, no text open: the palette.
+    c.session.select([]);
+    expect(dispatchKey(press("k", { ctrlKey: true }), c, "canvas")).toBe(true);
+    expect(c.ui.state.dialog).toBe("insert");
+    c.ui.openDialog(null);
+    // A box selected: the link, as before.
+    const [id] = c.session.elements.insert([textBox({ x: 40, y: 40, w: 300, h: 60 }, "Words")]) as [string];
+    c.session.select([id]);
+    expect(dispatchKey(press("k", { ctrlKey: true }), c, "canvas")).toBe(true);
+    expect(c.ui.state.dialog).toBe("link");
+    c.ui.openDialog(null);
+    // Ctrl+Shift+P is the palette's whatever is selected.
+    expect(dispatchKey(press("p", { ctrlKey: true, shiftKey: true }), c, "canvas")).toBe(true);
     expect(c.ui.state.dialog).toBe("insert");
   });
 

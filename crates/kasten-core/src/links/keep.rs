@@ -5,11 +5,11 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use super::{Directory, Place, Resolution, scan, title_key};
-use crate::atomic::write_atomic;
 use crate::error::Result;
 use crate::frontmatter::{join, split};
 use crate::note::NoteMeta;
 use crate::ops::eol_of;
+use crate::rollback::Rollback;
 use crate::vault::Vault;
 
 /// `body` with each link that went to one note before an op, and would go
@@ -110,6 +110,19 @@ pub fn keep_in_vault(
     moved: &HashMap<String, String>,
     paths: &[String],
 ) -> Result<Vec<String>> {
+    keep_in_vault_with(vault, before, after, moved, paths, &mut Rollback::default())
+}
+
+/// `keep_in_vault`, noting every note it writes in `done` so that the caller
+/// can put them back if a later step of its op fails.
+pub(crate) fn keep_in_vault_with(
+    vault: &Vault,
+    before: &[NoteMeta],
+    after: &[NoteMeta],
+    moved: &HashMap<String, String>,
+    paths: &[String],
+    done: &mut Rollback,
+) -> Result<Vec<String>> {
     let (was_dir, now_dir) = (Directory::new(before), Directory::new(after));
     let back: HashMap<&str, &str> = moved
         .iter()
@@ -152,7 +165,11 @@ pub fn keep_in_vault(
         ) else {
             continue;
         };
-        if write_atomic(&file, join(parts.prefix, &body, eol_of(&text)).as_bytes()).is_ok() {
+        let kept = join(parts.prefix, &body, eol_of(&text));
+        if done
+            .write(&file, kept.as_bytes(), Some(text.clone().into_bytes()))
+            .is_ok()
+        {
             written.push(path.clone());
         }
     }

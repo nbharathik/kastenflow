@@ -1,16 +1,13 @@
-// A text box made by the text tool or by the T key starts empty and open for
-// typing. Closed with nothing typed it is of no use: nothing shows of it, and
-// only a rectangle dragged round it would find it again. So it is taken away,
-// as Google Slides and PowerPoint do; once words are typed it is a box like any
-// other. Only a box made just now is treated so, never one the person opens.
-
-import type { Element, Text } from "@kasten-slides/wasm";
+// A text box made by the text tool, the T key, the Insert menu or the gallery starts empty and open for typing. It stays where it was put
+// even if it is closed with nothing typed (it shows a prompt and a faint outline in the editor, and the check of the deck reports it
+// while it is empty), as in Keynote. What is remembered here is only which box was made just now, so that the first words typed into it
+// are one step of undo with the box: one Undo takes the box and its words back together.
 
 import type { EditorSession } from "../session/session.ts";
 
 interface Mark {
   id: string;
-  /** The slide it was made on: it can only be taken from there. */
+  /** The slide it was made on: the words can only join the step from there. */
   slide: string;
   /** The count of changes to the deck just after it was made; the same count later means nothing has happened to the deck since. */
   revision: number;
@@ -18,7 +15,7 @@ interface Mark {
 
 const marks = new WeakMap<EditorSession, Mark>();
 
-/** Notes that a text box has just been made and opened, to be settled when its editing ends. */
+/** Notes that a text box has just been made and opened. */
 export function markFresh(session: EditorSession, id: string): void {
   marks.set(session, { id, slide: session.state.slideId, revision: session.state.revision });
 }
@@ -32,24 +29,12 @@ export function isUntouched(session: EditorSession, id: string, slide: string): 
   return mark !== undefined && mark.id === id && mark.slide === slide && mark.revision === session.state.revision && session.state.undoLabel === "add_elements";
 }
 
-const isBlank = (text: Text): boolean => text.paragraphs.every((paragraph) => paragraph.runs.every((run) => run.t === "" && !run.field));
-
-/** A fill or an outline is something to see even where there are no words. */
-const shows = (element: Element): boolean => element.style?.fill != null || element.style?.stroke != null;
-
 /**
- * Called when the editing of a box has ended and what was typed is in the deck. A box that was just made and still has
- * nothing in it goes: by undo when nothing else has happened since, which leaves the history as it was, else as a step
- * of its own that undo can take back. A box with anything of its own to see stays.
+ * Called when the editing of a box has ended and what was typed is in the deck: the box is no longer the one made just now, so words
+ * typed into it later are a step of their own. A box still open (the text layer being set up again, as a development build does on
+ * purpose) keeps its mark. Nothing is ever removed here.
  */
-export function settleFresh(session: EditorSession, id: string): void {
+export function spendFresh(session: EditorSession, id: string): void {
   const mark = marks.get(session);
-  // Still open: the text layer is only being set up again (as a development build does on purpose), not closed.
-  if (!mark || mark.id !== id || session.state.editing === id) return;
-  marks.delete(session);
-  if (mark.slide !== session.state.slideId) return;
-  const element = session.slide.elements.find((e) => e.id === id);
-  if (!element || element.type !== "text" || !isBlank(element.text) || shows(element)) return;
-  if (session.state.revision === mark.revision && session.state.undoLabel === "add_elements") session.undo();
-  else session.elements.remove([id]);
+  if (mark && mark.id === id && session.state.editing !== id) marks.delete(session);
 }

@@ -614,7 +614,7 @@ proptest! {
                 0 => append(NOTES[*target], text),
                 1 => AgentOp::Tags { path: NOTES[*target].into(), add: vec![format!("tag{}", n % 3)], remove: vec![] },
                 2 => create(&format!("Prop note {n}"), text),
-                3 => AgentOp::JournalAppend { date: "2026-09-23".into(), markdown: text.clone(), heading: None },
+                3 => AgentOp::JournalAppend { date: "2026-09-23".into(), markdown: text.clone(), heading: None, project: None },
                 4 => AgentOp::Rename { path: NOTES[*target].into(), title: format!("Renamed {n} {text}") },
                 _ => AgentOp::Move { path: NOTES[*target].into(), project: Some("photo-organiser".into()) },
             })

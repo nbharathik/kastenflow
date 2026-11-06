@@ -30,6 +30,14 @@ export const presentCommands: Command[] = [
     run: ({ ui }) => ui.openDialog("rehearsals"),
   },
   {
+    // The keys of a show on a card (the same list the show's `?` has): what to press to move, black out, point, go to a slide, time the talk.
+    id: "view.presenting-help",
+    label: "Keys while presenting…",
+    icon: "keyboard",
+    scope: "global",
+    run: ({ ui }) => ui.openDialog("presenting"),
+  },
+  {
     id: "view.present-scroll",
     label: "Scroll view with notes",
     icon: "file-text",

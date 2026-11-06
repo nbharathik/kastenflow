@@ -107,7 +107,13 @@ fn action(name: &str, input: &Value) -> String {
         "remove_tags" => format!("remove {} from {note}", tags(input)),
         "rename_note" => format!("rename {note} to {}", quoted(text(input, "title"))),
         "move_note" => format!("move {note} to {}", or("project", "the library")),
-        "journal_append" => format!("add to the journal for {}", or("date", "today")),
+        "journal_append" => match text(input, "project") {
+            "" => format!("add to the journal for {}", or("date", "today")),
+            project => format!(
+                "add to the journal of {project} for {}",
+                or("date", "today")
+            ),
+        },
         "batch" => format!("make {} as one batch", count(len(&input["ops"]), "change")),
         "trash_note" => format!("move {note} to the trash"),
         "propose_edit" => format!("rewrite {note}"),
@@ -325,7 +331,13 @@ fn described(
             (format!("Moved {title} to {to}"), vec![path])
         }
         "journal_append" => (
-            format!("Added to the journal for {}", text(done, "title")),
+            match text(input, "project") {
+                "" => format!("Added to the journal for {}", text(done, "title")),
+                project => format!(
+                    "Added to the journal of {project} for {}",
+                    text(done, "title")
+                ),
+            },
             vec![path],
         ),
         "batch" => {

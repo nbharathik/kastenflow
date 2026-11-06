@@ -4,6 +4,7 @@ import { type FocusEvent, type KeyboardEvent, type RefObject, useEffect, useRef 
 
 import { canTakeFocus, editorOf, focusHome, lastEditorRoot } from "../focus/home.ts";
 import type { EditorUi } from "../ui-state.ts";
+import { popoverWithin } from "../ui/Popover.tsx";
 
 /**
  * Remembers what had the focus before a field took it (the slide, say), so
@@ -49,7 +50,8 @@ export const MENU_FIRST_ROW = ".ks-menu-list > button:not(:disabled)";
 export function useFocusWhenShown(root: RefObject<HTMLElement | null>, selector: string | null, key: unknown): void {
   useEffect(() => {
     if (selector === null) return;
-    const frame = requestAnimationFrame(() => root.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true }));
+    // A popover is drawn in a layer of its own, not inside the element that opened it: look there first.
+    const frame = requestAnimationFrame(() => (popoverWithin(root.current) ?? root.current)?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, [root, selector, key]);
 }

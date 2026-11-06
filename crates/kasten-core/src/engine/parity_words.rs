@@ -79,7 +79,14 @@ impl Kasten {
                 quoted(title),
                 quoted(template)
             ),
-            AgentOp::JournalDay { date } => format!("Open the journal for {date}"),
+            AgentOp::JournalDay {
+                date,
+                project: Some(project),
+            } => format!(
+                "Open the journal of {} for {date}",
+                self.project_title(Some(project))
+            ),
+            AgentOp::JournalDay { date, .. } => format!("Open the journal for {date}"),
             AgentOp::SetTask {
                 path, line, done, ..
             } => {

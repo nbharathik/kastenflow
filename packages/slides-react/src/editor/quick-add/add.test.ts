@@ -204,10 +204,15 @@ describe("where the keys work", () => {
 });
 
 describe("the toolbar's button and the menu's item", () => {
-  it("still arm the tool, to place the box with a click or a drag, and show the key", async () => {
+  it("put a text box in the middle of the slide at once, ready to type, while the shapes still arm the tool; and show the keys", async () => {
     const { session, context, elements } = await open();
     await runCommand("insert.text-box", context);
-    expect(session.state.tool).toBe("text");
+    expect(session.state.tool).toBe("select");
+    expect(elements()).toHaveLength(1);
+    expect(session.state.editing).toBe(elements()[0]?.id);
+    expect(session.state.selection).toEqual([elements()[0]?.id]);
+    session.stopEditing();
+    session.undo();
     expect(elements()).toHaveLength(0);
     await runCommand("insert.shape.rect", context);
     expect(session.state.tool).toBe("shape:rect");

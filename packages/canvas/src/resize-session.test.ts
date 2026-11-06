@@ -18,6 +18,25 @@ type Point = { x: number; y: number };
 /** A session resizing b, which begins with the pointer on `grabbed`. */
 const resizeB = (handle: Handle, grabbed?: Point) => ResizeSession.start({ items: [b], handle, all, frame, grabbed });
 
+describe("ResizeSession keeping the proportions by default (a picture)", () => {
+  // `a` is 100 x 50, so the ratio is 2.
+  const picture = (shift: boolean) => ResizeSession.start({ items: [a], handle: "se", all, frame, grabbed: { x: 200, y: 150 }, keepByDefault: true }).update({ x: 300, y: 160 }, { shift, noSnap: true }).boxes.get("a");
+
+  it("keeps the ratio with no key held", () => {
+    expect(picture(false)).toEqual({ x: 100, y: 100, w: 200, h: 100 });
+  });
+
+  it("stretches freely with Shift held", () => {
+    expect(picture(true)).toEqual({ x: 100, y: 100, w: 200, h: 60 });
+  });
+
+  it("is the other way round for what does not keep its shape: Shift keeps it", () => {
+    const free = ResizeSession.start({ items: [a], handle: "se", all, frame, grabbed: { x: 200, y: 150 } });
+    expect(free.update({ x: 300, y: 160 }, { noSnap: true }).boxes.get("a")).toEqual({ x: 100, y: 100, w: 200, h: 60 });
+    expect(free.update({ x: 300, y: 160 }, { shift: true, noSnap: true }).boxes.get("a")).toEqual({ x: 100, y: 100, w: 200, h: 100 });
+  });
+});
+
 describe("ResizeSession on one upright item", () => {
   it("resizes by the pointer's travel from where it went down", () => {
     const p = resizeB("e", { x: 500, y: 350 }).update({ x: 537, y: 350 });

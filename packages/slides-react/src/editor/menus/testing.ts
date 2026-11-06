@@ -42,6 +42,8 @@ export function fakeTextBox(format: Partial<FormatState> = {}): TextHandle & { c
     stepSize: vi.fn(),
     setFont: vi.fn(),
     setAlign: vi.fn(),
+    setParagraphStyle: vi.fn(),
+    paragraphStyle: () => "body",
     toggleList: vi.fn(),
     indent: vi.fn(),
     setLineSpacing: vi.fn(),
@@ -67,8 +69,8 @@ export const button = (name: string | RegExp) => screen.getByRole("button", { na
 /** A title of the menu bar. */
 export const bar = (name: string) => screen.getByRole("menuitem", { name });
 
-/** The popover of the open menu with this name. */
-export const menuOf = (name: string) => screen.getByRole("dialog", { name });
+/** The list of the open menu with this name. */
+export const menuOf = (name: string) => screen.getByRole("menu", { name });
 
 export const isDisabled = (element: HTMLElement) => (element as HTMLButtonElement).disabled;
 

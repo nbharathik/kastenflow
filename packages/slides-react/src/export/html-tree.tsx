@@ -9,6 +9,7 @@ import { type Plan, stepsOf } from "../present/plan.ts";
 import { type Arrivals, arrivalsOf, sectionAttributes } from "../present/section.ts";
 import type { ImageUrl } from "../render/index.ts";
 import { SlideView } from "../render/index.ts";
+import { ExportFrames } from "./html-frames.tsx";
 
 interface SectionProps {
   deck: Deck;
@@ -27,6 +28,7 @@ function Section({ deck, slide, number, count, imageUrl, arrivals }: SectionProp
         <div key={step} className="ks-show-layer" data-step={step} hidden={step !== 0}>
           <div className="ks-show-slide" style={{ width: deck.size.w, height: deck.size.h }}>
             <SlideView deck={deck} slide={slide} number={number} count={count} step={steps > 0 ? step : undefined} mode="present" imageUrl={imageUrl} />
+            <ExportFrames deck={deck} slide={slide} step={steps > 0 ? step : -1} />
           </div>
         </div>
       ))}

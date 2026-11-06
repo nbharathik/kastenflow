@@ -13,30 +13,40 @@ use crate::error::{Error, Result};
 use crate::ids::IdGen;
 use crate::model::Deck;
 
+mod access;
 mod changes;
+pub(crate) mod chart_data;
+mod chart_table;
 mod citations;
 mod collapse;
+mod comments;
 mod composites;
 mod create;
+pub(crate) mod deck_words;
 mod diagram;
 mod elements;
 mod engine;
+mod footer;
 pub(crate) mod geometry;
 mod groups;
+mod guides;
 mod incoming;
 mod layout;
 mod layouts;
 mod layouts_design;
 mod layouts_import;
 mod marks;
+mod mermaid;
 mod page;
 mod page_slides;
 mod pages;
 mod paragraphs;
+mod picture;
 mod present;
 mod replace;
 mod sections;
 mod slides;
+mod step_fx;
 mod steps;
 mod storyboard;
 mod tables;
@@ -141,31 +151,39 @@ macro_rules! registry {
     };
 }
 
+use access::SetSlideAccess;
 use citations::AddCitation;
 use collapse::CollapseSlides;
+use comments::{AddDeckComment, ReplyDeckComment, ResolveDeckComment};
 use composites::ExpandComposite;
+use deck_words::{SetDeckFonts, SetDictionary};
 use diagram::AddDiagram;
 use elements::*;
+use footer::SetHeaderFooter;
 use groups::*;
+use guides::SetGuides;
 use incoming::{AddSlides, ReplaceDeck};
 use layout::*;
 use layouts::{AddLayout, DeleteLayout, EditLayout, MoveLayout};
 use layouts_design::{ResetSlides, SaveLayout, SetLayoutDesign};
 use layouts_import::ImportLayouts;
 use marks::AcceptMarks;
+use mermaid::{AddMermaid, UpdateMermaid};
 use page::SetPageSize;
 use page_slides::AddPageSlides;
 use pages::{AddPageContents, UpdatePageContents};
 use paragraphs::FormatParagraphs;
+use picture::ReplacePicture;
 use present::SetPresent;
 use replace::*;
 use sections::{AddSection, RemoveSection, RenameSection};
 use slides::*;
+use step_fx::SetStepFx;
 use steps::{BuildSteps, SetSlideSteps, SetStepStates};
 use storyboard::{AcknowledgeSource, AddStoryboardSlides};
 use tables::{
-    ClearCells, DeleteColumns, DeleteRows, InsertColumns, InsertRows, MergeCells, SetCellFill,
-    SetCells, UnmergeCells,
+    ClearCells, DeleteColumns, DeleteRows, DistributeTable, InsertColumns, InsertRows, MergeCells,
+    ResizeColumn, SetCellBorders, SetCellFill, SetCells, SetTableStyle, UnmergeCells,
 };
 use templates::ApplyTemplate;
 use text::*;
@@ -191,6 +209,7 @@ registry![
     SetTransition,
     SetSlideSteps,
     SetStepStates,
+    SetStepFx,
     BuildSteps,
     CollapseSlides,
     SetLayout,
@@ -207,6 +226,8 @@ registry![
     SetBackground,
     AddElements,
     AddDiagram,
+    AddMermaid,
+    UpdateMermaid,
     AddCitation,
     AddPageContents,
     UpdatePageContents,
@@ -236,8 +257,21 @@ registry![
     MergeCells,
     UnmergeCells,
     SetCellFill,
+    SetTableStyle,
+    SetCellBorders,
+    DistributeTable,
+    ResizeColumn,
+    SetHeaderFooter,
+    SetGuides,
+    SetDictionary,
+    SetDeckFonts,
+    ReplacePicture,
     ReplaceAll,
     AcceptMarks,
+    AddDeckComment,
+    ReplyDeckComment,
+    ResolveDeckComment,
+    SetSlideAccess,
 ];
 
 /// Writes `Output` types as TypeScript with the input types. (ts-rs needs one

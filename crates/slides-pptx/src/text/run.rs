@@ -259,6 +259,16 @@ pub fn write(x: &mut Xml, cx: &mut Cx, run: &Run, style: &Style, opacity: f64) -
         x.close();
         return mark;
     }
+    // Today's date is a field PowerPoint fills in with the day the file is opened.
+    if run.field.as_deref() == Some(slides_core::DATE_FIELD) {
+        x.open("a:fld")
+            .attr("id", &cx.field_id())
+            .attr("type", super::datefield::field_type(&run.t));
+        mark.write(x, "a:rPr", None);
+        x.text_element("a:t", &run.t);
+        x.close();
+        return mark;
+    }
     // The step label is the words of the page being written; without steps it keeps its own.
     let shown = match run.field.as_deref() {
         Some("stepLabel") => cx.step_label().unwrap_or_else(|| run.t.clone()),

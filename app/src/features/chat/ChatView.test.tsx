@@ -88,7 +88,7 @@ describe("Chat view", () => {
     expect(screen.getByRole("button", { name: "Undo the undo" })).toBeTruthy();
     expect((await vault.list()).map((n) => n.path)).not.toContain("inbox/hotel-ideas.md");
     expect(screen.queryByRole("button", { name: "Open Hotel ideas" })).toBeNull();
-    expect(screen.getByText("This chat's changes were undone.")).toBeTruthy();
+    expect(screen.getByText("Changes undone")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "See in History" }));
     expect(useWorkspace.getState().place).toEqual({ view: "history" });
     // History opens on this chat's session.

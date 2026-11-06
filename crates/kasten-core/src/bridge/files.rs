@@ -12,7 +12,8 @@ use std::time::UNIX_EPOCH;
 
 use super::call::{Reply, Request};
 use super::{
-    DIR, MAX_REPLY_BYTES, MAX_REQUEST_BYTES, MAX_WAITING, Platform, REPLY_TTL_MS, REQUEST_TTL_MS,
+    DIR, MAX_PAYLOAD_BYTES, MAX_REPLY_BYTES, MAX_REQUEST_BYTES, MAX_WAITING, Platform,
+    REPLY_TTL_MS, REQUEST_TTL_MS,
 };
 use crate::error::{Error, Result};
 use crate::local_paths;
@@ -86,6 +87,14 @@ impl Mailbox {
         self.dir.join("replies")
     }
 
+    pub(super) fn payloads(&self) -> PathBuf {
+        self.dir.join("payloads")
+    }
+
+    fn payload_path(&self, id: &str) -> PathBuf {
+        self.payloads().join(format!("{id}.bin"))
+    }
+
     pub(super) fn alive_path(&self) -> PathBuf {
         self.dir.join("app-alive.json")
     }
@@ -113,7 +122,7 @@ impl Mailbox {
     /// and refuses them if any is a link.
     pub fn ensure_dirs(&self) -> Result<()> {
         local_paths::check(&self.dir)?;
-        for folder in [self.requests(), self.replies()] {
+        for folder in [self.requests(), self.replies(), self.payloads()] {
             private_dir(&folder)?;
             local_paths::check(&folder)?;
         }
@@ -241,6 +250,35 @@ impl Mailbox {
         if valid_id(id) {
             self.forget(&self.request_path(id));
             self.forget(&self.reply_path(id));
+            self.forget(&self.payload_path(id));
+        }
+    }
+
+    /// Writes the bytes that travel beside request `id` (a deck to draw): they
+    /// are put down before the request, so the app finds them when it reads it.
+    pub fn put_payload(&self, id: &str, bytes: &[u8]) -> Result<()> {
+        check_id(id)?;
+        if bytes.len() as u64 > MAX_PAYLOAD_BYTES {
+            return Err(Error::Invalid(
+                "That is too big to send to the app".to_owned(),
+            ));
+        }
+        self.ensure_dirs()?;
+        self.write(&self.payload_path(id), bytes)
+    }
+
+    /// The bytes that came beside request `id`: read once and removed. None
+    /// when there are none, or what is there is not a plain, private, small file.
+    pub fn take_payload(&self, id: &str) -> Option<Vec<u8>> {
+        if !valid_id(id) {
+            return None;
+        }
+        let path = self.payload_path(id);
+        let found = self.read(&path, MAX_PAYLOAD_BYTES);
+        self.forget(&path);
+        match found {
+            Found::Bytes(bytes) => Some(bytes),
+            _ => None,
         }
     }
 
@@ -283,6 +321,7 @@ impl Mailbox {
         for (folder, ttl) in [
             (self.requests(), REQUEST_TTL_MS * 2),
             (self.replies(), REPLY_TTL_MS),
+            (self.payloads(), REQUEST_TTL_MS * 2),
         ] {
             if local_paths::check(&folder).is_err() {
                 continue;

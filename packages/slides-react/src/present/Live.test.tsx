@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { plainDeck } from "../render/testing/decks.ts";
 import { EmbedFrame, LiveLayer, VideoPlayer, liveItems } from "./Live.tsx";
+import { EMBED_SANDBOX } from "./live-url.ts";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -81,14 +82,64 @@ describe("an embedded page", () => {
     await settle();
     const frame = host.querySelector<HTMLIFrameElement>("iframe");
     expect(frame?.getAttribute("src")).toBe("http://127.0.0.1:9/demo");
-    expect(frame?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin");
-    expect(frame?.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(frame?.getAttribute("sandbox")).toBe(EMBED_SANDBOX);
+    // A player wants to know where it is embedded, and is told the origin and nothing more.
+    expect(frame?.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
+    expect(frame?.getAttribute("allow")).toBe("autoplay; fullscreen; encrypted-media; picture-in-picture");
+    expect(frame?.hasAttribute("allowfullscreen")).toBe(true);
     expect(frame?.style.opacity).toBe("0");
     const box = host.querySelector<HTMLElement>(".ks-show-live-item");
     expect([box?.style.left, box?.style.top, box?.style.width, box?.style.height]).toEqual(["10px", "20px", "300px", "200px"]);
     await act(async () => void frame?.dispatchEvent(new Event("load")));
     expect(frame?.style.opacity).toBe("1");
     expect(box?.style.pointerEvents).toBe("auto");
+  });
+
+  it("loads the player of a YouTube link, not the watch page that refuses to be framed, and opens the link as it was given", async () => {
+    const openUrl = vi.fn();
+    await render(<EmbedFrame item={item({ url: "https://youtu.be/dQw4w9WgXcQ?t=1m30s", start: 5, muted: true })} pages={{ openUrl }} />);
+    await settle();
+    const frame = host.querySelector<HTMLIFrameElement>("iframe");
+    expect(frame?.getAttribute("src")).toBe("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=5&mute=1&rel=0");
+    await act(async () => void button("Not showing? Open externally")?.click());
+    expect(openUrl).toHaveBeenLastCalledWith("https://youtu.be/dQw4w9WgXcQ?t=1m30s");
+  });
+
+  it("plays a video at once: no cover to click first, and the frame is the whole box", async () => {
+    await render(<EmbedFrame item={item({ url: "https://vimeo.com/76979871" })} />);
+    await settle();
+    const frame = host.querySelector<HTMLIFrameElement>("iframe");
+    expect(frame?.getAttribute("src")).toBe("https://player.vimeo.com/video/76979871");
+    await act(async () => void frame?.dispatchEvent(new Event("load")));
+    expect(host.querySelector(".ks-embed-cover")).toBeNull();
+    expect(host.querySelector<HTMLElement>(".ks-embed-stage")?.style.width).toBe("100%");
+    expect(host.querySelector<HTMLElement>(".ks-show-live-item")?.style.pointerEvents).toBe("auto");
+  });
+
+  it("shows the card at once for a site that says it will not be framed, and leaves the frame empty", async () => {
+    const framePolicy = vi.fn(async () => "refused" as const);
+    await render(<EmbedFrame item={item({ url: "https://refuses.example/page" })} pages={{ framePolicy }} />);
+    await settle();
+    expect(framePolicy).toHaveBeenCalledWith("https://refuses.example/page");
+    expect(card()?.dataset.status).toBe("refused");
+    expect(card()?.textContent).toMatch(/does not allow its pages to be shown inside another page/);
+    expect(host.querySelector("iframe")?.getAttribute("src")).not.toBe("https://refuses.example/page");
+    expect(button("Open externally")).toBeDefined();
+  });
+
+  it("does not ask about a player, which is made to be framed", async () => {
+    const framePolicy = vi.fn(async () => "refused" as const);
+    await render(<EmbedFrame item={item({ url: "https://youtu.be/dQw4w9WgXcQ" })} pages={{ framePolicy }} />);
+    await settle();
+    expect(framePolicy).not.toHaveBeenCalled();
+    expect(card()).toBeNull();
+  });
+
+  it("still asks for a click before a web page takes the pointer", async () => {
+    await render(<EmbedFrame item={item()} />);
+    await settle();
+    await act(async () => void host.querySelector("iframe")?.dispatchEvent(new Event("load")));
+    expect(host.querySelector(".ks-embed-cover")).not.toBeNull();
   });
 
   it("is given no storage of its own when it is a page of the presentation's own origin", async () => {

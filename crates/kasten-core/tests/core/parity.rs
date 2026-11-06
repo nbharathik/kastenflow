@@ -192,6 +192,7 @@ fn journal_day_makes_the_day_once_and_refuses_a_bad_day() {
     let (t, k, s) = open();
     let op = AgentOp::JournalDay {
         date: "2026-11-03".into(),
+        project: None,
     };
     let made = done(k.agent_run(&s, &op, NOW).unwrap());
     assert_eq!(made["path"], "journal/2026/2026-11-03.md");
@@ -201,6 +202,7 @@ fn journal_day_makes_the_day_once_and_refuses_a_bad_day() {
     assert_eq!(commits(&k), after, "a day that is there is only opened");
     let bad = AgentOp::JournalDay {
         date: "tomorrow".into(),
+        project: None,
     };
     assert!(refused(&k, &s, &bad).contains("Not a day"));
 }
@@ -211,6 +213,7 @@ fn journal_day_waits_in_review() {
     set_mode(&k, AgentMode::Review);
     let op = AgentOp::JournalDay {
         date: "2026-11-04".into(),
+        project: None,
     };
     let id = pending(k.agent_run(&s, &op, NOW).unwrap());
     assert!(!t.vault.root().join("journal/2026/2026-11-04.md").exists());

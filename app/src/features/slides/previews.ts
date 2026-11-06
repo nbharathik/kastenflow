@@ -10,15 +10,18 @@ const cache = new Map<string, { modified: number; deck: Deck | null }>();
 /** Thumbnails kept at most; decks beyond them are read again when shown. */
 const MOST = 100;
 
-/** The deck behind `info`, parsed for its thumbnail; null while it is read or when it cannot be. */
-export function useDeckPreview(info: DeckInfo): Deck | null {
+/**
+ * The deck behind `info`, parsed for its thumbnail; null while it is read or when it cannot be. With `wanted` false (the card is far
+ * from the window) the file is not read: only a deck already kept is given.
+ */
+export function useDeckPreview(info: DeckInfo, wanted = true): Deck | null {
   const client = useWorkspace((s) => s.client);
   const hit = cache.get(info.path);
-  const [deck, setDeck] = useState<Deck | null>(hit?.modified === info.modified ? hit.deck : null);
+  const [deck, setDeck] = useState<Deck | null>(hit && hit.modified === info.modified ? hit.deck : null);
   useEffect(() => {
-    if (!client || info.problem) return;
+    if (!wanted || !client || info.problem) return;
     const cached = cache.get(info.path);
-    if (cached?.modified === info.modified) {
+    if (cached && cached.modified === info.modified) {
       setDeck(cached.deck);
       return;
     }
@@ -41,6 +44,9 @@ export function useDeckPreview(info: DeckInfo): Deck | null {
     return () => {
       live = false;
     };
-  }, [client, info.path, info.modified, info.problem]);
+  }, [wanted, client, info.path, info.modified, info.problem]);
   return deck;
 }
+
+/** For tests: forgets every deck kept. */
+export const resetPreviews = (): void => cache.clear();

@@ -1,19 +1,22 @@
-// What the insert palette lists: things to put on the slide, layouts to add as
-// a slide, the pictures the host holds, and every command that can be done now.
+// What the command palette lists: things to put on the slide, layouts to add as
+// a slide, the slides to go to, the pictures the host holds, and every command that can be done now.
 
-import { type CommandContext, COMMANDS, isEnabled, keysOf, runCommand } from "../commands/index.ts";
-import { fitted, image, line, shape, textBox } from "../factory.ts";
+import { type CommandContext, runCommand } from "../commands/index.ts";
+import { fitted, image, line, shape } from "../factory.ts";
 import type { HostImage } from "../host.ts";
 import { freeBox, insertPlaced } from "../insert-composite.ts";
-import { INSERT_ENTRIES, groupLabel, insertItems } from "../insert/model.ts";
+import { groupLabel, insertItems } from "../insert/model.ts";
 import { newSlideLayouts } from "../new-slide.ts";
-import { markFresh } from "../quick-add/fresh.ts";
 import { LINES, SHAPE_GROUPS, CLICK_SIZE } from "../shapes.ts";
 import type { IconName } from "../ui/icons.ts";
+import { commandItems, goToSlides } from "./palette-commands.ts";
 import type { Searchable } from "./palette-rank.ts";
 
-/** The sections of the gallery, in the order they are listed: the groups of the Insert menu, then slides, the pictures the host holds, and commands. */
-export const SECTIONS = ["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Images", "Commands"] as const;
+/**
+ * The sections of the palette, in the order they are listed: the groups of the Insert menu, then slides (a new one on each layout, and
+ * going to one that is there), the pictures the host holds, and commands.
+ */
+export const SECTIONS = ["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Go to slide", "Images", "Commands"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export interface PaletteItem extends Searchable {
@@ -33,29 +36,9 @@ export interface PaletteItem extends Searchable {
 
 const NONE = { x: 0, y: 0, w: 0, h: 0 };
 
-/** What the commands of each family are called in the palette. */
-const AREA_NAMES: Record<string, string> = {
-  edit: "Edit",
-  text: "Text",
-  slide: "Slide",
-  steps: "Steps",
-  arrange: "Arrange",
-  view: "View",
-  file: "File",
-  help: "Help",
-  present: "Present",
-  lint: "Check",
-  import: "Import",
-};
-
-const areaOf = (id: string): string => {
-  const family = id.split(".")[0] ?? id;
-  return AREA_NAMES[family] ?? family.charAt(0).toUpperCase() + family.slice(1);
-};
-
 /**
  * What is put on the slide, from the one list the Insert menu is made from: each item with the line that says what it makes, and
- * its keys. A text box is added at once (the menu arms the tool, to place it with a click); a page or a diagram only where the host has them.
+ * its keys. A text box is added at once, as by the menu; a page or a diagram only where the host has them.
  */
 function inserts(context: CommandContext): PaletteItem[] {
   return insertItems(context)
@@ -69,14 +52,8 @@ function inserts(context: CommandContext): PaletteItem[] {
         description: item.description,
         keywords: item.keywords,
         ...(item.keys ? { keys: item.keys } : {}),
-        run: (ctx) => {
-          if (item.command !== "insert.text-box") return runCommand(item.command, ctx);
-          const id = insertPlaced(ctx.session, textBox(NONE, ""), CLICK_SIZE.text);
-          if (!id) return;
-          // Like the text tool and the T key: closed with nothing typed, the empty box goes again.
-          markFresh(ctx.session, id);
-          ctx.session.startEditing(id);
-        },
+        // The text box command puts the box in at once, like the toolbar button and the T key.
+        run: (ctx) => runCommand(item.command, ctx),
       }),
     );
 }
@@ -141,28 +118,9 @@ const pictures = (images: readonly HostImage[]): PaletteItem[] =>
     },
   }));
 
-/** Every command that can be done now, apart from the ones that insert, which the palette does in its own way. */
-function commands(context: CommandContext): PaletteItem[] {
-  const listed = new Set(INSERT_ENTRIES.map((entry) => entry.command));
-  return [...COMMANDS.values()]
-    .filter((command) => !command.id.startsWith("insert.") && !listed.has(command.id) && isEnabled(command, context))
-    .map((command) => {
-      const keys = keysOf(command.id);
-      return {
-        id: command.id,
-        group: "Commands" as const,
-        label: command.label,
-        ...(command.icon ? { icon: command.icon } : {}),
-        hint: areaOf(command.id),
-        ...(keys ? { keys } : {}),
-        run: (ctx: CommandContext) => runCommand(command.id, ctx),
-      };
-    });
-}
-
 /** The whole list of the palette for this editor, in the order of its sections. */
 export function paletteItems(context: CommandContext, held: readonly HostImage[] = []): PaletteItem[] {
-  const found = [...inserts(context), ...shapes(), ...slides(context), ...pictures(held), ...commands(context)];
+  const found = [...inserts(context), ...shapes(), ...slides(context), ...goToSlides(context), ...pictures(held), ...commandItems(context)];
   // In the order of the sections, so the groups of the menu read the same here.
   return SECTIONS.flatMap((section) => found.filter((item) => item.group === section));
 }

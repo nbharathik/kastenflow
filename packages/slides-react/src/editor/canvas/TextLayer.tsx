@@ -8,7 +8,7 @@ import { textRect } from "../../render/index.ts";
 import { DEFAULT_INSETS } from "../../text/metrics.ts";
 import { type FormatState, TextEditor, type TextEditorHandle } from "../../text/index.ts";
 import { boxOf, placeholderOf } from "../../theme/index.ts";
-import { isUntouched, settleFresh } from "../quick-add/fresh.ts";
+import { isUntouched, spendFresh } from "../quick-add/fresh.ts";
 import { findElement } from "../session/scope.ts";
 import type { EditorSession } from "../session/session.ts";
 import { linkActions } from "../text-ui/link-actions.ts";
@@ -65,11 +65,11 @@ export function TextLayer({ session, ui, id }: { session: EditorSession; ui: Edi
     if (text?.fit === "resize" && needed !== null && Math.abs(needed - height) > 0.5) session.elements.setHeight(id, Math.ceil(needed), home.current, true);
   }, [session, id]);
 
-  // Whatever ends the edit, by any route, writes what was typed; a box made just now and left empty then goes again.
+  // Whatever ends the edit, by any route, writes what was typed. A box made just now and left empty stays on the slide.
   useEffect(
     () => () => {
       write();
-      settleFresh(session, id);
+      spendFresh(session, id);
     },
     [write, session, id],
   );

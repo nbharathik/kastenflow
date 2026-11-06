@@ -1,0 +1,104 @@
+/* The Slides home: how its rows of cards lay out. Colours, type and the cards' own look are the app's tokens, set on the elements;
+   this file holds only the shapes that follow the room there is, so a narrow window gets one column and never scrolls sideways. */
+
+/* The decks as a grid of cards, or a list of rows. */
+.sh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 236px), 1fr));
+  gap: 16px;
+}
+.sh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sh-card {
+  min-width: 0;
+}
+.sh-card .sh-name {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 0 14px 12px;
+}
+
+/* A row: the first slide small at the left, the name and the facts beside it, the actions at the right. */
+.sh-card[data-view="list"] .sh-main {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr);
+  align-items: center;
+}
+.sh-card[data-view="list"] .sh-thumb {
+  padding: 8px 0 8px 8px;
+}
+.sh-card[data-view="list"] .sh-text {
+  padding: 8px 96px 8px 14px;
+}
+.sh-card[data-view="list"] .sh-actions {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.sh-card[data-view="list"] .sh-name {
+  position: absolute;
+  left: 164px;
+  right: 96px;
+  top: 50%;
+  width: auto;
+  margin: 0;
+  transform: translateY(-50%);
+}
+.sh-card[data-view="grid"] .sh-thumb {
+  border-bottom: 1px solid var(--color-line);
+  border-radius: 12px 12px 0 0;
+}
+
+/* Continue: up to four decks across; two when the window is narrow. */
+.sh-continue {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+.sh-continue > :nth-child(n + 5) {
+  display: none;
+}
+
+/* The ways to start, and the templates under them. */
+.sh-ways {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.sh-way {
+  min-width: 0;
+}
+.sh-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+
+/* The three first steps of the empty page. */
+.sh-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+}
+
+/* A narrow window: one column of rows, and a quieter Continue. */
+@media (max-width: 560px) {
+  .sh-continue > :nth-child(n + 3) {
+    display: none;
+  }
+  .sh-card[data-view="list"] .sh-main {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+  .sh-card[data-view="list"] .sh-text {
+    padding-right: 80px;
+  }
+  .sh-card[data-view="list"] .sh-name {
+    left: 124px;
+    right: 80px;
+  }
+}

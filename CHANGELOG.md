@@ -4,6 +4,94 @@ Every release of KastenFlow (called Kasten before 1.1.0), newest first.
 Versions follow [Semantic Versioning](https://semver.org); the vault format
 has its own version, described in [docs/vault-format.md](docs/vault-format.md).
 
+## 1.2.4
+
+### Slides
+
+- **Embeds that work.** Paste a YouTube, Vimeo or other video link, or a web page,
+  and it plays in the slide (Play, then **Esc** to give the keys back). YouTube uses
+  the no-cookie address. Embeds also play in the presenter's window and in HTML
+  export, with the poster as the fallback.
+- **Clicking and deleting.** The first click selects, a second click (or Enter, or
+  typing) edits, and **Delete** deletes the selected object. A new text box stays on
+  the slide, with a "Click to add text" hint, and a warning flags empty ones.
+- **Popup menus draw properly.** The Present menu and every other popup now open in
+  their own layer above the page.
+- **Presenter view you can arrange.** Drag the splitters between the current slide,
+  the next slide and the notes; pick a layout from the Layout menu; it is
+  remembered. Pen, highlighter and laser in the show (**P** is now the pen; Page Up
+  and the arrow keys go back), white screen on **W**, loop and auto-advance, and
+  custom shows from the Slideshow menu.
+- **Layouts are shared.** A layout you make is kept in a library and offered in every
+  deck. A deck keeps its own copy, with **Update from My layouts**.
+- **Slides home and a Home button.** A start page with Continue, Start and All decks,
+  and a Home button in every deck (**Alt+Home**).
+- **Tables.** The font, size, colour and marks now work on a selected table (all
+  cells) or on the cells you picked, as one undo step.
+- **Features that were hidden are easy to find.** Charts with a data grid, timer, QR
+  code, 34 shapes with search, an emoji picker, style presets, one command palette
+  (**Ctrl+Shift+P**), a lint badge, and the Master panel.
+- **More of a full presentation tool.** Master view and header/footer, rulers and
+  guides, image crop and filters, table styles, seven new transitions and
+  per-step animation effects, gradients and native charts in PowerPoint files,
+  comments on slides, an Accessibility panel, deck history, crash recovery, audio,
+  video trim and poster frame, deck fonts, spell check, columns and Fit text for
+  text boxes, and Mermaid diagrams as native shapes.
+- **Charts.** Stacked, area, doughnut, scatter and combo charts, axis titles, number
+  formats and legend sides. Old charts are unchanged.
+- **Icons, design ideas, a brand kit.** An icon picker, a Design ideas tab with
+  ready-made blocks, a brand kit new decks start from, **Write with AI** in the
+  editor, an **Undo history** tab, and "Against the plan" feedback after a rehearsal.
+- **Code behind a picture.** Insert › **Code picture** draws a picture from code
+  that runs in a sandbox with no network and a time limit; the code is kept inside
+  the deck, with an **Edit code** panel and **Run all**. Agents must be allowed to
+  run code, per deck and per piece of code.
+- **Faster editor.** The menus and the title bar no longer redraw while you type,
+  drag or zoom, and heavy dialogs load only when opened.
+
+### Agents
+
+- **Agents see their slides.** They get pictures of the slides they made (drawn in the
+  app's window), and the chat shows them as thumbnails in the tool steps.
+- **A fuller tool set.** `set_chart_data`, `place_diagram`, `replace_asset`,
+  `build_deck`, `set_notes_bulk`, `slides_help`, code pictures, comments and more.
+  The deck tools appear once the vault has a deck.
+- **Claude Code and OpenCode in the chat.** Pick either CLI for a chat thread; the
+  app runs the one you already installed and signed in to, with your own plan, asks
+  before it acts, and shows Allow or Deny cards (Claude Code). **Settings › Agents**
+  finds them. Project settings found in a vault are ignored.
+- **A quieter chat panel.** The "This chat changed your notes" bar is now a small
+  dismissable chip, with Undo and See in History also in the chat's "…" menu, lighter
+  messages and tool rows.
+
+### Journal
+
+- **A journal for each project.** The journal icon at the top right of a project
+  opens a side peek: today's entry, a box to add a timed entry, earlier days, Open as
+  page, and Copy link for pasting into pages. Each day is a normal note at
+  `projects/<project>/journal/<year>/<date>.md`, so search, links, history and undo
+  work as usual.
+- **Linked from the main journal.** The day's page shows a "Today in projects" list
+  of links; nothing is written into your note.
+- **Agents can use it.** `journal_day`, `journal_append` and `get_journal` take an
+  optional `project`. A project in Review mode holds an agent's journal entries.
+
+### Fixes
+
+- **Saving.** Changing a page's icon, width or title can no longer let your next
+  keystroke overwrite a change made outside the editor; undoing while a save is in
+  flight is no longer lost; leaving a note and coming straight back shows what was
+  saved; and a deck stops hiding a save conflict after you edit. Decks now save when
+  you quit, restart or switch vault.
+- **Conflict copies.** A save with an old hash no longer makes a duplicate "(conflict)"
+  note when the text already matches, and a rename that fails partway puts every
+  file back.
+- **Search.** Ctrl+K no longer shows results from your previous search.
+- **Security.** The approval card for Claude Code shows the whole command (and refuses
+  one too long to review); "Allow to run" is remembered per deck and per code; the
+  code-picture sandbox has network features removed; embeds cannot point at the app's
+  own addresses; a deck warning flags remote media with a query string.
+
 ## 1.2.3
 
 ### Chat

@@ -52,6 +52,8 @@ export function Menu({ items, anchor, onClose, side, keepFocus, label, onDone }:
   const buttons = () => [...(list.current?.querySelectorAll<HTMLButtonElement>(":scope > button:not(:disabled)") ?? [])];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // A key in a sub-menu bubbles through this one in the React tree (it is drawn elsewhere): it is not this menu's.
+    if (!(event.target instanceof Node) || !list.current?.contains(event.target)) return;
     const all = buttons();
     const at = all.indexOf(document.activeElement as HTMLButtonElement);
     const move = (to: number) => {
@@ -78,8 +80,8 @@ export function Menu({ items, anchor, onClose, side, keepFocus, label, onDone }:
   };
 
   return (
-    <Popover anchor={anchor} onClose={onClose} side={side} keepFocus={keepFocus} className="ks-menu" label={label}>
-      <div ref={list} className="ks-menu-list" role="menu" tabIndex={-1} onKeyDown={onKeyDown}>
+    <Popover anchor={anchor} onClose={onClose} side={side} keepFocus={keepFocus} keepEditing className="ks-menu" role="none">
+      <div ref={list} className="ks-menu-list" role="menu" aria-label={label} tabIndex={-1} onKeyDown={onKeyDown}>
         {items.map((item, i) => {
           if (!isItem(item)) {
             return item.kind === "separator" ? <div key={i} className="ks-menu-sep" role="separator" /> : <div key={i} className="ks-menu-heading">{item.label}</div>;
@@ -114,7 +116,7 @@ export function Menu({ items, anchor, onClose, side, keepFocus, label, onDone }:
                 {sub ? <Icon name="chevron-right" size={14} /> : null}
               </button>
               {/* Beside its row, not inside it: a button cannot hold a menu. */}
-              {open?.id === item.id && sub ? <Menu items={sub} anchor={open.anchor} side onClose={() => setOpen(null)} onDone={finish} keepFocus={keepFocus} /> : null}
+              {open?.id === item.id && sub ? <Menu items={sub} anchor={open.anchor} side onClose={() => setOpen(null)} onDone={finish} keepFocus={keepFocus} label={item.label} /> : null}
             </Fragment>
           );
         })}

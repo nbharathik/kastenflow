@@ -60,7 +60,8 @@ function Handles({ rotate, rotation }: { rotate: boolean; rotation: number }) {
     <>
       {HANDLES.map((handle) => {
         const [left, top] = AT[handle];
-        return <span key={handle} className="ks-handle" data-handle={handle} style={{ left, top, cursor: cursorFor(handle, rotation) }} />;
+        // A press on a handle of the box being written in must not take the focus from the text, or the box would close under it.
+        return <span key={handle} className="ks-handle" data-handle={handle} data-ks-keep-focus="" onMouseDown={(event) => event.preventDefault()} style={{ left, top, cursor: cursorFor(handle, rotation) }} />;
       })}
       {rotate ? (
         <>

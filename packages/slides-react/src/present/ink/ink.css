@@ -1,0 +1,188 @@
+/* Ink on a slide, in the show and in the presenter's view; the white screen; the tools that choose a pen. */
+
+.ks-show,
+.ks-presenter {
+  --ks-ink-red: #ff3b30;
+  --ks-ink-blue: #2f7bff;
+  --ks-ink-green: #1fc26a;
+  --ks-ink-yellow: #ffd60a;
+  --ks-ink-white: #ffffff;
+  --ks-ink-black: #111111;
+  --ks-ink-laser: #ff2d2d;
+}
+
+.ks-ink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.ks-ink[data-active] {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.ks-ink[data-tool="laser"] {
+  cursor: none;
+}
+
+.ks-ink-stroke {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ks-ink-stroke[data-tool="highlighter"] {
+  stroke-linecap: butt;
+  opacity: 0.4;
+}
+
+.ks-ink-stroke[data-color="red"] {
+  stroke: var(--ks-ink-red);
+}
+.ks-ink-stroke[data-color="blue"] {
+  stroke: var(--ks-ink-blue);
+}
+.ks-ink-stroke[data-color="green"] {
+  stroke: var(--ks-ink-green);
+}
+.ks-ink-stroke[data-color="yellow"] {
+  stroke: var(--ks-ink-yellow);
+}
+.ks-ink-stroke[data-color="white"] {
+  stroke: var(--ks-ink-white);
+}
+.ks-ink-stroke[data-color="black"] {
+  stroke: var(--ks-ink-black);
+}
+
+.ks-ink-laser {
+  fill: var(--ks-ink-laser);
+  filter: drop-shadow(0 0 0.006px var(--ks-ink-laser));
+}
+
+/* The pen's colours, undo, clear and "keep ink": a small strip over the toolbar in the show, and in the presenter's view over the slide. */
+.ks-ink-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--ks-pr-tool-bg, var(--ks-raised));
+  color: var(--ks-pr-tool-fg, var(--ks-text));
+  font-size: 13px;
+}
+
+.ks-show .ks-ink-tools {
+  position: absolute;
+  left: 12px;
+  bottom: 56px;
+  z-index: 5;
+}
+
+.ks-ink-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.ks-ink-swatch[aria-pressed="true"] {
+  border-color: var(--ks-pr-tool-fg, var(--ks-text));
+}
+
+.ks-ink-swatch:focus-visible,
+.ks-ink-button:focus-visible {
+  outline: 2px solid var(--ks-pr-tool-fg, var(--ks-text));
+  outline-offset: 2px;
+}
+
+.ks-ink-swatch[data-color="red"] {
+  background: var(--ks-ink-red);
+}
+.ks-ink-swatch[data-color="blue"] {
+  background: var(--ks-ink-blue);
+}
+.ks-ink-swatch[data-color="green"] {
+  background: var(--ks-ink-green);
+}
+.ks-ink-swatch[data-color="yellow"] {
+  background: var(--ks-ink-yellow);
+}
+.ks-ink-swatch[data-color="white"] {
+  background: var(--ks-ink-white);
+}
+.ks-ink-swatch[data-color="black"] {
+  background: var(--ks-ink-black);
+}
+
+.ks-ink-button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ks-ink-button:hover,
+.ks-ink-button[aria-pressed="true"] {
+  background: var(--ks-pr-tool-line, var(--ks-hover));
+}
+
+.ks-ink-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The presenter's view: the slide's tools sit in a row above it. */
+.ks-pv-now-wrap {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  min-height: 0;
+}
+
+.ks-pv-ink-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ks-presenter .ks-show-slide {
+  position: relative;
+}
+
+.ks-presenter .ks-show-live {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.ks-presenter .ks-show-live-item {
+  overflow: hidden;
+}
+
+.ks-presenter .ks-show-live-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.ks-presenter .ks-show-live-video {
+  pointer-events: auto;
+  object-fit: contain;
+  background: #000;
+}

@@ -166,6 +166,8 @@ pub fn convert(cx: &mut Cx, sp: &Node, out: &mut Vec<Element>) {
         out.push(Element::Text(TextEl {
             base,
             text: text.unwrap_or_else(|| Text::plain("")),
+            columns: None,
+            column_gap: None,
             extra: slides_core::Extra::new(),
         }));
     } else {

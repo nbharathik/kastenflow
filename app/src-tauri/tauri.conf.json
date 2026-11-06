@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "KastenFlow",
         "width": 1280,
         "height": 800,
@@ -32,7 +33,7 @@
         "font-src": "'self' data:",
         "object-src": "'none'",
         "frame-src": "http: https: http://diagrams.localhost diagrams://localhost http://smart.localhost smart://localhost",
-        "media-src": "'self' blob: asset: http://asset.localhost",
+        "media-src": "'self' blob: asset: http://asset.localhost https:",
         "base-uri": "'none'",
         "form-action": "'none'"
       },

@@ -25,13 +25,16 @@ export interface BarMenu {
 const EXPORTS = ["pptx", "pdf", "png", "markdown", "html"];
 
 function fileItems(ctx: CommandContext): MenuItem[] {
-  const { exportAs, print } = ctx.ui.actions;
+  const { exportAs, print, home } = ctx.ui.actions;
   return groups(
+    home ? [commandItem("view.home", ctx)] : [],
     [commandItem("slide.new", ctx), commandItem("slide.duplicate", ctx)],
-    [commandItem("file.import-pptx", ctx)],
+    [submenu("import", "Import", [commandItem("file.import-pptx", ctx), commandItem("file.import-markdown", ctx)], "file-plus")],
     [commandItem("file.page-setup", ctx)],
     // The deck's look as a template of your own, and a template put on this deck (both need a host that keeps templates).
     [commandItem("deck.save-template", ctx), commandItem("deck.apply-template", ctx)],
+    // The saved versions of the deck (needs a host that keeps them).
+    [commandItem("deck.history", ctx)],
     [submenu("download", "Download", EXPORTS.map((format) => commandItem(`file.export-${format}`, ctx, { disabledIf: !exportAs })), "download")],
     [commandItem("file.print", ctx, { disabledIf: !print })],
   );
@@ -60,7 +63,7 @@ function editItems(ctx: CommandContext): MenuItem[] {
       commandItem("edit.delete", ctx, { disabledIf: text !== null }),
       commandItem("edit.select-all", ctx),
     ],
-    [commandItem("edit.find", ctx)],
+    [commandItem("edit.find", ctx), commandItem("view.history-panel", ctx)],
   );
 }
 
@@ -70,9 +73,10 @@ function viewItems(ctx: CommandContext): MenuItem[] {
     [submenu("zoom", "Zoom", zoomItems(ctx), "zoom-in"), submenu("views", "Views", viewModeItems(ctx), "presentation"), submenu("new-slides", "New slides", newSlidesItems(ctx), "plus")],
     [
       ...["view.notes", "view.filmstrip", "view.snap", "lint.badges"].map((id) => commandItem(id, ctx)),
+      ...["view.rulers", "view.grid-lines", "view.guides"].map((id) => commandItem(id, ctx)),
       commandItem("view.density", ctx, { checked: chromeOf(ctx.ui).state.density === "compact" }),
     ],
-    ["view.format-panel", "view.themes-panel", "view.motion-panel", "view.steps-panel", "view.ai-panel"].map((id) => commandItem(id, ctx)),
+    ["view.format-panel", "view.themes-panel", "view.motion-panel", "view.steps-panel", "view.comments-panel", "view.access-panel", "view.ideas-panel", "view.history-panel", "view.ai-panel"].map((id) => commandItem(id, ctx)),
     [commandItem("view.full-screen", ctx)],
     [commandItem("view.present", ctx, { disabledIf: !present }), commandItem("view.present-start", ctx, { disabledIf: !present })],
     [commandItem("view.presenter", ctx, { disabledIf: !present }), commandItem("view.rehearse", ctx, { disabledIf: !present }), commandItem("view.present-scroll", ctx, { disabledIf: !present })],
@@ -115,7 +119,7 @@ function slideItems(ctx: CommandContext): MenuItem[] {
       commandItem("layout.manage", ctx),
       commandItem("layout.import", ctx),
     ],
-    ["slide.background", "slide.transition", "view.themes-panel", "slide.theme"].map((id) => commandItem(id, ctx)),
+    ["slide.background", "slide.master", "slide.header-footer", "slide.transition", "view.themes-panel", "view.ideas-panel", "slide.theme"].map((id) => commandItem(id, ctx)),
   );
 }
 
@@ -132,6 +136,13 @@ function arrangeItems(ctx: CommandContext): MenuItem[] {
   );
 }
 
+/** Help from the assistant (where the host has one) and the brand kit (where the host keeps one): their own group at the end of Tools. */
+function aiAndBrandItems(ctx: CommandContext): MenuItem[] {
+  const { ai, brand } = ctx.session.host;
+  const tasks = ["ai.rewrite", "ai.shorten", "ai.bullets", "ai.grammar", "ai.layout", "ai.notes", "ai.build", "ai.check"];
+  return [...(ai ? [submenu("write-with-ai", "Write with AI", tasks.map((id) => commandItem(id, ctx)), "sparkles")] : []), ...(brand ? [commandItem("deck.brand-kit", ctx)] : [])];
+}
+
 /** The menus in the order of the bar. */
 export function barMenus(ctx: CommandContext): BarMenu[] {
   return [
@@ -142,7 +153,7 @@ export function barMenus(ctx: CommandContext): BarMenu[] {
     { id: "format", label: "Format", items: () => formatItems(ctx) },
     { id: "slide", label: "Slide", items: () => slideItems(ctx) },
     { id: "arrange", label: "Arrange", items: () => arrangeItems(ctx) },
-    { id: "tools", label: "Tools", items: () => groups([commandItem("edit.find", ctx), commandItem("lint.open", ctx), commandItem("agent.accept-all", ctx)], ctx.session.host.readPage ? [commandItem("page.update-all", ctx), commandItem("page.review-sources", ctx)] : []) },
-    { id: "help", label: "Help", items: () => [commandItem("view.menu-search", ctx), commandItem("help.shortcuts", ctx)] },
+    { id: "tools", label: "Tools", items: () => groups([commandItem("edit.find", ctx), commandItem("deck.spelling", ctx), commandItem("deck.fonts", ctx), commandItem("lint.open", ctx), commandItem("view.access-panel", ctx), commandItem("agent.accept-all", ctx)], ctx.session.host.readPage ? [commandItem("page.update-all", ctx), commandItem("page.review-sources", ctx)] : [], aiAndBrandItems(ctx)) },
+    { id: "help", label: "Help", items: () => [commandItem("view.palette", ctx), commandItem("view.menu-search", ctx), commandItem("help.shortcuts", ctx)] },
   ];
 }

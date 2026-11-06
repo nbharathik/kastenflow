@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundsOf, hitTest, selectionBounds } from "./items.ts";
+import { boundsOf, hitStack, hitTest, selectionBounds } from "./items.ts";
 import type { Item } from "./items.ts";
 
 const a: Item = { id: "a", x: 0, y: 0, w: 100, h: 50 };
@@ -189,6 +189,44 @@ describe("hitTest", () => {
     it("adds the tolerance to the band", () => {
       expect(hitTest([line], { x: 50, y: 104.9 }, { tolerance: 2 })).toBe("line");
       expect(hitTest([line], { x: 50, y: 105.1 }, { tolerance: 2 })).toBeNull();
+    });
+  });
+
+  describe("a line with a path", () => {
+    // A diagonal from the top left to the bottom right of a 200 x 200 box.
+    const diagonal: Item = { id: "d", x: 0, y: 0, w: 200, h: 200, path: [{ x: 0, y: 0 }, { x: 200, y: 200 }] };
+
+    it("is hit near its path and not in the empty corners of its box", () => {
+      expect(hitTest([diagonal], { x: 100, y: 102 })).toBe("d");
+      expect(hitTest([diagonal], { x: 100, y: 110 })).toBeNull();
+      expect(hitTest([diagonal], { x: 180, y: 20 })).toBeNull();
+      expect(hitTest([diagonal], { x: 0, y: 0 })).toBe("d");
+    });
+
+    it("follows a bent path", () => {
+      const bent: Item = { ...diagonal, path: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 200 }, { x: 200, y: 200 }] };
+      expect(hitTest([bent], { x: 100, y: 120 })).toBe("d");
+      expect(hitTest([bent], { x: 50, y: 50 })).toBeNull();
+    });
+
+    it("grows with the tolerance and turns with the item", () => {
+      expect(hitTest([diagonal], { x: 100, y: 108 }, { tolerance: 4 })).toBe("d");
+      const quarter: Item = { ...diagonal, rotation: 90 };
+      // Turned a quarter about (100, 100) the diagonal runs from the top right to the bottom left.
+      expect(hitTest([quarter], { x: 100, y: 102 })).toBe("d");
+      expect(hitTest([quarter], { x: 20, y: 20 })).toBeNull();
+      expect(hitTest([quarter], { x: 180, y: 20 })).toBe("d");
+    });
+  });
+
+  describe("hitStack", () => {
+    it("lists every item under the point, topmost first, honouring locks", () => {
+      const back: Item = { id: "back", x: 0, y: 0, w: 100, h: 100 };
+      const middle: Item = { id: "middle", x: 0, y: 0, w: 100, h: 100, locked: true };
+      const front: Item = { id: "front", x: 0, y: 0, w: 100, h: 100 };
+      expect(hitStack([back, middle, front], { x: 50, y: 50 })).toEqual(["front", "back"]);
+      expect(hitStack([back, middle, front], { x: 50, y: 50 }, { includeLocked: true })).toEqual(["front", "middle", "back"]);
+      expect(hitStack([back], { x: 500, y: 500 })).toEqual([]);
     });
   });
 });

@@ -3,12 +3,13 @@
 
 import { useEffect, useState } from "react";
 
-import { appInfo, mcpToken } from "../../../../lib/api";
+import { appInfo, inTauri, mcpToken } from "../../../../lib/api";
 import type { VaultConfig } from "../../../../lib/vault/types";
 import { Button } from "../../../../ui/Button";
 import { useWorkspace } from "../../store";
 import { appServer, BARE, claudeCodeCommand, httpCommand, httpUrl, mcpConfig, tokenPath, urlConfig, type Server } from "./connect";
 import { AgentModeSettings } from "./AgentModeSettings";
+import { CodingAgents } from "./CodingAgents";
 import { entryById } from "./index";
 import { Group, Row } from "./parts";
 
@@ -71,6 +72,12 @@ export function AgentSettings() {
   return (
     <>
       <AgentModeSettings />
+      {/* Programs are started by the desktop app only. */}
+      {inTauri() && (
+        <Group title="Coding agents in the chat" sub help="Claude Code and OpenCode, run as the programs you installed and signed in to.">
+          <CodingAgents />
+        </Group>
+      )}
       <Group title="AI agents" sub>
         <Row id="agents.claude">
           <CopyButton text={claudeCodeCommand(vault, server)} label="Copy command" />

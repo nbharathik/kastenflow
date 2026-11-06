@@ -16,13 +16,13 @@ use kasten_core::{Error, Instant, Kasten};
 use serde_json::Value;
 use slides_core::Deck;
 use slides_core::agent::{
-    AssetInfo, DeckInfo, DeckText, Draw, Drawn, Imported, Saved, Store, StoreError, StoreResult,
-    Written,
+    AssetInfo, Compare, DeckInfo, DeckText, DiagramPicture, Draw, Drawn, GeneratorDrawn,
+    GeneratorJob, Imported, Saved, Store, StoreError, StoreResult, Written,
 };
 use slides_core::lint::{Measures, Refs};
 
 use super::render::{self, Ask};
-use super::{marks, pptx, store_files};
+use super::{marks, pptx, store_files, store_library};
 
 /// A write that waits for a person to decide.
 #[derive(Debug, Clone, PartialEq)]
@@ -65,6 +65,8 @@ pub(super) struct KastenStore<'a> {
     /// withdrew the request, the person pressed Stop): a picture not yet
     /// started is never drawn, and one that was is thrown away.
     cancel: Option<&'a AtomicBool>,
+    /// Where the last measure that answered laid the words out.
+    measured: &'static str,
 }
 
 /// A core error as the tools' store reports it.
@@ -107,6 +109,7 @@ impl<'a> KastenStore<'a> {
             review: None,
             stage: None,
             cancel: None,
+            measured: render::BROWSER,
         }
     }
 
@@ -285,6 +288,11 @@ impl Store for KastenStore<'_> {
         (!text.trim().is_empty()).then(|| Refs::from_bibtex(&text))
     }
 
+    /// The layouts kept for every deck, in the vault's `templates/layouts/`.
+    fn library_layouts(&mut self) -> Vec<Value> {
+        store_library::entries(self.kasten)
+    }
+
     fn make_pptx(&mut self, deck: &Deck) -> StoreResult<(Vec<u8>, Vec<String>)> {
         let refs = self.references();
         pptx::export(self.kasten, self.stage, deck, refs.as_ref())
@@ -339,6 +347,33 @@ impl Store for KastenStore<'_> {
     /// The text laid out by a browser when this program has one, else `None`
     /// and lint estimates.
     fn measure(&mut self, deck: &Deck) -> Option<Measures> {
-        render::measure(&self.ask(), deck)
+        let (measures, by) = render::measure(&self.ask(), deck)?;
+        self.measured = by;
+        Some(measures)
+    }
+
+    fn measured_by(&self) -> &'static str {
+        self.measured
+    }
+
+    /// A slide before and after, drawn side by side in the app's window.
+    fn draw_compare(&mut self, compare: &Compare) -> StoreResult<Drawn> {
+        render::compare(&self.ask(), compare)
+    }
+
+    /// A code picture's program, run in the app's sandbox (see `code_window`).
+    fn run_generator(&mut self, job: &GeneratorJob) -> StoreResult<GeneratorDrawn> {
+        super::code_window::run(self.kasten, self.session, self.cancel, job)
+    }
+
+    /// A diagram of the vault drawn as a picture, to be kept in `assets/` and placed on a slide.
+    fn diagram_picture(&mut self, diagram: &str) -> StoreResult<DiagramPicture> {
+        super::store_diagram::picture(self.kasten, self.stage, diagram)
+    }
+
+    /// A version of the deck this process has read or written.
+    fn earlier_version(&mut self, name: &str, hash: Option<&str>, not: &str) -> Option<DeckText> {
+        let path = self.resolve(name).ok()?;
+        super::versions::find(&path, hash, not)
     }
 }

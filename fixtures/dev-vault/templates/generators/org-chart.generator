@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-org-chart",
+  "label": "Org chart",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.people);\nconst byName = {};\nrows.forEach(r => { byName[r.name] = { r: r, kids: [] }; });\nlet root = null;\nrows.forEach(r => {\n  const node = byName[r.name];\n  if (r.boss && byName[r.boss]) byName[r.boss].kids.push(node);\n  else if (!root) root = node;\n});\nif (!root) throw new Error(\"Nobody is at the top: leave the boss of one person empty.\");\nconst boxW = 150, boxH = 56, gapX = 24, gapY = 50;\nlet leaf = 0;\nfunction place(node, depth) {\n  node.depth = depth;\n  node.kids.forEach(k => place(k, depth + 1));\n  node.x = node.kids.length ? (node.kids[0].x + node.kids[node.kids.length - 1].x) / 2 : leaf++ * (boxW + gapX);\n}\nplace(root, 0);\nconst nodes = Object.keys(byName).map(k => byName[k]).filter(n => n.depth !== undefined);\nconst deepest = Math.max(...nodes.map(n => n.depth));\nconst width = Math.max(leaf, 1) * (boxW + gapX) - gapX + 40;\nconst height = (deepest + 1) * (boxH + gapY) - gapY + 40;\nconst at = n => ({ x: 20 + n.x, y: 20 + n.depth * (boxH + gapY) });\nconst parts = [];\nnodes.forEach(n => {\n  const p = at(n);\n  n.kids.forEach(k => {\n    const q = at(k);\n    parts.push(kit.path(\"M\" + (p.x + boxW / 2) + \" \" + (p.y + boxH) + \"V\" + (p.y + boxH + gapY / 2) + \"H\" + (q.x + boxW / 2) + \"V\" + q.y, { stroke: kit.theme.text2, strokeWidth: 2 }));\n  });\n});\nnodes.forEach(n => {\n  const p = at(n);\n  parts.push(kit.rect(p.x, p.y, boxW, boxH, { fill: kit.palette(n.depth), rx: 8 }));\n  parts.push(kit.text(p.x + boxW / 2, p.y + 25, n.r.name, { anchor: \"middle\", size: 17, weight: 700, fill: kit.theme.bg1 }));\n  parts.push(kit.text(p.x + boxW / 2, p.y + 45, n.r.role, { anchor: \"middle\", size: 13, fill: kit.theme.bg1 }));\n});\nreturn kit.svg(width, height, parts);",
+    "inputs": [
+      {
+        "name": "people",
+        "kind": "data",
+        "value": "name,role,boss\nAda,CEO,\nBen,CTO,Ada\nCleo,CFO,Ada\nDev,Engineer,Ben\nEli,Engineer,Ben\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

@@ -26,7 +26,9 @@ afterEach(() => {
 });
 
 const editor = () => document.querySelector<HTMLElement>(".ks-editor")!;
-const chord = { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true };
+const chord = { key: "f", code: "KeyF", ctrlKey: true, altKey: true };
+/** KastenFlow's own search over everything: the editor must not take it. */
+const searchChord = { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true };
 const escape = (target: Element | Document = document.body) => fireEvent.keyDown(target, { key: "Escape" });
 const stage = () => screen.getByRole("application", { name: "Slide" });
 
@@ -105,7 +107,7 @@ describe("the ways in and out", () => {
     const { ui } = await open();
     click(bar("View"));
     const item = row(/^Full screen/);
-    expect(item.textContent).toContain("Ctrl+Shift+F");
+    expect(item.textContent).toContain("Ctrl+Alt+F");
     expect(item.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(item);
     expect(ui.state.fullScreen).toBe(true);
@@ -115,7 +117,7 @@ describe("the ways in and out", () => {
     expect(ui.state.fullScreen).toBe(false);
   });
 
-  it("answers Ctrl+Shift+F on the slide and in the filmstrip", async () => {
+  it("answers Ctrl+Alt+F on the slide and in the filmstrip", async () => {
     const { ui } = await open();
     fireEvent.keyDown(stage(), chord);
     expect(ui.state.fullScreen).toBe(true);
@@ -123,7 +125,14 @@ describe("the ways in and out", () => {
     expect(ui.state.fullScreen).toBe(false);
   });
 
-  it("answers Ctrl+Shift+F in the notes and in the deck title too, since it is never typing", async () => {
+  it("leaves Ctrl+Shift+F to the app's search: the keypress is not taken", async () => {
+    const { ui } = await open();
+    expect(fireEvent.keyDown(stage(), searchChord)).toBe(true);
+    expect(fireEvent.keyDown(screen.getByRole("textbox", { name: "Speaker notes for this slide" }), searchChord)).toBe(true);
+    expect(ui.state.fullScreen).toBe(false);
+  });
+
+  it("answers Ctrl+Alt+F in the notes and in the deck title too, since it is never typing", async () => {
     const { ui } = await open();
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Speaker notes for this slide" }), chord);
     expect(ui.state.fullScreen).toBe(true);
@@ -142,7 +151,7 @@ describe("the ways in and out", () => {
     expect(ui.state.fullScreen).toBe(false);
   });
 
-  it("does not answer Ctrl+Shift+F while a dialog is open: the dialog has the keys", async () => {
+  it("does not answer Ctrl+Alt+F while a dialog is open: the dialog has the keys", async () => {
     const { ui } = await open();
     act(() => ui.openDialog("shortcuts"));
     fireEvent.keyDown(screen.getByRole("dialog"), chord);

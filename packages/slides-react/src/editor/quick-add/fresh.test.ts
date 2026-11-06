@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { newDeck } from "../../test/engine.ts";
-import { plainText, shape, textBox } from "../factory.ts";
+import { plainText, textBox } from "../factory.ts";
 import { MemoryHost } from "../memory-host.ts";
 import { EditorSession } from "../session/session.ts";
-import { isUntouched, markFresh, settleFresh } from "./fresh.ts";
+import { isUntouched, markFresh, spendFresh } from "./fresh.ts";
 
 async function open() {
   const session = new EditorSession(await newDeck("Talk"), new MemoryHost(), { saveDelay: 60_000 });
@@ -20,98 +20,64 @@ async function open() {
 }
 
 describe("a text box made empty and closed with nothing typed", () => {
-  it("is taken away again as if it had never been made, leaving the history as it was", async () => {
+  it("stays on the slide, and one Undo takes it away", async () => {
     const { session, made, ids } = await open();
-    const before = { label: session.state.undoLabel, revision: session.state.revision };
+    const before = session.state.undoLabel;
     const id = made();
     expect(session.state.undoLabel).toBe("add_elements");
     session.stopEditing();
-    settleFresh(session, id);
-    expect(ids()).not.toContain(id);
-    expect(session.state.undoLabel).toBe(before.label);
-    // The making can be redone, which is how undo treats anything.
-    expect(session.state.canRedo).toBe(true);
-  });
-
-  it("stays when words were typed in it", async () => {
-    const { session, made, ids } = await open();
-    const id = made();
-    session.elements.setText(id, plainText("Hello"));
-    session.stopEditing();
-    settleFresh(session, id);
+    spendFresh(session, id);
     expect(ids()).toContain(id);
-  });
-
-  it("goes when the words were typed and then all taken out again, as one more step that undo can take back", async () => {
-    const { session, made, ids } = await open();
-    const id = made();
-    session.elements.setText(id, plainText("Hello"));
-    session.elements.setText(id, { paragraphs: [{ runs: [{ t: "" }] }] });
-    session.stopEditing();
-    settleFresh(session, id);
-    expect(ids()).not.toContain(id);
-    expect(session.state.undoLabel).toBe("delete_elements");
+    expect(session.state.undoLabel).toBe("add_elements");
     session.undo();
-    expect(ids()).toContain(id);
-  });
-
-  it("stays when it has a fill or an outline of its own, which is something to see", async () => {
-    const { session, made, ids } = await open();
-    const id = made();
-    session.elements.style({ fill: { color: "accent1" } }, [id]);
-    session.stopEditing();
-    settleFresh(session, id);
-    expect(ids()).toContain(id);
-  });
-
-  it("is the mark's business only: a box that was not made just now is left alone, however empty", async () => {
-    const { session, ids } = await open();
-    const [plain] = session.elements.insert([textBox({ x: 10, y: 10, w: 100, h: 40 })]) as [string];
-    session.startEditing(plain);
-    session.stopEditing();
-    settleFresh(session, plain);
-    expect(ids()).toContain(plain);
-    // Nor is a shape, whose words are empty until someone types.
-    const [rect] = session.elements.insert([shape("rect", { x: 200, y: 10, w: 100, h: 40 })]) as [string];
-    markFresh(session, rect);
-    session.stopEditing();
-    settleFresh(session, rect);
-    expect(ids()).toContain(rect);
-  });
-
-  it("is left alone while the box is still open", async () => {
-    const { session, made, ids } = await open();
-    const id = made();
-    settleFresh(session, id);
-    expect(ids()).toContain(id);
-    // Not closed, so still the mark's: closing it later takes it away.
-    session.stopEditing();
-    settleFresh(session, id);
     expect(ids()).not.toContain(id);
+    expect(session.state.undoLabel).toBe(before);
+    session.redo();
+    expect(ids()).toContain(id);
   });
 
-  it("is taken away once: the same box opened again later is not the mark's any more", async () => {
+  it("stays when the words typed in it were all taken out again", async () => {
     const { session, made, ids } = await open();
     const id = made();
-    session.elements.setText(id, plainText("Hi"));
-    session.stopEditing();
-    settleFresh(session, id);
+    session.elements.setText(id, plainText("Hello"));
     session.elements.setText(id, { paragraphs: [{ runs: [{ t: "" }] }] });
+    session.stopEditing();
+    spendFresh(session, id);
+    expect(ids()).toContain(id);
+  });
+
+  it("stays through opening and closing it again", async () => {
+    const { session, made, ids } = await open();
+    const id = made();
+    session.stopEditing();
+    spendFresh(session, id);
     session.startEditing(id);
     session.stopEditing();
-    settleFresh(session, id);
     expect(ids()).toContain(id);
   });
 
-  it("stays when the person has gone to another slide, which it cannot be taken from", async () => {
+  it("stays when the person has gone to another slide, and is still on the slide it was made on", async () => {
     const { session, made, ids } = await open();
     const first = session.state.slideId;
     const id = made();
     session.slides.add({ layout: "blank" });
     expect(session.state.slideId).not.toBe(first);
-    settleFresh(session, id);
+    spendFresh(session, id);
     expect(session.deck.slides.find((s) => s.id === first)?.elements.map((e) => e.id)).toContain(id);
     expect(ids()).not.toContain(id);
+  });
+});
+
+describe("the mark of a box made just now", () => {
+  it("is kept while the box is still open, and spent when it has closed", async () => {
+    const { session, made } = await open();
+    const slide = session.state.slideId;
+    const id = made();
+    spendFresh(session, id);
+    expect(isUntouched(session, id, slide), "still open").toBe(true);
+    session.stopEditing();
+    spendFresh(session, id);
+    expect(isUntouched(session, id, slide), "closed").toBe(false);
   });
 });
 
@@ -157,7 +123,7 @@ describe("the first words typed in a box made just now", () => {
     const id = made();
     expect(isUntouched(session, id, "s-elsewhere")).toBe(false);
     session.stopEditing();
-    settleFresh(session, id);
+    spendFresh(session, id);
     expect(isUntouched(session, id, slide), "the mark is spent when editing ends").toBe(false);
   });
 });

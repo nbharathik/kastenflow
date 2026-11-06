@@ -1,0 +1,28 @@
+/* The picture of the slide the eyedropper points at. */
+.ks-slide-sample {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ks-slide-sample-view {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--ks-line);
+  border-radius: var(--ks-radius);
+  cursor: crosshair;
+  background: var(--ks-raised);
+}
+
+.ks-slide-sample-view:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 2px;
+}
+
+.ks-slide-sample-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ks-muted);
+}

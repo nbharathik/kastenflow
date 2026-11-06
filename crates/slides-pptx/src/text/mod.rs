@@ -1,6 +1,8 @@
 //! Text: the body of a text box, a shape, a table cell or a label, written
 //! with the box's insets, anchor and every paragraph and run spelled out.
 
+pub mod columns;
+mod datefield;
 pub mod lists;
 pub mod metrics;
 mod para;
@@ -134,6 +136,7 @@ pub fn write_body(x: &mut Xml, cx: &mut Cx, tag: &str, text: &Text, look: &Look)
             "anchor",
             anchor(text.valign.as_ref().unwrap_or(&look.valign)),
         );
+    columns::write(x, text);
     if look.flipped {
         x.int("rot", 10_800_000);
     }

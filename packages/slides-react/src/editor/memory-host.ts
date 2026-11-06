@@ -1,8 +1,13 @@
 import type { ComponentType } from "react";
 
 import type { RehearsalStore } from "../present/rehearsal-store.ts";
+import type { EditorAiHost } from "./ai/ai-host.ts";
+import type { BrandHost } from "./brand/brand-host.ts";
 import type { DecksHost } from "./decks-host.ts";
 import type { AiPanelProps, AiStatusSource, DeliveredFile, HostImage, ImageEdit, ImageUse, SaveOutcome, SlidesHost } from "./host.ts";
+import type { DeckHistoryHost } from "./history/history-host.ts";
+import type { LayoutLibraryHost } from "./layouts/library-host.ts";
+import type { RecoveryJournal } from "./recovery/journal.ts";
 import type { TemplatesHost } from "./layouts/templates-host.ts";
 import type { WebPreviewHost } from "./web-preview-host.ts";
 
@@ -28,10 +33,24 @@ export class MemoryHost implements SlidesHost {
   templates?: TemplatesHost;
   /** The other decks, for a test to give: none unless it does. */
   decks?: DecksHost;
+  /** The layout library, for a test to give: none unless it does. */
+  layoutLibrary?: LayoutLibraryHost;
+  /** The brand kit, for a test to give: none unless it does. */
+  brand?: BrandHost;
+  /** Help from an assistant, for a test to give: none unless it does. */
+  ai?: EditorAiHost;
   /** The host's web preview, for a test to give: none unless it does. */
   webPreview?: WebPreviewHost;
   /** Where rehearsals are kept, for a test to give: the page's local storage unless it does. */
   rehearsals?: RehearsalStore;
+  /** Where the deck is kept, for a test to give. */
+  deckPath?: string;
+  /** The name comments are written under, for a test to give. */
+  author?: string;
+  /** The deck's saved versions, for a test to give: none unless it does. */
+  history?: DeckHistoryHost;
+  /** Where unsaved edits are kept, for a test to give: none unless it does (a test page has no IndexedDB). */
+  recovery?: RecoveryJournal;
   private readonly watchers = new Set<() => void>();
   private last = 0;
 

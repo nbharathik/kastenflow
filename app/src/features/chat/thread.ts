@@ -4,6 +4,7 @@
 // small and the rules are easy to test.
 
 import type { AttachKind, Binding, Paused, PlanItem } from "./agent-types";
+import type { Approval } from "./agents/types";
 import { pausedOf, planOf, queuedOf, retryOf, roundOf } from "./thread-events";
 import type { Fork } from "./thread-versions";
 import type { ChangesInfo, ChatEvent, ChatTurn, ContextChip, FailKind, GenerationSettings, ToolCall, ToolResult } from "./types";
@@ -23,7 +24,13 @@ export interface Chip extends ContextChip {
 export const originOf = (chip: Chip): ChipOrigin => chip.origin ?? "added";
 
 /** A piece of an answer: its text, a tool call, or a message the person sent while it worked and it took up at its next step. */
-export type Part = { kind: "text"; text: string } | { kind: "tool"; call: ToolCall; result: ToolResult | null } | { kind: "steer"; text: string };
+export type Part =
+  | { kind: "text"; text: string }
+  /** `pictures` are what the tool drew (`data:` URLs), kept for this window only: they are not saved with the chat. */
+  | { kind: "tool"; call: ToolCall; result: ToolResult | null; pictures?: string[] }
+  | { kind: "steer"; text: string }
+  /** A coding agent's question, with Allow and Deny; it is updated in place as it is answered. */
+  | { kind: "approval"; ask: Approval };
 
 /** A file or picture that went with a message. */
 export interface SentAttachment {
@@ -321,11 +328,12 @@ function appendText(parts: Part[], text: string): Part[] {
   return [...parts, { kind: "text", text }];
 }
 
-function withResult(parts: Part[], result: ToolResult): Part[] {
+function withResult(parts: Part[], result: ToolResult, pictures?: string[]): Part[] {
+  const shown = pictures && pictures.length > 0 ? { pictures } : {};
   const at = parts.findIndex((p) => p.kind === "tool" && p.call.id === result.id);
-  if (at < 0) return [...parts, { kind: "tool", call: { id: result.id, name: "", input: null }, result }];
+  if (at < 0) return [...parts, { kind: "tool", call: { id: result.id, name: "", input: null }, result, ...shown }];
   const next = parts.slice();
-  next[at] = { ...(parts[at] as Extract<Part, { kind: "tool" }>), result };
+  next[at] = { ...(parts[at] as Extract<Part, { kind: "tool" }>), result, ...shown };
   return next;
 }
 
@@ -361,7 +369,16 @@ function applyOne(thread: Thread, event: ChatEvent): Thread {
       if (!event.result) return withAnswer(thread, at, answer);
       // A staged change is held back: nothing was written yet.
       const wrote = event.result.ok && !event.result.staged && event.result.paths.length > 0;
-      return withAnswer(thread, at, { ...settled(answer), parts: withResult(answer.parts, event.result) }, wrote ? { changed: true, undone: false } : {});
+      return withAnswer(thread, at, { ...settled(answer), parts: withResult(answer.parts, event.result, event.pictures) }, wrote ? { changed: true, undone: false } : {});
+    }
+    case "approval": {
+      // A coding agent asks (or its question was answered or ended): one card per question, kept up to date.
+      const ask = event.approval;
+      if (!ask) return withAnswer(thread, at, answer);
+      const i = answer.parts.findIndex((p) => p.kind === "approval" && p.ask.id === ask.id);
+      const card: Part = { kind: "approval", ask };
+      const parts: Part[] = i < 0 ? [...answer.parts, card] : answer.parts.map((p, j) => (j === i ? card : p));
+      return withAnswer(thread, at, { ...settled(answer), parts });
     }
     case "changes":
       return withAnswer(thread, at, answer, { changes: event.changes && event.changes.count > 0 ? event.changes : undefined });

@@ -9,3 +9,5 @@ export type { RehearsalRecord } from "./present/rehearsal.ts";
 export { broadcastSync } from "./present/sync.ts";
 export type { PresentSync } from "./present/sync.ts";
 export { linkOver } from "./present/wire.ts";
+// The address a frame loads for a link a deck holds: the guard of the app is told these, not the links as typed.
+export { frameAddress } from "./present/live-url.ts";

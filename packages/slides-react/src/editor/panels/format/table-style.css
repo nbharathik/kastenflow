@@ -1,0 +1,27 @@
+.ks-ts-gallery {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.ks-ts-style {
+  padding: 3px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: var(--ks-panel);
+  cursor: pointer;
+}
+.ks-ts-style[aria-pressed="true"] {
+  outline: 2px solid var(--ks-accent);
+}
+.ks-ts-style:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 1px;
+}
+.ks-ts-swatch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 28px;
+}
+.ks-ts-swatch i {
+  display: block;
+}

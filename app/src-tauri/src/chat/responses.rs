@@ -188,7 +188,11 @@ pub fn body(model: &str, call: &Call<'_>, shape: Shape, applied: &Applied) -> Va
 /// it came as; one from another provider as its text and calls.
 pub fn input(thread: &[Message]) -> Vec<Value> {
     let mut out = Vec::new();
-    for message in thread {
+    // Pictures a tool drew go to the model once, with the latest results.
+    let latest = thread
+        .iter()
+        .rposition(|m| matches!(m, Message::Results(_)));
+    for (at, message) in thread.iter().enumerate() {
         match message {
             Message::User(text) => out.push(json!({"role": "user", "content": text})),
             Message::UserImages { text, images } => {
@@ -216,6 +220,14 @@ pub fn input(thread: &[Message]) -> Vec<Value> {
                         result.content.clone()
                     };
                     out.push(json!({"type": "function_call_output", "call_id": result.id, "output": output}));
+                }
+                // A function's output is text here, so the pictures follow as the user's.
+                let drawn: Vec<_> = results.iter().flat_map(|r| r.images.clone()).collect();
+                if latest == Some(at) && !drawn.is_empty() {
+                    let words = "The pictures the tools above drew, in the order of the calls.";
+                    out.push(
+                        json!({"role": "user", "content": super::parts::responses(words, &drawn)}),
+                    );
                 }
             }
         }

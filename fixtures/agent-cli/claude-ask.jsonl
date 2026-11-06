@@ -1,0 +1,6 @@
+{"type":"system","subtype":"init","session_id":"aaaa1111-2222-4333-8444-555566667777","mcp_servers":[{"name":"kasten","status":"connected"}]}
+{"type":"assistant","message":{"id":"msg_1","role":"assistant","content":[{"type":"tool_use","id":"toolu_10","name":"Bash","input":{"command":"npm test","description":"Run the tests"}}]}}
+{"type":"control_request","request_id":"req_7_1a2b3c4d","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"npm test","description":"Run the tests"},"permission_suggestions":[],"tool_use_id":"toolu_10"}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_10","content":"The user did not allow this in KastenFlow.","is_error":true}]}}
+{"type":"assistant","message":{"id":"msg_2","role":"assistant","content":[{"type":"text","text":"I could not run the tests."}]}}
+{"type":"result","subtype":"success","is_error":false,"result":"I could not run the tests.","session_id":"aaaa1111-2222-4333-8444-555566667777"}

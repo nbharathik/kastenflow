@@ -6,7 +6,7 @@ use crate::composites::steps_needed;
 use crate::model::{Element, Text, TransitionKind};
 
 use super::super::model::Refs;
-use super::super::scene::Scene;
+use super::super::scene::{Scene, is_blank};
 use super::super::texts::{describe, describe_leaf, describe_unit, sentence};
 use super::{Found, Sink, each, element_of};
 
@@ -43,17 +43,48 @@ pub fn empty_placeholders(scene: &Scene, sink: &mut Sink) {
     }
 }
 
+/// A text box of its own (not a slot of the layout) with no words in it and nothing painted on it. The editor keeps such a box on the
+/// slide, with a prompt, so that it is not lost; to an audience it is nothing, so the check says it is still there.
+pub fn empty_text_boxes(scene: &Scene, sink: &mut Sink) {
+    for leaf in &scene.leaves {
+        let Element::Text(text) = leaf.el else {
+            continue;
+        };
+        let base = leaf.el.base();
+        let paints = base
+            .style
+            .as_ref()
+            .is_some_and(|s| s.fill.is_some() || s.stroke.is_some());
+        if base.placeholder.is_some() || paints || !is_blank(&text.text) {
+            continue;
+        }
+        sink.add(Found {
+            rule: "empty-text-box",
+            order: leaf.z + 1,
+            key: leaf.el.id(),
+            rank: 0.0,
+            element: Some(element_of(scene, leaf.unit)),
+            message: sentence(&format!(
+                "{} has no words, so it shows nothing when presenting.",
+                describe_leaf(leaf)
+            )),
+            hint: "Write in it (set_text), or delete the empty box (delete_elements).",
+        });
+    }
+}
+
 pub fn missing_alt(scene: &Scene, sink: &mut Sink) {
     for leaf in &scene.leaves {
         let Element::Image(image) = leaf.el else {
             continue;
         };
+        // Empty alt text on purpose (not spaces) says the picture is decoration, which needs no words.
         if image.src.trim().is_empty()
             || image
                 .base
                 .alt
                 .as_deref()
-                .is_some_and(|a| !a.trim().is_empty())
+                .is_some_and(|a| a.is_empty() || !a.trim().is_empty())
         {
             continue;
         }
@@ -67,7 +98,7 @@ pub fn missing_alt(scene: &Scene, sink: &mut Sink) {
                 "{} has no alternative text, so a person who cannot see it is told nothing.",
                 describe_leaf(leaf)
             )),
-            hint: "Say in a few words what the picture shows (alt), or what the formula is.",
+            hint: "Say in a few words what the picture shows (alt), or what the formula is. A picture that is only decoration takes empty alt text (\"\") on purpose.",
         });
     }
 }
@@ -222,6 +253,14 @@ pub fn pptx_unsafe(scene: &Scene, sink: &mut Sink) {
                         )
                     },
                     "Give it a poster picture, and say on the slide where the video is.",
+                ),
+                Element::Audio(_) => (
+                    "audio",
+                    format!(
+                        "{} plays only when presenting from KastenFlow; PowerPoint and Google Slides get its icon (and a link, for a file on the web).",
+                        sentence(&describe_top())
+                    ),
+                    "Say on the slide that there is sound, or play it from another program for a file that must work everywhere.",
                 ),
                 Element::Timer(_) => (
                     "timer",

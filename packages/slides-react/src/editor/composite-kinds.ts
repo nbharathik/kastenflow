@@ -3,7 +3,8 @@
 
 import type { Element, PageSource } from "@kasten-slides/wasm";
 
-import { DEFAULT_DESIGN, PAGE_DESIGN, boxFor } from "../embed/scale.ts";
+import { toEmbedUrl } from "../embed/embed-url.ts";
+import { DEFAULT_DESIGN, PAGE_DESIGN, VIDEO_DESIGN, boxFor } from "../embed/scale.ts";
 import type { Corner } from "./placement.ts";
 import type { IconName } from "./ui/icons.ts";
 
@@ -27,7 +28,7 @@ export interface CompositeSpec {
   corner?: Corner;
   /**
    * A kind the engine draws and a deck may hold, but that the editor has no way to make or change yet: it is not offered in the
-   * Insert menu, the palette or the gallery. (A chart, a timer and a QR code come from agents and files until their options are built.)
+   * Insert menu, the palette or the gallery. (No kind is held back at present.)
    */
   unlisted?: boolean;
 }
@@ -42,9 +43,9 @@ export const COMPOSITES: readonly CompositeSpec[] = [
   { kind: "step-label", label: "Step label", icon: "captions", size: { w: 140, h: 32 }, keywords: ["step", "counter", "progress"], corner: "bottom-right" },
   { kind: "embed", label: "Web page…", icon: "globe", size: { w: 640, h: 400 }, keywords: ["web page", "website", "iframe", "url", "live"], asks: "embed" },
   { kind: "video", label: "Video…", icon: "film", size: { w: 640, h: 360 }, keywords: ["movie", "clip", "mp4", "media"], asks: "video" },
-  { kind: "chart", label: "Chart", icon: "chart-column", size: { w: 640, h: 360 }, keywords: ["graph", "bar", "line", "pie", "plot", "data", "numbers", "statistics"], unlisted: true },
-  { kind: "timer", label: "Timer", icon: "timer", size: { w: 360, h: 180 }, keywords: ["countdown", "clock", "stopwatch", "minutes", "time"], unlisted: true },
-  { kind: "qr", label: "QR code", icon: "qr-code", size: { w: 300, h: 300 }, keywords: ["barcode", "scan", "link", "url", "phone"], unlisted: true },
+  { kind: "chart", label: "Chart", icon: "chart-column", size: { w: 640, h: 360 }, keywords: ["graph", "bar", "line", "pie", "plot", "data", "numbers", "statistics"] },
+  { kind: "timer", label: "Timer", icon: "timer", size: { w: 360, h: 180 }, keywords: ["countdown", "clock", "stopwatch", "minutes", "time"] },
+  { kind: "qr", label: "QR code", icon: "qr-code", size: { w: 300, h: 300 }, keywords: ["barcode", "scan", "link", "url", "phone"] },
 ];
 
 /** The kinds the editor offers to insert: every one but those it cannot make yet. */
@@ -127,11 +128,21 @@ export function newComposite(kind: CompositeKind, { address = "", title, page, c
       return { type: "citation", id: "", keys: [] } as Element;
     case "step-label":
       return { type: "step-label", id: "" } as Element;
-    case "embed":
-      // A page of the host is laid out narrower (so its words read from a room); a web page as a desktop window.
-      return page
-        ? ({ type: "embed", id: "", url: "", ...(title ? { title } : {}), design: { ...PAGE_DESIGN }, source: page } as Element)
-        : ({ type: "embed", id: "", url: address, ...(title ? { title } : {}), design: { ...DEFAULT_DESIGN } } as Element);
+    case "embed": {
+      // A page of the host is laid out narrower (so its words read from a room); a web page as a desktop window; a video of a known
+      // site as a 16:9 picture, with the site noted.
+      if (page) return { type: "embed", id: "", url: "", ...(title ? { title } : {}), design: { ...PAGE_DESIGN }, source: page } as Element;
+      const link = toEmbedUrl(address);
+      const known = link !== null && link.provider !== "web";
+      return {
+        type: "embed",
+        id: "",
+        url: address,
+        ...(title ? { title } : {}),
+        ...(known ? { provider: link.provider } : {}),
+        design: { ...(link?.kind === "video" ? VIDEO_DESIGN : DEFAULT_DESIGN) },
+      } as Element;
+    }
     case "video":
       return { type: "video", id: "", src: address } as Element;
     case "chart":
@@ -143,5 +154,5 @@ export function newComposite(kind: CompositeKind, { address = "", title, page, c
   }
 }
 
-/** The size a new embed starts at: the shape of the window the page is laid out for, 640 wide. */
-export const embedSize = (page: boolean): { w: number; h: number } => boxFor(page ? PAGE_DESIGN : DEFAULT_DESIGN, 640);
+/** The size a new embed starts at: the shape of the window the page is laid out for, 640 wide (16:9 for a video). */
+export const embedSize = (page: boolean, video = false): { w: number; h: number } => boxFor(video ? VIDEO_DESIGN : page ? PAGE_DESIGN : DEFAULT_DESIGN, 640);

@@ -30,7 +30,7 @@ describe("page sizes", () => {
     expect(engine.deck.size).toMatchObject({ w: 960, h: 720 });
     // The theme was refitted with it, and what the engine reports is what the copy holds.
     const title = engine.deck.theme.layouts.find((l) => l.name === "title-body")!.placeholders[0]!;
-    expect([title.y, title.h]).toEqual([48, 128]);
+    expect([title.y, title.h]).toEqual([37.33, 144]);
     expect(JSON.parse(engine.save()).size).toMatchObject({ w: 960, h: 720 });
     engine.undo();
     expect(engine.save()).toBe(before);

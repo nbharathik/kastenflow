@@ -1,5 +1,5 @@
-// The menu search ("Menus", Alt+/): every row of every menu, found by the words of its name or the menus it is in, as Google Slides
-// does, so a command can be run without knowing where it lives.
+// Every row of every menu, found by the words of its name or the menus it is in, as Google Slides does, so a command can be run without
+// knowing where it lives. The command palette lists these rows (`flattenMenus`) and ranks them itself.
 
 import type { IconName } from "../ui/Icon.tsx";
 import type { MenuItem } from "../ui/Menu.tsx";
@@ -12,6 +12,8 @@ export interface SearchableMenu {
 
 /** One row that can be run, and where it is found. */
 export interface MenuHit {
+  /** The row's id: the command's own for a row that runs a command. */
+  id?: string;
   /** The menus it is in, outermost first: `["Format", "Text"]` for Bold. */
   path: string[];
   label: string;
@@ -31,6 +33,7 @@ export function flattenMenus(menus: readonly SearchableMenu[]): MenuHit[] {
       if (item.items) walk(item.items, [...path, item.label], disabled || item.disabled === true);
       else if (item.run) {
         hits.push({
+          id: item.id,
           path,
           label: item.label,
           ...(item.icon ? { icon: item.icon } : {}),
@@ -44,35 +47,6 @@ export function flattenMenus(menus: readonly SearchableMenu[]): MenuHit[] {
   };
   for (const menu of menus) walk(menu.items(), [menu.label], false);
   return hits;
-}
-
-const words = (text: string): string[] => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-
-/** How well a row answers the words typed: lower is better, null is no answer. */
-function score(hit: MenuHit, query: string, typed: string[]): number | null {
-  const label = hit.label.toLowerCase();
-  const labelWords = words(hit.label);
-  if (label === query) return 0;
-  if (label.startsWith(query)) return 1;
-  if (labelWords.some((word) => word.startsWith(query))) return 2;
-  if (label.includes(query)) return 3;
-  const place = words(hit.path.join(" "));
-  const every = typed.every((word) => labelWords.some((w) => w.startsWith(word)) || place.some((w) => w.startsWith(word)));
-  if (every) return typed.every((word) => labelWords.some((w) => w.startsWith(word))) ? 4 : 5;
-  return null;
-}
-
-/** The rows that answer `query`, the best first; rows that cannot be run now come after those that can at the same level. */
-export function searchMenus(hits: readonly MenuHit[], query: string, limit = 12): MenuHit[] {
-  const text = query.trim().toLowerCase();
-  if (text === "") return [];
-  const typed = words(text);
-  return hits
-    .map((hit, index) => ({ hit, index, rank: score(hit, text, typed) }))
-    .filter((found): found is { hit: MenuHit; index: number; rank: number } => found.rank !== null)
-    .sort((a, b) => a.rank - b.rank || Number(a.hit.disabled) - Number(b.hit.disabled) || a.index - b.index)
-    .slice(0, limit)
-    .map((found) => found.hit);
 }
 
 /** Where a row is found, as a line: "Format › Text". */

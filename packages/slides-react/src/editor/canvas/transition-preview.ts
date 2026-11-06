@@ -5,6 +5,7 @@
 
 import type { Element as DeckElement, Slide, Theme, TransitionKind } from "@kasten-slides/wasm";
 
+import { framesOf } from "../../present/runtime/transitions.js";
 import { boxOf } from "../../theme/index.ts";
 import { play } from "../motion.ts";
 
@@ -31,6 +32,12 @@ export function playTransition(root: HTMLElement, kind: TransitionKind, seconds:
     add(root, [{ opacity: 0 }, { opacity: 1 }]);
   } else if (kind === "slide") {
     add(root, [{ translate: `${FROM_SIDE} 0`, opacity: 0 }, { translate: "0 0", opacity: 1 }]);
+  } else if (kind !== "morph") {
+    // Push, wipe, cover, zoom, flip ... : the slide arrives the way the show plays it (there is no slide before it on the canvas to move, so
+    // for those that move both, only the arriving one does; uncover has nothing to show but a fade).
+    const frames = framesOf(kind, slide.transition?.direction ?? null, false, false);
+    const mine = frames && frames.top === "enter" ? frames.enter : [{ opacity: 0 }, { opacity: 1 }];
+    add(root, mine);
   } else {
     // Morph: elements that are in both slides go from their old box to their new one, and the others appear.
     const was = new Map((before?.elements ?? []).map((element) => [keyOf(element), boxOf(theme, before!.layout, element)]));

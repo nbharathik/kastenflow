@@ -5,10 +5,10 @@ use crate::companions;
 use crate::error::{Error, Result};
 use crate::frontmatter::split;
 use crate::history::Actor;
+use crate::journal_path::journal_path_in;
 use crate::merge::merge3;
 use crate::note::NoteFile;
 use crate::ops::{self, Saved};
-use crate::rename::{Renamed, rename_note_in};
 use crate::rollback::Rollback;
 use crate::time::Instant;
 use crate::trash;
@@ -32,6 +32,16 @@ fn along(sub_pages: usize) -> String {
         1 => " and 1 sub-page".to_owned(),
         n => format!(" and {n} sub-pages"),
     }
+}
+
+/// The title of the project a note is in, for a commit message.
+fn project_name(vault: &crate::vault::Vault, meta: &crate::note::NoteMeta) -> String {
+    let Some(folder) = meta.project.as_deref() else {
+        return String::new();
+    };
+    vault
+        .read(&format!("projects/{folder}/_project.md"))
+        .map_or_else(|_| folder.to_owned(), |page| page.meta.title)
 }
 
 pub(super) fn title_of(vault: &crate::vault::Vault, path: &str) -> String {
@@ -92,10 +102,13 @@ impl Kasten {
                 _ => None,
             };
             let saved = match merged {
-                Some(text) => Saved::Merged {
-                    note: ops::save_body(vault, path, &text, &current.hash, now)?
-                        .note()
-                        .clone(),
+                // A merge that leaves the file as it is (only its frontmatter
+                // moved on) merged nothing: it is `Unchanged`.
+                Some(text) => match ops::save_body(vault, path, &text, &current.hash, now)? {
+                    Saved::Unchanged { note } => Saved::Unchanged { note },
+                    saved => Saved::Merged {
+                        note: saved.note().clone(),
+                    },
                 },
                 None => ops::save_body(vault, path, body, base_hash, now)?,
             };
@@ -138,45 +151,6 @@ impl Kasten {
         })?;
         self.remember(&note.hash, &note.text);
         Ok(note)
-    }
-
-    pub fn rename(&self, actor: &Actor, path: &str, title: &str, now: Instant) -> Result<Renamed> {
-        self.apply(actor, "rename_note", false, now.millis, |vault| {
-            let old = title_of(vault, path);
-            let before = self.index().notes()?;
-            let candidates = match before.iter().find(|n| n.path == path) {
-                Some(note) => self.linking_any(&[note], &[title])?,
-                None => Vec::new(),
-            };
-            let renamed = rename_note_in(vault, path, title, now, &before, &candidates)?;
-            let mut paths = vec![path.to_owned(), renamed.note.meta.path.clone()];
-            paths.extend(renamed.relinked.iter().cloned());
-            if renamed.note.meta.path != path {
-                let moved = [(path.to_owned(), renamed.note.meta.path.clone())];
-                // Its comments and highlights files follow it to the new name.
-                let mut done = Rollback::default();
-                match companions::carry(vault, &moved, &mut done) {
-                    Ok(carried) => paths.extend(carried.into_iter().flat_map(|(a, b)| [a, b])),
-                    Err(err) => {
-                        done.put_back();
-                        // The page goes back to its name too, so it is never
-                        // left apart from its files and its folder.
-                        if let (Ok(now_at), Ok(was)) =
-                            (vault.path_of(&renamed.note.meta.path), vault.path_of(path))
-                        {
-                            let _ = std::fs::rename(now_at, was);
-                        }
-                        return Err(err);
-                    }
-                }
-                paths.extend(crate::board::relink_boards(vault, &moved)?);
-            }
-            Ok(Change {
-                message: format!("rename: {old} → {}", renamed.note.meta.title),
-                paths,
-                value: renamed,
-            })
-        })
     }
 
     pub fn duplicate(&self, actor: &Actor, path: &str, now: Instant) -> Result<NoteFile> {
@@ -302,17 +276,29 @@ impl Kasten {
         trash::read_trashed(&self.vault, trashed)
     }
 
-    /// The journal day, created from the template on first open.
-    pub fn journal(&self, actor: &Actor, date: &str, now: Instant) -> Result<NoteFile> {
-        let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+    /// The journal day (the vault's, or a project's), created from the
+    /// template on first open.
+    pub fn journal(
+        &self,
+        actor: &Actor,
+        project: Option<&str>,
+        date: &str,
+        now: Instant,
+    ) -> Result<NoteFile> {
+        let path = journal_path_in(&self.vault, project, date)?;
         if self.vault.exists(&path) {
             return self.read(&path);
         }
         let chosen = self.config().journal_template;
         self.apply(actor, "journal", false, now.millis, |vault| {
-            let note = crate::templated::journal_day_from(vault, date, chosen.as_deref(), now)?;
+            let note =
+                crate::templated::journal_day_from(vault, project, date, chosen.as_deref(), now)?;
+            let message = match project {
+                Some(_) => format!("journal: {date} in {}", project_name(vault, &note.meta)),
+                None => format!("journal: {date}"),
+            };
             Ok(Change {
-                message: format!("journal: {date}"),
+                message,
                 paths: vec![note.meta.path.clone()],
                 value: note,
             })

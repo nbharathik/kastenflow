@@ -2,7 +2,7 @@
 // (src-tauri/src/presenter.rs) passes what one says to the other, without reading it. The presenter's view is a window of its own,
 // made by the core.
 
-import { type PresentSync, linkOver } from "@kasten-slides/react/presenter-entry";
+import { type PresentSync, frameAddress, linkOver } from "@kasten-slides/react/presenter-entry";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
@@ -64,7 +64,10 @@ export async function allowEmbeds(urls: string[]): Promise<void> {
   await invoke("allow_embeds", { urls }).catch(() => {});
 }
 
-/** The addresses of the pages a deck embeds, at any depth. */
+/**
+ * The addresses of the pages a deck embeds, at any depth, as the frames load them: a YouTube watch link is its player, so the core is
+ * told the player's address and not the link as it was typed (the core adds the helper addresses of a known site itself).
+ */
 export function embeddedPages(value: unknown): string[] {
   const found = new Set<string>();
   const walk = (node: unknown): void => {
@@ -72,7 +75,10 @@ export function embeddedPages(value: unknown): string[] {
       for (const item of node) walk(item);
     } else if (node !== null && typeof node === "object") {
       const record = node as Record<string, unknown>;
-      if (record.type === "embed" && typeof record.url === "string") found.add(record.url);
+      if (record.type === "embed" && typeof record.url === "string") {
+        const framed = frameAddress(record as { url: string });
+        if (framed) found.add(framed.url);
+      }
       for (const inner of Object.values(record)) walk(inner);
     }
   };

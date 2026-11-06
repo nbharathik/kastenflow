@@ -72,6 +72,11 @@ fn laid(table: &TableEl, columns: usize, w: f64, h: f64) -> (Vec<f64>, Vec<f64>)
     (scaled(&widths, w), scaled(&heights, h))
 }
 
+/// The widths of the columns as the table is drawn in its box.
+pub(super) fn column_widths(table: &TableEl, frame: &Frame) -> Vec<f64> {
+    laid(table, table.column_count(), frame.w, frame.h).0
+}
+
 /// Why a table of this size is too big, or none when it is within the limits.
 pub(super) fn over_limit(rows: usize, columns: usize) -> Option<String> {
     if columns > MOST_TABLE_COLUMNS {

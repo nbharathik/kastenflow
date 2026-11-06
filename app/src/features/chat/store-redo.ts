@@ -6,7 +6,7 @@
 // asked again, not only the newest; the old way stays reachable.
 
 import { useWorkspace } from "../workspace/store";
-import { modelFor } from "./prefs";
+import { chatModelFor } from "./prefs";
 import type { ChatState } from "./store";
 import { isEmptyAnswer, rememberedQuestions, type Thread } from "./thread";
 import { forkAt, latestFirst, showVersion } from "./thread-versions";
@@ -29,7 +29,7 @@ export function redoActions(get: Get, update: Update): Pick<ChatState, "retry" |
     if (at === null && !answer) return false;
     const text = words(asked.text).trim();
     // Nothing is taken back that could not then be sent.
-    if (!text || !modelFor(thread, get().providers)) return false;
+    if (!text || !chatModelFor(thread, get().providers)) return false;
     try {
       await get().ensure().rewind(id, rememberedQuestions(thread.messages, place));
     } catch {

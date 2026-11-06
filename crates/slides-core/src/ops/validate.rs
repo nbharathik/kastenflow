@@ -2,7 +2,9 @@
 //! are theme tokens or `#rrggbb`, sizes and fractions are in range, a table follows its rules.
 //! (`Engine::check` looks at ids and layouts; it does not look at these.)
 
-use crate::model::{Element, Paragraph, Style, Text, is_color};
+use crate::model::{
+    Element, Paragraph, Style, Text, is_color, is_shape_name, is_table_style, table_style_ids,
+};
 
 pub(super) fn color_ok(c: &str) -> Result<(), String> {
     if is_color(c) {
@@ -36,7 +38,31 @@ fn check_style(s: &Style) -> Result<(), String> {
     if let Some(sh) = &s.shadow {
         color_ok(&sh.color)?;
     }
+    if let Some(adjust) = &s.adjust
+        && let Some(problem) = adjust.problem()
+    {
+        return Err(problem);
+    }
+    if let Some(name) = &s.mask_shape
+        && !is_shape_name(name)
+    {
+        return Err(format!(
+            "`{name}` is not a shape name; use a preset such as star5, heart or hexagon"
+        ));
+    }
     unit(s.opacity, "opacity")
+}
+
+/// Whether a stroke's colour, strength and width follow the rules.
+fn check_stroke(l: &crate::model::Stroke) -> Result<(), String> {
+    color_ok(&l.color)?;
+    unit(l.alpha, "line alpha")?;
+    if l.width
+        .is_some_and(|w| !w.is_finite() || !(0.0..=64.0).contains(&w))
+    {
+        return Err("a line's width is between 0 and 64".to_owned());
+    }
+    Ok(())
 }
 
 /// The farthest a paragraph may be moved in from its box's edge, in slide units.
@@ -118,13 +144,53 @@ pub fn validate(e: &Element) -> Result<(), String> {
             if let Some(problem) = t.problem() {
                 return Err(problem);
             }
+            if let Some(style) = &t.table_style
+                && !is_table_style(&style.preset)
+            {
+                return Err(format!(
+                    "`{}` is not a table style; the styles are: {}",
+                    style.preset,
+                    table_style_ids().join(", ")
+                ));
+            }
             for c in t.rows.iter().flat_map(|r| &r.cells) {
+                if let Some(b) = &c.borders {
+                    for line in [&b.top, &b.right, &b.bottom, &b.left].into_iter().flatten() {
+                        check_stroke(line)?;
+                    }
+                }
                 check_text(&c.text)?;
                 if let Some(fill) = &c.fill {
                     color_ok(&fill.color)?;
                     unit(fill.alpha, "fill alpha")?;
                 }
             }
+        }
+        Element::Text(t) => {
+            if t.columns.is_some_and(|n| !(1..=3).contains(&n)) {
+                return Err("`columns` is 1, 2 or 3".to_owned());
+            }
+            if t.column_gap
+                .is_some_and(|g| !g.is_finite() || !(0.0..=480.0).contains(&g))
+            {
+                return Err("`columnGap` is a space between 0 and 480 slide units".to_owned());
+            }
+        }
+        Element::Audio(a) => {
+            if a.volume.is_some_and(|v| !(0.0..=1.0).contains(&v)) {
+                return Err("`volume` is between 0 and 1".to_owned());
+            }
+            if a.across.is_some_and(|n| !(1..=999).contains(&n)) {
+                return Err("`across` is a number of slides, 1 to 999".to_owned());
+            }
+            for (name, v) in [("start", a.start), ("end", a.end)] {
+                if v.is_some_and(|v| !v.is_finite() || v < 0.0) {
+                    return Err(format!("`{name}` is a number of seconds, 0 or more"));
+                }
+            }
+        }
+        Element::Video(v) if v.volume.is_some_and(|v| !(0.0..=1.0).contains(&v)) => {
+            return Err("`volume` is between 0 and 1".to_owned());
         }
         _ => {}
     }

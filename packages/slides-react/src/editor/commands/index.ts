@@ -3,26 +3,33 @@
 // a command is named, enabled and bound in one place.
 
 import { agentCommands } from "./agent.ts";
+import { aiCommands } from "./ai.ts";
 import { arrangeCommands } from "./arrange.ts";
 import { chromeCommands } from "./chrome.ts";
+import { codePictureCommands } from "./code-picture.ts";
 import { compositesCommands } from "./composites.ts";
 import { diagramCommands } from "./diagram.ts";
+import { aidsCommands } from "./aids.ts";
 import { editCommands } from "./edit.ts";
 import { embedCommands } from "./embed.ts";
+import { extraCommands } from "./extras.ts";
 import { fileCommands } from "./file.ts";
 import { formatCommands } from "./format.ts";
 import { importingCommands } from "./importing.ts";
 import { insertCommands } from "./insert.ts";
 import { comboOf, showCombo } from "./keys.ts";
 import { layoutCommands } from "./layouts.ts";
+import { mediaExtrasCommands } from "./media-extras.ts";
 import { lintCommands } from "./lint.ts";
 import { pageCommands } from "./pages.ts";
 import { paintCommands } from "./paint.ts";
 import { presentCommands } from "./present.ts";
+import { reviewCommands } from "./review.ts";
 import { slideCommands } from "./slides.ts";
 import { stepsCommands } from "./steps.ts";
 import { tableCommands } from "./table.ts";
 import { textFormatCommands } from "./text-format.ts";
+import { styleCommands } from "./text-style.ts";
 import type { Command, CommandContext, Commands, KeyScope } from "./types.ts";
 import { viewCommands } from "./view.ts";
 
@@ -38,6 +45,7 @@ const ALL: Command[] = [
   ...arrangeCommands,
   ...formatCommands,
   ...textFormatCommands,
+  ...styleCommands,
   ...paintCommands,
   ...tableCommands,
   // Before the view's zoom: the same keys zoom the page of a selected embed, and the slide when none is selected.
@@ -49,13 +57,19 @@ const ALL: Command[] = [
   ...chromeCommands,
   ...compositesCommands,
   ...diagramCommands,
+  ...codePictureCommands,
   ...pageCommands,
   ...stepsCommands,
   ...presentCommands,
   ...importingCommands,
   ...layoutCommands,
+  ...aidsCommands,
   ...lintCommands,
   ...agentCommands,
+  ...reviewCommands,
+  ...extraCommands,
+  ...aiCommands,
+  ...mediaExtrasCommands,
 ];
 
 export const COMMANDS: Commands = new Map(ALL.map((command) => [command.id, command]));

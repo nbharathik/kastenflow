@@ -15,7 +15,7 @@ export type ViewMode = "edit" | "outline" | "grid";
 /** What a new slide starts from: nothing on it, the layout of the slide shown, or the deck's own default layout. */
 export type NewSlides = "blank" | "same" | "mine";
 const NEW_SLIDES_CHOICES = ["blank", "same", "mine"] as const;
-export type PanelName = "format" | "themes" | "transitions" | "steps" | "ai" | "comments";
+export type PanelName = "format" | "themes" | "transitions" | "steps" | "ai" | "comments" | "access" | "ideas" | "history";
 /** A menu opened by a right click, where it was pressed. */
 export interface ContextMenuState {
   kind: "element" | "canvas" | "slide" | "cells" | "filmstrip" | "panel";
@@ -30,6 +30,8 @@ export type DialogName =
   | "background"
   | "shortcuts"
   | "insert"
+  // Insert → Emoji…: a searchable grid; the pick goes into the words being typed, or onto the slide as a text box.
+  | "emoji"
   | "embed"
   | "video"
   | "table"
@@ -55,7 +57,27 @@ export type DialogName =
   | "preflight"
   | "rehearsals"
   // The slides made from pages, looked at again after the pages changed.
-  | "review-sources";
+  | "review-sources"
+  // The keys of a show, as a card; the master of the deck (background, logo, graphics, numbers) in one place; slides made from Markdown.
+  | "presenting"
+  // The named subsets of the slides a deck can be shown as (Slideshow options).
+  | "custom-shows"
+  | "master"
+  // The deck's saved versions: compare two, restore one as a new version.
+  | "deck-history"
+  // Insert → Code picture… and Edit code: the program kept inside a picture, its inputs, Run, and the library.
+  | "code-picture"
+  | "header-footer"
+  | "guides"
+  // Sound for a slide, Mermaid text drawn as shapes, the deck's fonts, and the check of its spelling.
+  | "audio"
+  | "mermaid"
+  | "fonts"
+  | "spelling"
+  | "import-markdown"
+  // Insert → Icon…: the bundled icons, found by name, put on the slide as small pictures; Tools → Brand kit…: the logo, colours and fonts decks start from.
+  | "icons"
+  | "brand";
 
 /** A transition to play once on the canvas, as a preview. `id` counts them, so the same transition asked for again plays again. */
 export interface TransitionPreview {
@@ -169,13 +191,23 @@ export interface ZoomIntent {
 /** What the host application gives the editor to call: present, export, and leaving. */
 export interface EditorActions {
   /** Presents the deck from its first slide or the one shown; `view: "scroll"` is the whole deck as a page with its notes, `presenter` also opens the presenter's window. */
-  present?(from: "start" | "current", options?: { view?: "slides" | "scroll"; presenter?: boolean; rehearse?: boolean }): void;
+  present?(from: "start" | "current", options?: { view?: "slides" | "scroll"; presenter?: boolean; rehearse?: boolean; show?: string }): void;
   exportAs?(format: "pptx" | "pdf" | "png" | "markdown" | "html"): void;
   /** Prints the deck (the browser's print dialog, where "Save as PDF" is a destination). */
   print?(options?: PrintOptions): void;
   /** Saves slides as PNG pictures: one file, or a zip file of them. */
   png?(options: PngOptions): void;
   close?(): void;
+  /**
+   * Goes to the host's home for decks (a list of them), leaving this deck as it is. The title bar shows a Home button, and Alt+Home
+   * does the same, only when the host gives this. It is not `close`: Back means the place the person came from, Home means the list.
+   */
+  home?(): void;
+  /**
+   * Opens the host's own place for the numbers and footers of every deck (in Kasten, the dialog that turns slide numbers off across the
+   * vault). The Master dialog links to it, only when the host gives this: a deck holds no slide-number setting of its own.
+   */
+  slideNumbers?(): void;
   /**
    * The editor went into full screen (`on`) or came out: it covers the whole window of the app, with or without this. A host that
    * has more to do (a desktop shell taking its own window full screen) does it here. The browser's Fullscreen API is not used. A host

@@ -220,7 +220,10 @@ fn a_saved_search_name_cannot_carry_other_keys_into_its_file() {
 fn the_extreme_days_of_the_journal_and_a_second_copy_do_not_break_anything() {
     let (t, k, s) = open();
     for day in ["0001-01-01", "9999-12-31", "2024-02-29"] {
-        let op = AgentOp::JournalDay { date: day.into() };
+        let op = AgentOp::JournalDay {
+            date: day.into(),
+            project: None,
+        };
         done(k.agent_run(&s, &op, NOW).unwrap());
         let path = format!("journal/{}/{day}.md", &day[..4]);
         assert!(t.vault.root().join(path).exists(), "{day}");
@@ -232,7 +235,10 @@ fn the_extreme_days_of_the_journal_and_a_second_copy_do_not_break_anything() {
         "２０２６-01-01",
         "2026-01-01\n",
     ] {
-        let op = AgentOp::JournalDay { date: day.into() };
+        let op = AgentOp::JournalDay {
+            date: day.into(),
+            project: None,
+        };
         assert!(refused(&k, &s, &op).contains("Not a day"), "{day:?}");
     }
     let original = page(&k, "Alpha", None, None);

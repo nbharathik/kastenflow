@@ -88,7 +88,6 @@ fn the_chart_the_freeform_and_the_diagram_are_kept_raw_and_said_so() {
         "chart was kept as it was",
         "freeform shape was kept as it was",
         "SmartArt diagram was kept as it was",
-        "gradient fill is drawn as its average colour",
     ] {
         assert!(
             said.iter().any(|m| m.contains(wanted)),

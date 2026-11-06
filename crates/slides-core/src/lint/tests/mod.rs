@@ -2,6 +2,8 @@
 //! it should find, and a list of the issues that deck must give: no more
 //! and no fewer. A finished deck gives none.
 
+mod access;
+mod brand;
 mod breaks;
 mod content;
 mod contrast;
@@ -249,13 +251,13 @@ fn lint_slide_gives_what_the_deck_report_holds_for_that_slide() {
 }
 
 #[test]
-fn the_table_of_rules_has_fifteen_rules_and_every_issue_names_one() {
+fn the_table_of_rules_has_seventeen_rules_and_every_issue_names_one() {
     let rules = super::rules();
-    assert_eq!(rules.len(), 15);
+    assert_eq!(rules.len(), 17);
     let mut names: Vec<&str> = rules.iter().map(|r| r.name).collect();
     names.sort_unstable();
     names.dedup();
-    assert_eq!(names.len(), 15);
+    assert_eq!(names.len(), 17);
     assert!(
         rules
             .iter()

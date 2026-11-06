@@ -3,10 +3,10 @@
 //! rest to the format style its `p:style` names in the theme (`fillRef idx="2"`
 //! is the theme's second fill, drawn in the colour the reference gives).
 
-use slides_core::{Arrow, Dash, Fill, Shadow, Stroke, Style};
+use slides_core::{Arrow, Dash, Fill, Gradient, GradientKind, GradientStop, Shadow, Stroke, Style};
 
 use super::frame::Frame;
-use crate::import::color::Paint;
+use crate::import::color::{ColorCx, Paint};
 use crate::import::cx::Cx;
 use crate::import::dom::Node;
 use crate::import::units::{round2, round4};
@@ -16,6 +16,49 @@ use crate::import::units::{round2, round4};
 enum Filling {
     None,
     Solid(Paint),
+    /// A gradient: the one colour it averages to (for what draws no gradients), and the gradient when it has two colours or more.
+    Gradient(Paint, Option<Gradient>),
+}
+
+/// The gradient a `a:gradFill` says, with its stops by position.
+fn gradient_of(colors: &ColorCx<'_>, node: &Node, placeholder: Option<&Paint>) -> Option<Gradient> {
+    let stops: Vec<GradientStop> = node
+        .child("a:gsLst")?
+        .children_named("a:gs")
+        .filter_map(|gs| {
+            let pos = gs.int("pos").unwrap_or(0) as f64 / 100_000.0;
+            let paint = colors.first(gs, placeholder)?;
+            Some(GradientStop {
+                pos: round4(pos.clamp(0.0, 1.0)),
+                color: paint.value,
+                alpha: paint.alpha,
+                extra: slides_core::Extra::new(),
+            })
+        })
+        .collect();
+    if stops.len() < 2 {
+        return None;
+    }
+    let radial = node.child("a:path").is_some();
+    let angle = node
+        .child("a:lin")
+        .and_then(|l| l.int("ang"))
+        .map(|a| round2(a as f64 / 60_000.0));
+    Some(Gradient {
+        kind: if radial {
+            GradientKind::Radial
+        } else {
+            GradientKind::Linear
+        },
+        angle: if radial {
+            None
+        } else {
+            Some(angle.unwrap_or(0.0))
+        },
+        stops,
+        extra: slides_core::Extra::new(),
+    })
+    .and_then(|g| g.tidy())
 }
 
 fn fill_names(name: &str) -> bool {
@@ -31,12 +74,9 @@ fn filling(cx: &mut Cx, node: &Node, placeholder: Option<&Paint>) -> Option<Fill
     match node.name.as_str() {
         "a:noFill" => Some(Filling::None),
         "a:solidFill" => colors.first(node, placeholder).map(Filling::Solid),
-        "a:gradFill" => {
-            cx.warn_slide("a gradient fill is drawn as its average colour");
-            colors
-                .gradient_average(node, placeholder)
-                .map(Filling::Solid)
-        }
+        "a:gradFill" => colors
+            .gradient_average(node, placeholder)
+            .map(|average| Filling::Gradient(average, gradient_of(&colors, node, placeholder))),
         "a:pattFill" => {
             cx.warn_slide("a pattern fill is drawn as its foreground colour");
             node.child("a:fgClr")
@@ -54,7 +94,7 @@ fn filling(cx: &mut Cx, node: &Node, placeholder: Option<&Paint>) -> Option<Fill
 /// The one colour a fill element is drawn as: a solid fill's own, a gradient's average or a pattern's foreground.
 pub fn paint_of(cx: &mut Cx, node: &Node, placeholder: Option<&Paint>) -> Option<Paint> {
     match filling(cx, node, placeholder)? {
-        Filling::Solid(paint) => Some(paint),
+        Filling::Solid(paint) | Filling::Gradient(paint, _) => Some(paint),
         Filling::None => None,
     }
 }
@@ -66,8 +106,12 @@ fn reference(cx: &Cx, style: Option<&Node>, name: &str) -> Option<(i64, Option<P
     Some((idx, cx.colors().first(node, None)))
 }
 
-/// A shape's fill.
-fn fill_of(cx: &mut Cx, sp_pr: Option<&Node>, style: Option<&Node>) -> Option<Fill> {
+/// A shape's fill, and its gradient when it has one (the fill is then the colour the gradient averages to).
+fn fill_of(
+    cx: &mut Cx,
+    sp_pr: Option<&Node>,
+    style: Option<&Node>,
+) -> Option<(Fill, Option<Gradient>)> {
     let own = sp_pr.and_then(|p| p.elements().find(|n| fill_names(&n.name)));
     let chosen = match own {
         Some(node) if node.name == "a:grpFill" => None,
@@ -85,14 +129,19 @@ fn fill_of(cx: &mut Cx, sp_pr: Option<&Node>, style: Option<&Node>) -> Option<Fi
             filling(cx, &node, ph.as_ref())
         }
     };
-    match chosen? {
-        Filling::None => None,
-        Filling::Solid(p) => Some(Fill {
+    let (p, gradient) = match chosen? {
+        Filling::None => return None,
+        Filling::Solid(p) => (p, None),
+        Filling::Gradient(p, gradient) => (p, gradient),
+    };
+    Some((
+        Fill {
             color: p.value,
             alpha: p.alpha,
             extra: slides_core::Extra::new(),
-        }),
-    }
+        },
+        gradient,
+    ))
 }
 
 fn dash_of(value: &str) -> Dash {
@@ -216,8 +265,13 @@ pub fn font_colour(cx: &Cx, style: Option<&Node>) -> Option<Paint> {
 pub fn read(cx: &mut Cx, shape: &Node, geometry: Option<&Node>, frame: &Frame) -> Style {
     let sp_pr = shape.child("p:spPr");
     let style = shape.child("p:style");
+    let (fill, gradient) = match fill_of(cx, sp_pr, style) {
+        Some((fill, gradient)) => (Some(fill), gradient),
+        None => (None, None),
+    };
     let mut out = Style {
-        fill: fill_of(cx, sp_pr, style),
+        fill,
+        gradient,
         ..Style::default()
     };
 
@@ -237,7 +291,7 @@ pub fn read(cx: &mut Cx, shape: &Node, geometry: Option<&Node>, frame: &Frame) -
         (None, base) => base,
     };
     if let Some(line) = line {
-        if let Some(Filling::Solid(paint)) = line.fill {
+        if let Some(Filling::Solid(paint) | Filling::Gradient(paint, _)) = line.fill {
             out.stroke = Some(Stroke {
                 color: paint.value,
                 width: line.width.map(round4),

@@ -67,12 +67,15 @@ describe("the View menu", () => {
 });
 
 describe("the Insert menu", () => {
-  it("arms the text box tool", async () => {
+  it("puts a text box on the slide at once, ready to type", async () => {
     const { session } = await setup();
+    const before = session.slide.elements.length;
     click(bar("Insert"));
     fireEvent.click(row(/^Text & content/));
     fireEvent.click(row(/^Text box/));
-    expect(session.state.tool).toBe("text");
+    expect(session.state.tool).toBe("select");
+    expect(session.slide.elements).toHaveLength(before + 1);
+    expect(session.state.editing).toBe(session.slide.elements.at(-1)?.id);
   });
 
   it("has two levels: six groups, each opening onto its items", async () => {
@@ -96,12 +99,12 @@ describe("the Insert menu", () => {
     expect(row(/^Step label/)).toBeTruthy();
   });
 
-  it("lists nothing that cannot be made yet: no chart, timer or QR code", async () => {
+  it("lists a chart, a timer and a QR code, each in its own group", async () => {
     await setup();
     click(bar("Insert"));
-    for (const group of [/^Text & content/, /^Media/, /^Data/, /^Pages & links/, /^Smart parts/]) {
+    for (const [group, item] of [[/^Data/, /^Chart/], [/^Smart parts/, /^Timer/], [/^Pages & links/, /^QR code/]] as const) {
       fireEvent.click(row(group));
-      expect(screen.queryByRole("menuitem", { name: /^(Chart|Timer|QR code)/ })).toBeNull();
+      expect(row(item)).toBeTruthy();
     }
   });
 
@@ -109,7 +112,7 @@ describe("the Insert menu", () => {
     const { session } = await setup();
     click(bar("Insert"));
     fireEvent.click(row(/^Shapes & lines/));
-    for (const group of ["Shapes", "Arrows", "Callouts", "Flowchart"]) expect(row(group)).toBeTruthy();
+    for (const group of ["Shapes", "Stars", "Arrows", "Callouts", "Flowchart"]) expect(row(group)).toBeTruthy();
     fireEvent.click(row("Arrows"));
     fireEvent.click(row(/^Right arrow/));
     expect(session.state.tool).toBe("shape:rightArrow");
@@ -161,6 +164,8 @@ describe("the Format menu", () => {
     click(bar("Format"));
     fireEvent.click(row(/^Text$/));
     expect(row(/^Bold/).getAttribute("aria-checked")).toBe("true");
+    // The first Escape closes the sub-menu, the second the menu.
+    fireEvent.keyDown(document.body, { key: "Escape" });
     fireEvent.keyDown(document.body, { key: "Escape" });
 
     click(bar("Format"));
@@ -284,6 +289,7 @@ describe("the Arrange menu", () => {
     click(bar("Arrange"));
     fireEvent.click(row(/^Distribute/));
     expect(isDisabled(row("Horizontally"))).toBe(false);
+    fireEvent.keyDown(document.body, { key: "Escape" });
     fireEvent.keyDown(document.body, { key: "Escape" });
 
     click(bar("Arrange"));

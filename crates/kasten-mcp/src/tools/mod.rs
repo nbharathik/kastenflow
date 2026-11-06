@@ -159,6 +159,50 @@ pub fn call_with(
     name: &str,
     args: Value,
 ) -> Result<Value, String> {
+    call_full(kasten, session, writes, cancel, name, args).map(|called| called.value)
+}
+
+/// What a tool answered, with the pictures it drew (the deck tools that draw).
+pub struct Called {
+    /// The JSON result: what `call_with` gives.
+    pub value: Value,
+    /// Pictures a tool drew, for a client or a model to look at.
+    pub images: Vec<slides_core::agent::Image>,
+}
+
+impl Called {
+    /// The pictures as (media type, base64 text), as a chat sends them to its model.
+    pub fn pictures(&self) -> Vec<(String, String)> {
+        self.images
+            .iter()
+            .map(|image| {
+                (
+                    image.mime.clone(),
+                    slides_core::agent::base64_encode(&image.bytes),
+                )
+            })
+            .collect()
+    }
+
+    fn plain(value: Value) -> Called {
+        Called {
+            value,
+            images: Vec::new(),
+        }
+    }
+}
+
+/// `call_with`, keeping the pictures a tool drew: `render_slide`, `render_grid`
+/// and `render_diff` answer with one, which an MCP client gets as an image block
+/// and the app's chat shows and gives the model.
+pub fn call_full(
+    kasten: &Kasten,
+    session: &Session,
+    writes: Writes,
+    cancel: Option<&AtomicBool>,
+    name: &str,
+    args: Value,
+) -> Result<Called, String> {
     let k = kasten;
     let s = session;
     // A plugin's tools answer only while the plugin is on.
@@ -170,7 +214,7 @@ pub fn call_with(
     if let Writes::Staged(set) = writes
         && let Some(result) = staged::read(k, set, name, &args)
     {
-        return result;
+        return result.map(Called::plain);
     }
     let result = match name {
         "search" => search(k, parse(args)?),
@@ -420,10 +464,14 @@ pub fn call_with(
         "server_status" => status::server_status(k, Some(s)),
         // The deck tools: slides-core's, on the vault (see decks/).
         other if crate::decks::is_tool(other) => {
-            return crate::decks::call_in(k, Some(s), writes, cancel, other, args)
-                .map(|reply| reply.value);
+            return crate::decks::call_in(k, Some(s), writes, cancel, other, args).map(|reply| {
+                Called {
+                    value: reply.value,
+                    images: reply.images,
+                }
+            });
         }
         other => return Err(format!("tool not found: {other}")),
     };
-    result.map_err(|e| e.to_string())
+    result.map(Called::plain).map_err(|e| e.to_string())
 }

@@ -6,13 +6,22 @@
 //! vault. Every tool is a few operations of the deck engine (see [`crate::ops`]),
 //! so everything an agent does is one undoable step, and nothing is deleted.
 
+mod build;
+mod bulk;
 mod catalog;
+mod chart_tool;
+mod code_pictures;
+mod comments;
 mod create;
 mod edit;
+mod embeds;
+mod figures;
 mod files;
 mod images;
 mod instructions;
+mod look;
 mod memory;
+mod newer;
 mod place;
 mod raw;
 mod read;
@@ -34,8 +43,8 @@ pub use memory::{MemoryStore, hash_of};
 pub use session::Agent;
 pub use specs::{ToolSpec, tools};
 pub use store::{
-    AssetInfo, DeckInfo, DeckText, Draw, Drawn, Imported, Saved, Store, StoreError, StoreResult,
-    Written,
+    AssetInfo, Compare, DeckInfo, DeckText, DiagramPicture, Draw, Drawn, GeneratorDrawn,
+    GeneratorJob, Imported, Saved, Store, StoreError, StoreResult, Written,
 };
 
 use crate::error::Error;

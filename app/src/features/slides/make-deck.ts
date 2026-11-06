@@ -4,6 +4,7 @@ import { DeckEngine, loadSlides } from "@kasten-slides/wasm";
 
 import type { VaultClient } from "../../lib/vault/types";
 import { type OpenHow, useWorkspace } from "../workspace/store";
+import { startFromBrand } from "./brand-host";
 import { useDecks } from "./store";
 
 /** What a deck made from the Start row is called until the person names it in the editor. */
@@ -23,6 +24,8 @@ export interface NewDeckOptions {
 export async function makeDeck(client: VaultClient, { title = UNTITLED, project = null, template, size = { w: 960, h: 540 }, examples }: NewDeckOptions): Promise<string> {
   await loadSlides();
   const engine = DeckEngine.create(title, template, undefined, { size, examples });
+  // A new deck starts from the brand kit of its project, or of the vault, when there is one.
+  await startFromBrand(client, project, engine);
   const text = engine.save();
   engine.dispose();
   const path = await client.createDeck(title, project, text);

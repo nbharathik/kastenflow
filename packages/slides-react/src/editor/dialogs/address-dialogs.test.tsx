@@ -85,6 +85,20 @@ describe("the embed dialog", () => {
     expect(kit.session.slide.elements).toHaveLength(0);
   });
 
+  it("makes a 16:9 player of a video site's link, and an ordinary page of the rest", async () => {
+    const kit = await mountDialogs({ dialog: "embed" });
+    fireEvent.change(address(), { target: { value: "https://vimeo.com/76979871" } });
+    fireEvent.click(screen.getByRole("button", { name: "Insert" }));
+    expect(kit.session.slide.elements[0]).toMatchObject({ type: "embed", provider: "vimeo", design: { w: 1280, h: 720 } });
+    cleanup();
+    const page = await mountDialogs({ dialog: "embed" });
+    fireEvent.change(address(), { target: { value: "https://example.com/docs" } });
+    fireEvent.click(screen.getByRole("button", { name: "Insert" }));
+    const [made] = page.session.slide.elements;
+    expect(made).toMatchObject({ type: "embed", design: { w: 1280, h: 800 } });
+    expect(made).not.toHaveProperty("provider");
+  });
+
   it("puts the page in the free place, and can be left with Cancel or Escape", async () => {
     const kit = await mountDialogs({ dialog: "embed", elements: [textBox({ x: 40, y: 40, w: 880, h: 90 }, "Title")], select: [] });
     fireEvent.change(address(), { target: { value: "https://example.com" } });
@@ -110,12 +124,41 @@ describe("the video dialog", () => {
     expect(kit.session.slide.elements[0]).toMatchObject({ type: "video", src: "https://example.com/talk.mp4" });
   });
 
-  it("fills in the name of the file that is picked", async () => {
+  it("keeps the file that is picked with the deck, and uses the path it has there (not the name it had on this computer)", async () => {
     const kit = await mountDialogs({ dialog: "video" });
     fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
-    await waitFor(() => expect(source().value).toBe("my talk.mp4"));
+    await waitFor(() => expect(source().value).toBe("assets/my-talk.mp4"));
     fireEvent.click(screen.getByRole("button", { name: "Insert" }));
-    expect(kit.session.slide.elements[0]).toMatchObject({ type: "video", src: "my talk.mp4" });
+    expect(kit.session.slide.elements[0]).toMatchObject({ type: "video", src: "assets/my-talk.mp4" });
+    expect((await kit.host.images()).map((image) => image.path)).toEqual(["assets/my-talk.mp4"]);
+  });
+
+  it("tells the person when the host would not keep the file, and fills nothing in", async () => {
+    const kit = await mountDialogs({ dialog: "video" });
+    kit.host.addImage = async () => Promise.reject(new Error("That file is too big to keep."));
+    fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+    await waitFor(() => expect(kit.host.notices).toContain("That file is too big to keep."));
+    expect(source().value).toBe("");
+  });
+
+  it("makes an embedded player of a YouTube or Vimeo link, in a 16:9 box, with the site noted and its picture as the poster", async () => {
+    const kit = await mountDialogs({ dialog: "video" });
+    const fetchPoster = vi.fn(async () => ({ name: "youtube-dQw4w9WgXcQ.jpg", bytes: new Uint8Array([1, 2, 3]) }));
+    Object.assign(kit.host, { fetchPoster });
+    fireEvent.change(source(), { target: { value: "https://youtu.be/dQw4w9WgXcQ?t=90" } });
+    fireEvent.keyDown(source(), { key: "Enter" });
+    const [made] = kit.session.slide.elements;
+    expect(made).toMatchObject({ type: "embed", url: "https://youtu.be/dQw4w9WgXcQ?t=90", provider: "youtube", design: { w: 1280, h: 720 } });
+    expect(made?.w && made.h ? Math.round((made.w / made.h) * 100) : 0).toBe(178);
+    expect(fetchPoster).toHaveBeenCalledWith({ provider: "youtube", id: "dQw4w9WgXcQ", url: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg" });
+    await waitFor(() => expect(kit.session.slide.elements[0]).toMatchObject({ poster: "assets/youtube-dQw4w9WgXcQ.jpg" }));
+  });
+
+  it("leaves a link of another site as a video of that address", async () => {
+    const kit = await mountDialogs({ dialog: "video" });
+    fireEvent.change(source(), { target: { value: "https://example.com/talk.mp4" } });
+    fireEvent.keyDown(source(), { key: "Enter" });
+    expect(kit.session.slide.elements[0]).toMatchObject({ type: "video" });
   });
 
   it("wants something, and refuses a script", async () => {

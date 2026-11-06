@@ -1,17 +1,22 @@
 //! Tests of the operations, one behaviour each; `undo.rs` checks that every
 //! operation can be taken back exactly.
 
+mod access;
 mod align_one;
+mod chart_data;
 mod citations;
 mod collapse;
+mod comments;
 mod composite_deck;
 mod composites;
 mod connectors;
+mod deck_words;
 mod editor_reach;
 mod empty_slots;
 mod export;
 mod fixtures;
 mod fixtures_v1;
+mod footer_guides;
 mod format_two;
 mod from_size;
 mod incoming;
@@ -24,6 +29,7 @@ mod paragraphs;
 mod present;
 mod rich_marks;
 mod sections;
+mod step_fx;
 mod steps;
 mod steps_build;
 mod steps_content;
@@ -35,6 +41,7 @@ mod table_kinds;
 mod table_kit;
 mod table_lines;
 mod table_ops;
+mod table_style;
 mod tables;
 mod templates;
 mod transition;

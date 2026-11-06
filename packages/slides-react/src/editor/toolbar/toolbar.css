@@ -100,41 +100,42 @@
   content: none;
 }
 
-/* Buttons: idle icons are quiet, and they come up when the pointer is on them. */
-.ks-toolbar .ks-icon-btn {
+/* Buttons: idle icons are quiet, and they come up when the pointer is on them. The "more" panel is drawn outside the toolbar (in the
+   popover layer), so it is named beside the toolbar in each rule. */
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn {
   color: var(--ks-muted);
 }
-.ks-toolbar .ks-icon-btn:hover:not(:disabled),
-.ks-toolbar .ks-icon-btn:focus-visible {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn:hover:not(:disabled),
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn:focus-visible {
   color: var(--ks-ink);
 }
-.ks-toolbar .ks-icon-btn.is-on,
-.ks-toolbar .ks-icon-btn.is-on:hover:not(:disabled) {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.is-on,
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.is-on:hover:not(:disabled) {
   color: var(--ks-accent);
 }
-.ks-toolbar .ks-icon-btn.is-on:hover:not(:disabled) {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.is-on:hover:not(:disabled) {
   background: color-mix(in srgb, var(--ks-accent) 18%, transparent);
 }
-.ks-toolbar .ks-icon-btn.has-text {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.has-text {
   font-size: 13px;
 }
-.ks-toolbar .ks-icon-btn .ks-btn-text {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn .ks-btn-text {
   color: var(--ks-ink);
 }
-.ks-toolbar .ks-icon-btn.is-on .ks-btn-text {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.is-on .ks-btn-text {
   color: var(--ks-accent);
 }
-.ks-toolbar .ks-icon-btn:disabled .ks-btn-text {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn:disabled .ks-btn-text {
   color: inherit;
 }
 
 /* The font and the zoom show their value as text. */
-.ks-toolbar .ks-icon-btn.ks-tb-font {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.ks-tb-font {
   width: 136px;
   justify-content: space-between;
   padding: 0 6px 0 8px;
 }
-.ks-toolbar .ks-icon-btn.ks-tb-font .ks-btn-text {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.ks-tb-font .ks-btn-text {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -142,7 +143,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ks-toolbar .ks-icon-btn.ks-tb-zoom {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.ks-tb-zoom {
   min-width: 58px;
   justify-content: space-between;
 }
@@ -163,31 +164,31 @@
 .ks-tb-size .ks-field-label {
   display: none;
 }
-.ks-toolbar .ks-tb-size .ks-input {
+:is(.ks-toolbar, .ks-tb-more) .ks-tb-size .ks-input {
   height: calc(var(--ks-control) - 2px);
   padding: 0 2px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.ks-toolbar .ks-tb-size .ks-input:disabled {
+:is(.ks-toolbar, .ks-tb-more) .ks-tb-size .ks-input:disabled {
   background: transparent;
   opacity: 0.4;
 }
-.ks-toolbar .ks-tb-size .ks-icon-btn {
+:is(.ks-toolbar, .ks-tb-more) .ks-tb-size .ks-icon-btn {
   min-width: 24px;
   padding: 0 4px;
 }
-.ks-toolbar .ks-tb-size .ks-icon-btn.ks-tb-size-list {
+:is(.ks-toolbar, .ks-tb-more) .ks-tb-size .ks-icon-btn.ks-tb-size-list {
   min-width: 16px;
   padding: 0 2px;
   margin-left: -2px;
 }
 
 /* A colour button shows its colour as a bar under the icon. */
-.ks-toolbar .ks-icon-btn.ks-tb-color {
+:is(.ks-toolbar, .ks-tb-more) .ks-icon-btn.ks-tb-color {
   position: relative;
 }
-.ks-toolbar .ks-tb-color > .ks-icon:first-child {
+:is(.ks-toolbar, .ks-tb-more) .ks-tb-color > .ks-icon:first-child {
   transform: translateY(-2px);
 }
 .ks-tb-bar {
@@ -281,9 +282,20 @@
 /* The shapes: a scrollable grid of outlines, grouped by title. */
 .ks-shape-menu {
   width: 246px;
-  max-height: 340px;
+  padding: 8px 8px 0;
+}
+.ks-shape-search {
+  width: 100%;
+}
+.ks-shape-scroll {
+  max-height: 300px;
   overflow-y: auto;
-  padding: 4px 8px 8px;
+  padding: 0 0 8px;
+}
+.ks-shape-none {
+  margin: 12px 2px;
+  color: var(--ks-muted);
+  text-align: center;
 }
 .ks-shape-title {
   margin: 8px 2px 4px;
@@ -326,12 +338,15 @@
 
 /* The tooltip: drawn by the toolbar, since the row clips the kit's own. */
 .ks-toolbar [data-tip]:hover::after,
-.ks-toolbar [data-tip]:focus-visible::after {
+.ks-toolbar [data-tip]:focus-visible::after,
+.ks-tb-more [data-tip]:hover::after,
+.ks-tb-more [data-tip]:focus-visible::after {
   content: none;
 }
 .ks-tb-tip {
   position: fixed;
-  z-index: 60;
+  /* Over the "more" panel too, which is drawn in the popover layer. */
+  z-index: 2147483002;
   padding: 3px 8px;
   border-radius: var(--ks-radius);
   background: var(--ks-ink);

@@ -142,6 +142,15 @@
   inset: 0;
 }
 
+/* The faint outline of an empty text box of its own, drawn in the editor only so that a box that is kept can be seen and found. */
+.ks-slide .ks-empty-box {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px dashed;
+  pointer-events: none;
+}
+
 .ks-slide .ks-image-empty {
   position: absolute;
   inset: 0;

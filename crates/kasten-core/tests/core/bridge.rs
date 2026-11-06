@@ -125,7 +125,7 @@ fn every_kind_has_its_params_and_comes_back_typed() {
         assert!(Call::KINDS.contains(&call.kind()), "{}", call.kind());
         assert_eq!(Call::parse(call.kind(), &params).unwrap(), call);
     }
-    assert_eq!(Call::KINDS.len(), 4);
+    assert_eq!(Call::KINDS.len(), 9);
     let why = Call::parse("run_program", &json!({"cmd": "calc"})).unwrap_err();
     assert!(why.contains("run_program"), "{why}");
     // A kind the app knows, with params that do not fit.

@@ -360,11 +360,13 @@
     0 2px 6px rgb(0 0 0 / 0.28);
 }
 /* The way from the block to its handle is part of the handle, so that the pointer keeps the block hovered on the way and the
-   handle does not go out from under it. It is only for the hover: a selected block's own resize handle is under that corner. */
+   handle does not go out from under it. It is only for the hover: a selected block's own resize handle is under that corner.
+   The handle stands up and to the left of the corner, so the way is only on its lower and right sides, as far as the gap to
+   the corner (6px) and no further: all round it, it would take the clicks of a neighbour standing beside the handle. */
 .ks-move.is-hover::after {
   content: "";
   position: absolute;
-  inset: -8px;
+  inset: 0 -7px -7px 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .ks-move {

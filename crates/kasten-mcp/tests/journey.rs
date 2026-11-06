@@ -119,7 +119,7 @@ fn an_external_client_edits_themes_looks_lints_exports_and_undoes_through_the_gu
                 [
                     "none was found",
                     "does not carry the page",
-                    "Drawing slides is not part of this program",
+                    "Drawing slides is not available right now",
                     "The browser could not be started",
                     "The browser failed while drawing",
                 ]
@@ -130,10 +130,9 @@ fn an_external_client_edits_themes_looks_lints_exports_and_undoes_through_the_gu
         }
     }
     let tools = c.tools();
-    assert_eq!(
+    assert!(
         tools.contains(&"render_slide".to_owned()),
-        cfg!(feature = "render"),
-        "a program that cannot draw does not list the tools that draw"
+        "the tools that draw are listed: with no browser the app's window draws"
     );
 
     // Lint the deck.

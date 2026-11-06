@@ -4,7 +4,7 @@ import type { Rect } from "./geometry.ts";
 
 export type Axis = "x" | "y";
 
-export type GuideKind = "edge" | "centre" | "margin" | "spacing";
+export type GuideKind = "edge" | "centre" | "margin" | "spacing" | "guide";
 
 /**
  * A line to draw. An `x` guide is a vertical line at x = `at`, running from
@@ -26,6 +26,10 @@ export interface Frame {
   width: number;
   height: number;
   margin?: number;
+  /** Lines a person drew: `x` are vertical ones, at a distance from the left; `y` horizontal ones, from the top. Boxes snap to them. */
+  lines?: { x?: readonly number[]; y?: readonly number[] };
+  /** The distance between the lines of a grid that boxes snap to; no grid when absent or 0. */
+  grid?: number;
 }
 
 export interface SnapOptions {

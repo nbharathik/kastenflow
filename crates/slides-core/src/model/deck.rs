@@ -4,7 +4,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{Effect, Element, Extra, Theme, is_false, is_zero};
+use super::{
+    DeckComment, DeckFont, Effect, Element, Extra, Guides, HeaderFooter, MotionDirection,
+    SlideAccess, Theme, is_false, is_zero,
+};
 
 model! {
     /// Width and height in slide units (1/96 inch).
@@ -24,6 +27,18 @@ model! {
         Fade,
         Slide,
         Morph,
+        /// The new slide pushes the old one out.
+        Push,
+        /// The new slide is wiped in over the old one.
+        Wipe,
+        /// The new slide slides in over the old one, which stays.
+        Cover,
+        /// The old slide slides away and shows the new one under it.
+        Uncover,
+        Zoom,
+        Flip,
+        /// A slow cross-fade.
+        Dissolve,
     }
 
     /// How a slide arrives.
@@ -33,6 +48,9 @@ model! {
         /// Seconds; 0.6 for a morph when absent.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub duration: Option<f64>,
+        /// The side a push, wipe, cover, uncover or flip comes from; the right when absent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub direction: Option<MotionDirection>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub easing: Option<String>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
@@ -67,6 +85,20 @@ model! {
         pub extra: Extra,
     }
 
+    /// A named subset of the deck's slides, shown in the order given, chosen from the Slideshow menu.
+    #[serde(rename_all = "camelCase")]
+    pub struct CustomShow {
+        /// Unique among the deck's custom shows.
+        pub id: String,
+        pub name: String,
+        /// The ids of the slides the show plays, in order; an id the deck no longer has is skipped.
+        pub slides: Vec<String>,
+        #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
+        #[ts(skip)]
+        #[schemars(skip)]
+        pub extra: Extra,
+    }
+
     /// Settings for presenting the whole deck.
     #[serde(rename_all = "camelCase")]
     pub struct Present {
@@ -79,6 +111,27 @@ model! {
         /// How a change of state is drawn when an element names none.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub effect: Option<Effect>,
+        /// The show goes back to the first slide after the last (a kiosk or a loop). Off when absent.
+        #[serde(default, rename = "loop", skip_serializing_if = "is_false")]
+        pub looped: bool,
+        /// Seconds after which the show moves on by itself (a kiosk); absent for the presenter's own clicks.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub auto_advance: Option<f64>,
+        /// Named subsets of the slides to play instead of the whole deck.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub shows: Vec<CustomShow>,
+        /// The footer words and the date every slide shows beside its number (the number itself is `slide_numbers`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub header_footer: Option<HeaderFooter>,
+        /// The rulers, grid and guides of the editor. Never drawn when presenting or exported.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub guides: Option<Guides>,
+        /// Words the spelling check leaves alone in this deck (names, terms), kept in the order they were added.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub dictionary: Vec<String>,
+        /// Font files the deck carries, drawn with in the editor, the show and the HTML export.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub fonts: Vec<DeckFont>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -106,8 +159,17 @@ model! {
         /// Speaker notes, in Markdown.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         pub notes: String,
+        /// This slide's own footer and date, over the deck's (`present.header_footer`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub footer: Option<HeaderFooter>,
         /// Bottom to top.
         pub elements: Vec<Element>,
+        /// Notes left on the slide or on something on it, oldest first.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub comments: Vec<DeckComment>,
+        /// A hidden title and the reading order, for a person who cannot see the slide.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub access: Option<SlideAccess>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -146,6 +208,13 @@ impl Default for Present {
             step_label: "Step {n} / {total}".to_owned(),
             transition: None,
             effect: None,
+            looped: false,
+            auto_advance: None,
+            shows: Vec::new(),
+            header_footer: None,
+            guides: None,
+            dictionary: Vec::new(),
+            fonts: Vec::new(),
             extra: Extra::new(),
         }
     }
@@ -162,7 +231,10 @@ impl Slide {
             steps: 0,
             background: None,
             notes: String::new(),
+            footer: None,
             elements: Vec::new(),
+            comments: Vec::new(),
+            access: None,
             extra: Extra::new(),
         }
     }

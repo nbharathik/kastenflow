@@ -1,6 +1,7 @@
-import type { JSX } from "react";
+import { type JSX, useRef } from "react";
 
 import type { EditorSession } from "../session/session.ts";
+import type { EditorState } from "../session/types.ts";
 import { TextButton } from "../ui/Button.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { useEditorValue } from "../useEditor.ts";
@@ -12,7 +13,14 @@ import { useEditorValue } from "../useEditor.ts";
  * cannot be missed.
  */
 export function SaveStatus({ session }: { session: EditorSession }): JSX.Element {
-  const saving = useEditorValue(session, (state) => state.saving);
+  // A new object for the same words (the status is set again with each change) is not a change of what is shown.
+  const last = useRef<EditorState["saving"] | null>(null);
+  const saving = useEditorValue(session, (state) => {
+    const before = last.current;
+    const same = before !== null && Object.keys(state.saving).length === Object.keys(before).length && Object.entries(state.saving).every(([key, value]) => Object.is((before as Record<string, unknown>)[key], value));
+    if (!same) last.current = state.saving;
+    return same ? before : state.saving;
+  });
 
   if (saving.status === "conflict") {
     return (

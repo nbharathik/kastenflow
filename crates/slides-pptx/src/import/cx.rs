@@ -26,6 +26,8 @@ pub struct Importer<'a> {
     pub media: MediaStore,
     /// Bytes of parts kept inside raw elements so far.
     pub raw_bytes: usize,
+    /// Read the charts a deck can hold (bars, lines, pies) as charts of the deck, not as kept objects.
+    pub native_charts: bool,
 }
 
 impl<'a> Importer<'a> {
@@ -37,6 +39,7 @@ impl<'a> Importer<'a> {
             taken: HashSet::new(),
             media: MediaStore::default(),
             raw_bytes: 0,
+            native_charts: false,
         }
     }
 

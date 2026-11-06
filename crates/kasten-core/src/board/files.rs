@@ -11,6 +11,7 @@ use super::{Canvas, field, invalid};
 use crate::atomic::{create_atomic, write_atomic};
 use crate::error::{Error, Result};
 use crate::ops::kind_folder;
+use crate::rollback::Rollback;
 use crate::slug::slugify;
 use crate::vault::Vault;
 
@@ -112,16 +113,30 @@ pub fn write_board(vault: &Vault, path: &str, canvas: &Canvas) -> Result<()> {
 /// that change are written, in house style; their paths come back sorted.
 /// Boards that cannot be read are skipped.
 pub fn relink_boards(vault: &Vault, moves: &[(String, String)]) -> Result<Vec<String>> {
+    relink_boards_with(vault, moves, &mut Rollback::default())
+}
+
+/// `relink_boards`, noting every board it writes in `done` so that the
+/// caller can put them back if a later step of its op fails.
+pub(crate) fn relink_boards_with(
+    vault: &Vault,
+    moves: &[(String, String)],
+    done: &mut Rollback,
+) -> Result<Vec<String>> {
     let mut changed = Vec::new();
     if moves.is_empty() {
         return Ok(changed);
     }
     for board in vault.files(".canvas")? {
-        let Ok(mut canvas) = read_board(vault, &board.path) else {
+        let Ok(text) = board_text(vault, &board.path) else {
+            continue;
+        };
+        let Ok(mut canvas) = Canvas::parse(&text) else {
             continue;
         };
         if canvas.relink(moves) > 0 {
-            write_board(vault, &board.path, &canvas)?;
+            let file = board_file(vault, &board.path)?;
+            done.write(&file, canvas.to_text().as_bytes(), Some(text.into_bytes()))?;
             changed.push(board.path);
         }
     }

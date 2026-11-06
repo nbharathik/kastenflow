@@ -80,6 +80,10 @@ mod tests {
         assert_eq!(name_problem("library/zettelkasten-method.md"), None);
         assert_eq!(name_problem("inbox/auxiliary.md"), None);
         assert_eq!(name_problem("journal/2026/2026-09-28.md"), None);
+        assert_eq!(
+            name_problem("projects/photo-organiser/journal/2026/2026-09-28.md"),
+            None
+        );
     }
 
     #[test]

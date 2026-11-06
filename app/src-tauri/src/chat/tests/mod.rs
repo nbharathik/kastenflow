@@ -50,6 +50,7 @@ mod store;
 mod stream_errors;
 mod streams;
 mod summary;
+mod tool_pictures;
 mod turns;
 mod write;
 

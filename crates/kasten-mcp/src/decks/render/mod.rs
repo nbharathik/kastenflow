@@ -17,6 +17,7 @@ mod host;
 #[cfg(feature = "render")]
 mod pictures;
 mod status;
+mod window;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -24,13 +25,21 @@ use std::sync::{Mutex, OnceLock};
 use kasten_core::Kasten;
 use kasten_core::agent::ChangeSet;
 use slides_core::Deck;
-use slides_core::agent::{Draw, Drawn, Facts, StoreResult};
+use slides_core::agent::{Compare, Draw, Drawn, Facts, StoreResult};
 use slides_core::lint::Measures;
 
 pub use status::{Report, report};
 
-/// What an agent is told where this program does not draw slides.
-pub const NOT_BUILT: &str = "Drawing slides is not part of this program; the kasten-mcp program from the command-line download draws them where Chrome, Chromium or Edge is installed.";
+/// What an agent is told where this program has no browser to draw slides with.
+pub const NOT_BUILT: &str = "This program draws no slides itself. Open KastenFlow on this vault: it draws them in its own window. The kasten-mcp program from the command-line download draws them where Chrome, Chromium or Edge is installed.";
+
+/// Where text was laid out, in words that follow "measured in".
+pub(super) const BROWSER: &str = "a browser";
+const WINDOW: &str = "the KastenFlow window";
+
+/// Said after a browser's refusal when the app's window may be asked instead.
+#[cfg(feature = "render")]
+const OPEN_APP: &str = "KastenFlow can also draw slides in its own window: open KastenFlow on this vault and ask again.";
 
 /// Whether this program can draw slides at all (it has the render feature).
 pub const fn built() -> bool {
@@ -38,11 +47,15 @@ pub const fn built() -> bool {
 }
 
 /// What the instructions can promise about this program, worked out once per
-/// process. It never starts a browser: whether one is installed is told by
-/// `server_status`, as it is now, and by the sentence a drawing fails with.
+/// process. It never starts a browser or asks the window: every program here
+/// can draw in KastenFlow's window when the app is open (and in a browser when
+/// it was built to), and the sentence a drawing fails with says what to open.
 pub fn facts() -> Facts {
     static FACTS: OnceLock<Facts> = OnceLock::new();
-    *FACTS.get_or_init(|| Facts { render: built() })
+    *FACTS.get_or_init(|| Facts {
+        render: true,
+        diff: true,
+    })
 }
 
 static NO_BROWSER: AtomicBool = AtomicBool::new(false);
@@ -73,33 +86,62 @@ pub(super) struct Ask<'a> {
     pub cancel: Option<&'a AtomicBool>,
 }
 
-/// Draws a slide, or all of them.
+/// Whether a browser's refusal is that there is none to use (a busy or cancelled
+/// drawing is not, and does not turn to the window).
+#[cfg(feature = "render")]
+fn no_browser(why: &slides_core::agent::StoreError) -> bool {
+    let slides_core::agent::StoreError::Unavailable(m) = why else {
+        return false;
+    };
+    m.contains("Chrome")
+        || m.contains("does not carry the page")
+        || m.contains("could not be started")
+}
+
+/// Draws a slide, or all of them: in a browser where the program was built to
+/// and one is installed, else in KastenFlow's window when the app is open.
 pub(super) fn draw(ask: &Ask, deck: &Deck, what: Draw) -> StoreResult<Drawn> {
     #[cfg(feature = "render")]
     {
-        host::draw(ask, deck, what)
+        use slides_core::agent::StoreError;
+
+        match host::draw(ask, deck, what) {
+            Err(why) if no_browser(&why) => window::draw(ask, deck, what).map_err(|failure| {
+                match (&why, failure) {
+                    // The app is closed too: say both ways of seeing the slides.
+                    (StoreError::Unavailable(browser), StoreError::Unavailable(w))
+                        if w == window::APP_CLOSED =>
+                    {
+                        StoreError::Unavailable(format!("{browser} {OPEN_APP}"))
+                    }
+                    (_, other) => other,
+                }
+            }),
+            other => other,
+        }
     }
     #[cfg(not(feature = "render"))]
     {
-        let _ = (ask, deck, what);
-        Err(slides_core::agent::StoreError::Unavailable(
-            NOT_BUILT.to_owned(),
-        ))
+        window::draw(ask, deck, what)
     }
 }
 
-/// How big the words of the deck come out, when a browser can lay them out;
+/// A slide before and after, side by side: only the app's window puts pictures together.
+pub(super) fn compare(ask: &Ask, compare: &Compare) -> StoreResult<Drawn> {
+    window::compare(ask, compare)
+}
+
+/// How big the words of the deck come out, and where they were laid out: in a
+/// browser when this program has one, else in the app's window when it is open.
 /// `None` leaves lint to estimate, and say so.
-pub(super) fn measure(ask: &Ask, deck: &Deck) -> Option<Measures> {
+pub(super) fn measure(ask: &Ask, deck: &Deck) -> Option<(Measures, &'static str)> {
     #[cfg(feature = "render")]
     {
-        host::measure(ask, deck)
+        if let Some(measures) = host::measure(ask, deck) {
+            return Some((measures, BROWSER));
+        }
     }
-    #[cfg(not(feature = "render"))]
-    {
-        let _ = (ask, deck);
-        None
-    }
+    window::measure(ask, deck).map(|measures| (measures, WINDOW))
 }
 
 /// Lets go of the browser. A browser is not stopped by the program that

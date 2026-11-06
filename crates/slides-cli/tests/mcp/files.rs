@@ -158,7 +158,7 @@ fn a_refused_call_is_an_error_the_agent_can_read_and_the_server_carries_on() {
     assert!(
         client
             .refused("no_such_tool", json!({}))
-            .contains("The tools are: list_decks")
+            .contains("The tools are: slides_help, list_decks")
     );
     assert!(
         client

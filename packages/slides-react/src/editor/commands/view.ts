@@ -79,8 +79,8 @@ export const viewCommands: Command[] = [
     id: "view.full-screen",
     label: "Full screen",
     icon: "maximize",
-    // F11 is a browser's own in some hosts.
-    keys: ["Mod+Shift+F"],
+    // F11 is a browser's own in some hosts, and Ctrl+Shift+F is KastenFlow's search over everything.
+    keys: ["Mod+Alt+F"],
     scope: "global",
     inFields: true,
     checked: (_, ui) => ui.fullScreen,
@@ -128,6 +128,20 @@ export const viewCommands: Command[] = [
     scope: "global",
     inFields: true,
     run: ({ ui }) => ui.actions.present?.("start"),
+  },
+  {
+    id: "view.home",
+    label: "Slides home",
+    icon: "house",
+    keys: ["Alt+Home"],
+    scope: "global",
+    // Full screen is left first, so the window is given back before the deck is put away; the host decides where the list is.
+    run: ({ ui }) => {
+      const { home } = ui.actions;
+      if (!home) return;
+      ui.setFullScreen(false);
+      home();
+    },
   },
   {
     id: "help.shortcuts",

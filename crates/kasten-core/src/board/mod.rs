@@ -31,6 +31,7 @@ use crate::error::{Error, Result};
 
 pub use change::BoardChange;
 pub use edit::{Added, FileItem, Layout};
+pub(crate) use files::relink_boards_with;
 pub use files::{
     board_text, boards_referencing, create_board, plan_board, read_board, relink_boards,
     write_board,

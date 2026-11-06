@@ -1,0 +1,208 @@
+/* The Comments tab (CommentsPanel.tsx) and the markers drawn over the slide (CommentMarkers.tsx). Only the editor's own tokens, so both read
+   in light and dark; the markers are over the slide, never in it. */
+.ks-cm {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+.ks-cm-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ks-line);
+}
+.ks-cm-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: var(--ks-canvas);
+  color: var(--ks-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ks-cm-input:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 0;
+}
+.ks-cm-where,
+.ks-cm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ks-cm-filters {
+  padding: 8px 14px 0;
+}
+.ks-cm-choice {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--ks-radius);
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.ks-cm-choice[aria-pressed="true"] {
+  background: var(--ks-selected);
+  color: var(--ks-ink);
+}
+.ks-cm-choice:disabled {
+  opacity: 0.5;
+}
+.ks-cm-check {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-cm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ks-cm-hint,
+.ks-cm-count,
+.ks-cm-none {
+  margin: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ks-cm-count,
+.ks-cm-none {
+  padding: 8px 14px 4px;
+}
+.ks-cm-slide-head {
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ks-cm-list,
+.ks-cm-replies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ks-cm-card {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ks-line);
+}
+.ks-cm-card.is-resolved {
+  opacity: 0.7;
+}
+.ks-cm-card.is-focused {
+  background: var(--ks-selected);
+}
+.ks-cm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ks-cm-by {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ks-muted);
+}
+.ks-cm-author {
+  color: var(--ks-ink);
+  font-weight: 600;
+}
+.ks-cm-agent,
+.ks-cm-state {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ks-hover);
+  color: var(--ks-ink);
+  font-size: 11px;
+}
+.ks-cm-text {
+  margin: 4px 0;
+  color: var(--ks-ink);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ks-cm-about {
+  height: 22px;
+  padding: 0 6px;
+  margin-left: -6px;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-cm-about:hover {
+  color: var(--ks-ink);
+}
+.ks-cm-replies {
+  margin: 6px 0 0 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--ks-line);
+}
+.ks-cm-reply {
+  padding: 4px 0;
+}
+.ks-cm-write {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Over the slide. */
+.ks-cm-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+.ks-cm-pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: crosshair;
+  background: color-mix(in srgb, var(--ks-accent) 8%, transparent);
+  outline: 2px dashed var(--ks-accent);
+  outline-offset: -2px;
+}
+.ks-cm-marker {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50% 50% 50% 2px;
+  background: var(--ks-accent);
+  color: var(--ks-canvas);
+  box-shadow: var(--ks-shadow-pop);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.ks-cm-marker.is-agent {
+  background: var(--ks-ink);
+}
+.ks-cm-marker.is-focused {
+  outline: 2px solid var(--ks-ink);
+  outline-offset: 2px;
+}
+.ks-cm-marker:focus-visible {
+  outline: 2px solid var(--ks-ink);
+  outline-offset: 2px;
+}

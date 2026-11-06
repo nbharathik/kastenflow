@@ -36,6 +36,10 @@ pub fn convert_frame(cx: &mut Cx, gf: &Node, out: &mut Vec<Element>) {
             None => cx.warn_slide("a table with no position was left out"),
         },
         _ => {
+            // A chart a deck can hold becomes one; the rest, and every chart when not asked, is kept as it was.
+            if uri == CHART && super::chart::element(cx, gf, &nv, frame.as_ref(), out) {
+                return;
+            }
             let original = match uri {
                 CHART | CHART_EX => "pptx:chart",
                 DIAGRAM => "pptx:smartart",
@@ -86,6 +90,7 @@ fn cell(cx: &mut Cx, tc: &Node) -> TableCell {
         fill: cell_fill(cx, tc_pr),
         col_span: span("gridSpan"),
         row_span: span("rowSpan"),
+        borders: None,
         extra: Extra::new(),
     }
 }
@@ -204,6 +209,7 @@ fn table(
         columns,
         rows,
         header_row,
+        table_style: None,
         extra: Extra::new(),
     };
     // Cells are placed the way HTML places them; one that reaches past the table is cut back to it.

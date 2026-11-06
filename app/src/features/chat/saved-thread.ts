@@ -163,6 +163,12 @@ function readParts(raw: unknown): Part[] {
     const part = object(item);
     if (part["kind"] === "text" && typeof part["text"] === "string") return [{ kind: "text", text: part["text"] }];
     if (part["kind"] === "steer" && typeof part["text"] === "string") return [{ kind: "steer", text: part["text"] }];
+    if (part["kind"] === "approval") {
+      const ask = object(part["ask"]);
+      const state = ask["state"];
+      if (typeof ask["id"] !== "string" || typeof ask["question"] !== "string" || (state !== "asking" && state !== "allowed" && state !== "denied" && state !== "over")) return [];
+      return [{ kind: "approval", ask: { id: ask["id"], agent: text(ask["agent"]) ?? "", tool: text(ask["tool"]) ?? "", question: ask["question"], detail: text(ask["detail"]) ?? "", state } }];
+    }
     if (part["kind"] === "tool") {
       const call = object(part["call"]);
       if (typeof call["id"] !== "string" || typeof call["name"] !== "string") return [];

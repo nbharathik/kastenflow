@@ -108,8 +108,8 @@ export class SlideCommands {
     this.s.run(() => this.s.core.apply("set_present", { transition }));
   }
 
-  /** Changes the size of every slide, refitting what is on them and the theme: a preset (`16:9`, `4:3` ...) or a width and height in slide units. */
-  setPageSize(size: { preset: string } | { w: number; h: number }): void {
+  /** Changes the size of every slide, refitting what is on them and the theme: a preset (`16:9`, `4:3` ...) or a width and height in slide units. With `keepSize` what is on the slides keeps its place and size, and only the theme is refitted. */
+  setPageSize(size: ({ preset: string } | { w: number; h: number }) & { keepSize?: boolean }): void {
     this.s.run(() => this.s.core.apply("set_page_size", size));
   }
 

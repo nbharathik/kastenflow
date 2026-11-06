@@ -4,7 +4,7 @@
 use slides_core::{Arrow, Dash, Style};
 
 use crate::cx::Cx;
-use crate::units::{angle, length};
+use crate::units::{angle, length, thousandths};
 use crate::xml::Xml;
 
 /// The outline of a line with none of its own, so that it is never invisible.
@@ -21,8 +21,48 @@ pub fn combined(alpha: Option<f64>, opacity: f64) -> Option<f64> {
     (value < 1.0).then_some(value)
 }
 
-/// The fill of a shape: solid, or none when the style names none.
+/// A gradient fill: its colours by position, then the line they blend along or the circle they spread in.
+fn write_gradient(x: &mut Xml, cx: &mut Cx, gradient: &slides_core::Gradient, opacity: f64) {
+    x.open("a:gradFill").attr("rotWithShape", "1");
+    x.open("a:gsLst");
+    for stop in &gradient.stops {
+        x.open("a:gs")
+            .int("pos", thousandths(stop.pos.clamp(0.0, 1.0)));
+        let color = cx.color(&stop.color);
+        color.write(x, combined(stop.alpha, opacity));
+        x.close();
+    }
+    x.close();
+    match gradient.kind {
+        slides_core::GradientKind::Linear => {
+            x.open("a:lin")
+                .int("ang", angle(gradient.angle.unwrap_or(90.0)))
+                .attr("scaled", "0")
+                .close();
+        }
+        slides_core::GradientKind::Radial => {
+            x.open("a:path").attr("path", "circle");
+            x.open("a:fillToRect")
+                .int("l", 50_000)
+                .int("t", 50_000)
+                .int("r", 50_000)
+                .int("b", 50_000)
+                .close();
+            x.close();
+        }
+    }
+    x.close();
+}
+
+/// The fill of a shape: a gradient, a solid colour, or none when the style names none.
 pub fn write_fill(x: &mut Xml, cx: &mut Cx, style: Option<&Style>, opacity: f64) {
+    if let Some(gradient) = style
+        .and_then(|s| s.gradient.as_ref())
+        .and_then(slides_core::Gradient::tidy)
+    {
+        write_gradient(x, cx, &gradient, opacity);
+        return;
+    }
     match style.and_then(|s| s.fill.as_ref()) {
         Some(fill) => {
             let color = cx.color(&fill.color);
@@ -171,6 +211,48 @@ mod tests {
             write_effects(&mut x, cx, Some(style), opacity);
             x.into_string()
         })
+    }
+
+    #[test]
+    fn a_gradient_is_written_with_its_stops_in_order_and_its_angle() {
+        let style = Style {
+            fill: Some(Fill {
+                color: "accent1".into(),
+                alpha: None,
+                extra: slides_core::Extra::new(),
+            }),
+            gradient: Some(slides_core::Gradient::linear(
+                45.0,
+                vec![
+                    slides_core::GradientStop::new(1.0, "#ffffff"),
+                    slides_core::GradientStop::new(0.0, "accent1"),
+                ],
+            )),
+            ..Style::default()
+        };
+        let out = styled(&style, 1.0, false, false);
+        assert!(
+            out.starts_with(r#"<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent1"/></a:gs><a:gs pos="100000"><a:srgbClr val="FFFFFF"/></a:gs></a:gsLst><a:lin ang="2700000" scaled="0"/></a:gradFill>"#),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_radial_gradient_spreads_from_the_middle() {
+        let mut gradient = slides_core::Gradient::linear(
+            0.0,
+            vec![
+                slides_core::GradientStop::new(0.0, "accent1"),
+                slides_core::GradientStop::new(1.0, "accent2"),
+            ],
+        );
+        gradient.kind = slides_core::GradientKind::Radial;
+        let style = Style {
+            gradient: Some(gradient),
+            ..Style::default()
+        };
+        let out = styled(&style, 1.0, false, false);
+        assert!(out.contains(r#"<a:path path="circle"><a:fillToRect l="50000" t="50000" r="50000" b="50000"/></a:path>"#), "{out}");
     }
 
     #[test]

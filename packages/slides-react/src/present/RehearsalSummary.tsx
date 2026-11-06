@@ -5,6 +5,7 @@ import type { Deck } from "@kasten-slides/wasm";
 import type { JSX } from "react";
 
 import type { RehearsalRecord, RunComparison } from "./rehearsal.ts";
+import { type PaceRow, headline, paceOf } from "./rehearsal-pace.ts";
 import { deltaText, durationText } from "./rehearsal-text.ts";
 import "./rehearsal.css";
 
@@ -21,6 +22,39 @@ export interface RehearsalSummaryProps {
   onDiscard?: () => void;
   /** Drawn in the flow of a dialog of the editor, not over the presenter's view. */
   inline?: boolean;
+}
+
+/** What a slide's line says of it against the plan: how far over or under, and the pace when it was off. */
+function paceLine(row: PaceRow): string {
+  const parts: string[] = [];
+  if (row.status === "over" || row.status === "under") parts.push(`${row.status === "over" ? "Over" : "Under"} by ${durationText(Math.abs(row.deltaMs ?? 0))} (plan ${durationText(row.plannedMs ?? 0)})`);
+  if (row.tempo === "fast" || row.tempo === "slow") parts.push(`${row.tempo === "fast" ? "Fast" : "Slow"}, ${row.wordsPerMinute} words a minute`);
+  return parts.join(" · ");
+}
+
+/** The run against the plan: a line for the whole, then the slides that ran over or under or were got through fast or slowly. */
+function PaceSection({ deck, record, numbers }: { deck: Pick<Deck, "slides">; record: RehearsalRecord; numbers: Map<string, number> }): JSX.Element {
+  const pace = paceOf(deck, record);
+  const notable = pace.rows.filter((row) => paceLine(row) !== "");
+  return (
+    <section className="ks-pv-pace" aria-label="Against the plan">
+      <p className="ks-pv-pace-head">{headline(pace)}</p>
+      {pace.over + pace.under + pace.on > 0 ? (
+        <p className="ks-pv-splits">
+          {pace.fromTarget ? "Planned from the time aimed for" : "Planned from the speaker notes"}: {durationText(pace.plannedMs)} in all, {pace.deltaMs === 0 ? "on the plan" : `${durationText(Math.abs(pace.deltaMs))} ${pace.deltaMs > 0 ? "over" : "under"}`}.
+        </p>
+      ) : null}
+      {notable.length > 0 ? (
+        <ul className="ks-pv-pace-list" aria-label="Slides that left the plan">
+          {notable.map((row) => (
+            <li key={row.id} className={row.status === "over" ? "is-longer" : row.status === "under" ? "is-shorter" : ""}>
+              <strong>{numbers.get(row.id) ?? "·"}. {row.title}</strong> {paceLine(row)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
 }
 
 export function RehearsalSummary({ deck, record, comparison, saved = false, error = null, onSave, onDiscard, inline = false }: RehearsalSummaryProps): JSX.Element {
@@ -66,6 +100,7 @@ export function RehearsalSummary({ deck, record, comparison, saved = false, erro
           </tbody>
         </table>
       )}
+      {comparison.rows.length > 0 ? <PaceSection deck={deck} record={record} numbers={numbers} /> : null}
       {!hasPrevious ? <p className="ks-pv-none">There is no earlier run to compare with.</p> : null}
       {comparison.outdated ? <p className="ks-pv-warning">The last run was of an earlier version of this deck, so only the slides they share are compared. It is marked outdated.</p> : null}
       {error ? (

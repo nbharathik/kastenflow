@@ -221,7 +221,24 @@ pub fn list_layouts(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> T
             })
         })
         .collect();
-    Ok(ToolOutput::json(json!({ "layouts": layouts })))
+    // The layouts the person keeps for every deck are marked `library`; a deck gets its own copy when the person uses one, so
+    // they cannot be named in `add_slide` or `apply_layout`: say which are wanted, and the person adds them.
+    let library: Vec<Value> = store
+        .library_layouts()
+        .into_iter()
+        .map(|mut entry| {
+            entry["library"] = json!(true);
+            entry
+        })
+        .collect();
+    if library.is_empty() {
+        return Ok(ToolOutput::json(json!({ "layouts": layouts })));
+    }
+    Ok(ToolOutput::json(json!({
+        "layouts": layouts,
+        "library": library,
+        "libraryNote": "`library` lists the layouts the person keeps for every deck (My layouts). They are not in this deck's `layouts` until the person uses one; `add_slide` and `apply_layout` take only the names in `layouts`.",
+    })))
 }
 
 pub fn get_theme(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolResult {
@@ -287,13 +304,15 @@ pub fn lint_deck(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> Tool
         slide: only.as_deref(),
         most: MOST_LINES,
     };
+    let by = store.measured_by();
     let sizes = if measured {
-        "Text was measured in a browser."
+        format!("Text was measured in {by}.")
     } else {
-        "Text sizes were estimated, not measured (no browser laid the words out), so text-overflow is a good guess."
+        "Text sizes were estimated, not measured (no browser or open KastenFlow window laid the words out), so text-overflow is a good guess.".to_owned()
     };
     let mut data = serde_json::to_value(&report).unwrap_or(Value::Null);
     data["textMeasured"] = json!(measured);
+    data["measuredIn"] = json!(if measured { by } else { "estimate" });
     Ok(ToolOutput {
         text: format!("{}\n{sizes}", lint::to_text(&report, &view)),
         data: Some(data),

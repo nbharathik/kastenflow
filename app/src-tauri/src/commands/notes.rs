@@ -87,9 +87,15 @@ pub fn trash_note(state: State<'_, OpenVault>, path: String) -> Result<String, S
     state.run(|k| k.trash(&HUMAN, &path, Instant::now()))
 }
 
+/// A journal day, made from its template on first open: the vault's, or a
+/// project's when `project` (its folder name or title) is given.
 #[tauri::command(async)]
-pub fn journal_day(state: State<'_, OpenVault>, date: String) -> Result<NoteFile, String> {
-    state.run(|k| k.journal(&HUMAN, &date, Instant::now()))
+pub fn journal_day(
+    state: State<'_, OpenVault>,
+    date: String,
+    project: Option<String>,
+) -> Result<NoteFile, String> {
+    state.run(|k| k.journal(&HUMAN, project.as_deref(), &date, Instant::now()))
 }
 
 #[tauri::command(async)]

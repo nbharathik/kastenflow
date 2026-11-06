@@ -1,0 +1,10 @@
+/* The text box of the Mermaid dialog. */
+.ks-mermaid-source {
+  width: 100%;
+  min-height: 12em;
+  resize: vertical;
+  font-family: var(--ks-mono, ui-monospace, monospace);
+  line-height: 1.45;
+  tab-size: 2;
+  white-space: pre;
+}

@@ -6,51 +6,28 @@
 // layout whatever the box. A page of the host (a Kasten page) is drawn the same way from its words, with no frame at all. Both are
 // looked at from a distance until the person clicks one to use it (the keys then go to the page, Esc takes them back).
 
-import type { Deck, Element, Slide, Theme } from "@kasten-slides/wasm";
+import type { Deck, Slide, Theme } from "@kasten-slides/wasm";
 import { type CSSProperties, type JSX, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { EmbedBox, stageStyle } from "../embed/EmbedBox.tsx";
 import { EmbedChip } from "../embed/EmbedChip.tsx";
+import { useFrameRefused } from "../embed/frame-policy.ts";
 import { isPageEmbedElement } from "../embed/kinds.ts";
 import { PageView } from "../embed/PageView.tsx";
 import { PAGE_DESIGN } from "../embed/scale.ts";
 import { useEmbedControl } from "../embed/useEmbedControl.ts";
 import { type PageAccess, usePageText } from "../embed/usePageText.ts";
 import { openInWindow } from "../pages/follow.ts";
-import { stateAt } from "../render/index.ts";
 import type { ImageUrl } from "../render/index.ts";
-import { type Box, boxOf } from "../theme/index.ts";
 import { PresentContext } from "./context.ts";
 import { FrameCard, OpenOutside } from "./FrameCard.tsx";
-import { embedSandbox, embedUrl } from "./live-url.ts";
+import { type Embed, type Item, type Video, liveItems } from "./live-items.ts";
+import { EMBED_ALLOW, EMBED_REFERRER, embedSandbox, embedUrl, frameAddress } from "./live-url.ts";
+import { type MediaAction, type MediaChannel, mediaKey } from "./media.ts";
+import { inside, pastEnd, trimOf, volumeOf } from "./video-trim.ts";
 import { type FrameStatus, watchFrame } from "./web-frame.ts";
 
-type Embed = Extract<Element, { type: "embed" }>;
-type Video = Extract<Element, { type: "video" }>;
-
-interface Item {
-  element: Embed | Video;
-  box: Box;
-  opacity: number;
-}
-
-/** The embeds and videos a slide shows at a step: not the ones a step hides, nor those in a group it hides. */
-export function liveItems(deck: Deck, slide: Slide, step: number): Item[] {
-  const found: Item[] = [];
-  const walk = (elements: readonly Element[], hidden: boolean): void => {
-    for (const element of elements) {
-      const state = stateAt(element, step);
-      if (element.type === "group") {
-        walk(element.children, hidden || state === "hidden");
-      } else if ((element.type === "embed" || element.type === "video") && !hidden && state !== "hidden") {
-        const box = boxOf(deck.theme, slide.layout, element);
-        if (box) found.push({ element, box, opacity: (element.style?.opacity ?? 1) * (state === "dimmed" ? deck.theme.dimmedOpacity : 1) });
-      }
-    }
-  };
-  walk(slide.elements, false);
-  return found;
-}
+export { liveItems };
 
 /** Whether an embed shows a page of the host: it has no web address of its own, and says which page. */
 export const isPageEmbed = isPageEmbedElement;
@@ -70,6 +47,8 @@ export interface EmbedFrameProps {
   imageUrl?: ImageUrl | undefined;
   /** A link of an embedded page of the host was followed. */
   onLink?: ((href: string) => void) | undefined;
+  /** The page's video plays without sound and without starting by itself (the presenter's view). */
+  muted?: boolean | undefined;
 }
 
 /**
@@ -90,26 +69,39 @@ function Cover({ title, onActivate }: { title: string; onActivate(): void }): JS
   );
 }
 
-function WebEmbed({ item, seconds, pages }: EmbedFrameProps): JSX.Element | null {
-  const url = embedUrl(item.element.url);
+function WebEmbed({ item, seconds, pages, muted }: EmbedFrameProps): JSX.Element | null {
+  const framed = frameAddress(muted ? { ...item.element, muted: true, autoplay: false } : item.element);
+  const url = framed?.url ?? null;
+  // The address the person gave is what opens outside: a watch page, not the player.
+  const outside = embedUrl(item.element.url) ?? url;
+  // A video plays at once, in a frame that is the box (the player fits itself to it); a page is looked at first.
+  const video = framed?.link.kind === "video";
   const [status, setStatus] = useState<FrameStatus>("loading");
   // The person asked for the slide's own snapshot instead of the page.
   const [snapshot, setSnapshot] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const control = useEmbedControl(item.box, item.element);
   const title = item.element.title || item.element.alt || "Embedded page";
+  // A site that says in its headers that it will not be framed gets its card at once.
+  const refused = useFrameRefused(pages?.framePolicy, framed?.link ?? null, outside);
 
   // The frame has no address of its own: it is given one once the watch is on it, so a refusal is never missed.
   useLayoutEffect(() => {
     const node = frame.current;
     if (!node || !url || snapshot) return;
+    if (refused) {
+      // The answer may come after the frame began to load: it is emptied, and the card says why.
+      if (node.getAttribute("src")) node.src = "about:blank";
+      setStatus("refused");
+      return;
+    }
     setStatus("loading");
     return watchFrame(node, url, { ...(seconds === undefined ? {} : { seconds }), onChange: setStatus });
-  }, [url, seconds, snapshot]);
+  }, [url, seconds, snapshot, refused]);
 
   if (!url || snapshot) return null;
   const ready = status === "ready";
-  const open = (): void => (pages?.openUrl ?? openInWindow)(url);
+  const open = (): void => (pages?.openUrl ?? openInWindow)(outside ?? url);
   return (
     <div
       className="ks-show-live-item"
@@ -127,20 +119,22 @@ function WebEmbed({ item, seconds, pages }: EmbedFrameProps): JSX.Element | null
       }}
     >
       <div className="ks-embed-box">
-        <div className="ks-embed-stage" style={stageStyle(control.frame)}>
+        <div className="ks-embed-stage" style={video ? { left: 0, top: 0, width: "100%", height: "100%" } : stageStyle(control.frame)}>
           <iframe
             ref={frame}
             className="ks-show-live-frame"
             title={title}
             sandbox={embedSandbox(url)}
-            referrerPolicy="no-referrer"
+            referrerPolicy={EMBED_REFERRER}
+            allow={EMBED_ALLOW}
+            allowFullScreen
             style={{ opacity: ready ? 1 : 0 }}
           />
         </div>
       </div>
       <FrameCard status={status} hasSnapshot={Boolean(item.element.poster)} onSnapshot={() => setSnapshot(true)} onOpen={open} />
-      {ready && !control.active ? <Cover title={title} onActivate={() => control.setActive(true)} /> : null}
-      {ready && control.active ? <EmbedChip scale={control.frame.scale} fitted={control.fitted} onStep={control.step} onFit={control.fit} onDone={() => control.setActive(false)} /> : null}
+      {ready && !video && !control.active ? <Cover title={title} onActivate={() => control.setActive(true)} /> : null}
+      {ready && !video && control.active ? <EmbedChip scale={control.frame.scale} fitted={control.fitted} onStep={control.step} onFit={control.fit} onDone={() => control.setActive(false)} /> : null}
       {status === "loading" || ready ? <OpenOutside onOpen={open} /> : null}
     </div>
   );
@@ -170,25 +164,100 @@ function PageEmbed({ item, pages, theme, imageUrl, onLink }: EmbedFrameProps): J
 export interface VideoPlayerProps {
   item: Item & { element: Video };
   imageUrl: ImageUrl;
+  /** The video is on the screen. Off, it waits ready (loaded, paused, at its place) for the slide that is about to come. */
+  active?: boolean;
+  /** Where the show remembers the video's place and keeps it in step with the other window. Without it the video is on its own. */
+  media?: MediaChannel | undefined;
+  /** Which video this is, for `media`. */
+  mediaKey?: string;
 }
 
-/** A video, played in place: its still until it starts, and the still again if the file cannot be played. */
-export function VideoPlayer({ item, imageUrl }: VideoPlayerProps): JSX.Element | null {
+/** A moment after the other window's word, in which this window's own events of the same kind are that word's echo and are not sent back. */
+const ECHO_MS = 800;
+
+/**
+ * A video, played in place: its still until it starts, and the still again if the file cannot be played. It carries on from where it
+ * was left when the slide comes round again, and (with a `media` channel) plays, pauses and seeks together with the same video in the
+ * other window.
+ */
+export function VideoPlayer({ item, imageUrl, active = true, media, mediaKey: key }: VideoPlayerProps): JSX.Element | null {
   const { element } = item;
   const src = element.src ? imageUrl(element.src) : undefined;
   const poster = element.poster ? imageUrl(element.poster) : undefined;
+  const captions = element.captions ? imageUrl(element.captions) : undefined;
+  const trim = trimOf(element);
   const [failed, setFailed] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
+  // How loud it plays is the deck's choice; the presenter's copy stays silent whatever it says.
+  useEffect(() => {
+    if (video.current) video.current.volume = volumeOf(element.volume);
+  }, [element.volume, src]);
+  // What this window has just done because the other asked, or because the slide went away: its event is not an act of the person.
+  const echoes = useRef(new Set<MediaAction>());
+  const quiet = useRef(false);
+  const remember = (node: HTMLVideoElement): void => {
+    if (media && key && !node.ended) media.memory.set(key, node.currentTime);
+  };
+  const note = (action: MediaAction): void => {
+    echoes.current.add(action);
+    setTimeout(() => echoes.current.delete(action), ECHO_MS);
+  };
+  const tell = (action: MediaAction): void => {
+    const node = video.current;
+    if (!node || !media || !key) return;
+    if (echoes.current.delete(action)) return;
+    if (action === "pause" && (quiet.current || node.ended)) return;
+    media.send({ key, action, time: node.currentTime });
+  };
 
+  // It starts by itself when the slide is on the screen; when the slide goes it stops and keeps its place.
   useEffect(() => {
     const node = video.current;
-    if (!element.autoplay || !node) return;
+    if (!node) return;
+    if (!active) {
+      if (!node.paused) {
+        quiet.current = true;
+        node.pause();
+      }
+      remember(node);
+      return;
+    }
+    quiet.current = false;
+    if (!element.autoplay) return;
     // A browser may refuse sound before the first touch; then it plays without.
     void node.play().catch(() => {
       node.muted = true;
       return node.play();
     }).catch(() => {});
-  }, [element.autoplay, src]);
+  }, [active, element.autoplay, src]);
+  // The place is kept when the video leaves the page altogether (its slide is far away, and not drawn).
+  useEffect(() => {
+    // The element is read now: by the time this is undone the ref is empty.
+    const node = video.current;
+    return () => {
+      if (node) remember(node);
+    };
+  }, []);
+
+  // What the other window's video did, done here.
+  useEffect(() => {
+    if (!media || !key) return;
+    return media.subscribe((event) => {
+      const node = video.current;
+      if (!node || event.key !== key) return;
+      if (Math.abs(node.currentTime - event.time) > 0.5) {
+        note("seek");
+        node.currentTime = event.time;
+      }
+      if (event.action === "play" && node.paused) {
+        note("play");
+        void node.play().catch(() => {});
+      } else if (event.action === "pause" && !node.paused) {
+        note("pause");
+        node.pause();
+      }
+    });
+  }, [media, key]);
 
   if (!src || failed) return null;
   return (
@@ -199,13 +268,48 @@ export function VideoPlayer({ item, imageUrl }: VideoPlayerProps): JSX.Element |
       poster={poster}
       controls
       playsInline
-      preload="metadata"
-      loop={element.looped ?? false}
+      muted={media?.muted ?? false}
+      preload={active ? "metadata" : "auto"}
+      loop={(element.looped ?? false) && trim.end === null && trim.start === 0}
       data-autoplay={element.autoplay ? "" : undefined}
       aria-label={element.alt || element.name || "Video"}
       onError={() => setFailed(true)}
+      onLoadedMetadata={(event) => {
+        const wanted = media && key ? media.memory.get(key) : 0;
+        const node = event.currentTarget;
+        node.volume = volumeOf(element.volume);
+        if (wanted > 0 && wanted < node.duration - 0.5) {
+          // Picking the place up again is not the person seeking.
+          note("seek");
+          node.currentTime = inside(trim, wanted);
+        } else if (trim.start > 0) {
+          note("seek");
+          node.currentTime = trim.start;
+        }
+      }}
+      onTimeUpdate={(event) => {
+        const node = event.currentTarget;
+        // A trimmed video stops at its end, or goes back to its start and plays again when it loops.
+        if (pastEnd(trim, node.currentTime)) {
+          if (element.looped) {
+            note("seek");
+            node.currentTime = trim.start;
+          } else {
+            note("pause");
+            node.pause();
+            node.currentTime = trim.end ?? node.currentTime;
+          }
+        }
+        remember(node);
+      }}
+      onEnded={() => media && key && media.memory.forget(key)}
+      onPlay={() => tell("play")}
+      onPause={() => tell("pause")}
+      onSeeked={() => tell("seek")}
       style={place(item)}
-    />
+    >
+      {captions ? <track kind="captions" src={captions} label="Captions" default /> : null}
+    </video>
   );
 }
 
@@ -218,22 +322,28 @@ export interface LiveLayerProps {
   pages?: Partial<PageAccess> | undefined;
   /** A link of an embedded page of the host was followed. */
   onLink?: ((href: string) => void) | undefined;
+  /** The videos' memory and their link to the other window; the show's own when left out. */
+  media?: MediaChannel | undefined;
+  /** The slide is only being got ready for the screen: its videos are loaded and wait, paused; nothing else is shown. */
+  ready?: boolean;
 }
 
 /** The live embeds and videos of a slide, in a layer the size of the slide over it. Nothing when there are none. */
-export function LiveLayer({ deck, slide, step, imageUrl, pages: given, onLink: followed }: LiveLayerProps): JSX.Element | null {
+export function LiveLayer({ deck, slide, step, imageUrl, pages: given, onLink: followed, media: lent, ready = false }: LiveLayerProps): JSX.Element | null {
   const items = useMemo(() => liveItems(deck, slide, step), [deck, slide, step]);
   const around = useContext(PresentContext);
   const pages = given ?? around.pages;
   const onLink = followed ?? around.onLink;
-  if (items.length === 0) return null;
+  const media = lent ?? around.media;
+  const shown = ready ? items.filter((item) => item.element.type === "video") : items;
+  if (shown.length === 0) return null;
   return (
     <div className="ks-show-live" style={{ width: deck.size.w, height: deck.size.h }}>
-      {items.map((item) =>
+      {shown.map((item) =>
         item.element.type === "embed" ? (
-          <EmbedFrame key={item.element.id} item={{ ...item, element: item.element }} pages={pages} theme={deck.theme} imageUrl={imageUrl} onLink={onLink} />
+          <EmbedFrame key={item.element.id} item={{ ...item, element: item.element }} pages={pages} theme={deck.theme} imageUrl={imageUrl} onLink={onLink} muted={media?.muted} />
         ) : (
-          <VideoPlayer key={item.element.id} item={{ ...item, element: item.element }} imageUrl={imageUrl} />
+          <VideoPlayer key={item.element.id} item={{ ...item, element: item.element }} imageUrl={imageUrl} active={!ready} media={media} mediaKey={mediaKey(slide.id, item.element.id)} />
         ),
       )}
     </div>

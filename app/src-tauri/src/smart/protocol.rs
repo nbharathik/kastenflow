@@ -189,6 +189,10 @@ pub fn live_frame(
     nonce: &str,
 ) -> Option<String> {
     let id = runtime?.frame_page(nonce)?;
+    // A code picture's frame belongs to no page of the vault, so no page's setting turns it off.
+    if id == super::generator::ID {
+        return Some(id);
+    }
     let kasten = kasten?;
     let path = page::path_of(kasten, &id)?;
     kasten.smart_enabled_for_page(&path).then_some(id)
@@ -283,7 +287,16 @@ pub fn respond(serving: &Serving, request: &Request<Vec<u8>>) -> Response<Vec<u8
     let Some(owner) = (serving.frame_page)(frame) else {
         return plain(StatusCode::NOT_FOUND, "Not found");
     };
-    let found = if rest.first().map(String::as_str) == Some(kit::SEGMENT) {
+    let found = if owner == super::generator::ID {
+        // A code picture's frame gets its runner and nothing else: no page, no kit.
+        super::generator::file(rest)
+            .map(|(name, bytes)| Found {
+                name,
+                bytes,
+                page_id: None,
+            })
+            .ok_or(StatusCode::NOT_FOUND)
+    } else if rest.first().map(String::as_str) == Some(kit::SEGMENT) {
         kit_file(rest)
     } else {
         page_file(serving.kasten, rest, &owner)

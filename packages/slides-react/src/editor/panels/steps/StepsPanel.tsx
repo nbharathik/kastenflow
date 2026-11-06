@@ -5,6 +5,7 @@ import { buildScope } from "../../session/steps.ts";
 import type { EditorUi } from "../../ui-state.ts";
 import { TextButton } from "../../ui/Button.tsx";
 import { useEditor } from "../../useEditor.ts";
+import { EffectPicker } from "./EffectPicker.tsx";
 import { StepGrid } from "./StepGrid.tsx";
 import "./steps.css";
 
@@ -45,6 +46,7 @@ export function StepsPanel({ session, ui }: { session: EditorSession; ui: Editor
         </p>
       </section>
       <StepGrid session={session} ui={ui} />
+      <EffectPicker session={session} />
     </div>
   );
 }

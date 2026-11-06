@@ -4,6 +4,7 @@
 
 import type { SlidesHost } from "../editor/host.ts";
 import type { EditorSession } from "../editor/session/session.ts";
+import { showDeck } from "./custom-show.ts";
 import { readMatte } from "./matte.ts";
 import { type Presentation, openPresentation, presenting } from "./open.tsx";
 import { openBroadcastPresenter } from "./open-presenter.ts";
@@ -19,6 +20,8 @@ export interface PresentOptions {
   presenter?: boolean;
   /** A rehearsal: the presenter's window is opened and starts timing the talk. Nothing advances by itself. */
   rehearse?: boolean;
+  /** The id of one of the deck's custom shows: only its slides are played, in its order. The whole deck when left out. */
+  show?: string;
 }
 
 /** What the show can do about screens while it runs; none where the host cannot move a show. */
@@ -35,7 +38,8 @@ export function showScreens(host: SlidesHost): ShowScreens | undefined {
 }
 
 export async function presentDeck(session: EditorSession, host: SlidesHost, from: "start" | "current", options: PresentOptions = {}): Promise<void> {
-  const deck = session.deck;
+  // A custom show plays a deck of just its slides: everything after this sees the short deck.
+  const deck = showDeck(session.deck, options.show);
   const start = from === "start" ? 0 : Math.max(0, deck.slides.findIndex((slide) => slide.id === session.state.slideId));
   // One talk at a time: asking again must not make the host get ready (and hold the window) for a show that never opens.
   if (presenting()) return;

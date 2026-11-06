@@ -7,6 +7,15 @@ const keepsTemplates = (_: unknown, __: unknown, host: { templates?: unknown }):
 /** The layouts and templates a person keeps: saving a slide as a layout, changing one, putting slots back, and a deck's look as a template. */
 export const layoutCommands: Command[] = [
   {
+    // What every slide shares, in one dialog: the background, the logo, which layouts show the theme's graphics, and the slide numbers.
+    id: "slide.master",
+    label: "Master…",
+    icon: "layers",
+    // The designer of a layout is an editor of its own, with no master of the deck to change.
+    enabled: (_state, _ui, _host, context) => !context?.ui.designing,
+    run: ({ ui }) => ui.openDialog("master"),
+  },
+  {
     id: "slide.save-as-layout",
     label: "Save slide as layout…",
     icon: "layout-template",

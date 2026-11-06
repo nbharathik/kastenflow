@@ -1,7 +1,7 @@
 // Steps: how many clicks a slide has and how its elements look at each. The
 // Steps panel, the Slide menu and the commands all do it through here.
 
-import type { BuiltSteps, Element, Recipe, StepState, Text } from "@kasten-slides/wasm";
+import type { BuiltSteps, Element, Recipe, StepFx, StepState, Text } from "@kasten-slides/wasm";
 
 import type { EditorSession } from "./session.ts";
 import type { EditorState } from "./types.ts";
@@ -71,6 +71,11 @@ export class StepCommands {
   /** How an element looks from `step` onward; null takes that step's entry away, so the state before it holds. */
   setState(id: string, step: number, state: StepState | null, slide: string = this.slideId): void {
     this.s.run(() => this.s.core.apply("set_step_states", { slide, id, states: { [String(step)]: state } }));
+  }
+
+  /** How the change of an element at `step` is drawn; null takes the effect away, so the deck's usual one plays. The slide gets the step if it lacks it. */
+  setFx(id: string, step: number, fx: StepFx | null, slide: string = this.slideId): void {
+    this.s.run(() => this.s.core.apply("set_step_fx", { slide, id, fx: { [String(step)]: fx } }));
   }
 
   /** The step a paragraph of a text appears at; null shows it from the start. The slide gets the step if it lacks it. */

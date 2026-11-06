@@ -13,7 +13,8 @@ describe("the window's policy under tauri dev", () => {
     // A slide's embedded page loads in a frame, and a slide's video plays from the vault's own files.
     // The diagram editor's frame is named too (the `diagrams` scheme, as each system writes it), and a smart page's (the `smart` scheme).
     expect(dev.get("frame-src")).toEqual(["http:", "https:", "http://diagrams.localhost", "diagrams://localhost", "http://smart.localhost", "smart://localhost"]);
-    expect(dev.get("media-src")).toEqual(["'self'", "blob:", "asset:", "http://asset.localhost"]);
+    // A video on the web (https only) plays too: the app's pages pass no secret in a media request.
+    expect(dev.get("media-src")).toEqual(["'self'", "blob:", "asset:", "http://asset.localhost", "https:"]);
     expect(dev.get("img-src")).not.toContain("https:");
     expect(dev.get("connect-src")).toContain("ws://localhost:1420");
     // The slide engine is WebAssembly, which a policy must allow to run.
@@ -24,7 +25,7 @@ describe("the window's policy under tauri dev", () => {
   it("lets frames and video in and opens nothing else: what a page in a frame does is its own, and the app's pages still take nothing from outside", () => {
     const app = appCsp();
     expect(app["frame-src"]).toBe("http: https: http://diagrams.localhost diagrams://localhost http://smart.localhost smart://localhost");
-    expect(app["media-src"]).toBe("'self' blob: asset: http://asset.localhost");
+    expect(app["media-src"]).toBe("'self' blob: asset: http://asset.localhost https:");
     // Scripts, styles, connections, pictures, fonts, objects, base addresses and forms are as they were.
     expect(app["default-src"]).toBe("'self'");
     expect(app["script-src"]).toBe("'self' 'wasm-unsafe-eval'");

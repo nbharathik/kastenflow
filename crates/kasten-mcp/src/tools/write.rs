@@ -134,6 +134,7 @@ pub(crate) fn journal_append(_: &dyn Lookup, a: JournalAppendArgs) -> Result<Age
         date: a.date.unwrap_or_else(today),
         markdown: a.markdown,
         heading: a.under_heading,
+        project: a.project.filter(|p| !p.trim().is_empty()),
     })
 }
 

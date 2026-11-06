@@ -19,9 +19,9 @@ export function currentFormat({ session, ui }: CommandContext): FormatState {
   return (ui.state.text?.formatState() as FormatState | undefined) ?? session.text.state();
 }
 
-/** Whether there is any text to format: an open editor, or a selected box that holds text. */
+/** Whether there is any text to format: an open editor, a selected box that holds text, or a selected table (its cells picked, else all). */
 export function canFormat({ session, ui }: CommandContext): boolean {
-  return ui.state.text !== null || session.elements.find().some((e) => e.type === "text" || e.type === "shape");
+  return ui.state.text !== null || session.elements.find().some((e) => e.type === "text" || e.type === "shape" || e.type === "table");
 }
 
 export function toggleMark(context: CommandContext, mark: "b" | "i" | "u" | "s" | "code"): void {

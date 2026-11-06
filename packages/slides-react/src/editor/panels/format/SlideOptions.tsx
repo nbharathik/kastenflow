@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { TextButton } from "../../ui/Button.tsx";
 import { Toggle } from "../../ui/Fields.tsx";
 import { Icon } from "../../ui/Icon.tsx";
-import { useEditor } from "../../useEditor.ts";
+import { useEditorValue } from "../../useEditor.ts";
 import { backgroundStyle, chooseImage, colorBackground } from "./background.ts";
 import { ColorButton, Row } from "./controls.tsx";
 import { applyLayout } from "./layout.ts";
@@ -16,12 +16,24 @@ import { ThemeStrip } from "./ThemeStrip.tsx";
 import { Wireframe } from "./Wireframe.tsx";
 import "./slide-options.css";
 
-const KINDS = { none: "None", fade: "Fade", slide: "Slide", morph: "Morph" } as const;
+const KINDS: Readonly<Record<string, string>> = {
+  none: "None",
+  fade: "Fade",
+  slide: "Slide",
+  morph: "Morph",
+  push: "Push",
+  wipe: "Wipe",
+  cover: "Cover",
+  uncover: "Uncover",
+  zoom: "Zoom",
+  flip: "Flip",
+  dissolve: "Dissolve",
+};
 
 /** What arrives with the slide, in a few words. */
 function transitionName(slide: Slide): string {
   const transition = slide.transition;
-  if (!transition || transition.kind === "none") return KINDS.none;
+  if (!transition || transition.kind === "none") return "None";
   // A kind a newer build wrote is shown as it is written.
   const name = KINDS[transition.kind] ?? transition.kind;
   return transition.duration ? `${name}, ${transition.duration} s` : name;
@@ -29,9 +41,11 @@ function transitionName(slide: Slide): string {
 
 /** Options for the slide itself, shown when nothing on it is selected: background, layout, transition, theme. */
 export function SlideOptions({ session, ui }: PanelProps) {
-  const state = useEditor(session);
-  const { deck } = state;
-  const slide = deck.slides.find((s) => s.id === state.slideId);
+  // The slide shown, the theme, the page size and the numbering: the rest of the deck (the other slides, their notes) does not draw this.
+  const slide = useEditorValue(session, (state) => state.deck.slides.find((s) => s.id === state.slideId));
+  const theme = useEditorValue(session, (state) => state.deck.theme);
+  const size = useEditorValue(session, (state) => state.deck.size);
+  const slideNumbers = useEditorValue(session, (state) => state.deck.present.slideNumbers);
   const list = useRef<HTMLDivElement>(null);
   const layout = slide?.layout;
 
@@ -46,7 +60,6 @@ export function SlideOptions({ session, ui }: PanelProps) {
   }, [layout, slide?.id]);
 
   if (!slide) return null;
-  const { theme } = deck;
   const background = slide.background;
 
   const addImage = async () => {
@@ -59,7 +72,7 @@ export function SlideOptions({ session, ui }: PanelProps) {
   return (
     <>
       <PanelSection id="background" title="Background">
-        <div className="ks-sp-bg-preview" style={{ ...backgroundStyle(session, theme, background), aspectRatio: `${deck.size.w} / ${deck.size.h}` }} aria-hidden="true" />
+        <div className="ks-sp-bg-preview" style={{ ...backgroundStyle(session, theme, background), aspectRatio: `${size.w} / ${size.h}` }} aria-hidden="true" />
         <Row label="Colour">
           <ColorButton
             theme={theme}
@@ -91,7 +104,7 @@ export function SlideOptions({ session, ui }: PanelProps) {
               onClick={() => applyLayout(session, layout.name)}
             >
               <span className="ks-sp-thumb">
-                <Wireframe layout={layout} size={deck.size} />
+                <Wireframe layout={layout} size={size} />
               </span>
               <span className="ks-sp-layout-name">{layout.label}</span>
               {layout.name === slide.layout ? <Icon name="check" size={14} /> : null}
@@ -108,7 +121,7 @@ export function SlideOptions({ session, ui }: PanelProps) {
       </PanelSection>
 
       <PanelSection id="numbers" title="Slide numbers">
-        <Toggle label="Show slide numbers" on={deck.present.slideNumbers} onChange={(on) => session.slides.setSlideNumbers(on)} />
+        <Toggle label="Show slide numbers" on={slideNumbers} onChange={(on) => session.slides.setSlideNumbers(on)} />
         <p className="ks-sp-hint">For every slide of the deck: in the editor, when presenting and in exported files.</p>
       </PanelSection>
 

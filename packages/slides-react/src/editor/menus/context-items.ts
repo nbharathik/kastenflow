@@ -4,7 +4,9 @@
 import { copyHere } from "../clipboard/commands.ts";
 import { ungroupable } from "../commands/composites.ts";
 import { type CommandContext, commandOf } from "../commands/index.ts";
+import { selectedCodePicture } from "../code-picture/model.ts";
 import { selectedDiagram } from "../diagrams.ts";
+import { canSelectBehind, selectBehind } from "../canvas/stack.ts";
 import { updatable } from "../../pages/insert.ts";
 import { pageOfElement } from "../../pages/open.ts";
 import type { ContextMenuState } from "../ui-state.ts";
@@ -59,10 +61,13 @@ function elementItems(ctx: CommandContext): MenuItem[] {
       ...(session.state.inside.length > 0 ? [plainItem("exit-group", "Exit group", () => session.leaveGroup(), { icon: "ungroup" })] : []),
       ...(picked.some(ungroupable) ? [commandItem("arrange.ungroup-composite", ctx)] : []),
       commandItem("arrange.lock", ctx, { label: locked ? "Unlock" : "Lock", icon: locked ? "lock-open" : "lock", checked: null }),
+      ...(canSelectBehind(session) ? [plainItem("select-behind", "Select behind", () => selectBehind(session), { icon: "layers" })] : []),
     ],
     [
       // A picture that came from a diagram is edited in the host's diagram editor.
       ...(session.host.editDiagram && selectedDiagram(session.state) ? [commandItem("edit.diagram", ctx)] : []),
+      // A picture a program draws: its code opens in the code panel.
+      ...(session.host.runGenerator && selectedCodePicture(session.state) ? [commandItem("edit.code-picture", ctx)] : []),
       // Something made from a page of the host: open the page, make it again from the page as it is now, or cut the tie.
       ...(picked.some((element) => pageOfElement(element) !== null) ? [commandItem("page.open", ctx)] : []),
       ...(picked.some(updatable) ? [commandItem("page.update", ctx)] : []),
@@ -76,10 +81,16 @@ function elementItems(ctx: CommandContext): MenuItem[] {
   );
 }
 
+/** Offered on the slide's own menu when something on it is locked: a locked element cannot be moved, so this is the way to free them all at once. */
+function unlockAllItems({ session }: CommandContext): MenuItem[] {
+  const locked = session.slide.elements.filter((element) => element.locked).map((element) => element.id);
+  return locked.length === 0 ? [] : [plainItem("unlock-all", "Unlock all on slide", () => session.elements.lock(false, locked), { icon: "lock-open" })];
+}
+
 const canvasItems = (ctx: CommandContext): MenuItem[] =>
   groups(
     acceptItems(ctx),
-    [commandItem("edit.paste", ctx), commandItem("edit.paste-in-place", ctx), commandItem("edit.select-all", ctx)],
+    [commandItem("edit.paste", ctx), commandItem("edit.paste-in-place", ctx), commandItem("edit.select-all", ctx), ...unlockAllItems(ctx)],
     ctx.session.state.inside.length > 0 ? [plainItem("exit-group", "Exit group", () => ctx.session.leaveGroup(), { icon: "ungroup" })] : [],
     [commandItem("slide.layout", ctx), commandItem("slide.background", ctx)],
     [commandItem("slide.save-as-layout", ctx), commandItem("slide.reset-layout", ctx)],

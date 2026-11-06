@@ -53,10 +53,11 @@ jobs:
           restore-keys: bench-baseline-
       - name: Bench and save the baseline
         if: steps.baseline.outputs.cache-matched-key == '' || inputs.save
-        run: cargo bench -p kasten-core --locked -- --save-baseline main
+        # `--bench core` is the Criterion file: the crate's unit tests have their own runner, which refuses `--save-baseline`.
+        run: cargo bench -p kasten-core --locked --bench core -- --save-baseline main
       - name: Bench against the baseline
         if: steps.baseline.outputs.cache-matched-key != '' && !inputs.save
-        run: cargo bench -p kasten-core --locked -- --baseline main
+        run: cargo bench -p kasten-core --locked --bench core -- --baseline main
       - name: Compare with the baseline
         if: steps.baseline.outputs.cache-matched-key != '' && !inputs.save
         run: node scripts/compare-bench.mjs target/criterion --baseline main --current new --limit 20

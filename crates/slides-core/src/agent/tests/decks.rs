@@ -296,6 +296,37 @@ fn a_layout_a_person_made_is_listed_used_and_checked_like_the_built_in_ones() {
 }
 
 #[test]
+fn the_layouts_a_person_keeps_for_every_deck_are_listed_apart_and_marked() {
+    let mut kit = Kit::new();
+    kit.make(OUTLINE);
+    let plain = kit.ok("list_layouts", json!({}));
+    assert!(
+        plain.get("library").is_none(),
+        "a store with no library says nothing"
+    );
+    kit.store.library.push(
+        json!({ "id": "L-a", "label": "Photo caption", "slots": [{ "role": "title" }], "decoration": 1 }),
+    );
+    let listed = kit.ok("list_layouts", json!({}));
+    assert_eq!(listed["library"][0]["id"], "L-a");
+    assert_eq!(listed["library"][0]["library"], true);
+    assert!(
+        listed["layouts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|l| l["library"].is_null()),
+        "the deck's own layouts are not marked"
+    );
+    assert!(
+        listed["libraryNote"]
+            .as_str()
+            .unwrap()
+            .contains("until the person uses one")
+    );
+}
+
+#[test]
 fn an_operation_that_is_not_on_the_list_is_not_callable_by_its_name() {
     let mut kit = Kit::new();
     let name = kit.make(OUTLINE);

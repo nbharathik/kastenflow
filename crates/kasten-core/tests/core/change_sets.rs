@@ -239,6 +239,7 @@ fn staged_edits_to_the_body_are_what_the_ops_write() {
         date: "2026-09-23".into(),
         markdown: "Evening note.".into(),
         heading: None,
+        project: None,
     });
 }
 

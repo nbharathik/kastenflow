@@ -55,7 +55,25 @@ describe("an empty placeholder", () => {
     for (const mode of MODES) {
       expect(elementsOf(draw(<SlideView deck={deck} slide={slide} mode={mode} />)).has("t"), mode).toBe(true);
     }
-    expect(blocks(draw(<SlideView deck={deck} slide={slide} mode="edit" />))[0]?.emptyPrompt).toBeUndefined();
+  });
+
+  it("shows an editor, and only an editor, that an empty text box of its own is there", async () => {
+    const { deck, slide } = await scene("blank", [{ type: "text", id: "t", ...box(0, 0, 100, 40), text: words("") }]);
+    const edit = draw(<SlideView deck={deck} slide={slide} mode="edit" />);
+    expect(blocks(edit)[0]?.emptyPrompt).toBe("Click to add text");
+    expect(edit.querySelector("[data-el=t] .ks-empty-box")).not.toBeNull();
+    for (const mode of ["present", "thumbnail", "export"] as const) {
+      const page = draw(<SlideView deck={deck} slide={slide} mode={mode} />);
+      expect(blocks(page)[0]?.emptyPrompt, mode).toBeUndefined();
+      expect(page.querySelector(".ks-empty-box"), mode).toBeNull();
+    }
+  });
+
+  it("shows no prompt or outline once the box has words", async () => {
+    const { deck, slide } = await scene("blank", [{ type: "text", id: "t", ...box(0, 0, 100, 40), text: words("Hi") }]);
+    const edit = draw(<SlideView deck={deck} slide={slide} mode="edit" />);
+    expect(blocks(edit)[0]?.emptyPrompt).toBeUndefined();
+    expect(edit.querySelector(".ks-empty-box")).toBeNull();
   });
 
   it("does not count a field as empty", async () => {

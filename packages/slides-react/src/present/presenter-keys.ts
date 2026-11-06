@@ -15,10 +15,9 @@ export function moveOfKey(event: Pick<KeyboardEvent, "key" | "shiftKey">): Direc
       return "right";
     case " ":
       return event.shiftKey ? "left" : "right";
+    // P is the pen (ink/InkTools.tsx); Page Up and the arrow are the way back.
     case "ArrowLeft":
     case "PageUp":
-    case "p":
-    case "P":
       return "left";
     case "ArrowDown":
       return "down";
@@ -62,6 +61,8 @@ export interface PresenterKeys {
   onResize(by: number | "reset"): void;
   onToggleTimer(): void;
   onResetTimer(): void;
+  /** Escape, before it arms the end of the show: returns true when it put something away (a pen that was in hand). */
+  onEscape?: (() => boolean) | undefined;
 }
 
 /** How long a number typed for a slide waits for Enter. */
@@ -74,7 +75,7 @@ export const END_CONFIRM_MS = 2000;
  * Listens for the keys; returns the number typed so far (for a line that says it), and whether a first Escape is waiting for a
  * second (the show ends on the second press within `END_CONFIRM_MS`, so one stray press does not end a talk in front of people).
  */
-export function usePresenterKeys({ plan, position, paused, onGo, onEnd, onResize, onToggleTimer, onResetTimer }: PresenterKeys): { typed: string; endArmed: boolean } {
+export function usePresenterKeys({ plan, position, paused, onGo, onEnd, onResize, onToggleTimer, onResetTimer, onEscape }: PresenterKeys): { typed: string; endArmed: boolean } {
   const [typed, setTyped] = useState("");
   const [endArmed, setEndArmed] = useState(false);
   const armedNow = useRef(false);
@@ -126,6 +127,7 @@ export function usePresenterKeys({ plan, position, paused, onGo, onEnd, onResize
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (typedNow.current !== "") latest.current("");
+        else if (onEscape?.()) return;
         else if (!onEnd) return;
         else if (armedNow.current) {
           armLatest.current(false);
@@ -161,7 +163,7 @@ export function usePresenterKeys({ plan, position, paused, onGo, onEnd, onResize
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [plan, position, paused, onGo, onEnd, onResize, onToggleTimer, onResetTimer]);
+  }, [plan, position, paused, onGo, onEnd, onResize, onToggleTimer, onResetTimer, onEscape]);
 
   return { typed, endArmed };
 }

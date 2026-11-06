@@ -150,6 +150,27 @@ describe("the pages a deck embeds", () => {
     expect(embeddedPages(null)).toEqual([]);
   });
 
+  it("are the addresses the frames load: a video link is its player, and what is no web address is left out", () => {
+    const deck = {
+      slides: [
+        {
+          elements: [
+            { type: "embed", url: "https://youtu.be/dQw4w9WgXcQ?t=30" },
+            { type: "embed", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+            { type: "embed", url: "https://vimeo.com/76979871" },
+            { type: "embed", url: "javascript:alert(1)" },
+            { type: "embed", url: "file:///etc/passwd" },
+          ],
+        },
+      ],
+    };
+    expect(embeddedPages(deck)).toEqual([
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=30&rel=0",
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0",
+      "https://player.vimeo.com/video/76979871",
+    ]);
+  });
+
   it("are handed to the core to allow, and an empty list ends it", async () => {
     invoke.mockResolvedValue(undefined);
     await allowEmbeds(["https://example.org/a"]);

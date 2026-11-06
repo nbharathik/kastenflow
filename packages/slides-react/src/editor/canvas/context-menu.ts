@@ -6,6 +6,7 @@ import type { EditorSession } from "../session/session.ts";
 import { openCellsMenu } from "../table/menu.ts";
 import type { EditorUi } from "../ui-state.ts";
 import { hitAt, itemsOf } from "./geometry.ts";
+import { rememberMenuPoint } from "./stack.ts";
 
 /** Opens the context menu for a right click at `at` (slide units). `zoom` is the scale the slide is drawn at. */
 export function openContextMenuAt(session: EditorSession, ui: EditorUi, zoom: number, event: MouseEvent, at: { x: number; y: number }): void {
@@ -17,5 +18,6 @@ export function openContextMenuAt(session: EditorSession, ui: EditorUi, zoom: nu
   // A right click on an element that is not selected selects it first, as in every editor.
   if (id !== null && !session.state.selection.includes(id)) session.select([id]);
   if (id === null) session.select([]);
+  rememberMenuPoint(session, at, zoom);
   ui.openContextMenu({ kind: id === null ? "canvas" : "element", x: event.clientX, y: event.clientY });
 }

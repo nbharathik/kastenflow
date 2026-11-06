@@ -126,6 +126,7 @@ pub fn empty_cell() -> TableCell {
         fill: None,
         col_span: None,
         row_span: None,
+        borders: None,
         extra: Extra::new(),
     }
 }

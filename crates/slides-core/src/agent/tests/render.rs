@@ -153,6 +153,143 @@ fn lint_deck_uses_the_sizes_a_browser_measured_when_the_store_has_them_and_says_
     assert_eq!(out.data.unwrap()["textMeasured"], true);
 }
 
+fn picture() -> Drawn {
+    Drawn {
+        png: png(64, 36),
+        width: 1920,
+        height: 540,
+        warnings: Vec::new(),
+    }
+}
+
+fn banner() -> serde_json::Value {
+    json!([{ "type": "text", "id": "banner", "x": 50, "y": 400, "w": 400, "h": 60, "markdown": "Hello" }])
+}
+
+#[test]
+fn a_slide_is_drawn_with_proposed_elements_and_nothing_is_written() {
+    let mut kit = Kit::new();
+    let name = kit.make(OUTLINE);
+    kit.store.picture = Some(picture());
+    let before = kit.store.decks[&name].clone();
+    let count = kit.deck(&name).slides[1].elements.len();
+    let out = kit
+        .call(
+            "render_slide",
+            json!({ "deck": name, "slide": 2, "elements": banner() }),
+        )
+        .unwrap();
+    let data = out.data.unwrap();
+    assert_eq!(data["proposed"], true);
+    assert!(data.get("render").is_none(), "{data}");
+    assert_eq!(out.images.len(), 1);
+    let shown = kit.store.shown.last().unwrap();
+    assert_eq!(shown.slides[1].elements.len(), count + 1);
+    assert_eq!(kit.store.decks[&name], before, "the deck is untouched");
+
+    // Without a proposal the answer carries an id to compare against later.
+    let plain = kit.ok("render_slide", json!({ "deck": name, "slide": 2 }));
+    assert!(plain["render"].as_str().unwrap().contains(":s-"), "{plain}");
+    assert!(plain["hash"].is_string());
+
+    // A proposal that cannot be made is said, and nothing is drawn.
+    kit.store.shown.clear();
+    let why = kit.err(
+        "render_slide",
+        json!({ "deck": name, "slide": 2, "elements": "no" }),
+    );
+    assert!(why.contains("elements"), "{why}");
+    assert!(kit.store.shown.is_empty());
+}
+
+#[test]
+fn a_proposed_change_is_drawn_beside_the_slide_as_it_is_with_the_new_box_outlined() {
+    let mut kit = Kit::new();
+    let name = kit.make(OUTLINE);
+    kit.store.picture = Some(picture());
+    let before = kit.store.decks[&name].clone();
+    let out = kit
+        .call(
+            "render_diff",
+            json!({ "deck": name, "slide": 2, "elements": banner() }),
+        )
+        .unwrap();
+    assert_eq!(out.images.len(), 1);
+    let data = out.data.unwrap();
+    assert_eq!(data["proposed"], true);
+    assert_eq!(data["after"], "proposed");
+    assert_eq!(data["outlined"], json!({ "before": 0, "after": 1 }));
+    assert_eq!(
+        kit.store.compared.last().unwrap(),
+        &(Vec::new(), vec![[50.0, 400.0, 400.0, 60.0]])
+    );
+    assert_eq!(kit.store.decks[&name], before, "nothing was written");
+}
+
+#[test]
+fn a_change_that_was_made_is_drawn_against_the_version_a_hash_names() {
+    let mut kit = Kit::new();
+    let name = kit.make(OUTLINE);
+    kit.store.picture = Some(picture());
+    let first = kit.store.versions[0].hash.clone();
+    kit.ok(
+        "add_elements",
+        json!({ "deck": name, "slide": 2, "elements": banner() }),
+    );
+    // Either the bare hash or the id render_slide gave.
+    for given in [first.clone(), format!("{first}:s-1")] {
+        let out = kit
+            .call(
+                "render_diff",
+                json!({ "deck": name, "slide": 2, "before": given }),
+            )
+            .unwrap();
+        let data = out.data.unwrap();
+        assert_eq!(data["before"], json!(first));
+        assert_eq!(data["proposed"], false);
+        assert_eq!(data["outlined"]["after"], 1, "{data}");
+        assert_eq!(data["outlined"]["before"], 0, "{data}");
+    }
+    // With nothing named, it is the version before the latest.
+    let out = kit
+        .call("render_diff", json!({ "deck": name, "slide": 2 }))
+        .unwrap();
+    assert_eq!(out.data.unwrap()["outlined"]["after"], 1);
+}
+
+#[test]
+fn a_comparison_with_nothing_to_compare_or_nowhere_to_draw_says_what_to_do() {
+    let mut kit = Kit::new();
+    let name = kit.make("# D\n\n## A\n- x");
+    // Nothing has changed since the deck was first read.
+    kit.store.picture = Some(picture());
+    let why = kit.err("render_diff", json!({ "deck": name, "slide": 2 }));
+    assert!(why.contains("no earlier version"), "{why}");
+    let why = kit.err(
+        "render_diff",
+        json!({ "deck": name, "slide": 2, "before": "ffffffffffffffff" }),
+    );
+    assert!(why.contains("is not kept"), "{why}");
+    assert!(
+        kit.err(
+            "render_diff",
+            json!({ "deck": name, "slide": 2, "step": -1 })
+        )
+        .contains("counting from 0")
+    );
+    // Where nothing draws, lint is what is left.
+    kit.store.picture = None;
+    let why = kit.err(
+        "render_diff",
+        json!({ "deck": name, "slide": 2, "elements": banner() }),
+    );
+    assert!(
+        why.contains("not available") && why.contains("lint_deck"),
+        "{why}"
+    );
+    assert!(kit.store.compared.is_empty());
+}
+
 const BIB: &str = "@inproceedings{vaswani2017attention, title={Attention is all you need}, author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob}, booktitle={Advances in Neural Information Processing Systems}, year={2017}}";
 
 #[test]

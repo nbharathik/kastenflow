@@ -36,6 +36,21 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
+describe("Deck → History", () => {
+  it("is the vault's history of the deck's own file", async () => {
+    const asked: unknown[][] = [];
+    const keeping = {
+      ...client,
+      history: (...args: unknown[]) => (asked.push(args), Promise.resolve([{ id: "c1", summary: "deck: save Alpha", message: "", author: "human", time: 5, agent: false, session: null, op: null, approvedBy: null, undoes: null }])),
+      version: (rev: string, path: string) => Promise.resolve(`${rev} of ${path}`),
+    } as unknown as VaultClient;
+    const history = kastenHost(keeping, "decks/a.deck", "h", () => {}).history!;
+    expect(await history.versions()).toEqual([{ id: "c1", time: 5, author: "You", summary: "deck: save Alpha" }]);
+    expect(asked[0]?.[0]).toBe("decks/a.deck");
+    expect(await history.read("c1")).toBe("c1 of decks/a.deck");
+  });
+});
+
 describe("the other decks, for Import layouts", () => {
   it("lists the decks of the vault that open, as their path, title and size", async () => {
     expect(await host().decks!.list()).toEqual([
@@ -46,6 +61,20 @@ describe("the other decks, for Import layouts", () => {
 
   it("reads one as the text of its file", async () => {
     expect(await host().decks!.read("decks/b.deck")).toBe("text of decks/b.deck");
+  });
+});
+
+describe("My layouts", () => {
+  it("is the host's layout library where the vault keeps one, and is left out where it does not", async () => {
+    expect(host().layoutLibrary).toBeUndefined();
+    const keeping = {
+      ...client,
+      layoutLibrary: () => Promise.resolve([{ path: "templates/layouts/a.layout", id: "L-a", label: "Alpha", slots: 1, modified: 1, size: 9, problem: null }]),
+      libraryLayout: (path: string) => Promise.resolve({ path, text: "t", hash: "h", modified: 1 }),
+      saveLibraryLayout: () => Promise.resolve({ path: "templates/layouts/a.layout", id: "L-a", replaced: false, unchanged: false }),
+    } as unknown as VaultClient;
+    const library = kastenHost(keeping, "decks/a.deck", "h", () => {}).layoutLibrary;
+    expect(await library?.list()).toEqual([{ id: "L-a", label: "Alpha", slots: 1, modified: 1 }]);
   });
 });
 

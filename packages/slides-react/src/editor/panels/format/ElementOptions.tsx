@@ -1,5 +1,6 @@
 import type { Element } from "@kasten-slides/wasm";
 
+import { CodePictureSection } from "../../code-picture/CodePictureSection.tsx";
 import { AccessSection } from "./AccessSection.tsx";
 import { ArrowsSection } from "./ArrowsSection.tsx";
 import { BorderSection } from "./BorderSection.tsx";
@@ -61,6 +62,7 @@ export function ElementOptions({ session, ui, elements, theme }: SectionProps) {
       {arrows ? <ArrowsSection {...arrows} /> : null}
       {text ? <TextSection {...text} /> : null}
       {image ? <ImageSection {...image} /> : null}
+      <CodePictureSection {...all} />
       {table ? <TableSection {...table} /> : null}
       <AccessSection {...all} />
     </>

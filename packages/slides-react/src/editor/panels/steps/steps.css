@@ -40,6 +40,33 @@
   color: var(--ks-faint);
 }
 
+/* The effect of the element picked at a step, under the grid. */
+.ks-fx {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--ks-line);
+}
+.ks-fx-title {
+  margin: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ks-fx-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.ks-fx-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* The grid: the first column stays put while the steps scroll. */
 .ks-steps-scroll {
   overflow-x: auto;

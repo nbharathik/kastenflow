@@ -167,6 +167,19 @@ pub fn scale_slide(slide: &mut Slide, theme: &Theme, fit: &Fit) {
     reroute(theme, slide);
 }
 
+/// Changes the size of the deck to `w` by `h` units and refits only the theme (so a new slide fits
+/// the page); what is on the slides keeps its place and its size.
+pub fn keep_deck(deck: &mut Deck, w: f64, h: f64) {
+    let to = Size {
+        w,
+        h,
+        extra: deck.size.extra.clone(),
+    };
+    let fit = Fit::between(&deck.size, &to);
+    scale_theme(&mut deck.theme, &fit);
+    deck.size = to;
+}
+
 /// Changes the size of the deck to `w` by `h` units and fits everything in it: the theme and
 /// every slide.
 pub fn scale_deck(deck: &mut Deck, w: f64, h: f64) {

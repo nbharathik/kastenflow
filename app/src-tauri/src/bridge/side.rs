@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use kasten_core::Kasten;
 use kasten_core::latex::LatexDoc;
+use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 use super::selection::{Share, tell};
@@ -62,6 +63,31 @@ pub trait Side: Send + Sync + 'static {
     /// `background` (a CSS colour) as a PNG and waits up to `wait`: the PNG as
     /// base64, as the window said it, or why not. The answer is not trusted yet.
     fn draw_png(&self, svg: &str, background: &str, wait: Duration) -> Result<String, Failed>;
+    /// The bytes that came beside request `id` (the deck to draw): taken once.
+    fn payload(&self, _id: &str) -> Result<Vec<u8>, String> {
+        Err("This app cannot read what comes beside a request".to_owned())
+    }
+    /// Has the window do the slide `job` (a JSON object without its `id`) and waits up to `wait`:
+    /// the answer as the window said it (a PNG as base64, or JSON text), not trusted yet.
+    fn ask_slides(&self, _job: Value, _wait: Duration) -> Result<String, Failed> {
+        Err(Failed {
+            why: "KastenFlow's window is not ready to draw slides".to_owned(),
+            answered: false,
+        })
+    }
+    /// Has the window do the code picture `job` (a JSON object without its `id`) under the event
+    /// `event` (run it, or ask the person to allow it) and waits up to `wait`: the answer as text,
+    /// not trusted yet.
+    fn ask_generator(&self, _event: &str, _job: Value, _wait: Duration) -> Result<String, Failed> {
+        Err(Failed {
+            why: "KastenFlow's window is not ready to run code".to_owned(),
+            answered: false,
+        })
+    }
+    /// Whether a person allowed this code (its `hash`) to run in the deck at `deck` (a vault path).
+    fn generator_allowed(&self, _deck: &str, _hash: &str) -> bool {
+        false
+    }
     /// A client asked for the selection at `now`: it is shared for two minutes
     /// more, and the window is told to publish it.
     fn share_selection(&self, now: u64) -> Result<(), String>;
@@ -155,6 +181,45 @@ impl Side for AppSide {
             answered: false,
         })?;
         window::draw(&self.app, &pictures, svg, background, wait)
+    }
+
+    fn payload(&self, id: &str) -> Result<Vec<u8>, String> {
+        let kasten = self.kasten()?;
+        kasten_mcp::bridge::mailbox(kasten.root())
+            .map_err(|err| err.to_string())?
+            .take_payload(id)
+            .ok_or_else(|| "The deck did not come with the request".to_owned())
+    }
+
+    fn ask_slides(&self, job: Value, wait: Duration) -> Result<String, Failed> {
+        let pictures = self.app.try_state::<Pictures>().ok_or_else(|| Failed {
+            why: "KastenFlow's window is not ready to draw slides".to_owned(),
+            answered: false,
+        })?;
+        let make = |id: &str| {
+            let mut job = job;
+            job["id"] = Value::String(id.to_owned());
+            job
+        };
+        window::ask_window(&self.app, &pictures, window::SLIDES, make, wait)
+    }
+
+    fn ask_generator(&self, event: &str, job: Value, wait: Duration) -> Result<String, Failed> {
+        let pictures = self.app.try_state::<Pictures>().ok_or_else(|| Failed {
+            why: "KastenFlow's window is not ready to run code".to_owned(),
+            answered: false,
+        })?;
+        let make = |id: &str| {
+            let mut job = job;
+            job["id"] = Value::String(id.to_owned());
+            job
+        };
+        window::ask_window(&self.app, &pictures, event, make, wait)
+    }
+
+    fn generator_allowed(&self, deck: &str, hash: &str) -> bool {
+        let dir = self.app.path().app_local_data_dir().ok();
+        crate::smart::settings::generator_allowed(dir.as_deref(), deck, hash)
     }
 
     fn share_selection(&self, now: u64) -> Result<(), String> {

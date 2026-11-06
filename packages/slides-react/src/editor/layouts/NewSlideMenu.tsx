@@ -10,6 +10,9 @@ import { useEditor } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
 import { markedDefault } from "./default-layout.ts";
 import { LayoutPicker } from "./LayoutPicker.tsx";
+import { copyLibraryLayout } from "./library-ops.ts";
+import { useLibrary } from "./library-state.ts";
+import { LibraryPicker } from "./LibraryPicker.tsx";
 import "./layouts.css";
 
 interface NewSlideMenuProps {
@@ -37,7 +40,8 @@ export function NewSlideMenu({ session, ui, anchor, keyboard, onClose }: NewSlid
   const { newSlides } = useUiState(ui);
   const imageUrl = useImageUrl(session);
   const marked = markedDefault(deck);
-  const open = (dialog: "layout-save" | "layouts-manage") => {
+  const library = useLibrary(session);
+  const open =(dialog: "layout-save" | "layouts-manage") => {
     onClose();
     ui.openDialog(dialog);
   };
@@ -51,6 +55,18 @@ export function NewSlideMenu({ session, ui, anchor, keyboard, onClose }: NewSlid
         onPick={(name) => {
           onClose();
           addSlide(session, ui, { layout: name });
+        }}
+      />
+      <LibraryPicker
+        deck={deck}
+        imageUrl={imageUrl}
+        view={library}
+        columns={3}
+        onPick={(item) => {
+          onClose();
+          // The deck gets its own copy of the layout, so it still opens without the library.
+          const layout = copyLibraryLayout(session, item.layout);
+          if (layout) addSlide(session, ui, { layout });
         }}
       />
       <div className="ks-lp-foot">

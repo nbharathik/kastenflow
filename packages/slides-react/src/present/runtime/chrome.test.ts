@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { attachChrome } from "./chrome.js";
+import { SHOW_KEYS, attachChrome } from "./chrome.js";
 
 /** What reveal.js gives the tools, as far as they use it. */
 function fakeReveal() {
@@ -51,7 +51,7 @@ const start = (options: Parameters<typeof attachChrome>[2] = {}) => {
 describe("the keys", () => {
   it("bind and unbind cleanly", () => {
     const { bindings, chrome } = start();
-    expect([...bindings.keys()].sort((a, b) => a - b)).toEqual([13, 27, 32, 33, 34, 38, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 63, 70, 76, 78, 80, 83, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 116, 191]);
+    expect([...bindings.keys()].sort((a, b) => a - b)).toEqual([13, 27, 32, 33, 34, 38, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 63, 70, 76, 78, 80, 83, 87, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 116, 191]);
     chrome.destroy();
     expect(bindings.size).toBe(0);
     expect(host.children).toHaveLength(0);
@@ -122,6 +122,70 @@ describe("the keys", () => {
     expect(calls).toEqual(["pause"]);
     press(191, { shiftKey: true });
     expect(host.querySelector(".ks-show-hints")).not.toBeNull();
+  });
+});
+
+describe("the white screen", () => {
+  it("comes with W, goes with W or Esc, and takes the black screen away when it comes", () => {
+    const { press, chrome, calls, reveal } = start();
+    const box = () => host.querySelector<HTMLElement>(".ks-show-white");
+    expect(box()?.hidden).toBe(true);
+    press(87);
+    expect(box()?.hidden).toBe(false);
+    press(87);
+    expect(box()?.hidden).toBe(true);
+    // A black screen that is up is put away as the white one comes.
+    Object.assign(reveal, { isPaused: () => true });
+    chrome.white(true);
+    expect(calls).toEqual(["pause"]);
+    press(27);
+    expect(box()?.hidden).toBe(true);
+  });
+
+  it("goes when the black screen comes", () => {
+    const { chrome, reveal } = start();
+    const listeners = new Map<string, () => void>();
+    Object.assign(reveal, { on: (type: string, run: () => void) => void listeners.set(type, run) });
+    chrome.destroy();
+    const again = attachChrome(reveal as never, host, {});
+    again.white(true);
+    listeners.get("paused")?.();
+    expect(host.querySelector<HTMLElement>(".ks-show-white")?.hidden).toBe(true);
+  });
+});
+
+describe("the extra keys and buttons of the app's show", () => {
+  it("add their keys, take P from 'back a slide', and list themselves", () => {
+    const pen = vi.fn();
+    const clear = vi.fn();
+    const { bindings, press, calls, chrome } = start({ extras: { keys: [[[80], pen], [[69], clear]] } });
+    press(80);
+    press(69);
+    press(33);
+    expect(pen).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["left"]);
+    expect(bindings.has(80)).toBe(true);
+    chrome.hints(true);
+    expect(host.querySelector(".ks-show-hints")?.textContent).toContain("Highlighter");
+    chrome.destroy();
+    expect(bindings.size).toBe(0);
+  });
+
+  it("add toolbar buttons that show pressed, and give Esc to what they have open first", () => {
+    const run = vi.fn();
+    const escape = vi.fn(() => true);
+    const onExit = vi.fn();
+    const { chrome, press } = start({ toolbar: true, onExit, extras: { tools: [["pen", "✎", "Pen", "P", run]], escape } });
+    host.querySelector<HTMLButtonElement>('[data-tool="pen"]')?.click();
+    expect(run).toHaveBeenCalledTimes(1);
+    chrome.setPressed("pen", true);
+    expect(host.querySelector('[data-tool="pen"]')?.getAttribute("aria-pressed")).toBe("true");
+    press(27);
+    expect(onExit).not.toHaveBeenCalled();
+    escape.mockReturnValue(false);
+    press(27);
+    expect(onExit).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -210,6 +274,16 @@ describe("the list of keys", () => {
     expect(host.querySelector(".ks-show-hints")?.textContent).toContain("leave");
   });
 
+  it("is the list the editor's help reads too: each row of SHOW_KEYS is in the show's list, in its words", () => {
+    const { chrome } = start();
+    chrome.hints(true);
+    const shown = [...host.querySelectorAll(".ks-show-hints-list > *")].map((node) => node.textContent);
+    for (const [keys, what] of SHOW_KEYS) {
+      expect(shown, keys).toContain(keys);
+      expect(shown, what).toContain(what);
+    }
+  });
+
   it("opens and closes with the question mark, and by a click", () => {
     const { chrome } = start();
     expect(chrome.hints()).toBe(true);
@@ -259,6 +333,7 @@ describe("the toolbar", () => {
       ["overview", "Overview of all the slides (O)"],
       ["laser", "Laser pointer (L)"],
       ["black", "Black screen (B)"],
+      ["white", "White screen (W)"],
       ["presenter", "Presenter view (S)"],
       ["screen", "Screen to show on"],
       ["fullscreen", "Full screen (F)"],

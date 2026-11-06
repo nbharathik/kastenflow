@@ -31,12 +31,17 @@ pub struct Facts {
     /// Whether the host can draw slides as pictures (`render_slide` and `render_grid`). Without it the
     /// instructions do not send the agent to look at slides it cannot see.
     pub render: bool,
+    /// Whether `render_diff` (a slide before and after a change) can be offered. Only a host that draws in a window can.
+    pub diff: bool,
 }
 
 impl Default for Facts {
     /// A host that can render, which is what the instructions have always assumed.
     fn default() -> Facts {
-        Facts { render: true }
+        Facts {
+            render: true,
+            diff: false,
+        }
     }
 }
 
@@ -66,6 +71,21 @@ fn batchable() -> String {
         .join(", ")
 }
 
+/// What `slides_help` answers: the order of work and the tool for each step, in few words. It is read when a deck
+/// is to be built, so it can say more than the instructions every connection gets.
+pub(super) fn workflow() -> String {
+    "HOW TO BUILD A DECK THAT READS WELL
+1. Outline: the deck as a list of slides, one idea each, with a title that says the point (at most 60 words a slide; the rest goes in speaker notes).
+2. Build: create_deck from a Markdown outline, or build_deck from one spec (a layout and slots for each slide, never raw positions). A chart is a `chart` element that set_chart_data fills from CSV text or rows. A draw.io diagram goes on a slide with place_diagram; boxes and arrows with add_diagram. Pictures: add_asset, then place_image (replace_asset swaps one everywhere). Notes: set_notes, or set_notes_bulk for many slides.
+3. Render: render_grid shows the whole deck, render_slide one slide (give it `elements` to preview before you write; render_diff shows before and after). Look at every slide you made. Where drawing is not available, lint_deck is your eyes.
+4. Lint: lint_deck after every batch of changes; errors come first, each with its fix.
+5. Fix: change what lint or your eyes found, then render and lint again. Finish with no errors and no warning you cannot defend.
+6. Hand over: say which slides you changed and what you could not check. export writes pptx, markdown or png.
+Everything you do is one undo for the person, and nothing is ever deleted.
+"
+    .to_owned()
+}
+
 /// The instructions for a host that can render slides.
 pub fn instructions() -> String {
     instructions_for(&Facts::default())
@@ -78,7 +98,7 @@ pub fn instructions_for(facts: &Facts) -> String {
     let theme_names: Vec<String> = themes::all().into_iter().map(|t| t.name).collect();
     let mut out = String::new();
     out.push_str(
-        "KastenFlow Slides: you build and edit slide decks, which are .deck files. Every tool changes a deck with the same operations the editor uses, a change is saved at once (a person with the deck open sees it), and nothing is ever deleted: removed slides are kept as a copy in the trash, and decks go to the trash too.\n\n",
+        "KastenFlow Slides: you build and edit slide decks, which are .deck files. Every tool changes a deck with the same operations the editor uses, a change is saved at once (a person with the deck open sees it), and nothing is ever deleted: removed slides and decks go to the trash.\n\n",
     );
     out.push_str("THE DECK\n");
     out.push_str(&format!(
@@ -91,7 +111,7 @@ pub fn instructions_for(facts: &Facts) -> String {
     ));
     out.push_str("- Words are Markdown: **bold**, *italic*, `code`, [link](url), $latex$, - bullets, 1. numbers, one paragraph per line. add_slide and set_text take it, and text elements take `markdown`.\n");
     out.push_str("- Elements: text, shape, line, connector (attached to two elements by id and side, so it follows them), image, group, table, and the composites below. Position with x, y, w, h in slide units, or fill a layout slot with `placeholder`.\n");
-    out.push_str("- A table is made with add_elements (columns, rows of cells) and changed cell by cell: set_cells puts words in a block of cells (and adds the rows and columns it needs), clear_cells, set_cell_fill, insert_rows, delete_rows, insert_columns, delete_columns, merge_cells, unmerge_cells. Rows and columns count from 0.\n");
+    out.push_str("- A table is made with add_elements and changed cell by cell: set_cells puts words in a block of cells (adding the rows and columns it needs), and the other table tools (set_cell_fill, insert_rows, merge_cells ...) do the rest. Rows and columns count from 0.\n");
     out.push_str("- A slide with steps shows in stages: an element has a state (hidden, dimmed, normal, highlighted) from each step. Elements that share an id on consecutive slides glide into place with the Morph transition.\n\n");
     out.push_str("COMPOSITE ELEMENTS (add them with add_elements; each is drawn as ordinary shapes, so they export to PowerPoint)\n");
     for kind in COMPOSITES {
@@ -103,9 +123,9 @@ pub fn instructions_for(facts: &Facts) -> String {
     out.push_str("- One idea to a slide, in a layout that fits it. At most 60 words: cut, split the slide, or move detail into the speaker notes (set_notes).\n");
     out.push_str("- Type of 14 pt or more, and 24 units of margin. Never shrink text to make it fit; say less.\n");
     out.push_str("- One accent colour to a slide: accent1 for what matters, text1, text2 and bg2 for the rest.\n");
-    out.push_str("- Show a process or a system as a diagram (add_diagram lays out boxes and attached arrows for you) and not as bullets with arrows in them. Give every picture alt text, and every figure a citation.\n");
+    out.push_str("- Show a process or a system as a diagram (add_diagram lays out boxes and arrows) and not as bullets with arrows in them. Give every picture alt text, and every figure a citation.\n");
     out.push_str("- Build up an idea with steps (set_steps); show a change with Morph (duplicate_slide, change the copy, set_morph).\n");
-    out.push_str("- Move a few slides with move_slides, take a deck's look with apply_deck_template, write marks Markdown lacks with set_rich_text.\n\n");
+    out.push_str("- Point something out without changing it with add_deck_comment; read theirs with list_deck_comments and settle one with resolve_deck_comment. Decoration takes empty alt text (\"\").\n\n");
     out.push_str(
         "LINT (lint_deck; every write tool also reports the problems on the slides it touched)\n",
     );
@@ -117,25 +137,29 @@ pub fn instructions_for(facts: &Facts) -> String {
             rule.summary
         ));
     }
-    out.push_str("lint_deck measures how big the text is with a browser when this machine has Chrome or Chromium, and otherwise estimates it, and says which. An estimate is a good guess: make the box bigger or the text shorter when text-overflow says so.\n\n");
+    out.push_str("lint_deck measures text in a browser or the open app when it can, else estimates, and says which. For text-overflow, enlarge the box or shorten the text.\n\n");
     out.push_str("HOW TO WORK\n");
-    out.push_str("1. Write the outline first and make the deck with create_deck: `# Title`, then a `## Slide title` for each slide with a few lines under it. It picks a layout for what each slide holds.\n");
+    out.push_str("1. Write the outline first and make the deck with create_deck: `# Title`, then a `## Slide title` for each slide with a few lines under it. It picks a layout for what each slide holds. Or give build_deck one checked spec: a layout, slots, elements, notes and steps for each slide.\n");
     out.push_str(&format!(
         "2. get_deck shows the slides and their ids. Refine slide by slide with add_diagram, place_image, set_text, set_steps ...; update_elements does several things in one call, and later operations in it can use what earlier ones returned (\"$1.slide\"). The operations it takes: {}.\n",
         batchable()
     ));
-    out.push_str("3. Run lint_deck after every batch of changes, and fix what it reports by its hints. Finish only when there are no errors, and no warnings you cannot defend.\n");
+    out.push_str("   Also: set_chart_data (CSV or rows into a chart), place_diagram (draw.io), replace_asset (swap a picture everywhere), set_notes_bulk.\n");
+    out.push_str("3. Run lint_deck after every batch of changes, and fix what it reports by its hints. Finish with no errors and no warnings you cannot defend.\n");
     if facts.render {
-        out.push_str("   Then look: render_slide draws a slide as a picture and render_grid all of them, so you can see what lint cannot (a slide that is dull, crowded or unbalanced). Look at every slide you built before you say you are done.\n");
+        out.push_str("   Then look: render_slide draws a slide as a picture and render_grid all of them, to see what lint cannot (dull, crowded, unbalanced). Look at every slide you built before you say you are done.\n");
+        if facts.diff {
+            out.push_str("   render_slide takes `elements` to preview a change before you write it; render_diff shows a slide before and after, changes outlined.\n");
+        }
     }
-    out.push_str("4. When asked for a file, export (pptx or markdown).\n\n");
+    out.push_str("4. When asked for a file, export (pptx, markdown or png).\n\n");
     out.push_str("LIMITS\n");
     if facts.render {
-        out.push_str("- render_slide and render_grid need Chrome or Chromium on this machine. When they say none was found you cannot see the slides: lint is your eyes, so trust it, and tell the person what you could not check.\n");
+        out.push_str("- render_slide and render_grid need a browser or the open KastenFlow app; without one, lint is your eyes: trust it, and say what you could not check.\n");
     } else {
         out.push_str("- This host cannot draw slides as pictures, so you cannot see them: lint is your eyes, so trust it, and tell the person what you could not check.\n");
     }
-    out.push_str("- Every answer carries the deck's `hash`. If a person changed the deck after you last read it, your change is not written over theirs: it is saved as a copy beside the deck and you are told. Read the deck again, then repeat the change if it still applies.\n");
+    out.push_str("- Every answer carries the deck's `hash`. If a person changed the deck after you read it, your change is saved as a copy beside the deck, not over theirs, and you are told. Read it again and repeat the change if it still applies.\n");
     out
 }
 
@@ -204,12 +228,84 @@ mod tests {
 
     #[test]
     fn a_host_that_cannot_render_is_not_told_to_look() {
-        let blind = instructions_for(&Facts { render: false });
+        let blind = instructions_for(&Facts {
+            render: false,
+            diff: true,
+        });
         assert!(!blind.contains("render_slide"), "{blind}");
+        assert!(!blind.contains("render_diff"), "{blind}");
         assert!(blind.contains("cannot draw slides"), "{blind}");
         assert!(blind.contains("lint_deck"));
-        let sighted = instructions_for(&Facts { render: true });
+        let sighted = instructions_for(&Facts {
+            render: true,
+            diff: false,
+        });
         assert_eq!(sighted, instructions());
         assert!(sighted.contains("render_slide") && sighted.contains("render_grid"));
+    }
+
+    #[test]
+    fn render_diff_is_told_only_to_a_host_that_offers_it_and_the_words_stay_within_budget() {
+        let plain = instructions();
+        assert!(!plain.contains("render_diff"), "{plain}");
+        let windowed = instructions_for(&Facts {
+            render: true,
+            diff: true,
+        });
+        assert!(windowed.contains("render_diff") && windowed.contains("`elements`"));
+        assert!(
+            windowed.len() < 12_000,
+            "{} bytes are read on every connection",
+            windowed.len()
+        );
+        assert!(plain.len() < windowed.len());
+    }
+
+    #[test]
+    fn the_new_tools_are_told_and_the_words_stay_within_budget_with_them() {
+        let text = instructions();
+        for tool in [
+            "build_deck",
+            "set_chart_data",
+            "place_diagram",
+            "replace_asset",
+            "set_notes_bulk",
+        ] {
+            assert!(text.contains(tool), "{tool}");
+        }
+        assert!(text.contains("export (pptx, markdown or png)"));
+        assert!(text.len() < 12_000, "{} bytes", text.len());
+    }
+
+    #[test]
+    fn the_workflow_goes_outline_build_render_lint_fix_and_names_tools_that_exist() {
+        let text = workflow();
+        let at: Vec<usize> = ["Outline", "Build", "Render", "Lint", "Fix", "Hand over"]
+            .iter()
+            .map(|step| text.find(step).unwrap_or_else(|| panic!("{step}")))
+            .collect();
+        assert!(at.windows(2).all(|w| w[0] < w[1]), "{at:?}");
+        let tools: Vec<String> = super::super::tools().into_iter().map(|t| t.name).collect();
+        for name in [
+            "create_deck",
+            "build_deck",
+            "set_chart_data",
+            "place_diagram",
+            "add_diagram",
+            "add_asset",
+            "place_image",
+            "replace_asset",
+            "set_notes",
+            "set_notes_bulk",
+            "render_grid",
+            "render_slide",
+            "render_diff",
+            "lint_deck",
+            "export",
+        ] {
+            assert!(text.contains(name), "{name} is in the words");
+            assert!(tools.iter().any(|t| t == name), "{name} is a tool");
+        }
+        assert!(text.len() < 2_500, "{} bytes", text.len());
     }
 }

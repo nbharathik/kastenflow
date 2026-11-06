@@ -32,17 +32,54 @@ describe("the Insert menu", () => {
     return [...open.querySelectorAll(":scope > button > .ks-menu-label")].map((r) => r.firstChild?.textContent);
   };
 
-  it("lists the nine composites under their groups, and then the gallery", async () => {
+  it("lists the twelve composites under their groups, and then the gallery", async () => {
     await setup();
     click(bar("Insert"));
     expect(rowNames().at(-2)).toMatch(/^Insert gallery/);
     expect(row(/^Insert gallery/).textContent).toMatch(/Ctrl\+\/|⌘\//);
-    expect(itemsOf(/^Text & content/)).toEqual(["Text box", "Formula", "Code block", "Citation…"]);
-    expect(itemsOf(/^Media/)).toEqual(["Image from computer…", "Image from the gallery…", "Video…"]);
-    expect(itemsOf(/^Data/)).toEqual(["Table…", "Token probabilities"]);
+    expect(itemsOf(/^Text & content/)).toEqual(["Text box", "Formula", "Code block", "Citation…", "Emoji…"]);
+    // A web page is also last under Media, besides under Pages & links.
+    expect(itemsOf(/^Media/)).toEqual(["Image from computer…", "Image from the gallery…", "Audio…", "Video…", "Icon…", "Web page…"]);
+    expect(itemsOf(/^Data/)).toEqual(["Table…", "Chart", "Line chart", "Pie chart", "Token probabilities"]);
     // A page of the vault only where the host has pages.
-    expect(itemsOf(/^Pages & links/)).toEqual(["Web page…", "Insert link…"]);
-    expect(itemsOf(/^Smart parts/)).toEqual(["Conversation", "Card grid", "Step label"]);
+    expect(itemsOf(/^Pages & links/)).toEqual(["Web page…", "Insert link…", "QR code"]);
+    expect(itemsOf(/^Smart parts/)).toEqual([
+      "Conversation",
+      "Card grid",
+      "Step label",
+      "Timer",
+      "Mermaid diagram…",
+      "Agenda block",
+      "Quote block",
+      "Key number block",
+      "Timeline block",
+      "Team block",
+      "Comparison block",
+      "2 × 2 grid block",
+    ]);
+  });
+
+  it("puts a chart, a timer and a QR code on the slide when their rows are picked", async () => {
+    const { session } = await setup();
+    for (const [group, item] of [[/^Data/, /^Chart/], [/^Smart parts/, /^Timer/], [/^Pages & links/, /^QR code/]] as const) {
+      click(bar("Insert"));
+      fireEvent.click(row(group));
+      fireEvent.click(row(item));
+    }
+    expect(session.slide.elements.map((e) => e.type)).toEqual(["chart", "timer", "qr"]);
+  });
+
+  it("opens the emoji picker from its row, and the page dialog from the row under Media as from the one under Pages & links", async () => {
+    const { ui } = await setup();
+    click(bar("Insert"));
+    fireEvent.click(row(/^Text & content/));
+    fireEvent.click(row(/^Emoji/));
+    expect(ui.state.dialog).toBe("emoji");
+    ui.openDialog(null);
+    click(bar("Insert"));
+    fireEvent.click(row(/^Media/));
+    fireEvent.click(row(/^Web page/));
+    expect(ui.state.dialog).toBe("embed");
   });
 
   it("puts the composite on the slide when its row is picked", async () => {

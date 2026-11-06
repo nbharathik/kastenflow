@@ -1,0 +1,80 @@
+/* A coding agent's question in the chat: a quiet card with Allow and Deny. */
+.kasten-chat-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--notion-line);
+  color: var(--notion-text);
+  font-size: var(--text-13);
+  line-height: 1.45;
+
+  &[data-state="asking"] {
+    box-shadow: inset 0 0 0 1px var(--notion-accent, var(--notion-line));
+  }
+
+  & .kasten-chat-approval-q {
+    margin: 0;
+    font-weight: 500;
+  }
+
+  & .kasten-chat-approval-detail {
+    margin: 0;
+    max-height: 7.5em;
+    overflow: auto;
+    padding: 6px 8px;
+    border-radius: var(--radius-lg);
+    background: var(--notion-hover);
+    color: var(--notion-text-2);
+    font-family: var(--font-mono, monospace);
+    font-size: var(--text-12);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  & .kasten-chat-approval-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  & .kasten-chat-approval-actions button {
+    height: 26px;
+    padding: 0 12px;
+    border-radius: var(--radius-lg);
+    background: var(--notion-hover);
+    color: var(--notion-text);
+    font-size: var(--text-12);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--notion-hover-strong, var(--notion-hover));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--notion-accent, currentColor);
+      outline-offset: 1px;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  & .kasten-chat-approval-state {
+    margin: 0;
+    color: var(--notion-text-2);
+    font-size: var(--text-12);
+  }
+}
+
+/* The agent's name in the thread's header and the model picker. */
+.kasten-chat-agent-note {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--notion-text-2);
+  font-size: var(--text-12);
+  line-height: 1.45;
+}

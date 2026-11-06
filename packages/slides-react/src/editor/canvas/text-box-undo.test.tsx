@@ -49,12 +49,14 @@ describe("a text box made and typed in", () => {
     expect(words(id)).toBe("Hello");
   });
 
-  it("goes again, with nothing left to undo, when nothing was typed", async () => {
+  it("stays when nothing was typed, and one undo takes it away", async () => {
     const { session, ui, ids } = await open();
     const before = session.state.undoLabel;
     act(() => addTextBoxNow({ session, ui }));
     const id = session.state.editing!;
     act(() => session.stopEditing());
+    expect(ids()).toContain(id);
+    act(() => session.undo());
     expect(ids()).not.toContain(id);
     expect(session.state.undoLabel).toBe(before);
   });

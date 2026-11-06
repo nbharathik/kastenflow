@@ -53,7 +53,7 @@ describe("the menu bar", () => {
     click(bar("File"));
     fireEvent.mouseEnter(bar("Insert"));
     expect(menuOf("Insert")).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "File" })).toBeNull();
+    expect(screen.queryByRole("menu", { name: "File" })).toBeNull();
     expect(bar("Insert").getAttribute("aria-expanded")).toBe("true");
   });
 
@@ -69,7 +69,7 @@ describe("the menu bar", () => {
     fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
     await nextFrame();
     expect(menuOf("Edit")).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "File" })).toBeNull();
+    expect(screen.queryByRole("menu", { name: "File" })).toBeNull();
     expect(menuOf("Edit").contains(document.activeElement)).toBe(true);
 
     fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
@@ -130,8 +130,9 @@ describe("the Edit menu", () => {
   it("says what Undo and Redo would do, and disables them when they cannot", async () => {
     const { session } = await setup();
     click(bar("Edit"));
-    expect(row(/^Undo/).textContent).toMatch(/^Undo(?!\s\w)/);
-    expect(isDisabled(row(/^Undo/))).toBe(true);
+    // "Undo history" is its own row beside Undo.
+    expect(row(/^Undo(?! history)/).textContent).toMatch(/^Undo(?!\s\w)/);
+    expect(isDisabled(row(/^Undo(?! history)/))).toBe(true);
     expect(isDisabled(row(/^Redo/))).toBe(true);
     fireEvent.keyDown(document.body, { key: "Escape" });
 
@@ -139,8 +140,8 @@ describe("the Edit menu", () => {
     act(() => session.elements.nudge(5, 5, session.slide.elements.slice(-1).map((e) => e.id)));
     click(bar("Edit"));
     expect(row(/^Undo Move elements/)).toBeTruthy();
-    expect(isDisabled(row(/^Undo/))).toBe(false);
-    fireEvent.click(row(/^Undo/));
+    expect(isDisabled(row(/^Undo(?! history)/))).toBe(false);
+    fireEvent.click(row(/^Undo(?! history)/));
     click(bar("Edit"));
     expect(row(/^Redo Move elements/)).toBeTruthy();
     expect(isDisabled(row(/^Redo/))).toBe(false);

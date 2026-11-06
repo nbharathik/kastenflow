@@ -175,6 +175,7 @@ fn element_of(block: &Block, r: Rect) -> Option<Element> {
                                 fill: None,
                                 col_span: None,
                                 row_span: None,
+                                borders: None,
                                 extra: Extra::new(),
                             })
                             .collect(),
@@ -182,6 +183,7 @@ fn element_of(block: &Block, r: Rect) -> Option<Element> {
                     })
                     .collect(),
                 header_row: *header,
+                table_style: None,
                 extra: Extra::new(),
             })
         }

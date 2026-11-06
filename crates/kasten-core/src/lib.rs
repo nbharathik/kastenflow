@@ -41,6 +41,7 @@ pub mod history;
 mod id;
 pub mod import;
 pub mod index;
+mod journal_path;
 pub mod latex;
 pub mod links;
 pub mod local_paths;
@@ -81,6 +82,7 @@ pub mod watch;
 
 pub use config::Config;
 pub use engine::DiagramPicture;
+pub use engine::MOST_JOURNAL_DAYS;
 pub use engine::NewProject;
 pub use engine::PersonBatch;
 pub use engine::{
@@ -110,6 +112,7 @@ pub use engine::{ProjectSmart, SMART_PLUGIN, SMART_PROJECT_KEY};
 pub use engine::{Revision, RevisionArea, area_of, shipped_template};
 pub use error::{Error, Result};
 pub use id::ulid_at;
+pub use journal_path::{journal_path, journal_path_in, project_journal_of};
 pub use lock::WriteLock;
 pub use marks::AgentMark;
 pub use moving::{duplicate_note, move_note, nest_note};

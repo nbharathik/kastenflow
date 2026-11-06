@@ -19,6 +19,9 @@ pub enum StepsMode {
     Expand,
     /// One slide, as it stands after the last click.
     Final,
+    /// One slide with the clicks as PowerPoint animations (fade, fly, zoom, wipe, pulse and colour map; the
+    /// rest are written as an appear). Dimmed and highlighted steps are not animated.
+    Animate,
 }
 
 /// One slide of the file: a slide of the deck, and the step of it that is drawn.
@@ -52,6 +55,10 @@ pub fn pages(deck: &Deck, options: &Options) -> Vec<Page> {
             StepsMode::Final => out.push(Page {
                 slide: index,
                 step: Some(clicks),
+            }),
+            StepsMode::Animate => out.push(Page {
+                slide: index,
+                step: None,
             }),
         }
     }

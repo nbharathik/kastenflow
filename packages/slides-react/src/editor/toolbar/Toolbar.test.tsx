@@ -38,7 +38,7 @@ describe("the toolbar", () => {
     });
     expect(barNames()).toEqual([
       "Undo", "Redo", "Paint format", "Zoom",
-      "Font", "Decrease font size", "Font sizes", "Increase font size",
+      "Text style", "Font", "Decrease font size", "Font sizes", "Increase font size",
       "Bold", "Italic", "Underline", "Strikethrough", "Text colour", "Highlight colour", "Insert link",
       "Align", "Line and paragraph spacing", "Bulleted list", "Numbered list", "Bullets and numbering", "Decrease indent", "Increase indent", "Clear formatting",
       "Fill colour", "Border colour", "Border weight", "Border dash", "Shadow", "Opacity",
@@ -128,22 +128,21 @@ describe("undo, redo and zoom", () => {
 });
 
 describe("what goes on the slide", () => {
-  it("marks the tool in use, and arms the tools", async () => {
+  it("marks the tool in use, and the text box button puts a box on the slide instead of arming a tool", async () => {
     const { session } = await setup();
     expect(button("Select").getAttribute("aria-pressed")).toBe("true");
+    const before = session.slide.elements.length;
     click(button("Text box"));
-    expect(session.state.tool).toBe("text");
-    expect(button("Text box").getAttribute("aria-pressed")).toBe("true");
-    expect(button("Select").getAttribute("aria-pressed")).toBe("false");
-    click(button("Select"));
     expect(session.state.tool).toBe("select");
+    expect(session.slide.elements).toHaveLength(before + 1);
+    expect(session.state.editing).toBe(session.slide.elements.at(-1)?.id);
   });
 
   it("arms a shape from the grid of outlines, grouped by title", async () => {
     const { session } = await setup();
     click(button("Shape"));
     const grid = screen.getByRole("dialog", { name: "Shapes" });
-    for (const group of ["Shapes", "Arrows", "Callouts", "Flowchart"]) expect(within(grid).getByRole("group", { name: group })).toBeTruthy();
+    for (const group of ["Shapes", "Stars", "Arrows", "Callouts", "Flowchart"]) expect(within(grid).getByRole("group", { name: group })).toBeTruthy();
     // Each cell is a small drawing of the shape.
     expect(within(grid).getByRole("button", { name: "Oval" }).querySelector("path")?.getAttribute("d")).toMatch(/^M/);
     click(within(grid).getByRole("button", { name: "Oval" }));

@@ -5,6 +5,7 @@ import { type JSX, useEffect, useState } from "react";
 
 import { durationText } from "./rehearsal-text.ts";
 import type { Rehearsing } from "./useRehearsal.ts";
+import "./rehearsal.css";
 
 /** Draws the bar again each second while a run is timed (the view round it keeps still). */
 function useSecond(on: boolean): void {

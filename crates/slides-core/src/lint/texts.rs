@@ -209,6 +209,7 @@ pub fn noun(kind: &str) -> &'static str {
         "step-label" => "step label",
         "embed" => "embedded page",
         "video" => "video",
+        "audio" => "audio",
         _ => "element",
     }
 }

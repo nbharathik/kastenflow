@@ -2,13 +2,17 @@ import type { Element } from "@kasten-slides/wasm";
 import type { JSX } from "react";
 
 import type { SectionProps } from "../types.ts";
+import { AudioSection } from "./AudioSection.tsx";
 import { CardsSection } from "./CardsSection.tsx";
+import { ChartSection } from "./ChartSection.tsx";
 import { ChatSection } from "./ChatSection.tsx";
 import { CitationSection } from "./CitationSection.tsx";
 import { CodeSection } from "./CodeSection.tsx";
 import { EmbedSection } from "./EmbedSection.tsx";
 import { MathSection } from "./MathSection.tsx";
+import { QrSection } from "./QrSection.tsx";
 import { StepLabelSection } from "./StepLabelSection.tsx";
+import { TimerSection } from "./TimerSection.tsx";
 import { TokenProbsSection } from "./TokenProbsSection.tsx";
 import { VideoSection } from "./VideoSection.tsx";
 
@@ -22,6 +26,10 @@ const SECTIONS: Record<string, (props: SectionProps) => JSX.Element> = {
   "step-label": StepLabelSection,
   embed: EmbedSection,
   video: VideoSection,
+  chart: ChartSection,
+  timer: TimerSection,
+  qr: QrSection,
+  audio: AudioSection,
 };
 
 /** Whether an element has a section of its own in the format options. */

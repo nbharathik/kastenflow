@@ -6,7 +6,9 @@ import { noteColour, recentColours } from "../chrome/recents.ts";
 import { HsvArea } from "./HsvArea.tsx";
 import { hexToHsv, hsvToHex, moveInGrid, normalHex, shade, standardRows } from "./color-math.ts";
 import { Icon } from "./Icon.tsx";
+import { SlideSample } from "./SlideSample.tsx";
 import "./colors.css";
+import "./slide-sample.css";
 
 interface ColorPickerProps {
   theme: Theme;
@@ -45,6 +47,8 @@ const eyeDropper = (): (new () => EyeDropperApi) | null => (typeof window !== "u
 export function ColorPicker({ theme, value, onPick, noneLabel = "None" }: ColorPickerProps) {
   const [custom, setCustom] = useState("");
   const [picking, setPicking] = useState(false);
+  // Where the browser has no EyeDropper, the slide itself is drawn to point at.
+  const [sampling, setSampling] = useState(false);
   const [recent] = useState(recentColours);
   const root = useRef<HTMLDivElement>(null);
   const current = value === null ? null : (hexOf(theme, value) ?? value);
@@ -183,8 +187,22 @@ export function ColorPicker({ theme, value, onPick, noneLabel = "None" }: ColorP
           >
             <Icon name="pipette" />
           </button>
-        ) : null}
+        ) : (
+          <button type="button" className={`ks-btn ks-icon-btn${sampling ? " is-on" : ""}`} aria-label="Pick from the slide" aria-pressed={sampling} data-tip="Pick from the slide" onClick={() => setSampling(!sampling)}>
+            <Icon name="pipette" />
+          </button>
+        )}
       </form>
+      {sampling && !dropper ? (
+        <SlideSample
+          onPick={(hex) => {
+            setSampling(false);
+            const normal = normalHex(hex);
+            if (normal) choose(normal);
+          }}
+          onClose={() => setSampling(false)}
+        />
+      ) : null}
       {picking ? (
         <HsvArea
           hsv={hsv}

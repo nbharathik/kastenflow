@@ -149,12 +149,24 @@ describe("the decks", () => {
     expect(within(screen.getByRole("group", { name: "Sort decks by" })).getByRole("button", { name: "Name" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("are shown by project when asked, the ones in none last", async () => {
+  it("are narrowed to a project from a box that is there only when some deck is in one", async () => {
     await open();
-    fireEvent.click(within(screen.getByRole("group", { name: "Sort decks by" })).getByRole("button", { name: "Project" }));
-    const sections = screen.getAllByRole("region").filter((s) => s.getAttribute("aria-label") !== "Start a new presentation");
-    expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["Japan trip", "Not in a project"]);
-    expect(within(sections[0]!).getAllByRole("button", { name: /^Open / })).toHaveLength(1);
-    expect(within(sections[1]!).getAllByRole("button", { name: /^Open / })).toHaveLength(3);
+    const box = screen.getByRole("combobox", { name: "Show decks of" });
+    fireEvent.change(box, { target: { value: "trip" } });
+    expect(order()).toEqual(["Q3 review"]);
+    fireEvent.change(box, { target: { value: "" } });
+    expect(order()).toEqual(["Lecture", "Tool use", "Alpha talk"]);
+    fireEvent.change(box, { target: { value: "*" } });
+    expect(order()).toHaveLength(4);
+    cleanup();
+    await open([deck("Solo", 100)]);
+    expect(screen.queryByRole("combobox", { name: "Show decks of" })).toBeNull();
+  });
+
+  it("read an order that grouped by project, from an older window, as the newest first", async () => {
+    localStorage.setItem("kasten.slides.sort", "project");
+    await open();
+    expect(order()).toEqual(["Q3 review", "Lecture", "Tool use", "Alpha talk"]);
+    expect(within(screen.getByRole("group", { name: "Sort decks by" })).queryByRole("button", { name: "Project" })).toBeNull();
   });
 });

@@ -34,18 +34,20 @@ interface SectionProps {
   step: number;
   drawn: boolean;
   live: boolean;
+  /** The slide is next to the one on the screen, on the way there or back: its videos are mounted early and wait. */
+  ready: boolean;
   /** The deck's slides, and the plan they were laid out in. */
   plan: Plan;
   imageUrl: ImageUrl;
   arrivals: Arrivals;
 }
 
-const Section = memo(function Section({ slide, step, drawn, live, plan, imageUrl, arrivals }: SectionProps): JSX.Element {
+const Section = memo(function Section({ slide, step, drawn, live, ready, plan, imageUrl, arrivals }: SectionProps): JSX.Element {
   const { deck } = plan;
   const attributes = sectionAttributes(slide, arrivals.arrival(slide), arrivals.run(slide));
   return (
     <RevealSlide {...attributes}>
-      {drawn ? <StepSlide deck={deck} slide={slide} number={plan.numbers.get(slide.id) ?? 0} count={plan.count} step={step} live={live} imageUrl={imageUrl} /> : null}
+      {drawn ? <StepSlide deck={deck} slide={slide} number={plan.numbers.get(slide.id) ?? 0} count={plan.count} step={step} live={live} ready={ready} imageUrl={imageUrl} /> : null}
       <Markers steps={stepsOf(slide)} />
     </RevealSlide>
   );
@@ -71,6 +73,8 @@ export function DeckTree({ plan, position, overview, around, imageUrl }: DeckTre
       const here = h === position.h && v === position.v;
       // The column on the screen is drawn whole; the ones near it, at their top; the rest when they come near.
       const drawn = here || everything || h === position.h || (Math.abs(h - around) <= DRAW_AHEAD && v === 0);
+      // The slides one move away (along the row, or down and up a column) have their videos mounted already.
+      const ready = !here && !overview && ((h === position.h && Math.abs(v - position.v) === 1) || (v === 0 && Math.abs(h - position.h) === 1));
       return (
         <Section
           key={slide.id}
@@ -78,6 +82,7 @@ export function DeckTree({ plan, position, overview, around, imageUrl }: DeckTre
           step={stepFor(plan, position, h, v)}
           drawn={drawn}
           live={here && !overview}
+          ready={ready}
           plan={plan}
           imageUrl={imageUrl}
           arrivals={arrivals}

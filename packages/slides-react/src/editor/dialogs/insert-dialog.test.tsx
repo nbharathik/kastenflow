@@ -1,15 +1,17 @@
 import type { Element } from "@kasten-slides/wasm";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { withPages } from "../../pages/fake-pages.ts";
 import { plainText, textBox } from "../factory.ts";
-import { settleFresh } from "../quick-add/fresh.ts";
+import { spendFresh } from "../quick-add/fresh.ts";
 import { type Kit, mountDialogs } from "./test-kit.tsx";
 
+// What was chosen lately is kept in the browser and listed first: each test starts with nothing chosen.
+beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
-const box = () => screen.getByRole("combobox", { name: "Insert or run a command" }) as HTMLInputElement;
+const box = () => screen.getByRole("combobox", { name: "Search commands, things to insert and slides" }) as HTMLInputElement;
 const type = (text: string) => fireEvent.change(box(), { target: { value: text } });
 const key = (name: string) => fireEvent.keyDown(box(), { key: name });
 const options = () => within(screen.getByRole("listbox")).getAllByRole("option");
@@ -22,11 +24,11 @@ const onSlide = (kit: Kit): Element[] => kit.session.slide.elements;
 describe("the insert gallery", () => {
   it("opens with the box focused and everything listed under the groups of the Insert menu", async () => {
     await mountDialogs({ dialog: "insert" });
-    expect(screen.getByRole("dialog", { name: "Insert gallery" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeTruthy();
     expect(document.activeElement).toBe(box());
     expect(box().getAttribute("aria-expanded")).toBe("true");
     const headings = [...document.querySelectorAll(".ks-pl-head")].map((h) => h.textContent);
-    expect(headings).toEqual(["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Commands"]);
+    expect(headings).toEqual(["Text & content", "Media", "Shapes & lines", "Data", "Pages & links", "Smart parts", "Slides", "Go to slide", "Commands"]);
     const all = names();
     for (const wanted of ["Text box", "Image from computer…", "Table…", "Code block", "Formula", "Conversation", "Token probabilities", "Card grid", "Citation…", "Step label", "Web page…", "Video…", "Rectangle", "Oval", "Right arrow", "Line", "Elbow arrow connector", "Zoom in"]) {
       expect(all, wanted).toContain(wanted);
@@ -41,11 +43,27 @@ describe("the insert gallery", () => {
     expect(options().find((o) => nameOf(o) === "Text box")?.querySelector("kbd")?.textContent).toBe("T");
   });
 
-  it("lists no chart, timer or QR code, which the editor cannot make or change yet", async () => {
+  it("lists a chart (bar, line, pie), a timer, a QR code, the emoji picker and every shape, each once", async () => {
     await mountDialogs({ dialog: "insert" });
-    for (const name of ["Chart", "Timer", "QR code", "QR code…"]) expect(names()).not.toContain(name);
+    const all = names();
+    for (const name of ["Chart", "Line chart", "Pie chart", "Timer", "QR code", "Emoji…", "6-point star", "Alternate process", "Manual operation"]) {
+      expect(all.filter((n) => n === name), name).toHaveLength(1);
+    }
+    // The web page is under two groups of the menu, and one row of the gallery.
+    expect(all.filter((n) => n === "Web page…")).toHaveLength(1);
     type("chart");
-    expect(names()).not.toContain("Chart");
+    expect(names()).toEqual(expect.arrayContaining(["Chart", "Line chart", "Pie chart"]));
+  });
+
+  it("puts a chart on the slide from its row, and a QR code that holds the address the slide links to", async () => {
+    const kit = await mountDialogs({ dialog: "insert", elements: [{ ...textBox({ x: 10, y: 10, w: 200, h: 40 }, "Docs"), link: "https://example.org/docs" } as Element] });
+    type("pie chart");
+    key("Enter");
+    expect(onSlide(kit).at(-1)).toMatchObject({ type: "chart", kind: "pie" });
+    act(() => kit.ui.openDialog("insert"));
+    type("qr");
+    key("Enter");
+    expect(onSlide(kit).at(-1)).toMatchObject({ type: "qr", data: "https://example.org/docs" });
   });
 
   it("lists a page of the vault, and a diagram, only where the host has them", async () => {
@@ -203,15 +221,17 @@ describe("the insert gallery", () => {
     expect(kit.session.state.editing).toBe(made?.id);
   });
 
-  it("takes that text box away again when it is closed with nothing typed, as the tool and the T key do", async () => {
+  it("keeps that text box when it is closed with nothing typed, as the tool and the T key do, and one Undo takes it away", async () => {
     const kit = await mountDialogs({ dialog: "insert" });
     type("text box");
     key("Enter");
     const [made] = onSlide(kit);
     act(() => kit.session.stopEditing());
-    settleFresh(kit.session, made?.id ?? "");
-    expect(onSlide(kit)).toHaveLength(0);
+    spendFresh(kit.session, made?.id ?? "");
+    expect(onSlide(kit).map((e) => e.id)).toEqual([made?.id]);
     expect(kit.errors).toEqual([]);
+    act(() => kit.session.undo());
+    expect(onSlide(kit)).toHaveLength(0);
   });
 
   it("keeps that text box when words were typed in it", async () => {
@@ -221,7 +241,7 @@ describe("the insert gallery", () => {
     const [made] = onSlide(kit);
     kit.session.elements.setText(made?.id ?? "", plainText("Hello"));
     act(() => kit.session.stopEditing());
-    settleFresh(kit.session, made?.id ?? "");
+    spendFresh(kit.session, made?.id ?? "");
     expect(onSlide(kit).map((e) => e.id)).toEqual([made?.id]);
   });
 
@@ -272,7 +292,7 @@ describe("the insert gallery", () => {
     kit.host.images = async () => [{ path: "assets/chart.png", name: "chart.png", width: 800, height: 400 }];
     act(() => kit.ui.openDialog("insert"));
     await waitFor(() => expect(names()).toContain("Image: chart.png"));
-    type("chart");
+    type("chart.png");
     expect(names()[0]).toBe("Image: chart.png");
     key("Enter");
     const [made] = onSlide(kit);

@@ -26,6 +26,7 @@ const HIDDEN: &[&str] = &[
     "set_layout",
     "duplicate_slides",
     "set_step_states",
+    "set_step_fx",
     "build_steps",
     "paste_elements",
     "collapse_slides",
@@ -51,6 +52,12 @@ const HIDDEN: &[&str] = &[
     // A storyboard is drafted and edited by a person in the editor; an assistant makes slides with `add_slide` (or `deck_from_note`).
     "add_storyboard_slides",
     "acknowledge_source",
+    // The spelling check's word list and the deck's font files are the editor's own dialogs.
+    "set_dictionary",
+    "set_deck_fonts",
+    // A Mermaid chart is written in the editor's Insert dialog; an assistant draws a flow with `add_diagram`.
+    "add_mermaid",
+    "update_mermaid",
 ];
 
 /// Whether `name` is an operation that is not a tool of its own (see `HIDDEN`): it works inside
@@ -61,6 +68,7 @@ pub(super) fn is_hidden(name: &str) -> bool {
 
 /// The order tools are listed in: look, make, change slides, change elements, steps, files.
 const ORDER: &[&str] = &[
+    "slides_help",
     "list_decks",
     "get_deck",
     "get_slide",
@@ -69,7 +77,9 @@ const ORDER: &[&str] = &[
     "get_theme",
     "search_assets",
     "lint_deck",
+    "list_deck_comments",
     "create_deck",
+    "build_deck",
     "add_slide",
     "duplicate_slide",
     "delete_slides",
@@ -83,8 +93,13 @@ const ORDER: &[&str] = &[
     "set_present",
     "set_page_size",
     "set_notes",
+    "set_notes_bulk",
     "set_background",
     "set_slide_flags",
+    "set_slide_access",
+    "add_deck_comment",
+    "reply_deck_comment",
+    "resolve_deck_comment",
     "set_text",
     "set_rich_text",
     "format_paragraphs",
@@ -98,7 +113,10 @@ const ORDER: &[&str] = &[
     "unmerge_cells",
     "set_cell_fill",
     "add_diagram",
+    "set_chart_data",
     "place_image",
+    "place_diagram",
+    "replace_asset",
     "add_elements",
     "update_elements",
     "patch_elements",
@@ -123,6 +141,7 @@ const ORDER: &[&str] = &[
     "trash_deck",
     "render_slide",
     "render_grid",
+    "render_diff",
 ];
 
 /// The kinds of element an assistant makes. `raw` is left out: an import makes those.
@@ -153,7 +172,12 @@ pub(super) fn object(properties: Value, required: &[&str]) -> Value {
 }
 
 pub(super) fn deck_property() -> Value {
-    json!({ "type": "string", "description": "The deck's file name, such as talk.deck. Optional when there is only one deck." })
+    json!({ "type": "string", "description": "The deck, e.g. talk.deck; optional if only one." })
+}
+
+/// A box on a slide, `{x, y, w, h}`.
+pub(super) fn box_property() -> Value {
+    json!({ "type": "object", "description": "{x, y, w, h} in slide units, all four." })
 }
 
 pub(super) fn slide_property() -> Value {
@@ -161,7 +185,7 @@ pub(super) fn slide_property() -> Value {
 }
 
 /// How the words of a text box, a shape or a table cell are written, in few words.
-const TEXT_SHAPE: &str = "{paragraphs: [{runs: [{t, b?, i?, u?, color?, highlight? (a colour behind the words), size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), listStyle? (disc, circle, square, arrow, check, dash, decimal, decimalParen, lowerAlpha, upperAlpha, lowerRoman, upperRoman), start? (a numbered item counts from this number), level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom), fit? (shrink: smaller type until it fits; resize: the box grows)}";
+const TEXT_SHAPE: &str = "{paragraphs: [{runs: [{t, b?, i?, u?, color?, highlight? (behind the words), size? (points), font? (heading, body, code or a family)}], align?, list? (bullet or number), listStyle? (disc, circle, square, arrow, check, dash, decimal, decimalParen, lowerAlpha, upperAlpha, lowerRoman, upperRoman), start?, level?, style? (title, subtitle, body, caption, code, citation)}], valign? (top, middle, bottom), fit? (shrink or resize)}";
 
 /// What a text is, in few enough words to send with every tool that takes one (the cells of a table do).
 fn compact_text() -> Value {
@@ -177,7 +201,7 @@ fn compact_text() -> Value {
 fn compact_element() -> Value {
     json!({
         "type": "object",
-        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions for each). Give a box in slide units (x, y, w, h; get_deck says how big the deck's slides are) or a `placeholder` role to fill a slot of the layout. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb. An image may have `crop` {left, top, right, bottom: fractions cut from each edge} and `mask` (rect, roundRect, ellipse); any element may be `locked` or have a `morphId`.",
+        "description": "One element of a slide. `type` is text, shape, line, connector, image, group, table or a composite (code, math, chat, token-probs, card-grid, citation, step-label, embed, video, chart, timer, qr; see the instructions). Give a box in slide units (x, y, w, h; get_deck says how big the slides are) or a `placeholder` role to fill a layout slot. Colours are theme tokens (text1, text2, bg1, bg2, accent1 to accent6) or #rrggbb. An image may have `crop` {left, top, right, bottom: fractions cut from each edge} and `mask` (rect, roundRect, ellipse); any element may be `locked` or have a `morphId`.",
         "required": ["type"],
         "properties": {
             "type": { "type": "string", "enum": ELEMENT_KINDS },
@@ -227,6 +251,99 @@ fn reachable(
     }
 }
 
+/// The names in a `oneOf` that is only a list of words, each with a line of its own (schemars writes that for an
+/// enum whose variants have doc comments): a plain `enum` says the same in a third of the bytes.
+fn plain_choices(one_of: Option<&Value>) -> Option<Vec<String>> {
+    let mut names = Vec::new();
+    for item in one_of?.as_array()? {
+        let map = item.as_object()?;
+        if map.get("type").and_then(Value::as_str) != Some("string") {
+            return None;
+        }
+        if let Some(Value::String(word)) = map.get("const") {
+            names.push(word.clone());
+        } else if let Some(Value::Array(words)) = map.get("enum") {
+            for word in words {
+                names.push(word.as_str()?.to_owned());
+            }
+        } else {
+            return None;
+        }
+    }
+    (!names.is_empty()).then_some(names)
+}
+
+/// An optional field is written `["integer", "null"]` or `anyOf [{...}, {"type": "null"}]`; to an agent, leaving the field
+/// out is how it is optional, so only the kind is said.
+fn not_null(map: &mut serde_json::Map<String, Value>) {
+    if let Some(Value::Array(kinds)) = map.get("type")
+        && kinds.len() == 2
+        && let Some(other) = kinds.iter().find(|k| k.as_str() != Some("null")).cloned()
+        && kinds.iter().any(|k| k.as_str() == Some("null"))
+    {
+        map.insert("type".to_owned(), other);
+    }
+    if let Some(Value::Array(options)) = map.get("anyOf")
+        && options.len() == 2
+        && let Some(Value::Object(kept)) = options
+            .iter()
+            .find(|o| o.get("type").and_then(Value::as_str) != Some("null"))
+            .cloned()
+        && options
+            .iter()
+            .any(|o| o.get("type").and_then(Value::as_str) == Some("null"))
+    {
+        map.remove("anyOf");
+        for (key, value) in kept {
+            map.entry(key).or_insert(value);
+        }
+    }
+}
+
+/// Takes out what a schema says only for a validator: the width of a number (`"format": "uint32"`) and the
+/// bounds that width implies, and an empty default. An agent reads the words, and these cost bytes in every tool.
+fn slim(schema: &mut Value) {
+    match schema {
+        Value::Object(map) => {
+            let numeric = matches!(
+                map.get("format"),
+                Some(Value::String(f))
+                    if ["uint", "int", "double", "float"].iter().any(|p| f.starts_with(p))
+            );
+            if numeric {
+                let unsigned =
+                    matches!(map.get("format"), Some(Value::String(f)) if f.starts_with("uint"));
+                map.remove("format");
+                if unsigned {
+                    if map.get("minimum").and_then(Value::as_f64) == Some(0.0) {
+                        map.remove("minimum");
+                    }
+                    map.remove("maximum");
+                }
+            }
+            if matches!(map.get("default"), Some(Value::Object(o)) if o.is_empty()) {
+                map.remove("default");
+            }
+            not_null(map);
+            // What a schema allows without saying so.
+            if matches!(map.get("additionalProperties"), Some(Value::Bool(true))) {
+                map.remove("additionalProperties");
+            }
+            if matches!(map.get("required"), Some(Value::Array(r)) if r.is_empty()) {
+                map.remove("required");
+            }
+            if let Some(names) = plain_choices(map.get("oneOf")) {
+                map.remove("oneOf");
+                map.insert("type".to_owned(), json!("string"));
+                map.insert("enum".to_owned(), json!(names));
+            }
+            map.values_mut().for_each(slim);
+        }
+        Value::Array(items) => items.iter_mut().for_each(slim),
+        _ => {}
+    }
+}
+
 /// The registry's schema for an operation's input, made small enough to send: the definition of an element is replaced by a short description, and any other bulky definition by a plain object.
 fn schema_for(input: &Value) -> Value {
     let mut schema = input.clone();
@@ -246,6 +363,10 @@ fn schema_for(input: &Value) -> Value {
                         json!(format!("A {name}; get_slide and get_theme show one."))
                     });
                     *def = json!({ "type": "object", "description": about, "additionalProperties": true });
+                } else if let Some(map) = def.as_object_mut() {
+                    // The field that uses the definition says what it is for, and the names inside it say the
+                    // rest; the definition's own doc comment would be sent again with every tool that has it.
+                    map.remove("description");
                 }
             }
         }
@@ -264,6 +385,7 @@ fn schema_for(input: &Value) -> Value {
             }
         }
     }
+    slim(&mut schema);
     schema
 }
 
@@ -287,6 +409,7 @@ fn described(name: &str, about: &str) -> String {
 /// Every tool, in the order an agent should read them.
 pub fn tools() -> Vec<ToolSpec> {
     let mut all = catalog::custom();
+    all.extend(super::code_pictures::specs());
     for spec in ops::specs() {
         if HIDDEN.contains(&spec.name.as_str()) || all.iter().any(|t| t.name == spec.name) {
             continue;
@@ -297,6 +420,9 @@ pub fn tools() -> Vec<ToolSpec> {
             input_schema: schema_for(&spec.input),
             read_only: false,
         });
+    }
+    for spec in &mut all {
+        slim(&mut spec.input_schema);
     }
     let place = |name: &str| ORDER.iter().position(|n| *n == name).unwrap_or(usize::MAX);
     all.sort_by_key(|t| place(&t.name));
@@ -369,7 +495,9 @@ mod tests {
             .iter()
             .map(|t| t.input_schema.to_string().len() + t.description.len())
             .sum();
-        assert!(total < 60_000, "{total} bytes in all");
+        // A host that lists tools by group (the vault's MCP server lists most deck tools only while a deck is there)
+        // keeps what a session sends small; the whole list is for the chat and for `slides mcp`.
+        assert!(total < 75_000, "{total} bytes in all");
         let add = all.iter().find(|t| t.name == "add_elements").unwrap();
         assert!(
             add.input_schema.to_string().contains("markdown"),

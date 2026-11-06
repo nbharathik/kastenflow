@@ -158,6 +158,48 @@ fn a_deck_labelled_two_that_uses_nothing_new_is_written_as_one_and_a_one_that_do
 }
 
 #[test]
+fn a_value_this_build_does_not_know_is_refused_in_words_that_name_the_field_and_say_to_update() {
+    let text = write(&with(text_with(json!({ "t": "hello" })))).unwrap_or_else(|e| panic!("{e}"));
+    let mut value: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+    let last = value["slides"].as_array().map_or(0, Vec::len) - 1;
+    value["slides"][last]["elements"][0]["type"] = json!("hologram");
+    let Err(Error::Malformed { message }) = from_value(value) else {
+        panic!("an element type nobody knows is refused")
+    };
+    assert!(
+        message.contains(&format!("`slides[{last}].elements[0].type`")),
+        "{message}"
+    );
+    assert!(message.contains("`hologram`"), "{message}");
+    assert!(message.contains("it knows "), "{message}");
+    assert!(message.contains("newer version"), "{message}");
+    assert!(message.contains("update KastenFlow Slides"), "{message}");
+    assert!(!message.contains("unknown variant"), "{message}");
+}
+
+#[test]
+fn other_refusals_of_a_malformed_deck_keep_their_own_words() {
+    let text = write(&engine().into_deck()).unwrap_or_else(|e| panic!("{e}"));
+    let mut value: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+    value["slides"] = json!("not a list");
+    let Err(Error::Malformed { message }) = from_value(value) else {
+        panic!("slides must be a list")
+    };
+    assert!(!message.contains("newer version"), "{message}");
+}
+
+#[test]
+fn the_words_for_an_unknown_value_work_without_a_place_for_it() {
+    let said = newer::explain(
+        "unknown variant `zig`, expected `a` or `b`",
+        &json!({ "slides": [] }),
+    )
+    .unwrap_or_default();
+    assert!(said.starts_with("a field is `zig`"), "{said}");
+    assert!(newer::explain("missing field `id`", &json!({})).is_none());
+}
+
+#[test]
 fn a_deck_of_a_newer_version_than_this_build_reads_is_refused_and_a_broken_version_is_not_a_deck() {
     let plain = write(&engine().into_deck()).unwrap_or_else(|e| panic!("{e}"));
     for found in [3_u32, 7, 4_000_000] {

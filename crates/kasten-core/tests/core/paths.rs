@@ -134,6 +134,27 @@ fn agents_cannot_reach_templates_by_another_spelling() {
     assert_eq!(before, after);
 }
 
+#[test]
+fn agents_cannot_write_the_settings_other_programs_read_from_a_vault() {
+    // `.claude/`, `.opencode/` and `.mcp.json` can hold hooks and allow rules an agent CLI would run.
+    let (t, k, s) = agent();
+    for path in [
+        ".claude/settings.json",
+        ".opencode/command/x.md",
+        ".mcp.json",
+        "library/.claude/settings.json",
+    ] {
+        let op = AgentOp::Append {
+            path: path.into(),
+            markdown: "More".into(),
+            heading: None,
+        };
+        let err = k.agent_run(&s, &op, NOW).unwrap_err().to_string();
+        assert!(err.contains("read-only for agents"), "{path}: {err}");
+        assert!(!t.vault.root().join(path).exists(), "{path}");
+    }
+}
+
 #[cfg(windows)]
 #[test]
 fn windows_names_that_alias_another_are_refused() {

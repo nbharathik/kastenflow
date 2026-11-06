@@ -32,6 +32,7 @@ const NOT_PROSE: &[&str] = &[
     "step-label",
     "embed",
     "video",
+    "audio",
     "token-probs",
 ];
 

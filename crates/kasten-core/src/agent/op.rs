@@ -90,6 +90,9 @@ pub enum AgentOp {
         markdown: String,
         #[serde(default)]
         heading: Option<String>,
+        /// A project's folder name or title: its own journal, not the vault's.
+        #[serde(default)]
+        project: Option<String>,
     },
     Trash {
         path: String,
@@ -479,6 +482,9 @@ pub enum AgentOp {
     /// A journal day, made from the template if it is not there yet.
     JournalDay {
         date: String,
+        /// A project's folder name or title: its own journal, not the vault's.
+        #[serde(default)]
+        project: Option<String>,
     },
     /// A to-do ticked or unticked: `line` is its line in the body from 0, as
     /// `list_tasks` tells it, and `base` the hash of the note it read it in.

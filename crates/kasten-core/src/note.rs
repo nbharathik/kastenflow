@@ -72,6 +72,8 @@ fn kind_from_path(path: &str) -> &'static str {
     let parts: Vec<&str> = path.split('/').collect();
     match parts.as_slice() {
         ["journal", ..] => "journal",
+        // A project's journal days: journal notes that belong to the project.
+        ["projects", _, "journal", ..] => "journal",
         ["templates", "ai", _, ..] => AI_ACTION,
         ["templates", ..] => "template",
         ["inbox", ..] => "card",
@@ -202,6 +204,21 @@ mod tests {
             "journal"
         );
         assert_eq!(meta_for("chats/2026-09-24-plans.md", "", 0).kind, "chat");
+    }
+
+    #[test]
+    fn a_project_journal_day_is_a_journal_note_of_its_project() {
+        let day = meta_for("projects/trip/journal/2026/2026-11-03.md", "", 0);
+        assert_eq!(day.kind, "journal");
+        assert_eq!(day.project.as_deref(), Some("trip"));
+        assert_eq!(day.title, "2026-11-03");
+        // The vault's own journal belongs to no project.
+        assert_eq!(meta_for("journal/2026/2026-11-03.md", "", 0).project, None);
+        // Only the folder `journal` is one; pages named so are pages.
+        assert_eq!(
+            meta_for("projects/trip/pages/journal.md", "", 0).kind,
+            "page"
+        );
     }
 
     #[test]

@@ -7,8 +7,10 @@ import { type DragEvent, type RefObject, useCallback, useRef } from "react";
 import { hitAt, itemsOf } from "../canvas/geometry.ts";
 import { insertImageFiles } from "../commands/insert.ts";
 import type { HostImage } from "../host.ts";
+import { insertComposite } from "../insert-composite.ts";
 import type { EditorSession } from "../session/session.ts";
 import { droppedImage, hasFileDrag, hasImageDrag, pictureFiles } from "./drag.ts";
+import { droppedLink, hasLinkDrag } from "./link-drop.ts";
 import { fillSlot, insertAt } from "./place.ts";
 import "./gallery.css";
 
@@ -53,7 +55,7 @@ export function useImageDrops(session: EditorSession, page: RefObject<HTMLElemen
   const onDragOver = useCallback(
     (event: DragEvent<HTMLElement>) => {
       const image = hasImageDrag(event);
-      if (!image && !hasFileDrag(event)) return;
+      if (!image && !hasFileDrag(event) && !hasLinkDrag(event)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
       const slot = image ? slotAt(session, point(event), zoom.current || 1) : undefined;
@@ -74,9 +76,15 @@ export function useImageDrops(session: EditorSession, page: RefObject<HTMLElemen
       mark(null);
       const dragged = droppedImage(event);
       const files = pictureFiles(event.dataTransfer?.files ?? []);
-      if (!dragged && files.length === 0) return;
+      // A link let go on the slide is an embed there (a video's player for a video site).
+      const link = !dragged && files.length === 0 ? droppedLink(event) : null;
+      if (!dragged && files.length === 0 && link === null) return;
       event.preventDefault();
       const at = point(event);
+      if (link !== null) {
+        insertComposite(session, "embed", { address: link }, at);
+        return;
+      }
       if (dragged) {
         const image: HostImage = dragged;
         const slot = slotAt(session, at, zoom.current || 1);

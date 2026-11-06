@@ -7,7 +7,7 @@ import { Menu } from "../ui/Menu.tsx";
 import { type Anchor, anchorOf } from "../ui/Popover.tsx";
 import { useEditor } from "../useEditor.ts";
 import { useUiState } from "../useUi.ts";
-import { barMenus } from "./bar-menus.ts";
+import { type BarMenu, barMenus } from "./bar-menus.ts";
 import { MENU_FIRST_ROW, MENU_LIST, useFocusWhenShown } from "./focus.ts";
 import { keepsEditorFocus } from "./useDropdown.ts";
 import "./menus.css";
@@ -30,6 +30,22 @@ interface Input {
   inMenu: boolean;
 }
 
+interface OpenMenuProps {
+  session: EditorSession;
+  ui: EditorUi;
+  menu: BarMenu | undefined;
+  anchor: Anchor;
+  keyboard: boolean;
+  onClose(): void;
+}
+
+/** The menu that is open. It follows the editor and the window while it is shown (an item that is checked or greyed out stays true), and not before. */
+function OpenMenu({ session, ui, menu, anchor, keyboard, onClose }: OpenMenuProps): JSX.Element {
+  useEditor(session);
+  useUiState(ui);
+  return <Menu items={menu?.items() ?? []} anchor={anchor} onClose={onClose} keepFocus={keepsEditorFocus(ui, keyboard)} label={menu?.label} />;
+}
+
 /**
  * File, Edit, View, Insert, Format, Slide, Arrange, Tools and Help. A menu
  * opens on a click and the others open as the pointer passes over them; the
@@ -37,10 +53,9 @@ interface Input {
  * box is being edited, so formatting applies to the words selected.
  */
 export function MenuBar({ session, ui }: { session: EditorSession; ui: EditorUi }): JSX.Element {
-  useEditor(session);
-  useUiState(ui);
+  // The bar shows nine names that never change, so it follows nothing: the rows are built, and follow the editor, only while a menu is open.
   const ctx = useMemo(() => ({ session, ui }), [session, ui]);
-  const menus = barMenus(ctx);
+  const menus = useMemo(() => barMenus(ctx), [ctx]);
   const [opened, setOpened] = useState<Opened | null>(null);
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
@@ -93,7 +108,9 @@ export function MenuBar({ session, ui }: { session: EditorSession; ui: EditorUi 
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !event.code.startsWith("Key")) return;
       const id = MNEMONICS[event.code.slice(3)];
       const editor = root.current?.closest(".ks-editor");
-      if (!id || !editor?.contains(document.activeElement)) return;
+      // The focus is in the editor, or in a menu of it (drawn outside the editor, in the popover layer).
+      const active = document.activeElement;
+      if (!id || !active || !(editor?.contains(active) || active.closest(".ks-popover"))) return;
       // First of all, so that an open menu (which keeps the keys it is typed to for itself) does not take the letter for a search.
       event.preventDefault();
       event.stopPropagation();
@@ -165,7 +182,8 @@ export function MenuBar({ session, ui }: { session: EditorSession; ui: EditorUi 
       aria-label="Menus"
       onKeyDown={onKeyDown}
       onFocus={(event) => {
-        if (event.relatedTarget instanceof HTMLElement && !root.current?.contains(event.relatedTarget)) enteredFrom.current = event.relatedTarget;
+        // A menu of the bar is drawn outside it, but is not somewhere else: focus coming from it is not coming from outside.
+        if (event.relatedTarget instanceof HTMLElement && !root.current?.contains(event.relatedTarget) && !event.relatedTarget.closest(".ks-popover")) enteredFrom.current = event.relatedTarget;
       }}
     >
       {menus.map((menu, i) => (
@@ -197,7 +215,7 @@ export function MenuBar({ session, ui }: { session: EditorSession; ui: EditorUi 
       ))}
       {opened ? (
         <div className="ks-contents" data-ks-keep-focus="">
-          <Menu items={menus[opened.index]?.items() ?? []} anchor={opened.anchor} onClose={onClose} keepFocus={keepsEditorFocus(ui, opened.keyboard)} label={menus[opened.index]?.label} />
+          <OpenMenu session={session} ui={ui} menu={menus[opened.index]} anchor={opened.anchor} keyboard={opened.keyboard} onClose={onClose} />
         </div>
       ) : null}
     </div>

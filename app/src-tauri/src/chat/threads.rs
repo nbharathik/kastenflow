@@ -7,6 +7,7 @@
 mod adopt;
 mod archived;
 mod bound;
+mod cli;
 mod launch;
 mod persist;
 mod queue;
@@ -35,6 +36,7 @@ use super::{CLIENT, WriteMode};
 
 pub use adopt::{AdoptFailed, AdoptReason};
 pub use archived::NewThread;
+pub use cli::{Setup as CliSetup, send_cli};
 #[cfg(test)]
 pub use persist::Gap;
 pub use persist::Loaded;
@@ -173,6 +175,7 @@ pub fn repair(messages: &mut Vec<Message>) {
                         id: id.clone(),
                         content: "Not run: the app closed before this call ran.".to_owned(),
                         is_error: true,
+                        images: Vec::new(),
                     })
                     .collect()
             };

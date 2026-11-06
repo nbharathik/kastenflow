@@ -137,7 +137,9 @@ pub fn smart_allow_run(
 /// plugin, or the page's project); pages they are still on for keep running.
 pub fn end_disabled_frames(kasten: &kasten_core::Kasten, runtime: &Runtime) {
     runtime.retain_frames(|id| {
-        page::path_of(kasten, id).is_some_and(|path| kasten.smart_enabled_for_page(&path))
+        // A code picture's frame is no page's: smart pages being off does not end it.
+        id == super::generator::ID
+            || page::path_of(kasten, id).is_some_and(|path| kasten.smart_enabled_for_page(&path))
     });
 }
 

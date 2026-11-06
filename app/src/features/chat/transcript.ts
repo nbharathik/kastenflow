@@ -66,7 +66,11 @@ function answerMarkdown(answer: Answer, names: Names): string {
   };
   for (const part of answer.parts) {
     if (part.kind === "tool") tools.push(toolLine(part, names));
-    else if (part.kind === "steer") {
+    else if (part.kind === "approval") {
+      // A coding agent's question and what the person answered.
+      const said = { asking: "waiting for an answer", allowed: "allowed", denied: "denied", over: "no longer asked" }[part.ask.state];
+      tools.push(`- ${part.ask.question} (${said})`);
+    } else if (part.kind === "steer") {
       // Something said while it worked.
       endTools();
       out.push(`> **You, meanwhile:** ${part.text.trim().replace(/\n/g, "\n> ")}`);

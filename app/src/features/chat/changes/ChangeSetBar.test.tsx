@@ -76,7 +76,7 @@ describe("the staged changes bar", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Apply" })));
     expect(chat.applied).toEqual([id]);
     expect(screen.queryByRole("region", { name: "This chat's staged changes" })).toBeNull();
-    expect(screen.getByRole("region", { name: "This chat's changes" }).textContent).toContain("This chat changed your notes.");
+    expect(screen.getByRole("region", { name: "This chat's changes" }).textContent).toMatch(/Changed (\d+ notes?|notes)/);
   });
 
   it("asks before it discards, and a no keeps them", async () => {

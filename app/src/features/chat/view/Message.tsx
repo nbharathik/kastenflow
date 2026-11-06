@@ -11,6 +11,7 @@ import { memo, useEffect, useState } from "react";
 import { Working } from "../../../ui/BrandMark";
 import { Icon } from "../../../ui/Icon";
 
+import { ApprovalCard } from "../agents/ApprovalCard";
 import { copyToClipboard } from "../copy";
 import { EDIT_QUESTION, type EditRequest } from "../edit-request";
 import { Markdown } from "../markdown/Markdown";
@@ -176,6 +177,9 @@ function AnswerView({ answer, thread, enters }: { answer: Answer; thread: string
           <ToolRun key={`run-${item.at}`} parts={item.run} live={streaming} />
         ) : item.part.kind === "text" ? (
           <Markdown key={item.at} text={item.part.text} onOpenTitle={links.openTitle} />
+        ) : item.part.kind === "approval" ? (
+          // A coding agent's question, with Allow and Deny.
+          <ApprovalCard key={item.part.ask.id} thread={thread} ask={item.part.ask} />
         ) : (
           // Something the person sent while it worked, where it took it up.
           <p key={item.at} className="kasten-chat-steer">

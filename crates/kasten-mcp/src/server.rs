@@ -31,7 +31,7 @@ and look shapes up by name with `diagram_find_shapes`. `get_diagram`, `create_di
 
 const REST: &str = "Slide decks are built and changed with the deck tools (`create_deck`, or `deck_from_note` to start from a note): \
 run `lint_deck` after every batch of changes and fix what it reports. What you make in a deck is marked for the user until they accept it. \
-What the user does with menus is a tool too: `set_parent` and `reorder_children` for sub-pages, `duplicate_note`, `restore_note` (see `list_trash`), `set_note_meta`, `apply_template`, `journal_day`, \
+What the user does with menus is a tool too: `set_parent` and `reorder_children` for sub-pages, `duplicate_note`, `restore_note` (see `list_trash`), `set_note_meta`, `apply_template`, `journal_day` (with `project`, a project's own journal; so do `journal_append` and `get_journal`), \
 `list_tasks` with `set_task`, `add_comment` for pointing something out without changing their text, `create_collection` for saved searches, `add_reference` (always waits), `board_edit` for whiteboards, \
 `list_projects` with `create_project` and `set_project_state`, `list_setups` with `save_project_setup` (always waits), and `undo_session` to take back your own session. \
 To lay out a page by its blocks (columns, toggles, callouts, tables, tasks, embeds), read it with `read_page_blocks` and change it with `edit_page`: each step names blocks by the id and hash you were given, the hash must match, and when you are told a block \"changed since\" you read it, nothing was written, so read the page again and redo the steps. \
@@ -105,6 +105,8 @@ pub struct KastenServer {
     /// The tools every vault has; a plugin's are added while it is on.
     pub tool_router: ToolRouter<KastenServer>,
     plugins: Arc<Vec<PluginTools>>,
+    /// The deck tools a vault lists only while it has a deck.
+    slides_more: ToolRouter<KastenServer>,
 }
 
 /// The client's name, as the request gives it (protocol 2026-07-28 names
@@ -142,10 +144,12 @@ impl KastenServer {
             sessions: Sessions::Own(Arc::new(Mutex::new(None))),
             tool_router: Self::core_router(),
             plugins: Arc::new(plugin_tools()),
+            slides_more: Self::slides_more_tools(),
         }
     }
 
-    /// The tools every vault has, whatever plugins are on.
+    /// The tools every vault has, whatever plugins are on. Of the deck tools, the ones that start a deck and the guide to
+    /// making one; the rest are listed while the vault has a deck (`live_router`).
     pub fn core_router() -> ToolRouter<KastenServer> {
         Self::read_tools()
             + Self::write_tools()
@@ -153,29 +157,34 @@ impl KastenServer {
             + Self::page_tools()
             + Self::structure_tools()
             + Self::parity_tools()
-            + Self::deck_tools()
+            + Self::slides_entry_tools()
             + Self::selection_tools()
     }
 
-    /// Every tool there is, plugins' included, and the one that stands in for
-    /// the smart page tools while they are off.
+    /// Every tool there is, plugins' included, all the deck tools, and the one that stands in for
+    /// the smart page tools while they are off. The app's chat lists these.
     pub fn router() -> ToolRouter<KastenServer> {
         plugin_tools()
             .into_iter()
             .fold(Self::core_router(), |all, (_, tools)| all + tools)
             + Self::smart_request_tools()
+            + Self::slides_more_tools()
     }
 
     /// The tools a client sees now: the core ones, and each plugin's while the
     /// vault's config has it on (the engine keeps the config current with the
     /// file, which the app changes). Smart pages count as on when the vault or
     /// any project has them on; while they are off for the whole vault, the
-    /// one tool listed instead is `request_smart_pages`.
+    /// one tool listed instead is `request_smart_pages`. The deck tools that edit and look
+    /// at a deck are listed while the vault has a deck; before that, only the ones that start one.
     pub fn live_router(&self) -> ToolRouter<KastenServer> {
         let mut config = self.kasten.config();
         let smart = self.kasten.smart_enabled_anywhere();
         config.set_plugin_enabled(kasten_core::SMART_PLUGIN, smart);
-        let listed = routes_for(&self.tool_router, &self.plugins, &config);
+        let mut listed = routes_for(&self.tool_router, &self.plugins, &config);
+        if crate::slides_group::has_decks(&self.kasten) {
+            listed += self.slides_more.clone();
+        }
         if smart {
             listed
         } else {

@@ -55,9 +55,17 @@ function lineUps(marks: readonly Mark[], axis: Axis, targets: readonly Rect[], f
     [length, false, null],
   ];
   if (frame.margin && frame.margin > 0) slide.push([frame.margin, false, "margin"], [length - frame.margin, false, "margin"]);
+  // The guides a person dragged out of the rulers run the slide's whole length, like its own edges.
+  for (const at of (axis === "x" ? frame.lines?.x : frame.lines?.y) ?? []) slide.push([at, false, "guide"]);
+  const grid = frame.grid && frame.grid > 0 ? frame.grid : 0;
 
   for (const mark of marks) {
     for (const [at, centre, kind] of slide) offer(mark, at, centre, kind, null);
+    // A grid pulls without drawing a line: it is already on show, or nobody would have switched it on.
+    if (grid) {
+      const offset = Math.round(mark.at / grid) * grid - mark.at;
+      if (Math.abs(offset) <= threshold) found.push({ offset, draw: () => [] });
+    }
     for (const t of targets) {
       const start = startOf(t, axis);
       offer(mark, start, false, null, t);

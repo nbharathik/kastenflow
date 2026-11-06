@@ -1,0 +1,10 @@
+{"type":"system","subtype":"init","session_id":"3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f","cwd":"C:\\fixtures\\dev-vault","model":"claude-sonnet","permissionMode":"default","tools":["Read","Bash","mcp__kasten__read_note","mcp__kasten__append"],"mcp_servers":[{"name":"kasten","status":"connected"}]}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_1","role":"assistant","content":[]}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"I will read "}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"the note."}}}
+{"type":"assistant","message":{"id":"msg_1","role":"assistant","content":[{"type":"text","text":"I will read the note."},{"type":"tool_use","id":"toolu_01","name":"mcp__kasten__read_note","input":{"path":"inbox/hotel-ideas.md"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01","content":[{"type":"text","text":"{\"path\":\"inbox/hotel-ideas.md\",\"title\":\"Hotel ideas\",\"body\":\"Three hotels near the station.\"}"}]}]}}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"msg_2","role":"assistant","content":[]}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"It lists three hotels."}}}
+{"type":"assistant","message":{"id":"msg_2","role":"assistant","content":[{"type":"text","text":"It lists three hotels."}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":4200,"num_turns":2,"result":"It lists three hotels.","session_id":"3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f","total_cost_usd":0.012}

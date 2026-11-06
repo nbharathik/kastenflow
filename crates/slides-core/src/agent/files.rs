@@ -5,8 +5,9 @@ use serde_json::{Value, json};
 use super::images::{self, Kind};
 use super::read::slide_id;
 use super::session::Agent;
-use super::store::{Draw, Store, StoreError};
+use super::store::{Draw, Store};
 use super::{Image, ToolError, ToolOutput, ToolResult};
+use crate::model::Deck;
 use crate::outline;
 
 /// The largest picture `add_asset` takes, in bytes.
@@ -97,13 +98,47 @@ pub fn export(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolRes
                 json!({ "format": "markdown", "path": written.path, "bytes": written.bytes, "outline": shown }),
             ))
         }
-        "pdf" | "png" | "html" => Err(ToolError::new(format!(
-            "Export to {format} is not available in this build. Export `pptx` or `markdown`, or open the deck in KastenFlow Slides and use File, Download."
+        "png" => export_pictures(store, &name, &deck),
+        "pdf" | "html" => Err(ToolError::new(format!(
+            "Export to {format} is not available from this tool: KastenFlow Slides itself writes {format} files (File, Download). Export `pptx` for PowerPoint, `markdown` for the outline or `png` for a picture of each slide."
         ))),
         other => Err(ToolError::new(format!(
-            "`format` is pptx or markdown, not `{other}`."
+            "`format` is pptx, markdown or png, not `{other}`."
         ))),
     }
+}
+
+/// The most slides `export` draws one by one as pictures.
+const MOST_PICTURES: usize = 20;
+
+/// `export` as `png`: each slide drawn as `render_slide` draws it, and kept in the assets as `<deck>-01.png`, `-02` ....
+fn export_pictures(store: &mut dyn Store, name: &str, deck: &Deck) -> ToolResult {
+    let count = deck.slides.len();
+    if count > MOST_PICTURES {
+        return Err(ToolError::new(format!(
+            "A deck of {count} slides is too many to export as pictures in one call (at most {MOST_PICTURES}). render_grid shows all of them in one picture, and render_slide draws one at a time."
+        )));
+    }
+    let file = name.rsplit('/').next().unwrap_or(name);
+    let stem = file.strip_suffix(".deck").unwrap_or(file);
+    let mut files = Vec::new();
+    for slide in 0..count {
+        let drawn = store
+            .draw(
+                deck,
+                Draw::Slide {
+                    slide,
+                    step: None,
+                    scale: 1.0,
+                },
+            )
+            .map_err(super::look::drawing_error)?;
+        let path = store.add_asset(&format!("{stem}-{:02}.png", slide + 1), &drawn.png)?;
+        files.push(json!({ "slide": slide + 1, "path": path, "width": drawn.width, "height": drawn.height }));
+    }
+    Ok(ToolOutput::json(
+        json!({ "format": "png", "slides": count, "files": files }),
+    ))
 }
 
 pub fn import_pptx(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> ToolResult {
@@ -137,28 +172,28 @@ pub fn trash_deck(agent: &mut Agent, store: &mut dyn Store, args: &Value) -> Too
 /// `render_slide` and `render_grid`: a picture of a slide, or of every slide, for the agent to look at.
 pub fn render(agent: &mut Agent, store: &mut dyn Store, args: &Value, grid: bool) -> ToolResult {
     let name = agent.deck_name(store, args)?;
-    let (_, deck) = agent.read(store, &name)?;
-    let mut answer = json!({ "deck": name });
+    let (text, mut deck) = agent.read(store, &name)?;
+    let mut answer = json!({ "deck": name, "hash": text.hash });
     let what = if grid {
         Draw::Grid
     } else {
         let id = slide_id(&deck, args.get("slide").unwrap_or(&Value::Null))?;
-        let index = deck.slides.iter().position(|s| s.id == id).unwrap_or(0);
-        let step = match args.get("step").filter(|v| !v.is_null()) {
-            None => None,
-            Some(v) => Some(v.as_u64().and_then(|n| u32::try_from(n).ok()).ok_or_else(|| {
-                ToolError::new("`step` is a whole number counting from 0: the click the slide is drawn at. Leave it out for the slide as it ends.")
-            })?),
-        };
-        let scale = match args.get("scale").filter(|v| !v.is_null()) {
-            None => 1.0,
-            Some(v) => v
-                .as_f64()
-                .filter(|s| (0.25..=4.0).contains(s))
-                .ok_or_else(|| {
-                    ToolError::new("`scale` is the pixels to each unit of the slide, from 0.25 to 4; 1 is the default.")
-                })? as f32,
-        };
+        let (step, scale) = (super::look::step_of(args)?, super::look::scale_of(args)?);
+        let seed = store.entropy();
+        // Changes the call proposes are drawn on a copy; nothing is written.
+        if let Some(changed) = super::look::proposed(&deck, &id, args, seed)? {
+            deck = changed;
+            answer["proposed"] = json!(true);
+            answer["note"] =
+                json!("The slide as it would look with the proposed changes. Nothing was written.");
+        } else {
+            answer["render"] = json!(format!("{}:{id}", text.hash));
+        }
+        let index = deck.slides.iter().position(|s| s.id == id).ok_or_else(|| {
+            ToolError::new(
+                "The proposed changes take this slide away, so there is nothing to draw.",
+            )
+        })?;
         answer["slide"] = json!(id);
         answer["number"] = json!(index + 1);
         answer["step"] = json!(step);
@@ -168,20 +203,9 @@ pub fn render(agent: &mut Agent, store: &mut dyn Store, args: &Value, grid: bool
             scale,
         }
     };
-    let drawn = store.draw(&deck, what).map_err(|e| match e {
-        // Where nothing draws (no browser, or a build without the page it draws with), lint is what is left to see with.
-        StoreError::Unavailable(m)
-            if m.contains("Chrome")
-                || m.contains("not available")
-                || m.contains("does not carry the page") =>
-        {
-            ToolError::new(format!(
-                "{m} Use lint_deck to find layout problems (overlaps, text that overflows, contrast), and ask the person to look at the deck in KastenFlow Slides."
-            ))
-        }
-        StoreError::Unavailable(m) => ToolError::new(m),
-        other => other.into(),
-    })?;
+    let drawn = store
+        .draw(&deck, what)
+        .map_err(super::look::drawing_error)?;
     answer["width"] = json!(drawn.width);
     answer["height"] = json!(drawn.height);
     answer["warnings"] = json!(drawn.warnings);

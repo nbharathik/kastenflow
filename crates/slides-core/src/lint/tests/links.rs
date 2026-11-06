@@ -75,6 +75,38 @@ fn a_link_to_a_slide_that_is_not_there_is_an_error_on_an_element_or_on_words() {
 }
 
 #[test]
+fn a_video_or_sound_from_a_web_address_with_a_query_or_fragment_is_a_warning() {
+    let mut b = bench();
+    b.add(json!([
+        { "type": "video", "id": "tracked", "x": 64, "y": 100, "w": 300, "h": 90, "src": "https://example.org/clip.mp4?user=ada" },
+        { "type": "audio", "id": "marked", "x": 400, "y": 100, "w": 160, "h": 140, "src": "HTTP://example.org/tune.mp3#t=10" },
+        { "type": "video", "id": "plain", "x": 64, "y": 220, "w": 300, "h": 90, "src": "https://example.org/clip.mp4" },
+        { "type": "video", "id": "local", "x": 400, "y": 260, "w": 300, "h": 90, "src": "assets/clip.mp4?x=1" },
+        { "type": "audio", "id": "stored", "x": 64, "y": 340, "w": 160, "h": 140, "src": "assets/theme.mp3" },
+    ]));
+    let report = b.report();
+    let issues = of_rule(&report, "media-url");
+    let who: Vec<Option<&str>> = issues.iter().map(|i| i.element.as_deref()).collect();
+    assert_eq!(who, [Some("tracked"), Some("marked")]);
+    for issue in &issues {
+        assert_eq!(issue.severity, crate::lint::Severity::Warning);
+        assert!(
+            issue.message.contains("can carry data out"),
+            "{}",
+            issue.message
+        );
+        assert!(
+            issue
+                .hint
+                .as_deref()
+                .is_some_and(|h| h.contains("plain file link")),
+            "{:?}",
+            issue.hint
+        );
+    }
+}
+
+#[test]
 fn a_link_to_a_slide_that_was_deleted_is_found() {
     let mut b = bench();
     let (gone, _) = b.add_slide("title-only", json!({ "title": "Doomed" }));

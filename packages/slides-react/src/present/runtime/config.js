@@ -35,6 +35,7 @@ export function revealConfig(size, extra) {
     keyboard: true,
     fragments: true,
     navigationMode: "default",
+    // A deck's own choices (`present.loop`, `present.autoAdvance`) come in through `extra`; a plain show stops at its last slide.
     loop: false,
     rtl: false,
     mouseWheel: false,
@@ -45,7 +46,7 @@ export function revealConfig(size, extra) {
     preventIframeAutoFocus: true,
     focusBodyOnPageVisibilityChange: false,
     hideInactiveCursor: true,
-    hideCursorTime: 3000,
+    hideCursorTime: 2000,
     transition: "none",
     transitionSpeed: "default",
     backgroundTransition: "none",

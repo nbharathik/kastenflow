@@ -1,0 +1,103 @@
+/* Deck → History and the offer to recover unsaved edits. Editor tokens only, for light and dark. */
+.ks-hs-note,
+.ks-hs-summary {
+  margin: 0 0 8px;
+  color: var(--ks-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ks-hs-summary {
+  color: var(--ks-ink);
+  font-weight: 600;
+}
+.ks-hs-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ks-hs-field,
+.ks-hs-check {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-hs-pick select {
+  min-width: 0;
+  max-width: 100%;
+}
+.ks-hs-check {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+}
+.ks-hs-heads,
+.ks-hs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ks-hs-heads {
+  padding: 0 4px 4px;
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-hs-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.ks-hs-row {
+  position: relative;
+  padding: 8px 4px;
+  border-top: 1px solid var(--ks-line);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+.ks-hs-row.is-changed,
+.ks-hs-row.is-added,
+.ks-hs-row.is-removed {
+  background: var(--ks-selected);
+}
+.ks-hs-mark {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ks-canvas);
+  color: var(--ks-ink);
+  font-size: 11px;
+  box-shadow: var(--ks-shadow-pop);
+}
+.ks-hs-row.is-same .ks-hs-mark {
+  color: var(--ks-muted);
+  box-shadow: none;
+}
+.ks-hs-missing {
+  display: grid;
+  place-items: center;
+  width: 168px;
+  height: 94px;
+  border: 1px dashed var(--ks-line-strong);
+  color: var(--ks-muted);
+  font-size: 12px;
+}
+.ks-rc-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.ks-rc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ks-muted);
+  font-size: 11px;
+}

@@ -4,9 +4,11 @@ import type { Accepted } from "./Accepted";
 import type { AcknowledgeSource } from "./AcknowledgeSource";
 import type { Acknowledged } from "./Acknowledged";
 import type { AddCitation } from "./AddCitation";
+import type { AddDeckComment } from "./AddDeckComment";
 import type { AddDiagram } from "./AddDiagram";
 import type { AddElements } from "./AddElements";
 import type { AddLayout } from "./AddLayout";
+import type { AddMermaid } from "./AddMermaid";
 import type { AddPageContents } from "./AddPageContents";
 import type { AddPageSlides } from "./AddPageSlides";
 import type { AddSection } from "./AddSection";
@@ -14,11 +16,14 @@ import type { AddSlide } from "./AddSlide";
 import type { AddSlides } from "./AddSlides";
 import type { AddStoryboardSlides } from "./AddStoryboardSlides";
 import type { AddedCitation } from "./AddedCitation";
+import type { AddedComment } from "./AddedComment";
 import type { AddedDiagram } from "./AddedDiagram";
 import type { AddedElements } from "./AddedElements";
 import type { AddedLayout } from "./AddedLayout";
+import type { AddedMermaid } from "./AddedMermaid";
 import type { AddedPageContents } from "./AddedPageContents";
 import type { AddedPageSlides } from "./AddedPageSlides";
+import type { AddedReply } from "./AddedReply";
 import type { AddedSlide } from "./AddedSlide";
 import type { AddedSlides } from "./AddedSlides";
 import type { AddedStoryboard } from "./AddedStoryboard";
@@ -37,6 +42,7 @@ import type { DeleteRows } from "./DeleteRows";
 import type { DeleteSlides } from "./DeleteSlides";
 import type { DesignedLayout } from "./DesignedLayout";
 import type { DistributeElements } from "./DistributeElements";
+import type { DistributeTable } from "./DistributeTable";
 import type { DuplicateElements } from "./DuplicateElements";
 import type { DuplicateSlides } from "./DuplicateSlides";
 import type { DuplicatedElements } from "./DuplicatedElements";
@@ -63,14 +69,23 @@ import type { RenameSection } from "./RenameSection";
 import type { ReorderElements } from "./ReorderElements";
 import type { ReplaceAll } from "./ReplaceAll";
 import type { ReplaceDeck } from "./ReplaceDeck";
+import type { ReplacePicture } from "./ReplacePicture";
 import type { Replaced } from "./Replaced";
+import type { ReplyDeckComment } from "./ReplyDeckComment";
 import type { ResetDone } from "./ResetDone";
 import type { ResetSlides } from "./ResetSlides";
+import type { ResizeColumn } from "./ResizeColumn";
+import type { ResolveDeckComment } from "./ResolveDeckComment";
 import type { SaveLayout } from "./SaveLayout";
 import type { SavedLayout } from "./SavedLayout";
 import type { SetBackground } from "./SetBackground";
+import type { SetCellBorders } from "./SetCellBorders";
 import type { SetCellFill } from "./SetCellFill";
 import type { SetCells } from "./SetCells";
+import type { SetDeckFonts } from "./SetDeckFonts";
+import type { SetDictionary } from "./SetDictionary";
+import type { SetGuides } from "./SetGuides";
+import type { SetHeaderFooter } from "./SetHeaderFooter";
 import type { SetLayout } from "./SetLayout";
 import type { SetLayoutDesign } from "./SetLayoutDesign";
 import type { SetLayoutOutput } from "./SetLayoutOutput";
@@ -79,9 +94,12 @@ import type { SetNotes } from "./SetNotes";
 import type { SetPageSize } from "./SetPageSize";
 import type { SetPresent } from "./SetPresent";
 import type { SetRichText } from "./SetRichText";
+import type { SetSlideAccess } from "./SetSlideAccess";
 import type { SetSlideFlags } from "./SetSlideFlags";
 import type { SetSlideSteps } from "./SetSlideSteps";
+import type { SetStepFx } from "./SetStepFx";
 import type { SetStepStates } from "./SetStepStates";
+import type { SetTableStyle } from "./SetTableStyle";
 import type { SetText } from "./SetText";
 import type { SetTitle } from "./SetTitle";
 import type { SetTransition } from "./SetTransition";
@@ -90,6 +108,7 @@ import type { TransformElements } from "./TransformElements";
 import type { UngroupElement } from "./UngroupElement";
 import type { Ungrouped } from "./Ungrouped";
 import type { UnmergeCells } from "./UnmergeCells";
+import type { UpdateMermaid } from "./UpdateMermaid";
 import type { UpdatePageContents } from "./UpdatePageContents";
 import type { UpdatedPageContents } from "./UpdatedPageContents";
 
@@ -114,6 +133,7 @@ export interface OpMap {
   set_transition: { input: SetTransition; output: null };
   set_slide_steps: { input: SetSlideSteps; output: null };
   set_step_states: { input: SetStepStates; output: null };
+  set_step_fx: { input: SetStepFx; output: null };
   build_steps: { input: BuildSteps; output: BuiltSteps };
   collapse_slides: { input: CollapseSlides; output: Collapsed };
   set_layout: { input: SetLayout; output: SetLayoutOutput };
@@ -130,6 +150,8 @@ export interface OpMap {
   set_background: { input: SetBackground; output: null };
   add_elements: { input: AddElements; output: AddedElements };
   add_diagram: { input: AddDiagram; output: AddedDiagram };
+  add_mermaid: { input: AddMermaid; output: AddedMermaid };
+  update_mermaid: { input: UpdateMermaid; output: AddedMermaid };
   add_citation: { input: AddCitation; output: AddedCitation };
   add_page_contents: { input: AddPageContents; output: AddedPageContents };
   update_page_contents: { input: UpdatePageContents; output: UpdatedPageContents };
@@ -159,8 +181,21 @@ export interface OpMap {
   merge_cells: { input: MergeCells; output: null };
   unmerge_cells: { input: UnmergeCells; output: null };
   set_cell_fill: { input: SetCellFill; output: null };
+  set_table_style: { input: SetTableStyle; output: null };
+  set_cell_borders: { input: SetCellBorders; output: null };
+  distribute_table: { input: DistributeTable; output: null };
+  resize_table_column: { input: ResizeColumn; output: null };
+  set_header_footer: { input: SetHeaderFooter; output: null };
+  set_guides: { input: SetGuides; output: null };
+  set_dictionary: { input: SetDictionary; output: null };
+  set_deck_fonts: { input: SetDeckFonts; output: null };
+  replace_picture: { input: ReplacePicture; output: null };
   replace_all: { input: ReplaceAll; output: Replaced };
   accept_marks: { input: AcceptMarks; output: Accepted };
+  add_deck_comment: { input: AddDeckComment; output: AddedComment };
+  reply_deck_comment: { input: ReplyDeckComment; output: AddedReply };
+  resolve_deck_comment: { input: ResolveDeckComment; output: null };
+  set_slide_access: { input: SetSlideAccess; output: null };
 }
 
 export type OpName = keyof OpMap;
@@ -185,6 +220,7 @@ export const OP_NAMES = [
   "set_transition",
   "set_slide_steps",
   "set_step_states",
+  "set_step_fx",
   "build_steps",
   "collapse_slides",
   "set_layout",
@@ -201,6 +237,8 @@ export const OP_NAMES = [
   "set_background",
   "add_elements",
   "add_diagram",
+  "add_mermaid",
+  "update_mermaid",
   "add_citation",
   "add_page_contents",
   "update_page_contents",
@@ -230,6 +268,19 @@ export const OP_NAMES = [
   "merge_cells",
   "unmerge_cells",
   "set_cell_fill",
+  "set_table_style",
+  "set_cell_borders",
+  "distribute_table",
+  "resize_table_column",
+  "set_header_footer",
+  "set_guides",
+  "set_dictionary",
+  "set_deck_fonts",
+  "replace_picture",
   "replace_all",
   "accept_marks",
+  "add_deck_comment",
+  "reply_deck_comment",
+  "resolve_deck_comment",
+  "set_slide_access",
 ] as const;

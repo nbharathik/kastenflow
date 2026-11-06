@@ -147,11 +147,14 @@ impl<'a> KastenStore<'a> {
             None => self.kasten.deck(path),
         }
         .map_err(failed)?;
-        Ok(DeckText {
+        let text = DeckText {
             name: file.path,
             text: file.text,
             hash: file.hash,
-        })
+        };
+        // render_diff can draw the slide as it was in any version read here.
+        super::versions::keep(&text);
+        Ok(text)
     }
 
     /// Runs an op in the session: at once through the guardrails, or staged

@@ -96,6 +96,7 @@ fn only_what_is_given_changes_and_the_other_settings_stay() {
     deck.present.transition = Some(Transition {
         kind: TransitionKind::Fade,
         duration: Some(0.4),
+        direction: None,
         easing: None,
         extra: crate::model::Extra::new(),
     });
@@ -219,6 +220,151 @@ fn the_operation_is_listed_with_a_description_an_agent_can_read() {
         .unwrap();
     assert!(spec.about.contains("slide number"), "{}", spec.about);
     assert!(spec.input.to_string().contains("slideNumbers"));
+}
+
+#[test]
+fn a_deck_without_the_new_settings_is_saved_exactly_as_it_was() {
+    let e = engine();
+    let text = bytes(e.deck());
+    for word in ["\"loop\"", "autoAdvance", "\"shows\""] {
+        assert!(!text.contains(word), "{word} must not appear: {text}");
+    }
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/decks/minimal.deck");
+    let old = std::fs::read_to_string(path).unwrap();
+    let reopened = Engine::new(canonical::parse(&old).unwrap(), 5);
+    assert!(!reopened.deck().present.looped);
+    assert!(reopened.deck().present.shows.is_empty());
+    assert_eq!(bytes(reopened.deck()), old);
+}
+
+#[test]
+fn loop_and_auto_advance_are_set_taken_away_and_undone_each_as_one_step() {
+    let mut e = engine();
+    let plain = bytes(e.deck());
+    e.apply("set_present", json!({ "loop": true, "autoAdvance": 8 }))
+        .unwrap();
+    assert!(e.deck().present.looped);
+    assert_eq!(e.deck().present.auto_advance, Some(8.0));
+    let text = bytes(e.deck());
+    assert!(text.contains("\"loop\": true") && text.contains("\"autoAdvance\": 8"));
+    assert!(!numbers(&e), "the numbers were not mentioned");
+    assert_eq!(canonical::parse(&text).unwrap().present, e.deck().present);
+
+    // Zero takes the interval away; the loop stays until it is turned off.
+    e.apply("set_present", json!({ "autoAdvance": 0 })).unwrap();
+    assert_eq!(e.deck().present.auto_advance, None);
+    assert!(e.deck().present.looped);
+    e.apply("set_present", json!({ "loop": false })).unwrap();
+    assert_eq!(bytes(e.deck()), plain);
+
+    e.undo().unwrap();
+    e.undo().unwrap();
+    assert_eq!(bytes(e.deck()), text, "undo puts back the exact bytes");
+    e.undo().unwrap();
+    assert_eq!(bytes(e.deck()), plain);
+}
+
+#[test]
+fn an_interval_out_of_range_is_refused_and_changes_nothing() {
+    let mut e = engine();
+    let before = bytes(e.deck());
+    for seconds in [json!(-1), json!(3601)] {
+        assert!(matches!(
+            e.apply(
+                "set_present",
+                json!({ "loop": true, "autoAdvance": seconds })
+            ),
+            Err(Error::Invalid { .. })
+        ));
+    }
+    assert_eq!(bytes(e.deck()), before);
+    assert!(!e.can_undo());
+}
+
+fn show<S: serde::Serialize>(id: &str, name: &str, slides: &[S]) -> serde_json::Value {
+    json!({ "id": id, "name": name, "slides": slides })
+}
+
+#[test]
+fn custom_shows_are_kept_in_order_replaced_and_undone() {
+    let mut e = engine();
+    let a = add(&mut e, "title-only", json!({}));
+    let b = add(&mut e, "title-only", json!({}));
+    let c = add(&mut e, "title-only", json!({}));
+    let plain = bytes(e.deck());
+    e.apply(
+        "set_present",
+        json!({ "shows": [show("s1", "Short", &[&c, &a]), show("s2", "Other", &[&b])] }),
+    )
+    .unwrap();
+    let shows = &e.deck().present.shows;
+    assert_eq!(shows.len(), 2);
+    assert_eq!(shows[0].name, "Short");
+    assert_eq!(shows[0].slides, vec![c.clone(), a.clone()]);
+    let text = bytes(e.deck());
+    assert_eq!(canonical::parse(&text).unwrap().present.shows, *shows);
+
+    e.apply(
+        "set_present",
+        json!({ "shows": [show("s2", "Other", &[&b])] }),
+    )
+    .unwrap();
+    assert_eq!(e.deck().present.shows.len(), 1);
+    e.apply("set_present", json!({ "shows": [] })).unwrap();
+    assert_eq!(bytes(e.deck()), plain, "no shows, no field in the file");
+
+    e.undo().unwrap();
+    e.undo().unwrap();
+    assert_eq!(bytes(e.deck()), text);
+    e.undo().unwrap();
+    assert_eq!(bytes(e.deck()), plain);
+}
+
+#[test]
+fn a_custom_show_that_cannot_be_played_is_refused_and_changes_nothing() {
+    let mut e = engine();
+    let a = add(&mut e, "title-only", json!({}));
+    let before = bytes(e.deck());
+    let many: Vec<_> = (0..33)
+        .map(|i| show(&format!("s{i}"), "n", &[&a]))
+        .collect();
+    for shows in [
+        json!([show("s1", "Unknown slide", &["nope"])]),
+        json!([show("s1", "Empty", &[] as &[&str])]),
+        json!([show("s1", "  ", &[&a])]),
+        json!([show("", "No id", &[&a])]),
+        json!([show("s1", "Twice", &[&a, &a])]),
+        json!([show("s1", "A", &[&a]), show("s1", "B", &[&a])]),
+        json!(many),
+    ] {
+        assert!(
+            matches!(
+                e.apply("set_present", json!({ "loop": true, "shows": shows })),
+                Err(Error::Invalid { .. })
+            ),
+            "{shows}"
+        );
+    }
+    assert_eq!(bytes(e.deck()), before, "the loop was not turned on either");
+    assert_ne!(
+        e.undo_label(),
+        Some("set_present"),
+        "a refused change leaves no step"
+    );
+}
+
+#[test]
+fn unknown_fields_of_a_custom_show_are_kept() {
+    let mut e = engine();
+    let a = add(&mut e, "title-only", json!({}));
+    let mut deck = e.deck().clone();
+    let mut kept = show("s1", "Kept", &[&a]);
+    kept["future"] = json!({ "x": 1 });
+    deck.present.shows = vec![serde_json::from_value(kept).unwrap()];
+    let text = bytes(&deck);
+    assert!(text.contains("\"future\""));
+    assert_eq!(bytes(&canonical::parse(&text).unwrap()), text);
 }
 
 #[test]

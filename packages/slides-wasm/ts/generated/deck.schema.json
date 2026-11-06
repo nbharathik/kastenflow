@@ -683,6 +683,19 @@
           "required": [
             "type"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "audio"
+            }
+          },
+          "$ref": "#/$defs/AudioEl",
+          "required": [
+            "type"
+          ]
         }
       ]
     },
@@ -752,6 +765,35 @@
           "anyOf": [
             {
               "$ref": "#/$defs/Arrow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "adjust": {
+          "description": "A picture's brightness, contrast, saturation, greyscale and blur.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Adjust"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maskShape": {
+          "description": "A picture shows through this preset shape (`star5`, `heart`, ...) instead of its `mask`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gradient": {
+          "description": "Colours that blend, painted in place of the fill's colour. The fill stays beside it as what a program that knows no gradients draws.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Gradient"
             },
             {
               "type": "null"
@@ -873,6 +915,117 @@
         "diamond"
       ]
     },
+    "Adjust": {
+      "description": "Brightness, contrast, saturation, greyscale and blur of a picture.",
+      "type": "object",
+      "properties": {
+        "brightness": {
+          "description": "-1 (black) to 1 (white); 0 leaves it.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "contrast": {
+          "description": "-1 (flat grey) to 1 (as harsh as can be); 0 leaves it.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "saturation": {
+          "description": "-1 (no colour) to 1 (twice the colour); 0 leaves it.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "greyscale": {
+          "description": "Drawn in shades of grey.",
+          "type": "boolean"
+        },
+        "blur": {
+          "description": "Slide units of blur; 0 or absent for sharp.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      }
+    },
+    "Gradient": {
+      "description": "Colours that blend. It paints a shape in place of its fill's colour, which stays as what a program that\nknows no gradients draws (the nearest solid colour).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GradientKind"
+        },
+        "angle": {
+          "description": "Degrees clockwise from left to right, as PowerPoint counts: 0 runs across, 90 runs down. A linear gradient only; 90 when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "stops": {
+          "description": "Two to eight, by position.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GradientStop"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "stops"
+      ]
+    },
+    "GradientKind": {
+      "oneOf": [
+        {
+          "description": "Along a line at `angle`.",
+          "type": "string",
+          "const": "linear"
+        },
+        {
+          "description": "From the middle of the shape out to its corners.",
+          "type": "string",
+          "const": "radial"
+        }
+      ]
+    },
+    "GradientStop": {
+      "description": "One colour of a gradient and where it is.",
+      "type": "object",
+      "properties": {
+        "pos": {
+          "description": "From 0 (the start) to 1 (the end).",
+          "type": "number",
+          "format": "double"
+        },
+        "color": {
+          "description": "A theme token or `#rrggbb`.",
+          "type": "string"
+        },
+        "alpha": {
+          "description": "0 (clear) to 1 (solid); solid when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      },
+      "required": [
+        "pos",
+        "color"
+      ]
+    },
     "StepState": {
       "description": "How an element looks from a step onward, until the next change.",
       "oneOf": [
@@ -896,6 +1049,159 @@
           "type": "string",
           "const": "highlighted"
         }
+      ]
+    },
+    "StepFx": {
+      "description": "How one element's change at a step is drawn.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/FxKind"
+        },
+        "direction": {
+          "description": "The side a fly, wipe or float comes from; below (`down`) when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MotionDirection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration": {
+          "description": "Seconds; 0.4 when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "delay": {
+          "description": "Seconds to wait after the effect's start; 0 when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "start": {
+          "description": "With the effect before it (the first of a click starts the click), or after it; with when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxStart"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "description": "The colour of a `colour` effect: a theme token or `#rrggbb`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dx": {
+          "description": "Where a `path` begins, across, in slide units from the element's own place.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "dy": {
+          "description": "Where a `path` begins, down, in slide units from the element's own place.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "FxKind": {
+      "description": "What an element does at a step. Whether it comes in or goes out follows from its state: an effect on a step where the\nelement appears is an entrance, where it disappears an exit; the last three draw the eye to an element that stays.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fade",
+            "zoom"
+          ]
+        },
+        {
+          "description": "Just there (or just gone), with no motion.",
+          "type": "string",
+          "const": "appear"
+        },
+        {
+          "description": "A fade that rises a little.",
+          "type": "string",
+          "const": "fadeUp"
+        },
+        {
+          "description": "A fade that grows a little.",
+          "type": "string",
+          "const": "grow"
+        },
+        {
+          "description": "Flies in from (or out to) a side of the slide.",
+          "type": "string",
+          "const": "fly"
+        },
+        {
+          "description": "Revealed (or covered) from a side, as if wiped.",
+          "type": "string",
+          "const": "wipe"
+        },
+        {
+          "description": "Drifts in with a fade, slower than a fly.",
+          "type": "string",
+          "const": "float"
+        },
+        {
+          "description": "Grows from a little smaller, without a bounce.",
+          "type": "string",
+          "const": "pop"
+        },
+        {
+          "description": "Swells and settles back.",
+          "type": "string",
+          "const": "pulse"
+        },
+        {
+          "description": "A wash of `color` that fades.",
+          "type": "string",
+          "const": "colour"
+        },
+        {
+          "description": "Comes in along a straight line from `dx`, `dy` away to its own place.",
+          "type": "string",
+          "const": "path"
+        }
+      ]
+    },
+    "MotionDirection": {
+      "description": "The side something comes from, or is swept toward.",
+      "type": "string",
+      "enum": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ]
+    },
+    "FxStart": {
+      "description": "Whether an effect begins with the one before it in the same click, or when that one ends.",
+      "type": "string",
+      "enum": [
+        "with",
+        "after"
       ]
     },
     "PageSource": {
@@ -957,6 +1263,13 @@
         },
         "made": {
           "description": "How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diagram": {
+          "description": "The diagram (a draw.io file of the host, by its path) a picture was drawn from. `page` names the same file, and `hash`\nis the diagram's fingerprint when the picture was drawn, so the host can offer \"Update from diagram\" when it has changed.",
           "type": [
             "string",
             "null"
@@ -1478,6 +1791,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -1522,6 +1845,24 @@
         },
         "text": {
           "$ref": "#/$defs/Text"
+        },
+        "columns": {
+          "description": "How many columns the words run in, 2 or 3; one column when absent.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "columnGap": {
+          "description": "Space between columns, in slide units; the renderer's default when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
         }
       },
       "required": [
@@ -1604,6 +1945,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -1752,6 +2103,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -1910,6 +2271,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -2108,6 +2479,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -2258,6 +2639,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -2363,10 +2754,92 @@
           ],
           "format": "uint32",
           "minimum": 0
+        },
+        "borders": {
+          "description": "The lines around the cell, over the table's style.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CellBorders"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "text"
+      ]
+    },
+    "CellBorders": {
+      "description": "The lines around one cell. A side left out follows the table's style; a line of width 0 is no line.",
+      "type": "object",
+      "properties": {
+        "top": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stroke"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stroke"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stroke"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "left": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stroke"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "TableStyle": {
+      "description": "The style of a table as a whole.",
+      "type": "object",
+      "properties": {
+        "preset": {
+          "description": "One of `table_style_ids()`; a name that is not known is drawn as the first.",
+          "type": "string"
+        },
+        "bandedRows": {
+          "description": "Every other row, after the header, is shaded.",
+          "type": "boolean"
+        },
+        "firstColumn": {
+          "description": "The first column is set apart.",
+          "type": "boolean"
+        },
+        "lastRow": {
+          "description": "The last row is set apart, as a total row is.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "preset"
       ]
     },
     "TableEl": {
@@ -2448,6 +2921,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -2506,6 +2989,17 @@
         },
         "headerRow": {
           "type": "boolean"
+        },
+        "tableStyle": {
+          "description": "A look for the whole table, made from the theme's colours; the table's `style` is its box's.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2589,6 +3083,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -2739,6 +3243,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -2911,6 +3425,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -3088,6 +3612,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -3235,6 +3769,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -3404,6 +3948,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -3569,6 +4123,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -3712,6 +4276,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -3883,6 +4457,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -3976,11 +4560,53 @@
         "reader": {
           "description": "Show the readable text of the page instead of the page itself, where the host can make it.",
           "type": "boolean"
+        },
+        "provider": {
+          "description": "The site the address is of (`youtube`, `vimeo`, `loom`, `google-slides`, `google-docs`, `google-sheets`, `figma`, `web`), when whoever made the embed knew. Only a hint: the frame is built from the address.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start": {
+          "description": "Seconds into a video where it starts.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "end": {
+          "description": "Seconds into a video where it stops.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "autoplay": {
+          "description": "A video starts by itself when the slide shows.",
+          "type": "boolean"
+        },
+        "muted": {
+          "description": "A video plays without sound.",
+          "type": "boolean"
+        },
+        "looped": {
+          "description": "A video starts again when it ends.",
+          "type": "boolean"
+        },
+        "controls": {
+          "description": "Whether the player's own controls show; they do when absent.",
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
     "VideoEl": {
-      "description": "A video file the host holds, with a still to show until it plays.",
+      "description": "A video file the host holds, or one on the web, with a still to show until it plays.",
       "type": "object",
       "properties": {
         "id": {
@@ -4055,6 +4681,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -4101,7 +4737,7 @@
           ]
         },
         "src": {
-          "description": "A file in the host's store.",
+          "description": "A file in the host's store, or a web address (`http` or `https`) of a video file.",
           "type": "string"
         },
         "poster": {
@@ -4115,6 +4751,37 @@
         },
         "looped": {
           "type": "boolean"
+        },
+        "start": {
+          "description": "Seconds into the video where it starts.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "end": {
+          "description": "Seconds into the video where it stops.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "captions": {
+          "description": "A WebVTT file in the host's store with the video's captions.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "volume": {
+          "description": "0 (silent) to 1 (as recorded); 1 when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
         }
       },
       "required": [
@@ -4124,7 +4791,7 @@
     "ChartKind": {
       "oneOf": [
         {
-          "description": "Vertical bars, grouped by category.",
+          "description": "Vertical bars (columns), grouped by category.",
           "type": "string",
           "const": "bar"
         },
@@ -4160,6 +4827,25 @@
             "string",
             "null"
           ]
+        },
+        "mark": {
+          "description": "For a combo chart: `bar` or `line`, how this series is drawn.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartMark"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "x": {
+          "description": "For a scatter chart: where each point is along the horizontal axis (`values` is how high it is).",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          }
         }
       },
       "required": [
@@ -4167,8 +4853,178 @@
         "values"
       ]
     },
+    "ChartMark": {
+      "description": "How marks are drawn, named as Vega-Lite names them.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "line"
+          ]
+        },
+        {
+          "description": "Vertical bars.",
+          "type": "string",
+          "const": "bar"
+        },
+        {
+          "description": "A line with the area under it filled.",
+          "type": "string",
+          "const": "area"
+        },
+        {
+          "description": "Slices of a circle; with `innerRadius` a doughnut.",
+          "type": "string",
+          "const": "arc"
+        },
+        {
+          "description": "Points on two number axes (a scatter chart).",
+          "type": "string",
+          "const": "point"
+        }
+      ]
+    },
+    "ChartSpec": {
+      "description": "What a chart says beyond its numbers, in the shape of a Vega-Lite spec.",
+      "type": "object",
+      "properties": {
+        "mark": {
+          "description": "How the marks are drawn when `kind` is not enough (area, point, arc ...).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartMark"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "innerRadius": {
+          "description": "For an arc: the share of the radius left empty in the middle, 0 to 0.9 (a doughnut).",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartEncoding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ChartEncoding": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartAxis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "y": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartAxis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartColor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ChartAxis": {
+      "description": "An axis: its title, and how the numbers on it (and on the marks) are written.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "Words set under the horizontal axis, or at the top of the vertical one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "description": "A number pattern such as `#,##0`, `0.0`, `$#,##0.00` or `0%`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stack": {
+          "description": "On the vertical axis: stack the series instead of putting them side by side.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "ChartColor": {
+      "description": "What colours the marks: the series, so this is where their legend is set.",
+      "type": "object",
+      "properties": {
+        "legend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartLegend"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ChartLegend": {
+      "type": "object",
+      "properties": {
+        "orient": {
+          "description": "Under the chart (`bottom`) when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LegendOrient"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "LegendOrient": {
+      "description": "Where the legend goes.",
+      "type": "string",
+      "enum": [
+        "top",
+        "bottom",
+        "left",
+        "right"
+      ]
+    },
     "ChartEl": {
-      "description": "A bar, line or pie chart of a small table of numbers, drawn from shapes, lines and text.",
+      "description": "A chart of a small table of numbers (columns, stacked columns, lines, areas, pies, doughnuts,\nscatter, or columns with lines), drawn from shapes, lines and text.",
       "type": "object",
       "properties": {
         "id": {
@@ -4243,6 +5099,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -4321,6 +5187,17 @@
           "type": [
             "boolean",
             "null"
+          ]
+        },
+        "spec": {
+          "description": "The rest of what the chart says: its kind of marks, axis titles, number format, legend place.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartSpec"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
@@ -4405,6 +5282,16 @@
           "patternProperties": {
             "^\\d+$": {
               "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
             }
           }
         },
@@ -4551,6 +5438,16 @@
             }
           }
         },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
         "name": {
           "description": "The layer's name in the Steps panel and the selection list.",
           "type": [
@@ -4607,6 +5504,198 @@
       },
       "required": [
         "data"
+      ]
+    },
+    "AudioEl": {
+      "description": "An audio file the host holds. In a show it plays by itself or on a click and can go on\nover several slides; everywhere else it is drawn as a small speaker chip.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique on its slide. Two slides may share an id on purpose: that is how Morph pairs elements. Left out when adding an element, it is assigned.",
+          "type": "string",
+          "default": ""
+        },
+        "x": {
+          "description": "Left edge in slide units. Absent when a placeholder supplies the box.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "w": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "h": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "rotation": {
+          "description": "Degrees clockwise, around the centre.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "flipH": {
+          "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean"
+        },
+        "placeholder": {
+          "description": "The layout slot this element fills: `title`, `body`, `image`, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Style"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepStates": {
+          "description": "The state from each step onward.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepState"
+            }
+          }
+        },
+        "stepFx": {
+          "description": "How the change at a step is drawn, by step number: the deck's effect for a step that names none.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^\\d+$": {
+              "$ref": "#/$defs/StepFx"
+            }
+          }
+        },
+        "name": {
+          "description": "The layer's name in the Steps panel and the selection list.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alt": {
+          "description": "What a person who cannot see the element is told.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "link": {
+          "description": "A web address, `slide:<id>`, or `page:<path>` (then `#` and a heading) for a page of the host.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "morphId": {
+          "description": "Pairs this element with one of another id in a Morph.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "The page of the host this element was made from, or points at: what \"Update from page\" reads again.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "src": {
+          "description": "A file in the host's store (`assets/...`) or a web address (`http` or `https`) of an audio file.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Words set under the chip, such as the title of the piece; the file's name when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "autoplay": {
+          "description": "Starts when the slide shows; otherwise a click on the chip starts it.",
+          "type": "boolean"
+        },
+        "looped": {
+          "description": "Starts again after its end.",
+          "type": "boolean"
+        },
+        "across": {
+          "description": "How many slides, this one included, it keeps playing over. One when absent.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "hidden": {
+          "description": "The chip is not drawn in the show (it still is in the editor).",
+          "type": "boolean"
+        },
+        "volume": {
+          "description": "0 (silent) to 1 (as recorded); 1 when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "start": {
+          "description": "Seconds into the file where it starts.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "end": {
+          "description": "Seconds into the file where it stops.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      },
+      "required": [
+        "src"
       ]
     },
     "Background": {
@@ -4694,12 +5783,41 @@
           "description": "Speaker notes, in Markdown.",
           "type": "string"
         },
+        "footer": {
+          "description": "This slide's own footer and date, over the deck's (`present.header_footer`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeaderFooter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "elements": {
           "description": "Bottom to top.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Element"
           }
+        },
+        "comments": {
+          "description": "Notes left on the slide or on something on it, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeckComment"
+          }
+        },
+        "access": {
+          "description": "A hidden title and the reading order, for a person who cannot see the slide.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SlideAccess"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -4723,6 +5841,17 @@
           ],
           "format": "double"
         },
+        "direction": {
+          "description": "The side a push, wipe, cover, uncover or flip comes from; the right when absent.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MotionDirection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "easing": {
           "type": [
             "string",
@@ -4735,13 +5864,221 @@
       ]
     },
     "TransitionKind": {
-      "type": "string",
-      "enum": [
-        "none",
-        "fade",
-        "slide",
-        "morph"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "fade",
+            "slide",
+            "morph",
+            "zoom",
+            "flip"
+          ]
+        },
+        {
+          "description": "The new slide pushes the old one out.",
+          "type": "string",
+          "const": "push"
+        },
+        {
+          "description": "The new slide is wiped in over the old one.",
+          "type": "string",
+          "const": "wipe"
+        },
+        {
+          "description": "The new slide slides in over the old one, which stays.",
+          "type": "string",
+          "const": "cover"
+        },
+        {
+          "description": "The old slide slides away and shows the new one under it.",
+          "type": "string",
+          "const": "uncover"
+        },
+        {
+          "description": "A slow cross-fade.",
+          "type": "string",
+          "const": "dissolve"
+        }
       ]
+    },
+    "HeaderFooter": {
+      "description": "What the bottom of a slide says, besides its number.",
+      "type": "object",
+      "properties": {
+        "footer": {
+          "description": "The footer words.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hideOnTitle": {
+          "description": "The deck's footer and date are left off the title slide (a slide whose layout is `title`). A slide with its own footer or date still shows them.",
+          "type": "boolean"
+        },
+        "hidden": {
+          "description": "On a slide: show no footer and no date here, whatever the deck says.",
+          "type": "boolean"
+        }
+      }
+    },
+    "DateSpec": {
+      "description": "The date a slide shows: words that are written as given, or today's date in a format.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "description": "A date written by hand, shown as it is. When absent the date is today's, and changes every day.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "description": "How today's date is written: `yyyy`, `yy`, `MMMM`, `MMM`, `MM`, `M`, `dd`, `d`, `EEEE` and `EEE` stand for the parts, other characters are kept. `d MMMM yyyy` when absent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "DeckComment": {
+      "description": "A note left on a slide, on an element of it, or at a point of it, with the answers to it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique among the deck's comments and replies.",
+          "type": "string"
+        },
+        "element": {
+          "description": "The element it is about; absent when it is about the slide or a point of it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pin": {
+          "description": "The point it is pinned at; absent when it is about the slide or the element as a whole.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommentPin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author": {
+          "type": "string"
+        },
+        "agent": {
+          "description": "Written by an assistant, not a person.",
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string",
+          "default": ""
+        },
+        "resolved": {
+          "description": "Settled. A resolved comment stays and can be reopened.",
+          "type": "boolean"
+        },
+        "replies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeckCommentReply"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "author",
+        "text"
+      ]
+    },
+    "CommentPin": {
+      "description": "A place on a slide, in slide units.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "double"
+        },
+        "y": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "DeckCommentReply": {
+      "description": "An answer under a comment.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique among the deck's comments and replies.",
+          "type": "string"
+        },
+        "author": {
+          "description": "A person's name or an assistant's.",
+          "type": "string"
+        },
+        "agent": {
+          "description": "Written by an assistant, not a person.",
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "created": {
+          "description": "When it was written, as UTC text such as `2026-11-02T09:30:00Z`; empty when the host gave no time.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "required": [
+        "id",
+        "author",
+        "text"
+      ]
+    },
+    "SlideAccess": {
+      "description": "What a slide tells a person who cannot see it.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "A title that is not drawn, for a slide that shows none; a screen reader and the outline use it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "readingOrder": {
+          "description": "The ids of the slide's elements in the order they are read, first to last. An element it leaves out is read after these, in the usual order.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "Section": {
       "description": "A named stretch of the deck, from one slide to the next section.",
@@ -4791,6 +6128,61 @@
               "type": "null"
             }
           ]
+        },
+        "loop": {
+          "description": "The show goes back to the first slide after the last (a kiosk or a loop). Off when absent.",
+          "type": "boolean"
+        },
+        "autoAdvance": {
+          "description": "Seconds after which the show moves on by itself (a kiosk); absent for the presenter's own clicks.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "shows": {
+          "description": "Named subsets of the slides to play instead of the whole deck.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomShow"
+          }
+        },
+        "headerFooter": {
+          "description": "The footer words and the date every slide shows beside its number (the number itself is `slide_numbers`).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeaderFooter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guides": {
+          "description": "The rulers, grid and guides of the editor. Never drawn when presenting or exported.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Guides"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dictionary": {
+          "description": "Words the spelling check leaves alone in this deck (names, terms), kept in the order they were added.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fonts": {
+          "description": "Font files the deck carries, drawn with in the editor, the show and the HTML export.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeckFont"
+          }
         }
       },
       "required": [
@@ -4806,6 +6198,121 @@
         "fade",
         "fadeUp",
         "grow"
+      ]
+    },
+    "CustomShow": {
+      "description": "A named subset of the deck's slides, shown in the order given, chosen from the Slideshow menu.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique among the deck's custom shows.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slides": {
+          "description": "The ids of the slides the show plays, in order; an id the deck no longer has is skipped.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slides"
+      ]
+    },
+    "Guides": {
+      "description": "The rulers, grid and guides of a deck.",
+      "type": "object",
+      "properties": {
+        "rulers": {
+          "description": "Rulers show along the top and left of the slide.",
+          "type": "boolean"
+        },
+        "showGrid": {
+          "description": "The grid is drawn over the slide.",
+          "type": "boolean"
+        },
+        "grid": {
+          "description": "The distance between grid lines in slide units; the grid is off when absent. Boxes snap to it while it is set.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Guide"
+          }
+        }
+      }
+    },
+    "Guide": {
+      "description": "A line that boxes snap to.",
+      "type": "object",
+      "properties": {
+        "axis": {
+          "$ref": "#/$defs/GuideAxis"
+        },
+        "at": {
+          "description": "Slide units from the left edge (vertical) or the top edge (horizontal).",
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "axis",
+        "at"
+      ]
+    },
+    "GuideAxis": {
+      "description": "Which way a guide runs.",
+      "oneOf": [
+        {
+          "description": "A vertical line, at a distance from the left edge.",
+          "type": "string",
+          "const": "vertical"
+        },
+        {
+          "description": "A horizontal line, at a distance from the top edge.",
+          "type": "string",
+          "const": "horizontal"
+        }
+      ]
+    },
+    "DeckFont": {
+      "description": "A font file the deck carries, so it looks the same on a machine that lacks the font.",
+      "type": "object",
+      "properties": {
+        "family": {
+          "description": "The family name text uses (`Run::font`).",
+          "type": "string"
+        },
+        "src": {
+          "description": "A file in the host's store, such as `assets/fonts/Name.woff2`.",
+          "type": "string"
+        },
+        "bold": {
+          "description": "`true` bold, `false` regular: the weight this file is for.",
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "embeddable": {
+          "description": "The licence lets the font travel inside an exported file. Off when absent: a font is never embedded unless the person says so.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "family",
+        "src"
       ]
     }
   }

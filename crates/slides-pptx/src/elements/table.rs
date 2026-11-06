@@ -5,7 +5,8 @@
 //! theme's second text colour, and the table fills its box.
 
 use slides_core::{
-    MOST_TABLE_COLUMNS, MOST_TABLE_PLACES, MOST_TABLE_ROWS, TableCell, TableEl, Text,
+    CellBorders, CellLook, MOST_TABLE_COLUMNS, MOST_TABLE_PLACES, MOST_TABLE_ROWS, Stroke,
+    TableCell, TableEl, TableStyle, Text, cell_look,
 };
 
 use super::Site;
@@ -27,6 +28,8 @@ struct Laid<'a> {
     col_span: usize,
     row_span: usize,
     header: bool,
+    /// The row and column it starts at.
+    at: (usize, usize),
 }
 
 struct Layout<'a> {
@@ -148,6 +151,7 @@ fn layout(table: &TableEl, (count, rows): (usize, usize), w: f64, h: f64) -> Lay
                 col_span,
                 row_span,
                 header: table.header_row && r == 0,
+                at: (r, col),
             });
             col += col_span;
         }
@@ -182,21 +186,111 @@ fn bold(text: &Text) -> Text {
     out
 }
 
-fn write_borders(x: &mut Xml, cx: &mut Cx, opacity: f64) {
-    for tag in ["a:lnL", "a:lnR", "a:lnT", "a:lnB"] {
-        x.open(tag).int("w", GRID_WIDTH);
-        cx.color("text2")
-            .solid_fill(x, combined(Some(GRID_ALPHA), opacity));
+/// The table's style and its size, which a cell needs to be dressed.
+#[derive(Clone, Copy)]
+struct Dress<'a> {
+    style: Option<&'a TableStyle>,
+    header_row: bool,
+    rows: usize,
+    cols: usize,
+}
+
+impl Dress<'_> {
+    /// What the style makes of a cell, when the table has one.
+    fn look(&self, at: (usize, usize)) -> Option<CellLook> {
+        self.style
+            .map(|s| cell_look(s, self.header_row, self.rows, self.cols, at.0, at.1))
+    }
+}
+
+fn thin(color: &str, width: f64, alpha: Option<f64>) -> Stroke {
+    Stroke {
+        color: color.to_owned(),
+        width: Some(width),
+        dash: None,
+        alpha,
+        extra: slides_core::Extra::new(),
+    }
+}
+
+/// The four lines of a cell (left, right, top, bottom): the cell's own, else its style's, else
+/// the thin grid a table without a style is drawn with. A width of 0 is no line.
+fn edges(look: Option<&CellLook>, own: Option<&CellBorders>) -> [Stroke; 4] {
+    let grid = thin("text2", 1.0, Some(GRID_ALPHA));
+    let none = thin("text2", 0.0, None);
+    let pick = |own: Option<&Stroke>, styled: Option<&Stroke>| {
+        own.or(styled).cloned().unwrap_or_else(|| {
+            if look.is_some() {
+                none.clone()
+            } else {
+                grid.clone()
+            }
+        })
+    };
+    let styled = |f: fn(&CellLook) -> Option<&Stroke>| look.and_then(f);
+    [
+        pick(
+            own.and_then(|b| b.left.as_ref()),
+            styled(|l| l.left.as_ref()),
+        ),
+        pick(
+            own.and_then(|b| b.right.as_ref()),
+            styled(|l| l.right.as_ref()),
+        ),
+        pick(own.and_then(|b| b.top.as_ref()), styled(|l| l.top.as_ref())),
+        pick(
+            own.and_then(|b| b.bottom.as_ref()),
+            styled(|l| l.bottom.as_ref()),
+        ),
+    ]
+}
+
+fn write_borders(x: &mut Xml, cx: &mut Cx, opacity: f64, lines: &[Stroke; 4]) {
+    for (tag, line) in ["a:lnL", "a:lnR", "a:lnT", "a:lnB"].into_iter().zip(lines) {
+        let width = line.width.unwrap_or(1.0);
+        if width <= 0.0 {
+            x.open(tag).int("w", 0);
+            x.open("a:noFill").close();
+            x.close();
+            continue;
+        }
+        x.open(tag).int("w", length(width).max(GRID_WIDTH / 4));
+        cx.color(&line.color)
+            .solid_fill(x, combined(line.alpha, opacity));
         x.close();
     }
 }
 
-fn write_cell(x: &mut Xml, cx: &mut Cx, cell: Option<&Laid>, covered: (bool, bool), opacity: f64) {
+/// The words of a cell as its style sets them: bold, and in the colour the fill calls for.
+fn dressed(text: &Text, bold_it: bool, color: Option<&str>) -> Text {
+    let mut out = text.clone();
+    for run in out.paragraphs.iter_mut().flat_map(|p| p.runs.iter_mut()) {
+        run.bold |= bold_it;
+        if run.color.is_none() {
+            run.color = color.map(str::to_owned);
+        }
+    }
+    out
+}
+
+fn write_cell(
+    x: &mut Xml,
+    cx: &mut Cx,
+    cell: Option<&Laid>,
+    covered: (bool, bool),
+    opacity: f64,
+    dress: Dress,
+) {
     let empty = Text::plain("");
-    let (text, shown) = match cell {
-        Some(c) if c.header => (bold(&c.cell.text), true),
-        Some(c) => (c.cell.text.clone(), true),
-        None => (empty, false),
+    let styled = cell.and_then(|c| dress.look(c.at));
+    let (text, shown) = match (cell, &styled) {
+        (Some(c), Some(look)) => (
+            dressed(&c.cell.text, c.header || look.bold, look.text),
+            true,
+        ),
+        (Some(c), None) if c.header => (bold(&c.cell.text), true),
+        (Some(c), None) => (c.cell.text.clone(), true),
+        (None, _) => (empty, false),
     };
     x.open("a:tc");
     if let Some(c) = cell {
@@ -227,8 +321,12 @@ fn write_cell(x: &mut Xml, cx: &mut Cx, cell: Option<&Laid>, covered: (bool, boo
             "anchor",
             text::anchor(text.valign.as_ref().unwrap_or(&slides_core::VAlign::Top)),
         );
-    write_borders(x, cx, opacity);
-    if let Some(fill) = cell.and_then(|c| c.cell.fill.as_ref()).filter(|_| shown) {
+    let own = cell.and_then(|c| c.cell.borders.as_ref());
+    write_borders(x, cx, opacity, &edges(styled.as_ref(), own));
+    let fill = cell
+        .and_then(|c| c.cell.fill.as_ref())
+        .or_else(|| styled.as_ref().and_then(|s| s.fill.as_ref()));
+    if let Some(fill) = fill.filter(|_| shown) {
         let color = cx.color(&fill.color);
         color.solid_fill(x, combined(fill.alpha, opacity));
     }
@@ -307,17 +405,23 @@ pub fn write(x: &mut Xml, cx: &mut Cx, el: &TableEl, site: &Site) {
         x.open("a:gridCol").int("w", *width).close();
     }
     x.close();
+    let dress = Dress {
+        style: el.table_style.as_ref(),
+        header_row: el.header_row,
+        rows: rows.len(),
+        cols: columns.len(),
+    };
     for (r, height) in rows.iter().enumerate() {
         x.open("a:tr").int("h", *height);
         for c in 0..columns.len() {
             match laid.grid[r][c] {
                 Spot::Starts(n) => {
-                    write_cell(x, cx, Some(&laid.cells[n]), (false, false), *opacity)
+                    write_cell(x, cx, Some(&laid.cells[n]), (false, false), *opacity, dress)
                 }
                 Spot::Covered { right_of, below } => {
-                    write_cell(x, cx, None, (right_of, below), *opacity)
+                    write_cell(x, cx, None, (right_of, below), *opacity, dress)
                 }
-                Spot::Empty => write_cell(x, cx, None, (false, false), *opacity),
+                Spot::Empty => write_cell(x, cx, None, (false, false), *opacity, dress),
             }
         }
         x.close();

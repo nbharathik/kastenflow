@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use super::generator::{DEFAULT_RUN_MS, GeneratorOutput, MAX_RUN_MS};
 use crate::agent::Session;
 use crate::error::{Error, Result};
 
@@ -59,18 +60,101 @@ pub enum Call {
     /// The asker would like to read the person's selection: the app shares it
     /// (in `selection.json`, see `selection.rs`) for the next two minutes.
     WatchSelection {},
+    /// Draw slide `slide` (from 0) of the deck carried beside the request (see
+    /// [`Decks`]) as a PNG in the app's window, at `scale_percent` pixels to each
+    /// unit of the slide (100 is one), at click `step` or as the slide ends.
+    SlidePng {
+        slide: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        step: Option<u32>,
+        #[serde(default = "full_scale")]
+        scale_percent: u32,
+    },
+    /// Draw every slide of the carried deck as labelled thumbnails in one PNG.
+    SlideGrid {},
+    /// Draw one slide of the carried `before` deck and one of the `after` deck
+    /// side by side, with the boxes `before_marks` and `after_marks` (x, y, w, h
+    /// in slide units) outlined on each.
+    SlideDiff {
+        before_slide: u32,
+        after_slide: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        step: Option<u32>,
+        #[serde(default = "full_scale")]
+        scale_percent: u32,
+        #[serde(default)]
+        before_marks: Vec<[i32; 4]>,
+        #[serde(default)]
+        after_marks: Vec<[i32; 4]>,
+    },
+    /// Measure how big the words of every element of the carried deck come out
+    /// when the window lays them out, for lint. The answer is the sizes as JSON.
+    SlideMeasure {},
+    /// Run the code of a code picture in the window's sandbox and answer with
+    /// the picture it draws. The code and what it may read travel beside the
+    /// request (see [`super::generator::GeneratorPayload`]). `deck` is the
+    /// deck the picture is for (a vault path): code an agent wrote waits for a
+    /// person's "Allow to run" for that deck.
+    RunGenerator {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        deck: Option<String>,
+        #[serde(default)]
+        output: GeneratorOutput,
+        #[serde(default = "default_run")]
+        timeout_ms: u64,
+    },
 }
+
+fn default_run() -> u64 {
+    DEFAULT_RUN_MS
+}
+
+/// The decks a slide request carries beside it, as the bytes of its payload:
+/// a deck is too big for the request file itself. The app draws them and
+/// nothing else; they are not obeyed and not written anywhere.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Decks {
+    /// The deck to draw (for a comparison, the newer one).
+    pub after: String,
+    /// The older deck of a comparison.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<String>,
+}
+
+fn full_scale() -> u32 {
+    100
+}
+
+/// The smallest and largest scale a slide is drawn at, in hundredths.
+pub const SCALE_RANGE: std::ops::RangeInclusive<u32> = 25..=400;
+/// The most boxes a comparison outlines on each side.
+const MAX_MARKS: usize = 200;
 
 /// The longest page name a request may carry.
 const MAX_PAGE_BYTES: usize = 200;
 
+fn check_scale(percent: u32) -> Result<()> {
+    if SCALE_RANGE.contains(&percent) {
+        Ok(())
+    } else {
+        Err(Error::Invalid(
+            "A slide is drawn at 25 to 400 percent".to_owned(),
+        ))
+    }
+}
+
 impl Call {
     /// Every kind there is, as written in a request.
-    pub const KINDS: [&'static str; 4] = [
+    pub const KINDS: [&'static str; 9] = [
         "latex_build",
         "latex_export_pdf",
         "diagram_png",
         "watch_selection",
+        "slide_png",
+        "slide_grid",
+        "slide_diff",
+        "slide_measure",
+        "run_generator",
     ];
 
     /// The kind, as written in a request.
@@ -80,6 +164,11 @@ impl Call {
             Call::LatexExportPdf { .. } => "latex_export_pdf",
             Call::DiagramPng { .. } => "diagram_png",
             Call::WatchSelection {} => "watch_selection",
+            Call::SlidePng { .. } => "slide_png",
+            Call::SlideGrid {} => "slide_grid",
+            Call::SlideDiff { .. } => "slide_diff",
+            Call::SlideMeasure {} => "slide_measure",
+            Call::RunGenerator { .. } => "run_generator",
         }
     }
 
@@ -89,7 +178,12 @@ impl Call {
         match self {
             Call::LatexBuild { doc, .. } | Call::LatexExportPdf { doc, .. } => doc,
             Call::DiagramPng { diagram, .. } => diagram,
-            Call::WatchSelection {} => "",
+            Call::RunGenerator { deck, .. } => deck.as_deref().unwrap_or(""),
+            Call::WatchSelection {}
+            | Call::SlidePng { .. }
+            | Call::SlideGrid {}
+            | Call::SlideDiff { .. }
+            | Call::SlideMeasure {} => "",
         }
     }
 
@@ -117,7 +211,36 @@ impl Call {
     /// place names nothing).
     pub fn check(&self) -> Result<()> {
         match self {
-            Call::WatchSelection {} => Ok(()),
+            Call::WatchSelection {} | Call::SlideGrid {} | Call::SlideMeasure {} => Ok(()),
+            Call::SlidePng { scale_percent, .. } => check_scale(*scale_percent),
+            Call::SlideDiff {
+                scale_percent,
+                before_marks,
+                after_marks,
+                ..
+            } => {
+                check_scale(*scale_percent)?;
+                if before_marks.len() > MAX_MARKS || after_marks.len() > MAX_MARKS {
+                    return Err(Error::Invalid(
+                        "Too many boxes to outline on one slide".to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            Call::RunGenerator {
+                deck, timeout_ms, ..
+            } => {
+                if let Some(deck) = deck {
+                    inside_the_vault(deck)?;
+                }
+                if !(1_000..=MAX_RUN_MS).contains(timeout_ms) {
+                    return Err(Error::Invalid(format!(
+                        "Code may run for 1 to {} seconds",
+                        MAX_RUN_MS / 1000
+                    )));
+                }
+                Ok(())
+            }
             Call::DiagramPng { diagram, page } => {
                 inside_the_vault(diagram)?;
                 match page {

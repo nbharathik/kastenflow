@@ -17,10 +17,12 @@ export interface TextAreaProps {
   valign: VAlign;
   /** What an editor shows in the box while the text is empty. */
   prompt?: string | undefined;
+  /** An extra class for the box of words (the columns of a text box set in two or three). */
+  className?: string | undefined;
 }
 
 /** Words in a box: the one place the renderer calls the text module. */
-export function TextArea({ cx, text, baseStyle, width, height, valign, prompt }: TextAreaProps): JSX.Element {
+export function TextArea({ cx, text, baseStyle, width, height, valign, prompt, className }: TextAreaProps): JSX.Element {
   const extras: TextBlockExtras = {
     insets: text.insets ?? DEFAULT_INSETS,
     valign,
@@ -28,5 +30,5 @@ export function TextArea({ cx, text, baseStyle, width, height, valign, prompt }:
     step: cx.step,
     emptyPrompt: prompt,
   };
-  return <FittedTextBlock theme={cx.theme} text={text} baseStyle={baseStyle} width={width} height={height} {...extras} />;
+  return <FittedTextBlock theme={cx.theme} text={text} baseStyle={baseStyle} width={width} height={height} {...extras} {...(className ? { className } : {})} />;
 }

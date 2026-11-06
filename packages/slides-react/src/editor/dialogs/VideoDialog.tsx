@@ -1,15 +1,15 @@
 import { type JSX, useId, useState } from "react";
 
-import { pickFiles } from "../files.ts";
 import { insertComposite } from "../insert-composite.ts";
 import { TextButton } from "../ui/Button.tsx";
 import { Dialog } from "../ui/Dialog.tsx";
 import { videoSource } from "./source-address.ts";
 import type { DialogProps } from "./types.ts";
+import { importVideoFile } from "./video-file.ts";
 import "./dialogs.css";
 import "./insert.css";
 
-/** Asks for a video, by web address or by the name of a file, and puts a frame for it on the slide. */
+/** Asks for a video, by web address or by a file kept with the deck, and puts a frame for it on the slide. */
 export function VideoDialog({ session, onClose }: DialogProps): JSX.Element {
   const [source, setSource] = useState("");
   const [tried, setTried] = useState(false);
@@ -63,8 +63,8 @@ export function VideoDialog({ session, onClose }: DialogProps): JSX.Element {
             />
             <TextButton
               onClick={async () => {
-                const [file] = await pickFiles("video/*");
-                if (file) setSource(file.name);
+                const path = await importVideoFile(session);
+                if (path) setSource(path);
               }}
             >
               Choose file…
@@ -76,7 +76,7 @@ export function VideoDialog({ session, onClose }: DialogProps): JSX.Element {
             </p>
           ) : null}
         </div>
-        <p className="ks-dg-note">A file is found by its name in the folder the deck lives in. Add a poster from the format options to have a still to show until it plays.</p>
+        <p className="ks-dg-note">A YouTube, Vimeo or Loom link becomes an embedded player with its picture. A file you choose is kept with the deck. Add a poster from the format options to have a still to show until it plays.</p>
       </div>
     </Dialog>
   );

@@ -27,12 +27,12 @@ export function doubleClickAt(session: EditorSession, ui: EditorUi, zoom: number
     editCellAt(session, id, { x: p.x, y: p.y }, p.client);
     return;
   }
-  if (element?.type === "group") {
+  if (element?.type === "group" && !element.locked) {
     const child = hitAt(itemsOfList(session, element.children), { x: p.x, y: p.y }, zoom);
     session.enterGroup(id, child ?? undefined);
     return;
   }
-  if (element && isCompositeType(element.type)) {
+  if (element && !element.locked && isCompositeType(element.type)) {
     session.select([id]);
     ui.openPanel("format");
     requestFieldFocus(ui, id);

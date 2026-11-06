@@ -11,6 +11,7 @@ import { ColorButton } from "./ColorButton.tsx";
 import { FontFamily } from "./FontFamily.tsx";
 import { FontSize } from "./FontSize.tsx";
 import { Group } from "./Group.tsx";
+import { StyleMenu } from "./StyleMenu.tsx";
 import { CommandButton, MenuButton } from "./ToolButton.tsx";
 import { useTextView } from "./useTextView.ts";
 
@@ -36,6 +37,7 @@ export function TextGroups({ session, ui }: { session: EditorSession; ui: Editor
   return (
     <>
       <Group id="font">
+        <StyleMenu view={view} ui={ui} />
         <FontFamily view={view} ui={ui} />
         <FontSize view={view} ui={ui} />
       </Group>

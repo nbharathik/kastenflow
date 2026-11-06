@@ -153,11 +153,16 @@ describe("the chrome's own state", () => {
     chrome.setDensity("compact");
     chrome.setDensity("compact");
     chrome.toggleDensity();
-    chrome.openMenuSearch();
-    chrome.openMenuSearch();
-    expect(seen).toHaveBeenCalledTimes(3);
+    expect(seen).toHaveBeenCalledTimes(2);
     expect(chrome.state.density).toBe("comfortable");
-    expect(chrome.state.menuSearch).toBe(true);
+  });
+
+  it("hands the part of the palette that was asked for to the palette once, then goes back to all of it", () => {
+    const chrome = new Chrome();
+    expect(chrome.takePalette()).toBe("all");
+    chrome.askPalette("commands");
+    expect(chrome.takePalette()).toBe("commands");
+    expect(chrome.takePalette()).toBe("all");
   });
 
   it("ignores stored values it cannot make sense of", () => {

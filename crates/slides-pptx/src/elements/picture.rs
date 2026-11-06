@@ -4,8 +4,9 @@
 //! stretched to it. A picture that cannot be used is a grey box and a
 //! warning, never a failed export.
 
-use slides_core::{Base, Crop, ImageEl, Mask, RawEl};
+use slides_core::{Adjust, Base, Crop, ImageEl, Mask, RawEl};
 
+mod adjust;
 mod math;
 
 use super::Site;
@@ -85,6 +86,19 @@ pub fn write_blip_fill(
     cuts: [f64; 4],
     opacity: f64,
 ) {
+    write_touched_up(x, cx, tag, picture, cuts, opacity, None);
+}
+
+/// The same, with the picture's adjustments written as the effects of its `a:blip`.
+fn write_touched_up(
+    x: &mut Xml,
+    cx: &mut Cx,
+    tag: &str,
+    picture: &Picture,
+    cuts: [f64; 4],
+    opacity: f64,
+    touched: Option<&Adjust>,
+) {
     let embed = cx.rels.add(rels::IMAGE, &picture.raster.target());
     x.open(tag);
     x.open("a:blip").attr("r:embed", &embed);
@@ -92,6 +106,9 @@ pub fn write_blip_fill(
         x.open("a:alphaModFix")
             .int("amt", thousandths(alpha))
             .close();
+    }
+    if let Some(adjust) = touched {
+        adjust::write_effects(x, adjust);
     }
     if let Some(svg) = &picture.svg {
         let id = cx.rels.add(rels::IMAGE, &svg.target());
@@ -163,20 +180,23 @@ fn write_pic(
     x.close();
     x.close();
 
-    write_blip_fill(
+    write_touched_up(
         x,
         cx,
         "p:blipFill",
         picture,
         crop.map_or([0.0; 4], cuts),
         *opacity,
+        base.style.as_ref().and_then(|s| s.adjust.as_ref()),
     );
 
     x.open("p:spPr");
     write_xfrm(x, "a:xfrm", frame);
-    let (geometry, adjust) = match mask {
-        Some(Mask::Ellipse) => ("ellipse", None),
-        Some(Mask::RoundRect) => {
+    let shaped = base.style.as_ref().and_then(|s| s.mask_shape.as_deref());
+    let (geometry, adjust) = match (shaped, mask) {
+        (Some(shape), _) => (shape, None),
+        (None, Some(Mask::Ellipse)) => ("ellipse", None),
+        (None, Some(Mask::RoundRect)) => {
             let radius = base
                 .style
                 .as_ref()

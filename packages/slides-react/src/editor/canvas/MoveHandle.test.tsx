@@ -278,8 +278,23 @@ describe("the arrow keys, which the handle's tooltip names", () => {
   });
 });
 
+describe("a resize handle of the box being written in", () => {
+  it("resizes it without closing it", async () => {
+    const { session, words, view, page, find } = await open();
+    act(() => session.startEditing(words));
+    const handle = view.container.querySelector<HTMLElement>('[data-handle="se"]')!;
+    expect(handle).toBeTruthy();
+    fireEvent.pointerDown(handle, { clientX: 500, clientY: 480, button: 0 });
+    expect(session.state.editing).toBe(words);
+    fireEvent.pointerMove(page(), { clientX: 560, clientY: 520 });
+    fireEvent.pointerUp(page(), { clientX: 560, clientY: 520 });
+    expect(session.state.editing).toBe(words);
+    expect(find(words)).toMatchObject({ w: 460 });
+  });
+});
+
 describe("the keys that add things, on the slide", () => {
-  it("adds a text box at the pointer with T, opens it, and takes it away again if it is closed empty", async () => {
+  it("adds a text box at the pointer with T, opens it, and keeps it if it is closed empty", async () => {
     const { session, ui, stage, page, hover, view } = await open();
     // The page is at the window's top left in a test, so a place in the window is the same place on the slide.
     hover(400, 200);
@@ -291,11 +306,11 @@ describe("the keys that add things, on the slide", () => {
     expect(ui.state.text).not.toBeNull();
     expect(view.container.querySelector(".ks-text-layer")).toBeTruthy();
     const count = session.slide.elements.length;
-    // Escape closes the box with nothing typed in it.
+    // Escape closes the box with nothing typed in it; the box stays on the slide.
     fireEvent.keyDown(view.container.querySelector(".ks-text-layer .ProseMirror")!, { key: "Escape" });
     expect(session.state.editing).toBeNull();
-    expect(session.slide.elements).toHaveLength(count - 1);
-    expect(session.slide.elements.some((e) => e.id === made.id)).toBe(false);
+    expect(session.slide.elements).toHaveLength(count);
+    expect(session.slide.elements.some((e) => e.id === made.id)).toBe(true);
     expect(page()).toBeTruthy();
   });
 

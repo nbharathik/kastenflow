@@ -4,7 +4,7 @@
 
 import { useWorkspace } from "../workspace/store";
 import { allowed, capabilitiesOf, pruned } from "./capabilities";
-import { keepModel, learnedEffort, modelFor, savedSettings } from "./prefs";
+import { chatModelFor, keepModel, learnedEffort, savedSettings } from "./prefs";
 import { excerptsFor } from "./pdf-excerpts";
 import { isSet } from "./settings";
 import type { ChatState } from "./store";
@@ -54,7 +54,7 @@ export function sendActions(get: Get, update: Update, hooks: Hooks): Pick<ChatSt
       const thread = get().threads[id];
       const words = text.trim();
       if (!thread || !words || thread.stopping) return false;
-      const choice = modelFor(thread, get().providers);
+      const choice = chatModelFor(thread, get().providers);
       if (!choice) return false;
       // Without a connection it waits here, and goes when the connection is back (`flushOffline`).
       if (offlineNow()) {

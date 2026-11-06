@@ -1,6 +1,6 @@
 // Starts the exported web page. This file is pasted into the page after reveal.js and the presentation's runtime, as the last part
-// of one script; it is not a module of the app, and it expects these names to be there: `Reveal`, `config`, `stepfx`, `morph` and
-// `chrome` (the runtime files, each as an object of what it exports). The page holds the slides as markup, with a layer for
+// of one script; it is not a module of the app, and it expects these names to be there: `Reveal`, `config`, `stepfx`, `fx`, `transitions`,
+// `morph` and `chrome` (the runtime files, each as an object of what it exports). The page holds the slides as markup, with a layer for
 // each step of a slide that has steps, a few facts in `#ks-data`, and the pictures in it, once each.
 
 var data = JSON.parse(document.getElementById("ks-data").textContent);
@@ -71,8 +71,15 @@ function showScroll() {
 
 /** The presentation itself. */
 function startShow() {
-  var reveal = new Reveal(root.querySelector(".ks-show-reveal"), config.revealConfig(data.size, { autoAnimateMatcher: morph.matchSlides }));
+  var reveal = new Reveal(root.querySelector(".ks-show-reveal"), config.revealConfig(data.size, { autoAnimateMatcher: morph.matchSlides, loop: data.loop === true, autoSlide: data.autoAdvance > 0 ? Math.round(data.autoAdvance * 1000) : 0 }));
   var trackers = new WeakMap();
+
+  /** The effects a slide names for its steps (see `data.slides`), or none. */
+  function planOf(section) {
+    var id = section.getAttribute("data-slide");
+    var found = data.slides.find(function (entry) { return entry.id === id; });
+    return found ? found.fx : null;
+  }
 
   // A slide with steps holds a layer for each, and shows the one for the steps taken: reveal.js counts the steps as fragments.
   function trackerOf(section) {
@@ -86,6 +93,8 @@ function startShow() {
       known = {
         elements: stepfx.newcomers(function (element) { return element.getAttribute("data-el") + (element.classList.contains("ks-highlight") ? "*" : ""); }),
         paragraphs: stepfx.uncovered(paragraphKey),
+        // The effects the slide names for its steps, played in place of the deck's usual one.
+        fx: fx.fxPlayer(planOf(section)),
       };
       trackers.set(section, known);
     }
@@ -102,18 +111,43 @@ function startShow() {
       var layer = layers[step];
       var entering = trackerOf(section).elements(Array.prototype.slice.call(layer.querySelectorAll(".ks-slide [data-el]:not([data-master]), .ks-slide .ks-highlight")));
       entering = entering.concat(trackerOf(section).paragraphs(Array.prototype.slice.call(layer.querySelectorAll(".ks-slide .ks-p"))));
-      if (play && layers.length > 1 && section.classList.contains("present")) stepfx.playEnter(entering, data.effect, stepfx.EFFECT_SECONDS);
+      var live = play && layers.length > 1 && section.classList.contains("present");
+      var named = trackerOf(section).fx.play(Array.prototype.slice.call(layer.querySelectorAll(".ks-slide [data-el]:not([data-master])")), layer.querySelector(".ks-slide"), step, live);
+      entering = entering.filter(function (node) { return !named.has(node.getAttribute("data-el") || ""); });
+      if (live) stepfx.playEnter(entering, data.effect, stepfx.EFFECT_SECONDS);
+    });
+  }
+
+  // The embedded web pages of the slide on view come alive when there is a network: the frame is given its address and shows once it has
+  // loaded. Offline (or for a player that refuses a page opened from a file) the still under it stays, and it links to the page. A page
+  // that refuses to be framed cannot be told from here: its error page would show, so those sites are the app's to warn about.
+  function wake() {
+    var current = reveal.getCurrentSlide();
+    if (!current || navigator.onLine === false) return;
+    current.querySelectorAll(":scope > .ks-show-layer:not([hidden]) iframe[data-ks-live]").forEach(function (frame) {
+      if (frame.getAttribute("src")) return;
+      if (location.protocol === "file:" && frame.hasAttribute("data-ks-needs-address")) return;
+      frame.addEventListener("load", function () {
+        frame.style.opacity = "1";
+        frame.style.pointerEvents = "auto";
+      });
+      frame.src = frame.getAttribute("data-ks-live");
     });
   }
 
   ["slidechanged", "fragmentshown", "fragmenthidden", "sync"].forEach(function (type) {
     reveal.on(type, function () {
       showLayers(type !== "sync");
+      wake();
     });
   });
+  addEventListener("online", wake);
   reveal.on("autoanimate", morph.animateMorph);
+  // The transitions reveal.js has no name for (push, wipe, cover ...): reveal.js cuts and these play over the cut.
+  reveal.on("slidechanged", transitions.transitionListener());
   reveal.initialize().then(function () {
     showLayers(false);
+    wake();
     var host = root.querySelector(".ks-show-chrome");
     chrome.attachChrome(reveal, host, {
       locate: function (number) {

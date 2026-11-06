@@ -176,6 +176,22 @@ describe("where saving stands", () => {
     expect(screen.getByRole("status").textContent).toBe("Saved");
   });
 
+  it("still offers Keep mine after the person changes the deck again, and then keeps the latest", async () => {
+    const { host, session } = await setup();
+    host.mode = "conflict";
+    host.theirs = (await newDeck("Their talk")).save();
+    act(() => void session.slides.add());
+    await act(async () => session.flush());
+    act(() => void session.slides.add());
+    expect(screen.getByRole("alert").textContent).toContain("This deck changed on disk.");
+    expect(button("Keep mine")).toBeTruthy();
+    await act(async () => click(button("Keep mine")));
+    expect(host.asked.at(-1)?.overwrite).toBe(true);
+    expect(session.deck.slides).toHaveLength(3);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("Saved");
+  });
+
   it("says where the host kept the person's version, when it did", async () => {
     const { session } = await setup();
     act(() =>
@@ -264,7 +280,7 @@ describe("Full screen", () => {
   it("switches the mode, and shows it: pressed, another icon, and in words how to get out", async () => {
     const { ui } = await setup();
     expect(button("Full screen").getAttribute("aria-pressed")).toBe("false");
-    expect(button("Full screen").getAttribute("data-tip")).toBe("Full screen (Ctrl+Shift+F)");
+    expect(button("Full screen").getAttribute("data-tip")).toBe("Full screen (Ctrl+Alt+F)");
     expect(button("Full screen").textContent).toBe("");
     expect(iconOf("Full screen")).toBe(ICONS.maximize[0][1].d);
 
@@ -272,7 +288,7 @@ describe("Full screen", () => {
     expect(ui.state.fullScreen).toBe(true);
     const off = button("Exit full screen");
     expect(off.getAttribute("aria-pressed")).toBe("true");
-    expect(off.getAttribute("data-tip")).toBe("Exit full screen (Ctrl+Shift+F)");
+    expect(off.getAttribute("data-tip")).toBe("Exit full screen (Ctrl+Alt+F)");
     expect(off.textContent).toBe("Exit full screen");
     expect(iconOf("Exit full screen")).toBe(ICONS.minimize[0][1].d);
 

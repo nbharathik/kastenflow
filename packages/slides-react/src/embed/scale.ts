@@ -42,6 +42,9 @@ export const DEFAULT_DESIGN: Design = { w: 1280, h: 800 };
 /** A page of the host is laid out narrower, so that its words are big enough to read from a room. */
 export const PAGE_DESIGN: Design = { w: 640, h: 360 };
 
+/** The window a video of a known site is laid out for: 16:9, the shape of the picture it plays. */
+export const VIDEO_DESIGN: Design = { w: 1280, h: 720 };
+
 export const DEFAULT_FIT: Fit = "width";
 
 /** The smallest and biggest zoom a person may ask for (1 is 100%). */

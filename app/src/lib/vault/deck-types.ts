@@ -42,6 +42,55 @@ export interface DecksSaved {
   paths: string[];
 }
 
+/** A layout kept for every deck, in lists (`templates/layouts/`). */
+export interface LibraryLayout {
+  path: string;
+  /** The entry's own id, which a copy in a deck remembers it by. */
+  id: string;
+  label: string;
+  slots: number;
+  modified: number;
+  size: number;
+  /** Why the file can't be used, when it can't: it is still listed. */
+  problem: string | null;
+}
+
+/** A library file as it is on disk. */
+export interface LibraryLayoutFile {
+  path: string;
+  text: string;
+  hash: string;
+  modified: number;
+}
+
+/** What keeping a layout in the library did. */
+export interface LibraryLayoutSaved {
+  path: string;
+  id: string;
+  /** A file with the same id was there and now holds the new text. */
+  replaced: boolean;
+  /** Nothing was written: the file already held this text. */
+  unchanged: boolean;
+}
+
+/** A brand kit file as it is on disk. */
+export interface BrandKitFile {
+  path: string;
+  /** The project it belongs to; null for the vault's own. */
+  project: string | null;
+  text: string;
+  hash: string;
+  modified: number;
+}
+
+/** What keeping a brand kit did. */
+export interface BrandKitSaved {
+  path: string;
+  replaced: boolean;
+  /** Nothing was written: the file already held this text. */
+  unchanged: boolean;
+}
+
 /** What the core's refusal says when a deck differs from the one that was looked at. */
 const STALE = "changed since you looked";
 

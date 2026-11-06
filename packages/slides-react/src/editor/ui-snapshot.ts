@@ -21,7 +21,7 @@ export interface UiSnapshot {
 }
 
 const VIEWS: readonly ViewMode[] = ["edit", "outline", "grid"];
-const PANELS: readonly PanelName[] = ["format", "themes", "transitions", "steps", "ai", "comments"];
+const PANELS: readonly PanelName[] = ["format", "themes", "transitions", "steps", "ai", "comments", "access", "ideas", "history"];
 
 /** What the editor shows now. */
 export function snapshotOf(session: EditorSession, ui: EditorUi): UiSnapshot {

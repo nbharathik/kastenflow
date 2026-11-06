@@ -1,0 +1,137 @@
+/* The Accessibility tab: the problems by kind, each with its fix, and the reading order of the slide. Editor tokens only, for light and dark. */
+.ks-ac {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+.ks-ac-summary {
+  margin: 0;
+  padding: 12px 14px 6px;
+  color: var(--ks-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ks-ac h4 {
+  margin: 0;
+  padding: 10px 14px 4px;
+  color: var(--ks-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ks-ac-count {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ks-hover);
+  color: var(--ks-ink);
+}
+.ks-ac-list,
+.ks-ac-order-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ks-ac-problem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ks-line);
+}
+.ks-ac-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ks-ac-message {
+  color: var(--ks-ink);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.ks-ac-hint {
+  margin: 0;
+  color: var(--ks-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.ks-ac-order > .ks-ac-hint {
+  padding: 0 14px 6px;
+}
+.ks-ac-fix {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ks-ac-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--ks-line-strong);
+  border-radius: var(--ks-radius);
+  background: var(--ks-canvas);
+  color: var(--ks-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.ks-ac-input:focus-visible {
+  outline: 2px solid var(--ks-accent);
+  outline-offset: 0;
+}
+.ks-ac-order > .ks-text-btn {
+  margin: 8px 14px 0;
+}
+.ks-ac-order-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--ks-line);
+}
+.ks-ac-order-item.is-over {
+  box-shadow: inset 0 2px 0 var(--ks-accent);
+}
+.ks-ac-order-item.is-dragged {
+  opacity: 0.5;
+}
+.ks-ac-grip {
+  display: grid;
+  color: var(--ks-faint);
+  cursor: grab;
+}
+.ks-ac-order-no {
+  min-width: 18px;
+  color: var(--ks-muted);
+  font-size: 12px;
+  text-align: right;
+}
+.ks-ac-order-name {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ks-ink);
+  font-size: 13px;
+}
+.ks-ac-move {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ks-radius);
+  color: var(--ks-muted);
+}
+.ks-ac-move:hover:not(:disabled) {
+  background: var(--ks-hover);
+  color: var(--ks-ink);
+}
+.ks-ac-move:disabled {
+  opacity: 0.35;
+}

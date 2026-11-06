@@ -9,7 +9,7 @@
 // the fragment showing (-1 when none is). A slide with N steps has N fragments, so
 // the step it is at is `f + 1`, from 0 (as it appears) to N (as it ends).
 
-import type { Deck, Slide, TransitionKind } from "@kasten-slides/wasm";
+import type { Deck, MotionDirection, Slide, TransitionKind } from "@kasten-slides/wasm";
 
 /** A slide shown, with the backup slides that go under it. */
 export interface Column {
@@ -205,15 +205,17 @@ export interface Arrival {
   /** Seconds. */
   duration: number;
   easing: string | null;
+  /** The side the slide comes from, for the kinds that have one. */
+  direction: MotionDirection | null;
 }
 
-const USUAL: Record<TransitionKind, number> = { none: 0, fade: 0.4, slide: 0.4, morph: 0.6 };
+export const USUAL: Record<TransitionKind, number> = { none: 0, fade: 0.4, slide: 0.4, morph: 0.6, push: 0.5, wipe: 0.5, cover: 0.5, uncover: 0.5, zoom: 0.5, flip: 0.7, dissolve: 0.8 };
 
 export function arrivalOf(deck: Deck, slide: Slide): Arrival {
   const own = slide.transition ?? deck.present.transition ?? null;
   const kind = own?.kind ?? "none";
   const duration = own?.duration != null && Number.isFinite(own.duration) && own.duration >= 0 ? own.duration : USUAL[kind];
-  return { kind, duration: kind === "none" ? 0 : duration, easing: own?.easing ?? null };
+  return { kind, duration: kind === "none" ? 0 : duration, easing: own?.easing ?? null, direction: own?.direction ?? null };
 }
 
 /**

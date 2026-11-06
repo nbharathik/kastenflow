@@ -53,6 +53,10 @@ model! {
         /// How the element came to be made from the page. A storyboard writes what the element said then: 16 hex digits of FNV-1a over its content (its words, pictures and looks; not where it stands, its name, its steps or its link). An element whose content no longer gives this was changed by hand, and an update with `keepEdits` leaves it alone; moving an element is not a change. Any other text is the host's own word for it, and the deck keeps it without reading it. (Deck format 2.)
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub made: Option<String>,
+        /// The diagram (a draw.io file of the host, by its path) a picture was drawn from. `page` names the same file, and `hash`
+        /// is the diagram's fingerprint when the picture was drawn, so the host can offer "Update from diagram" when it has changed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub diagram: Option<String>,
         #[serde(flatten, default, skip_serializing_if = "Extra::is_empty")]
         #[ts(skip)]
         #[schemars(skip)]
@@ -74,8 +78,18 @@ impl PageSource {
             hash: None,
             markdown: None,
             made: None,
+            diagram: None,
             extra: Extra::new(),
         }
+    }
+
+    /// A source for a picture drawn from the diagram at `path`: a link to the file, remembering its fingerprint.
+    pub fn of_diagram(path: impl Into<String>, hash: Option<String>) -> PageSource {
+        let path = path.into();
+        let mut source = PageSource::new(path.clone(), SourceKind::Link);
+        source.diagram = Some(path);
+        source.hash = hash;
+        source
     }
 
     /// What a person calls it: the title, else the file's name without its folder and its ending.
@@ -137,6 +151,21 @@ mod tests {
             serde_json::to_value(&element).unwrap()["source"]["kind"],
             "contents"
         );
+    }
+
+    #[test]
+    fn a_picture_remembers_the_diagram_it_was_drawn_from() {
+        let source = PageSource::of_diagram("projects/talk/flow.drawio", Some("ab12".to_owned()));
+        let value = serde_json::to_value(&source).unwrap();
+        assert_eq!(
+            value,
+            json!({"page": "projects/talk/flow.drawio", "kind": "link", "hash": "ab12", "diagram": "projects/talk/flow.drawio"})
+        );
+        let back: PageSource = serde_json::from_value(value).unwrap();
+        assert_eq!(back.diagram.as_deref(), Some("projects/talk/flow.drawio"));
+        // A source without one writes no `diagram`.
+        let plain = serde_json::to_value(PageSource::new("a.md", SourceKind::Embed)).unwrap();
+        assert!(plain.get("diagram").is_none());
     }
 
     #[test]

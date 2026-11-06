@@ -15,7 +15,8 @@ describe("Keyboard shortcuts", () => {
     await mountDialogs({ dialog: "shortcuts" });
     const withKeys = [...COMMANDS.values()].filter((c) => c.keys && c.keys.length > 0);
     expect(withKeys.length).toBeGreaterThan(30);
-    const rows = [...document.querySelectorAll(".ks-dg-keys-group li")];
+    // The keys of a show are the show's own list, in a section after these (see master-presenting.test.tsx).
+    const rows = [...document.querySelectorAll('.ks-dg-keys-group:not([aria-label="Presenting"]) li')];
     expect(rows).toHaveLength(withKeys.length);
     for (const command of withKeys) {
       const row = rows.find((r) => r.querySelector(".ks-dg-keys-label")?.textContent === command.label && [...r.querySelectorAll("kbd")].map((k) => k.textContent).join("|") === command.keys?.map((k) => showCombo(k)).join("|"));
@@ -34,7 +35,7 @@ describe("Keyboard shortcuts", () => {
   it("groups them by the start of the id, in a set order", async () => {
     await mountDialogs({ dialog: "shortcuts" });
     const areas = [...document.querySelectorAll(".ks-dg-keys-area")].map((h) => h.textContent);
-    expect(areas).toEqual(["Edit", "Text", "Slides", "Steps", "Arrange", "View", "Embedded page", "File", "Insert", "Help"]);
+    expect(areas).toEqual(["Edit", "Text", "Slides", "Steps", "Arrange", "View", "Embedded page", "File", "Insert", "Help", "Presenting"]);
     expect(within(screen.getByRole("region", { name: "Slides" })).getByText("New slide")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Text" })).getByText("Bold")).toBeTruthy();
     const groups = shortcutGroups();

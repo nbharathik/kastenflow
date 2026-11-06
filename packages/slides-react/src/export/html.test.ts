@@ -2,7 +2,7 @@ import type { Deck, Element, Slide } from "@kasten-slides/wasm";
 import { describe, expect, it } from "vitest";
 
 import { plainDeck } from "../render/testing/decks.ts";
-import { exportHtml } from "./html.ts";
+import { EMBEDS_LIVE, YOUTUBE_FROM_DISK, exportHtml } from "./html.ts";
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
 const image = (id: string, src: string): Element => ({ type: "image", id, x: 0, y: 0, w: 100, h: 100, src }) as unknown as Element;
@@ -105,6 +105,14 @@ describe("the deck as a web page", () => {
     ]);
   });
 
+  it("passes on a deck's loop and its seconds per slide, and says none of them for a deck without", async () => {
+    const plain = await made(deck);
+    const none = JSON.parse(plain.dom.getElementById("ks-data")?.textContent ?? "{}");
+    expect(none).toMatchObject({ loop: false, autoAdvance: 0 });
+    const kiosk = await made({ ...deck, present: { ...deck.present, loop: true, autoAdvance: 8 } });
+    expect(JSON.parse(kiosk.dom.getElementById("ks-data")?.textContent ?? "{}")).toMatchObject({ loop: true, autoAdvance: 8 });
+  });
+
   it("has reveal.js's rules without its print rules, and the rules of the stage and the scrolling page", async () => {
     const { dom } = await made(deck);
     const css = dom.querySelector("style")?.textContent ?? "";
@@ -131,8 +139,58 @@ describe("the deck as a web page", () => {
     expect(warnings.map((w) => w.message).filter((m) => !m.startsWith("The font"))).toEqual([
       "The picture assets/gone.png could not be read, so its place is grey.",
       "Videos are not put in the page: it shows their stills.",
-      "Embedded pages are not run in the page: it shows their stills.",
+      EMBEDS_LIVE,
     ]);
+  });
+
+  it("says that a YouTube video plays only from a web address, when the deck has one", async () => {
+    const tube = deckOf(slide("a", [{ type: "embed", id: "e", x: 0, y: 0, w: 640, h: 360, url: "https://youtu.be/dQw4w9WgXcQ" } as unknown as Element]));
+    const { warnings } = await exportHtml(tube, host);
+    expect(warnings.map((w) => w.message)).toEqual(expect.arrayContaining([EMBEDS_LIVE, YOUTUBE_FROM_DISK]));
+  });
+});
+
+describe("the live frames of the web page", () => {
+  const embedded = (extra: Record<string, unknown> = {}): Element => ({ type: "embed", id: "e", x: 20, y: 30, w: 640, h: 360, url: "https://example.com/talk", poster: "assets/a.png", ...extra }) as unknown as Element;
+
+  it("holds an empty frame for each embedded web page over its still, with the address in the markup for the script to give it", async () => {
+    const { dom } = await made(deckOf(slide("a", [embedded()])));
+    const frame = dom.querySelector<HTMLIFrameElement>('[data-slide="a"] iframe[data-ks-live]');
+    expect(frame?.getAttribute("data-ks-live")).toBe("https://example.com/talk");
+    expect(frame?.getAttribute("src")).toBeNull();
+    expect(frame?.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
+    expect(frame?.getAttribute("sandbox")).toContain("allow-popups");
+    expect(frame?.getAttribute("allow")).toContain("fullscreen");
+    expect(frame?.style.opacity).toBe("0");
+    // The still is there under it: what the slide itself draws for the embed (the frame comes after it, so it is over it).
+    const still = dom.querySelector('[data-slide="a"] [data-el="e"]');
+    expect(still).not.toBeNull();
+    expect(still?.compareDocumentPosition(frame as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("is the site's own player for a video link, and notes that YouTube needs an address of its own", async () => {
+    const { dom } = await made(deckOf(slide("a", [embedded({ url: "https://youtu.be/dQw4w9WgXcQ?t=30" }), embedded({ id: "v", url: "https://vimeo.com/76979871" })])));
+    const frames = [...dom.querySelectorAll("iframe[data-ks-live]")];
+    expect(frames.map((f) => f.getAttribute("data-ks-live"))).toEqual(["https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=30&rel=0", "https://player.vimeo.com/video/76979871"]);
+    expect(frames.map((f) => f.hasAttribute("data-ks-needs-address"))).toEqual([true, false]);
+  });
+
+  it("has a frame for each step an embed shows in, and none where a step hides it", async () => {
+    const { dom } = await made(deckOf(slide("a", [embedded({ stepStates: { 0: "hidden", 1: "normal" } })], { steps: 1 })));
+    const layers = [...dom.querySelectorAll('[data-slide="a"] > .ks-show-layer')];
+    expect(layers.map((l) => l.querySelectorAll("iframe[data-ks-live]").length)).toEqual([0, 1]);
+  });
+
+  it("has none for a page of the host, a script, or a slide with no embeds", async () => {
+    const { dom } = await made(deckOf(slide("a", [embedded({ url: "", source: { page: "notes/a.md", kind: "embed" } }), embedded({ id: "x", url: "javascript:alert(1)" })]), slide("b", [])));
+    expect(dom.querySelectorAll("iframe")).toHaveLength(0);
+  });
+
+  it("has a script that gives the frame its address when the slide is shown and there is a network", async () => {
+    const { html } = await made(deckOf(slide("a", [embedded()])));
+    expect(html).toContain("data-ks-live");
+    expect(html).toContain("navigator.onLine");
+    expect(html).toContain("data-ks-needs-address");
   });
 
   it("is a page for a deck of one slide with nothing in it", async () => {

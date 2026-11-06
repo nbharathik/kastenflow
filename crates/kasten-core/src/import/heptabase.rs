@@ -25,6 +25,7 @@ use super::prosemirror::{content_markdown, first_line};
 use crate::board::{Canvas, EXTRAS};
 use crate::error::{Error, Result};
 use crate::id::ulid_at;
+use crate::journal_path::day_file;
 use crate::sources::shortened;
 
 #[derive(Default)]
@@ -292,7 +293,7 @@ pub(crate) fn plan(ctx: &Context) -> Result<Plan> {
         if body.trim().is_empty() || days.iter().any(|d| d.date == date) {
             continue;
         }
-        let path = format!("journal/{}/{date}.md", &date[..4]);
+        let path = day_file(None, &date);
         let exists = ctx.vault.exists(&path);
         let text = if exists {
             body

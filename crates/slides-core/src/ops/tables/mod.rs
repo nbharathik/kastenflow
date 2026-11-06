@@ -8,12 +8,14 @@ mod cells;
 mod merge;
 mod size;
 mod structure;
+mod style;
 
 use std::collections::HashSet;
 
 pub(super) use cells::{ClearCells, SetCellFill, SetCells};
 pub(super) use merge::{MergeCells, UnmergeCells};
 pub(super) use structure::{DeleteColumns, DeleteRows, InsertColumns, InsertRows};
+pub(super) use style::{DistributeTable, ResizeColumn, SetCellBorders, SetTableStyle};
 
 use self::size::Frame;
 use super::Cx;

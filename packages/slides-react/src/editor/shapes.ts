@@ -24,8 +24,16 @@ export const SHAPE_GROUPS: { title: string; shapes: ShapeEntry[] }[] = [
       { preset: "hexagon", label: "Hexagon" },
       { preset: "octagon", label: "Octagon" },
       { preset: "plus", label: "Cross" },
-      { preset: "star5", label: "5-point star" },
       { preset: "can", label: "Cylinder" },
+    ],
+  },
+  {
+    title: "Stars",
+    shapes: [
+      { preset: "star4", label: "4-point star" },
+      { preset: "star5", label: "5-point star" },
+      { preset: "star6", label: "6-point star" },
+      { preset: "star8", label: "8-point star" },
     ],
   },
   {
@@ -51,11 +59,28 @@ export const SHAPE_GROUPS: { title: string; shapes: ShapeEntry[] }[] = [
     title: "Flowchart",
     shapes: [
       { preset: "flowChartProcess", label: "Process" },
+      { preset: "flowChartAlternateProcess", label: "Alternate process" },
       { preset: "flowChartDecision", label: "Decision" },
       { preset: "flowChartTerminator", label: "Terminator" },
+      { preset: "flowChartConnector", label: "Connector" },
+      { preset: "flowChartPreparation", label: "Preparation" },
+      { preset: "flowChartInputOutput", label: "Data" },
+      { preset: "flowChartManualOperation", label: "Manual operation" },
     ],
   },
 ];
+
+/**
+ * The groups with only the shapes a search finds: every word typed must be in a shape's name, its preset name or its group's title.
+ * An empty search finds every shape; a group with none left is dropped.
+ */
+export function findShapes(search: string, groups: typeof SHAPE_GROUPS = SHAPE_GROUPS): typeof SHAPE_GROUPS {
+  const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return groups;
+  return groups
+    .map((group) => ({ title: group.title, shapes: group.shapes.filter((shape) => words.every((word) => `${shape.label} ${shape.preset} ${group.title}`.toLowerCase().includes(word))) }))
+    .filter((group) => group.shapes.length > 0);
+}
 
 export interface LineEntry {
   tool: `line:${Route}` | `arrow:${Route}`;

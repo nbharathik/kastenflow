@@ -1,12 +1,14 @@
 use super::*;
 use crate::composites::expand as expand_element;
-use crate::model::{Base, ChartSeries, Extra};
+use crate::model::{Base, ChartKind, ChartSeries, Extra};
 
 fn series(name: &str, values: &[f64]) -> ChartSeries {
     ChartSeries {
         name: name.to_owned(),
         values: values.to_vec(),
         color: None,
+        mark: None,
+        x: Vec::new(),
         extra: Extra::new(),
     }
 }
@@ -20,6 +22,7 @@ fn chart(kind: ChartKind, categories: &[&str], all: Vec<ChartSeries>) -> ChartEl
         series: all,
         labels: false,
         legend: None,
+        spec: None,
         extra: Extra::new(),
     }
 }

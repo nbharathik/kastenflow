@@ -5,6 +5,11 @@
 //! the names of the categories under it, the title over it and, for more than one series, a legend under that. A pie is
 //! the first series as slices of a circle, with the legend at its side. The slices of a pie are many thin wedges (a
 //! triangle for each few degrees), since the shapes a slide has include no arc; they are one colour to a slice.
+//!
+//! The kinds that came after: stacked columns (`bands`), areas (a rectangle and a right triangle for each interval,
+//! `bands`), a doughnut (a pie whose slices are thin rectangles from the hole to the rim), scatter (`dots`) and columns
+//! with lines (`combo`). A chart may have the titles of its axes, a way of writing numbers and a legend at any side
+//! (`notes`); the parts these add are numbered after all the others, so a chart without them keeps every part id.
 
 use super::Ctx;
 use super::build::{
@@ -12,7 +17,10 @@ use super::build::{
 };
 use super::geom::{pad, sane};
 use super::measure::{Face, fit_pt, line_count, width};
-use crate::model::{Align, ChartEl, ChartKind, Element, Text, TextFit, VAlign, is_color};
+use crate::model::{
+    Align, ChartEl, ChartMark, ChartShape, Element, LegendOrient, NumberFormat, Text, TextFit,
+    VAlign, is_color,
+};
 use crate::resolve::Rect;
 use crate::units::points_to_units;
 
@@ -21,18 +29,18 @@ const PALETTE: [&str; 6] = [
     "accent1", "accent2", "accent3", "accent4", "accent5", "accent6",
 ];
 /// The most categories and series that are drawn: more would only be a smudge.
-const MOST_CATEGORIES: usize = 40;
-const MOST_SERIES: usize = 12;
+const MOST_CATEGORIES: usize = ChartShape::MOST_CATEGORIES;
+/// The most points of a scatter chart.
+const MOST_POINTS: usize = ChartShape::MOST_POINTS;
+const MOST_SERIES: usize = ChartShape::MOST_SERIES;
 /// The degrees a thin wedge of a pie covers.
 const WEDGE: f64 = 3.0;
+/// The degrees a piece of a doughnut's ring covers.
+const RING_STEP: f64 = 2.0;
 
 /// The words a person who cannot see the chart is told.
 pub fn alt_of(element: &ChartEl) -> String {
-    let kind = match element.kind {
-        ChartKind::Bar => "Bar chart",
-        ChartKind::Line => "Line chart",
-        ChartKind::Pie => "Pie chart",
-    };
+    let kind = element.shape().label();
     match element
         .title
         .as_deref()
@@ -48,6 +56,51 @@ pub fn alt_of(element: &ChartEl) -> String {
 struct Data {
     categories: Vec<String>,
     series: Vec<(String, String, Vec<f64>)>,
+    /// How a combination draws each series.
+    marks: Vec<Option<ChartMark>>,
+    /// Where each series' points are along the horizontal axis (a scatter chart); a point without one stands at its place in the list.
+    xs: Vec<Vec<f64>>,
+    /// How the chart writes its numbers; the plain way when it says nothing.
+    format: Option<NumberFormat>,
+    x_title: Option<String>,
+    y_title: Option<String>,
+    /// The series are piled on each other instead of standing side by side.
+    stacked: bool,
+}
+
+impl Data {
+    /// A number as this chart writes it.
+    fn num(&self, v: f64) -> String {
+        match &self.format {
+            Some(format) => format.apply(v),
+            None => number(v),
+        }
+    }
+
+    /// The least and the greatest number the marks reach, zero included.
+    fn extent(&self) -> (f64, f64) {
+        if self.stacked {
+            let (mut lo, mut hi) = (0.0f64, 0.0f64);
+            for i in 0..self.categories.len() {
+                let (mut up, mut down) = (0.0f64, 0.0f64);
+                for (_, _, values) in &self.series {
+                    let v = values.get(i).copied().unwrap_or(0.0);
+                    if v >= 0.0 {
+                        up += v;
+                    } else {
+                        down += v;
+                    }
+                }
+                lo = lo.min(down);
+                hi = hi.max(up);
+            }
+            return (lo, hi);
+        }
+        self.series
+            .iter()
+            .flat_map(|(_, _, v)| v.iter().copied())
+            .fold((0.0f64, 0.0f64), |(lo, hi), v| (lo.min(v), hi.max(v)))
+    }
 }
 
 fn finite(v: f64) -> f64 {
@@ -66,7 +119,15 @@ fn data_of(element: &ChartEl) -> Data {
         .map(|s| s.values.len())
         .max()
         .unwrap_or(0);
-    let count = element.categories.len().max(widest).min(MOST_CATEGORIES);
+    let shape = element.shape();
+    let cap = if shape == ChartShape::Scatter {
+        MOST_POINTS
+    } else {
+        MOST_CATEGORIES
+    };
+    // An area is filled down to zero, so a number below it is drawn as zero.
+    let floor = matches!(shape, ChartShape::Areas | ChartShape::StackedAreas);
+    let count = element.categories.len().max(widest).min(cap);
     let categories = (0..count)
         .map(|i| {
             element
@@ -87,12 +148,34 @@ fn data_of(element: &ChartEl) -> Data {
                 .filter(|c| is_color(c))
                 .map_or_else(|| PALETTE[i % PALETTE.len()].to_owned(), str::to_owned);
             let values = (0..count)
-                .map(|c| finite(s.values.get(c).copied().unwrap_or(0.0)))
+                .map(|c| {
+                    let v = finite(s.values.get(c).copied().unwrap_or(0.0));
+                    if floor { v.max(0.0) } else { v }
+                })
                 .collect();
             (clip(&s.name, 120), color, values)
         })
         .collect();
-    Data { categories, series }
+    Data {
+        categories,
+        series,
+        marks: element
+            .series
+            .iter()
+            .take(MOST_SERIES)
+            .map(|s| s.mark.clone())
+            .collect(),
+        xs: element
+            .series
+            .iter()
+            .take(MOST_SERIES)
+            .map(|s| s.x.iter().copied().map(finite).collect())
+            .collect(),
+        format: element.number_format(),
+        x_title: element.x_title().map(|t| clip(t, 120)),
+        y_title: element.y_title().map(|t| clip(t, 120)),
+        stacked: matches!(shape, ChartShape::StackedColumns | ChartShape::StackedAreas),
+    }
 }
 
 /// A number as a person writes it on an axis: no more digits than it has, thousands set apart, and millions as `M`.
@@ -229,9 +312,19 @@ struct Frame {
     legend: Option<Rect>,
 }
 
+/// Where a legend of the marks goes, if there is one.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Legend {
+    Off,
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
 const LEGEND_PT: f64 = 13.0;
 
-fn frame(parts: &mut Parts, rect: Rect, element: &ChartEl, legend_rows: bool) -> Frame {
+fn frame(parts: &mut Parts, rect: Rect, element: &ChartEl, side: Legend) -> Frame {
     let inner = pad(
         rect,
         (rect.w * 0.02).clamp(4.0, 12.0),
@@ -269,21 +362,55 @@ fn frame(parts: &mut Parts, rect: Rect, element: &ChartEl, legend_rows: bool) ->
     } else {
         parts.skip();
     }
-    let legend = legend_rows.then(|| {
-        let h = unit(LEGEND_PT * 1.7);
-        bottom -= h;
-        Rect {
-            x: inner.x,
-            y: bottom + 2.0,
-            w: inner.w,
-            h: h - 2.0,
+    let (mut left, mut right) = (inner.x, inner.x + inner.w);
+    let row = unit(LEGEND_PT * 1.7);
+    let column = (inner.w * 0.22).clamp(80.0, 220.0).min(inner.w * 0.3);
+    let legend = match side {
+        Legend::Off => None,
+        Legend::Bottom => {
+            bottom -= row;
+            Some(Rect {
+                x: inner.x,
+                y: bottom + 2.0,
+                w: inner.w,
+                h: row - 2.0,
+            })
         }
-    });
+        Legend::Top => {
+            let at = top;
+            top += row;
+            Some(Rect {
+                x: inner.x,
+                y: at,
+                w: inner.w,
+                h: row - 2.0,
+            })
+        }
+        Legend::Left => {
+            let at = left;
+            left += column;
+            Some(Rect {
+                x: at,
+                y: top,
+                w: column - 6.0,
+                h: (bottom - top).max(0.0),
+            })
+        }
+        Legend::Right => {
+            right -= column;
+            Some(Rect {
+                x: right + 6.0,
+                y: top,
+                w: column - 6.0,
+                h: (bottom - top).max(0.0),
+            })
+        }
+    };
     Frame {
         plot: Rect {
-            x: inner.x,
+            x: left,
             y: top,
-            w: inner.w,
+            w: (right - left).max(0.0),
             h: (bottom - top).max(0.0),
         },
         legend,
@@ -361,8 +488,7 @@ impl Axes {
 }
 
 fn axes(parts: &mut Parts, room: Rect, data: &Data) -> Axes {
-    let all = data.series.iter().flat_map(|(_, _, v)| v.iter().copied());
-    let (least, greatest) = all.fold((0.0f64, 0.0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
+    let (least, greatest) = data.extent();
     let (least, greatest, step) = scale(least, greatest, 5);
     let ticks: Vec<f64> = (0..)
         .map(|i| least + step * f64::from(i))
@@ -370,7 +496,7 @@ fn axes(parts: &mut Parts, room: Rect, data: &Data) -> Axes {
         .take(12)
         .collect();
     let tick_pt = (room.h / 16.0).clamp(10.0, 14.0);
-    let labels: Vec<String> = ticks.iter().map(|t| number(*t)).collect();
+    let labels: Vec<String> = ticks.iter().map(|t| data.num(*t)).collect();
     let label_w = labels
         .iter()
         .map(|l| width(l, tick_pt, Face::Sans, false))
@@ -459,14 +585,21 @@ fn axes(parts: &mut Parts, room: Rect, data: &Data) -> Axes {
 
 fn bars(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
     let found = axes(parts, room, data);
-    let m = data.series.len().max(1) as f64;
+    let all: Vec<usize> = (0..data.series.len()).collect();
+    bars_on(parts, &found, element, data, &all);
+}
+
+/// The bars of the series in `which`, side by side, on axes that are drawn.
+fn bars_on(parts: &mut Parts, found: &Axes, element: &ChartEl, data: &Data, which: &[usize]) {
+    let m = which.len().max(1) as f64;
     let inner = found.group * 0.78;
     let each = inner / m;
     let zero = found.y(0.0);
     let value_pt = (each * 0.45).clamp(10.0, 13.0);
     for (i, _) in data.categories.iter().enumerate() {
         let left = found.plot.x + found.group * i as f64 + (found.group - inner) / 2.0;
-        for (j, (_, color, values)) in data.series.iter().enumerate() {
+        for (j, &s) in which.iter().enumerate() {
+            let (_, color, values) = &data.series[s];
             let v = values[i];
             let top = found.y(v);
             let (y, h) = if v >= 0.0 {
@@ -501,7 +634,7 @@ fn bars(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
                         (each + 24.0).max(36.0),
                         unit(value_pt) * 1.4,
                     ),
-                    &number(v),
+                    &data.num(v),
                     value_pt,
                     Align::Center,
                     VAlign::Middle,
@@ -515,8 +648,15 @@ fn bars(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
 
 fn lines(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
     let found = axes(parts, room, data);
+    let all: Vec<usize> = (0..data.series.len()).collect();
+    lines_on(parts, &found, element, data, &all);
+}
+
+/// The lines of the series in `which`, on axes that are drawn.
+fn lines_on(parts: &mut Parts, found: &Axes, element: &ChartEl, data: &Data, which: &[usize]) {
     let value_pt = 12.0;
-    for (_, color, values) in &data.series {
+    for &s in which {
+        let (_, color, values) = &data.series[s];
         let points: Vec<(f64, f64)> = values
             .iter()
             .enumerate()
@@ -553,7 +693,7 @@ fn lines(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
                 words(
                     parts,
                     centred(*x, y - unit(value_pt) * 1.9, 48.0, unit(value_pt) * 1.4),
-                    &number(*v),
+                    &data.num(*v),
                     value_pt,
                     Align::Center,
                     VAlign::Middle,
@@ -566,7 +706,43 @@ fn lines(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
 }
 
 /// The wedges of one slice of a pie: thin isosceles triangles with their points at the middle, turned to face along the slice.
-fn slice(parts: &mut Parts, (cx, cy): (f64, f64), radius: f64, from: f64, sweep: f64, color: &str) {
+/// With a `hole` (a doughnut: the share of the radius left empty) they are thin rectangles from the hole to the rim.
+fn slice(
+    parts: &mut Parts,
+    (cx, cy): (f64, f64),
+    radius: f64,
+    from: f64,
+    sweep: f64,
+    color: &str,
+    hole: f64,
+) {
+    if hole > 0.0 {
+        let inner = radius * hole;
+        let count = ((sweep / RING_STEP).ceil() as usize).max(1);
+        let each = sweep / count as f64;
+        for n in 0..count {
+            let middle = from + each * (n as f64 + 0.5);
+            let rad = middle.to_radians();
+            let halfway = (radius + inner) / 2.0;
+            let (x, y) = (cx + rad.sin() * halfway, cy - rad.cos() * halfway);
+            let breadth = 2.0 * radius * (each.to_radians() / 2.0).sin() * 1.08;
+            let length = radius - inner;
+            let piece = parts.shape(
+                "rect",
+                Rect {
+                    x: x - breadth / 2.0,
+                    y: y - length / 2.0,
+                    w: breadth,
+                    h: length + 0.5,
+                },
+                filled(color),
+                None,
+            );
+            // A rectangle stands upright; this one lies along the radius, which is turned by the angle of the slice.
+            piece.base_mut().rotation = Some(middle.rem_euclid(360.0));
+        }
+        return;
+    }
     let count = ((sweep / WEDGE).ceil() as usize).max(1);
     let each = sweep / count as f64;
     for n in 0..count {
@@ -592,7 +768,8 @@ fn slice(parts: &mut Parts, (cx, cy): (f64, f64), radius: f64, from: f64, sweep:
     }
 }
 
-fn pie(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data, legend: bool) {
+/// A pie, or with a `hole` (the share of the radius left empty, 0 for none) a doughnut.
+fn pie(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data, legend: bool, hole: f64) {
     let values: Vec<f64> = data
         .series
         .first()
@@ -672,12 +849,15 @@ fn pie(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data, legend: bo
                 from,
                 sweep,
                 PALETTE[i % PALETTE.len()],
+                hole,
             );
             if element.labels {
                 let mid = (from + sweep / 2.0).to_radians();
+                // Words go two thirds of the way to the rim, or in the middle of the ring.
+                let reach = if hole > 0.0 { (1.0 + hole) / 2.0 } else { 0.62 };
                 let at = (
-                    middle.0 + mid.sin() * radius * 0.62,
-                    middle.1 - mid.cos() * radius * 0.62,
+                    middle.0 + mid.sin() * radius * reach,
+                    middle.1 - mid.cos() * radius * reach,
                 );
                 words(
                     parts,
@@ -740,9 +920,10 @@ pub fn expand(cx: &Ctx, element: &ChartEl) -> Vec<Element> {
     let mut parts = Parts::new(cx.id, rect);
     let data = data_of(element);
     let nothing = data.series.is_empty() || data.categories.is_empty();
+    let shape = element.shape();
     let legend = element
         .legend
-        .unwrap_or(data.series.len() > 1 || element.kind == ChartKind::Pie);
+        .unwrap_or(data.series.len() > 1 || shape.is_round());
     if nothing {
         parts.shape(
             "roundRect",
@@ -769,28 +950,71 @@ pub fn expand(cx: &Ctx, element: &ChartEl) -> Vec<Element> {
         );
         return parts.finish();
     }
-    // A pie keeps its legend at its side; the others under the plot.
-    let Frame { plot, legend: row } = frame(
-        &mut parts,
-        rect,
-        element,
-        legend && element.kind != ChartKind::Pie,
-    );
-    match element.kind {
-        ChartKind::Bar => bars(&mut parts, plot, element, &data),
-        ChartKind::Line => lines(&mut parts, plot, element, &data),
-        ChartKind::Pie => pie(&mut parts, plot, element, &data, legend),
+    // A pie or a doughnut keeps its legend at its side; the others where the chart puts it (under the plot by default).
+    let side = match element.legend_orient() {
+        _ if !legend || shape.is_round() => Legend::Off,
+        Some(LegendOrient::Top) => Legend::Top,
+        Some(LegendOrient::Left) => Legend::Left,
+        Some(LegendOrient::Right) => Legend::Right,
+        _ => Legend::Bottom,
+    };
+    let Frame { plot, legend: row } = frame(&mut parts, rect, element, side);
+    // The titles of the axes are parts numbered after all the others, so a chart without them keeps every id it had.
+    let mut late = Parts::new(&format!("{}.t", cx.id), rect);
+    let plot = if shape.is_round() {
+        plot
+    } else {
+        notes::titled(&mut late, plot, &data)
+    };
+    match shape {
+        ChartShape::Columns => bars(&mut parts, plot, element, &data),
+        ChartShape::Lines => lines(&mut parts, plot, element, &data),
+        ChartShape::Pie => pie(&mut parts, plot, element, &data, legend, 0.0),
+        ChartShape::Doughnut => {
+            let hole = element
+                .spec
+                .as_ref()
+                .and_then(|s| s.inner_radius)
+                .map_or(0.5, |r| r.clamp(0.1, 0.9));
+            pie(&mut parts, plot, element, &data, legend, hole);
+        }
+        ChartShape::Scatter => dots::scatter(&mut parts, plot, element, &data),
+        ChartShape::StackedColumns => bands::stacked_columns(&mut parts, plot, element, &data),
+        ChartShape::Areas | ChartShape::StackedAreas => {
+            bands::areas(&mut parts, plot, element, &data);
+        }
+        ChartShape::Combo => combo(&mut parts, plot, element, &data),
     }
-    if let Some(row) = row {
+    if let Some(room) = row {
         let entries: Vec<(String, String)> = data
             .series
             .iter()
             .map(|(name, color, _)| (name.clone(), color.clone()))
             .collect();
-        legend_row(&mut parts, row, &entries);
+        match side {
+            Legend::Left | Legend::Right => notes::legend_column(&mut parts, room, &entries),
+            _ => legend_row(&mut parts, room, &entries),
+        }
     }
-    parts.finish()
+    let mut out = parts.finish();
+    out.extend(late.finish());
+    out
 }
 
+/// Columns for the series a chart does not mark as lines, lines for the ones it does, on one pair of axes.
+fn combo(parts: &mut Parts, room: Rect, element: &ChartEl, data: &Data) {
+    let found = axes(parts, room, data);
+    let line = |i: &usize| matches!(data.marks.get(*i), Some(Some(ChartMark::Line)));
+    let all: Vec<usize> = (0..data.series.len()).collect();
+    let (lines, bars): (Vec<usize>, Vec<usize>) = all.into_iter().partition(line);
+    bars_on(parts, &found, element, data, &bars);
+    lines_on(parts, &found, element, data, &lines);
+}
+
+mod bands;
+mod dots;
+mod notes;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_more;

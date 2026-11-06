@@ -1,8 +1,11 @@
 //! Tests of the agent tools, run against a store in memory.
 
+mod code_pictures;
+mod comments;
 mod decks;
 mod edits;
 mod files;
+mod more_tools;
 mod raw;
 mod render;
 mod slide_tools;

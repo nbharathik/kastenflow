@@ -189,6 +189,46 @@
   object-fit: cover;
 }
 
+/* The data of a chart: a grid of series (columns) by categories (rows), wider than the panel when there are many columns. */
+.ks-cs-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ks-cs-chart-wrap {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.ks-cs-chart-grid {
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+.ks-cs-chart-grid th,
+.ks-cs-chart-grid td {
+  padding: 0;
+  font-weight: normal;
+  text-align: left;
+  vertical-align: middle;
+}
+.ks-cs-chart-grid th[scope="row"] .ks-input {
+  min-width: 72px;
+  width: 88px;
+}
+.ks-cs-chart-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ks-cs-chart-head .ks-input {
+  min-width: 72px;
+  width: 72px;
+}
+.ks-cs-chart-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* A next token: the pick, the token, its chance. */
 .ks-cs-next {
   display: grid;

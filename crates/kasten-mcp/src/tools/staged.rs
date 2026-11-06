@@ -67,7 +67,8 @@ fn read_note(k: &Kasten, set: &ChangeSet, a: ReadNoteArgs) -> Result<Value> {
 
 fn get_journal(k: &Kasten, set: &ChangeSet, a: JournalArgs) -> Result<Value> {
     let date = a.date.unwrap_or_else(today);
-    let path = format!("journal/{}/{date}.md", date.get(..4).unwrap_or(""));
+    let project = a.project.as_deref().filter(|p| !p.trim().is_empty());
+    let path = kasten_core::journal_path_in(k.vault(), project, &date)?;
     if !set.is_new(&path) && !k.vault().exists(&path) {
         return Ok(json!({ "date": date, "exists": false }));
     }

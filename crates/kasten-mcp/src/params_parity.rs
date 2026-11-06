@@ -52,6 +52,8 @@ pub struct ApplyTemplateArgs {
 pub struct JournalDayArgs {
     /// The day, YYYY-MM-DD. Defaults to today (UTC).
     pub date: Option<String>,
+    /// A project's folder name or title: its own journal, not the vault's.
+    pub project: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

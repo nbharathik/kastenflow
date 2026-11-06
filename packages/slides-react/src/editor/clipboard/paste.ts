@@ -2,11 +2,14 @@
 //   blocks or slides Kasten copied    go on the slide, or after the slide, as a copy does
 //   a picture                         a picture on the slide, where the pointer was
 //   words, or the words of HTML       a text box there
+//   one web address                   an embed there (a video's player for a video site); Paste in place keeps the words
 // Where the pointer was is where it last was over the slide, else the middle of it.
 
+import { singleLinkOf } from "../../embed/embed-url.ts";
 import { pointerOf } from "../canvas/pointer.ts";
 import { insertImageFiles } from "../commands/insert.ts";
 import type { CommandContext } from "../commands/types.ts";
+import { insertComposite } from "../insert-composite.ts";
 import { type ClipContents, picturesOfHtml, wordsOfHtml } from "./format.ts";
 import { placeFor } from "./place.ts";
 import { cellsFromContents } from "./table.ts";
@@ -47,5 +50,12 @@ export async function pasteContents(context: CommandContext, contents: ClipConte
     return;
   }
   const words = contents.text.trim() || wordsOfHtml(contents.html);
-  if (words) session.clipboard.pasteText(words, at);
+  if (!words) return;
+  // One web address, and nothing else, is an embed (a video's player for a video site). Paste in place (Ctrl+Shift+V) keeps the words.
+  const link = options.inPlace ? null : singleLinkOf(words);
+  if (link !== null) {
+    insertComposite(session, "embed", { address: link }, at);
+    return;
+  }
+  session.clipboard.pasteText(words, at);
 }

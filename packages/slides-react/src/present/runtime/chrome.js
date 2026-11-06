@@ -2,16 +2,38 @@
 // the list of keys, and the picture shown large. It is written against reveal.js and the DOM alone, without
 // imports, so the presentation in the app and the exported web page (which pastes it in) behave alike.
 
-const ROWS = [
+/**
+ * The keys of a presentation, as the list in the show says them: the keys, and what they do. The editor's keyboard shortcuts and its
+ * "Presenting" card read this same list, so the show and the help for it cannot differ.
+ */
+export const SHOW_KEYS = [
   ["→  Space", "Next step, then the next slide"],
   ["←  Shift Space", "Back a step, then the slide before"],
   ["↓  ↑", "Into and out of the backup slides"],
   ["O", "Overview of all the slides"],
   ["1 2 … Enter", "Go to a slide by its number"],
   ["B", "Black screen"],
+  ["W", "White screen"],
   ["L", "Laser pointer"],
   ["F", "Full screen"],
   ["?", "This list"],
+];
+
+/** The keys the show adds when it can draw on the slide (the app's show; the exported page cannot). */
+export const INK_KEYS = [
+  ["P", "Pen"],
+  ["H", "Highlighter"],
+  ["E", "Clear the ink on this slide"],
+];
+
+/** The keys the show adds when the presenter's view can be opened, and when the show can be left. */
+export const PRESENTER_KEY = ["S", "Presenter view"];
+export const LEAVE_KEY = ["Esc", "Close what is open, then leave"];
+
+/** The keys of the presenter's own window, which times the talk. */
+export const TIMER_KEYS = [
+  ["T", "Pause or start the timer"],
+  ["R", "Start the timer again"],
 ];
 
 const DIGITS = [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105];
@@ -69,7 +91,8 @@ function openLightbox(doc, host, image, onClosed) {
  * @param {HTMLElement} [options.fullscreenTarget] what F fills when it is the page's own full screen
  * @param {boolean} [options.toolbar] show the mouse toolbar at the bottom left while the pointer moves; off when left out (the exported page has none)
  * @param {{ list(): Promise<{label: string, primary?: boolean, current?: boolean}[]>, swap(): void, moveTo(label: string): void, identify?(): void }} [options.screens] the displays the show may be on; the toolbar offers a menu of them
- * @returns {{ destroy(): void, laser(on?: boolean): boolean, hints(on?: boolean): boolean, lightboxOpen(): boolean }}
+ * @param {{ keys?: [number[], (event: KeyboardEvent) => void][], tools?: [string, string, string, string, () => void][], escape?: () => boolean }} [options.extras] more keys and toolbar buttons (the app's pen and highlighter); `escape` returns true when it used the Esc
+ * @returns {{ destroy(): void, laser(on?: boolean): boolean, white(on?: boolean): boolean, hints(on?: boolean): boolean, lightboxOpen(): boolean, setPressed(id: string, on: boolean): void }}
  */
 export function attachChrome(reveal, host, options = {}) {
   const doc = host.ownerDocument;
@@ -89,7 +112,11 @@ export function attachChrome(reveal, host, options = {}) {
   const jumpBox = make(doc, "div", "ks-show-jump");
   jumpBox.setAttribute("role", "status");
   jumpBox.hidden = true;
-  host.append(dot, jumpBox);
+  // The white screen: the black one's twin, for a slide that is to be talked over with the lights up.
+  const whiteBox = make(doc, "div", "ks-show-white");
+  whiteBox.hidden = true;
+  host.append(dot, jumpBox, whiteBox);
+  const extras = options.extras ?? {};
 
   const bind = (codes, run) => {
     for (const code of codes) {
@@ -112,6 +139,16 @@ export function attachChrome(reveal, host, options = {}) {
     else win.removeEventListener("pointermove", move);
     return laserOn;
   };
+
+  // One screen at a time: the white one goes when the black one comes, and the black one when the white one comes.
+  const white = (on = whiteBox.hidden) => {
+    whiteBox.hidden = !on;
+    if (on && reveal.isPaused?.()) reveal.togglePause();
+    toolbar?.querySelector('[data-tool="white"]')?.setAttribute("aria-pressed", String(on));
+    return on;
+  };
+  const dropWhite = () => void white(false);
+  reveal.on?.("paused", dropWhite);
 
   // A slide number typed on the keys, gone to with Enter.
   const clearTyped = () => {
@@ -138,7 +175,7 @@ export function attachChrome(reveal, host, options = {}) {
   // The list of keys.
   const hints = (on = hintsBox === null) => {
     if (on && hintsBox === null) {
-      const rows = [...ROWS, ...(options.onPresenter ? [["S", "Presenter view"]] : []), ...(options.onExit ? [["Esc", "Close what is open, then leave"]] : [])];
+      const rows = [...SHOW_KEYS, ...(extras.keys ? INK_KEYS : []), ...(options.onPresenter ? [PRESENTER_KEY] : []), ...(options.onExit ? [LEAVE_KEY] : [])];
       hintsBox = make(doc, "div", "ks-show-hints");
       hintsBox.setAttribute("role", "dialog");
       hintsBox.setAttribute("aria-label", "Keyboard shortcuts");
@@ -172,7 +209,11 @@ export function attachChrome(reveal, host, options = {}) {
   const nextSlide = () => reveal.right();
   const prevSlide = () => reveal.left();
   bind([34, 78], nextSlide);
-  bind([33, 80], prevSlide);
+  // P is the pen where the show can draw; it goes back a slide where it cannot (the exported page).
+  const taken = new Set((extras.keys ?? []).flatMap(([codes]) => codes));
+  bind(taken.has(80) ? [33] : [33, 80], prevSlide);
+  for (const [codes, run] of extras.keys ?? []) bind(codes, run);
+  bind([87], () => white());
   bind([40], (event) => {
     if (reveal.hasVerticalSlides()) reveal.down({ skipFragments: !event.altKey });
     else reveal.next({ skipFragments: event.altKey });
@@ -195,6 +236,8 @@ export function attachChrome(reveal, host, options = {}) {
   });
   bind([27], () => {
     if (screenMenu !== null) closeScreenMenu();
+    else if (!whiteBox.hidden) white(false);
+    else if (extras.escape?.()) return;
     else if (hintsBox !== null) hints(false);
     else if (typed !== "") clearTyped();
     else if (reveal.isOverview()) reveal.toggleOverview(false);
@@ -277,7 +320,9 @@ export function attachChrome(reveal, host, options = {}) {
     ["next", "›", "Next slide", "→", nextSlide],
     ["overview", "▦", "Overview of all the slides", "O", () => reveal.toggleOverview()],
     ["laser", "●", "Laser pointer", "L", () => laser()],
+    ...(extras.tools ?? []),
     ["black", "■", "Black screen", "B", () => reveal.togglePause()],
+    ["white", "□", "White screen", "W", () => white()],
     ...(options.onPresenter ? [["presenter", "▤", "Presenter view", "S", () => options.onPresenter()]] : []),
     ...(options.screens ? [["screen", "⇄", "Screen to show on", "", openScreenMenu]] : []),
     ["fullscreen", "⛶", "Full screen", "F", fill],
@@ -313,9 +358,13 @@ export function attachChrome(reveal, host, options = {}) {
 
   return {
     laser,
+    white,
     hints,
     lightboxOpen: () => closeLightbox !== null,
+    setPressed: (id, on) => void toolbar?.querySelector(`[data-tool="${id}"]`)?.setAttribute("aria-pressed", String(on)),
     destroy() {
+      reveal.off?.("paused", dropWhite);
+      whiteBox.remove();
       for (const code of bound) reveal.removeKeyBinding(code);
       win.removeEventListener("pointermove", move);
       win.removeEventListener("pointermove", wake);

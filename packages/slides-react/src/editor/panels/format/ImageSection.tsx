@@ -1,8 +1,11 @@
 import type { Crop, Mask } from "@kasten-slides/wasm";
 
 import { DEFAULT_MASK_RADIUS } from "../../../render/elements/ImageView.tsx";
+import { presetShapeNames } from "../../../render/shapes/index.ts";
+import { cropMode } from "../../aids/crop-mode.ts";
 import { TextButton } from "../../ui/Button.tsx";
-import { NumberField, Segmented } from "../../ui/Fields.tsx";
+import { NumberField, Segmented, Toggle } from "../../ui/Fields.tsx";
+import { chooseImage } from "./background.ts";
 import { AltText } from "./AccessSection.tsx";
 import { Row, ShortNumber } from "./controls.tsx";
 import { PanelSection } from "./PanelSection.tsx";
@@ -24,6 +27,13 @@ const MASKS: { value: Mask | "none"; label: string; title: string }[] = [
   { value: "roundRect", label: "Round", title: "Rounded rectangle" },
   { value: "ellipse", label: "Oval", title: "Oval" },
 ];
+
+/** The adjustments that run from -100% to 100% around no change. */
+const ADJUSTMENTS = [
+  { key: "brightness", label: "Brightness" },
+  { key: "contrast", label: "Contrast" },
+  { key: "saturation", label: "Saturation" },
+] as const;
 
 /** The most of a picture a crop may cut across: some of it always shows. */
 const MOST_CUT = 0.95;
@@ -89,9 +99,79 @@ export function ImageSection({ session, elements }: SectionProps) {
         </div>
       </div>
       <div>
+        <TextButton disabled={images.length !== 1} onClick={() => cropMode.set(images[0]?.id ?? null)} title="Drag the edges of the picture; Enter or Escape when done">
+          Crop…
+        </TextButton>
         <TextButton disabled={!cropped} onClick={() => patchEach(session, images, (image) => (image.crop ? { crop: null } : null))}>
           Reset crop
         </TextButton>
+        <TextButton
+          disabled={images.length !== 1}
+          onClick={() => {
+            const only = images[0];
+            if (only) void chooseImage(session).then((src) => src && session.aids.replacePicture(session.slide.id, only.id, src));
+          }}
+          title="Another picture in the same place, size and crop"
+        >
+          Replace picture…
+        </TextButton>
+      </div>
+      <Row label="Shape">
+        <select
+          className="ks-input"
+          aria-label="Mask shape"
+          value={agree(images.map((i) => i.style?.maskShape ?? ""), "")}
+          onChange={(event) => styleEach(session, images, () => ({ maskShape: event.target.value === "" ? null : event.target.value }))}
+        >
+          <option value="">Plain mask above</option>
+          {presetShapeNames().map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </Row>
+      <div className="ks-sp-field" role="group" aria-label="Adjustments">
+        <span className="ks-sp-label">Adjustments</span>
+        <div className="ks-sp-grid">
+          {ADJUSTMENTS.map(({ key, label }) => (
+            <ShortNumber
+              key={key}
+              short={label}
+              label={label}
+              unit="%"
+              min={-100}
+              max={100}
+              decimals={0}
+              width={52}
+              value={agree(images.map((i) => Math.round((i.style?.adjust?.[key] ?? 0) * 100)), 0)}
+              onCommit={(value) => styleEach(session, images, () => ({ adjust: { [key]: value === 0 ? null : value / 100 } }))}
+            />
+          ))}
+          <ShortNumber
+            short="Blur"
+            label="Blur"
+            unit="px"
+            min={0}
+            max={60}
+            decimals={0}
+            width={52}
+            value={agree(images.map((i) => Math.round(i.style?.adjust?.blur ?? 0)), 0)}
+            onCommit={(value) => styleEach(session, images, () => ({ adjust: { blur: value === 0 ? null : value } }))}
+          />
+          <ShortNumber
+            short="Clear"
+            label="Transparency"
+            unit="%"
+            min={0}
+            max={100}
+            decimals={0}
+            width={52}
+            value={agree(images.map((i) => Math.round((1 - (i.style?.opacity ?? 1)) * 100)), 0)}
+            onCommit={(value) => styleEach(session, images, () => ({ opacity: value === 0 ? null : 1 - value / 100 }))}
+          />
+        </div>
+        <Toggle label="Greyscale" on={images.length > 0 && images.every((i) => Boolean(i.style?.adjust?.greyscale))} onChange={(on) => styleEach(session, images, () => ({ adjust: { greyscale: on ? true : null } }))} />
       </div>
       <AltText session={session} elements={images} />
     </PanelSection>

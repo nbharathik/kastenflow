@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"bbbb1111-2222-4333-8444-555566667777","mcp_servers":[{"name":"kasten","status":"failed"}]}
+{"type":"assistant","message":{"id":"msg_1","role":"assistant","content":[{"type":"text","text":"Invalid API key · Please run /login"}]},"error":"authentication_failed"}
+{"type":"result","subtype":"success","is_error":true,"result":"Invalid API key · Please run /login","session_id":"bbbb1111-2222-4333-8444-555566667777"}

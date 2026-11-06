@@ -71,6 +71,9 @@ export const setBulletColor = (color: string | null): Command => withItems(() =>
 
 export const setAlign = (align: Align): Command => withParagraphs(() => ({ align }));
 
+/** Sets the selected paragraphs in a named text style of the theme; null leaves them in the style of their box. */
+export const setParagraphStyle = (style: string | null): Command => withParagraphs(() => ({ style }));
+
 /** A multiple of the line height, or null for the text style's own. */
 export const setLineSpacing = (value: number | null): Command => withParagraphs(() => ({ lineSpacing: value }));
 

@@ -94,6 +94,8 @@ impl Op for AddSlides {
             }
             // What an assistant did in this deck is not said by a slide that comes from elsewhere.
             slide.extra.remove(crate::marks::KEY);
+            // Notes left in another deck are not this deck's, and their ids could repeat here.
+            slide.comments.clear();
             taken.insert(slide.id.clone());
             assign_ids(&mut slide.elements, &mut HashSet::new(), cx.ids, true);
             scale_slide(&mut slide, &cx.deck.theme, &fit);

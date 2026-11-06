@@ -2,6 +2,8 @@
 
 use std::collections::HashSet;
 
+use crate::model::Element;
+
 use super::super::scene::Scene;
 use super::super::texts::{describe, describe_unit, sentence};
 use super::content::texts_of;
@@ -76,6 +78,48 @@ fn quoted(words: &str) -> String {
         shown.push('…');
     }
     shown
+}
+
+/// Whether `src` is a web address with a query (`?`) or a fragment (`#`) part, which can carry data
+/// to the server it names: a video or sound played from one tells that server whatever it holds.
+fn carries_data(src: &str) -> bool {
+    let src = src.trim();
+    let web = ["http://", "https://"].iter().any(|scheme| {
+        src.get(..scheme.len())
+            .is_some_and(|s| s.eq_ignore_ascii_case(scheme))
+    });
+    web && src.contains(['?', '#'])
+}
+
+/// A video or sound from a web address with a query or fragment.
+pub fn media_addresses(scene: &Scene, sink: &mut Sink) {
+    for (n, top) in scene.slide.elements.iter().enumerate() {
+        let unit = scene.units.get(n);
+        let id = unit.map_or(top.id(), |u| u.id);
+        let describe_top = || unit.map_or_else(|| describe(top), describe_unit);
+        each(std::slice::from_ref(top), &mut |e| {
+            let src = match e {
+                Element::Video(video) => &video.src,
+                Element::Audio(audio) => &audio.src,
+                _ => return,
+            };
+            if !carries_data(src) {
+                return;
+            }
+            sink.add(Found {
+                rule: "media-url",
+                order: n + 1,
+                key: e.id(),
+                rank: 0.0,
+                element: Some(id),
+                message: sentence(&format!(
+                    "{} plays from a web address with a ? or # part: this address can carry data out.",
+                    describe_top()
+                )),
+                hint: "Use a plain file link (no ? or # part), or put the file in the deck's files.",
+            });
+        });
+    }
 }
 
 pub fn broken_links(scene: &Scene, sink: &mut Sink) {

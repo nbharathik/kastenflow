@@ -19,7 +19,8 @@ use crate::vault::Vault;
 pub enum Saved {
     /// Written; `note` is the file as it is now.
     Written { note: NoteFile },
-    /// The body was already on disk; nothing was written.
+    /// The body was already on disk; nothing was written. This holds when
+    /// the file changed since it was loaded, if only outside the body.
     Unchanged { note: NoteFile },
     /// The file changed on disk since it was loaded. The editor's version
     /// went to `copy` and the file was left alone.
@@ -61,6 +62,12 @@ pub fn save_body(
 ) -> Result<Saved> {
     let current = vault.read(rel)?;
     if current.hash != base_hash {
+        // The file moved on since the editor loaded it, but if it already
+        // holds this body (only its frontmatter changed, say) nothing of the
+        // editor's would be lost, so there is nothing to keep apart.
+        if saved_text(&current.text, body, now).is_none() {
+            return Ok(Saved::Unchanged { note: current });
+        }
         let copy = conflict_copy(vault, &current, body, now)?;
         return Ok(Saved::Conflict {
             copy,

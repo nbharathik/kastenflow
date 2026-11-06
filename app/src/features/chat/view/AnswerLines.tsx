@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 
 import { startInterval } from "../../../lib/use-interval";
-import { openProviders } from "../actions";
+import { openAgents, openProviders } from "../actions";
+import { isAgentProvider } from "../agents/names";
 import { useChat } from "../store";
 import type { Answer } from "../thread";
 import { chooseModel } from "./ModelPicker";
@@ -82,9 +83,11 @@ export function FailureActions({ answer, thread }: { answer: Answer; thread: str
     return question?.role === "user" ? `${thread}:${question.text}` : null;
   });
   const kind = answer.errorKind ?? "other";
+  // A coding agent's failure is fixed in its own settings (install it, sign in), not in the providers.
+  const agent = isAgentProvider(answer.provider);
   const retry = (kind === "connection" || kind === "rateLimited" || kind === "other") && newest;
   const choose = kind === "modelUnavailable";
-  const settings = kind === "permission" || kind === "modelUnavailable" || kind === "connection";
+  const settings = agent || kind === "permission" || kind === "modelUnavailable" || kind === "connection";
   const waiting = kind === "rateLimited" && newest && asked !== null && !askedAgain.has(asked);
   const left = useCountdown(waiting ? RATE_WAIT_SECONDS : null, () => {
     if (!asked || askedAgain.has(asked)) return;
@@ -110,8 +113,8 @@ export function FailureActions({ answer, thread }: { answer: Answer; thread: str
         </button>
       )}
       {settings && (
-        <button type="button" onClick={() => openProviders("here")}>
-          Open Settings
+        <button type="button" onClick={() => (agent ? openAgents("here") : openProviders("here"))}>
+          {agent ? "Open Agents settings" : "Open Settings"}
         </button>
       )}
     </div>

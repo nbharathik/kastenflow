@@ -1,0 +1,18 @@
+{
+  "format": "kasten-generator",
+  "formatVersion": 1,
+  "id": "G-starter-bar-chart",
+  "label": "Bar chart",
+  "generator": {
+    "language": "js",
+    "code": "const rows = kit.csv(inputs.sales);\nconst width = 800, height = 450, m = { top: 30, right: 30, bottom: 60, left: 70 };\nconst x = kit.scaleBand(rows.map(r => r.month), [m.left, width - m.right]);\nconst y = kit.scaleLinear([0, Math.max(...rows.map(r => r.total))], [height - m.bottom, m.top]);\nconst bars = rows.map(r => kit.rect(x(r.month), y(r.total), x.bandwidth(), y(0) - y(r.total), { fill: kit.palette(0), rx: 4 }));\nconst labels = rows.map(r => kit.text(x.center(r.month), y(r.total) - 8, kit.format(r.total), { anchor: \"middle\", size: 14 }));\nreturn kit.svg(width, height, [kit.axisLeft(y, m.left), kit.axisBottom(x, height - m.bottom), bars, labels]);",
+    "inputs": [
+      {
+        "name": "sales",
+        "kind": "data",
+        "value": "month,total\nJan,12\nFeb,19\nMar,8\nApr,15\nMay,22\n"
+      }
+    ],
+    "output": "svg"
+  }
+}

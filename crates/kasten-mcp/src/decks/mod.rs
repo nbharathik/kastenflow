@@ -11,6 +11,7 @@
 
 mod adapt;
 pub mod cite_rename;
+mod code_window;
 pub mod context;
 mod from_note;
 #[cfg(feature = "render")]
@@ -22,8 +23,11 @@ pub mod render;
 mod routes;
 mod run;
 mod store;
+mod store_diagram;
 mod store_files;
+mod store_library;
 mod store_stage;
+mod versions;
 pub mod words;
 
 pub(crate) use adapt::is_tool;

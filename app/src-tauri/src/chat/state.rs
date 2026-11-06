@@ -41,6 +41,9 @@ pub struct ChatState {
     pub writes: Writes,
     /// The ChatGPT account on this computer, whatever vault is open.
     chatgpt: Arc<chatgpt::Account>,
+    /// The coding agents the chat runs (Claude Code, OpenCode): the cards
+    /// waiting for an answer, and the CLI's conversation of each thread.
+    pub agents: Arc<super::cli::Hub>,
 }
 
 /// The AI providers' addresses confirmed for the open vault on this
@@ -66,6 +69,7 @@ impl ChatState {
             local_web: OnceLock::new(),
             origins: Mutex::new(Origins::default()),
             writes: Writes::default(),
+            agents: Arc::default(),
         }
     }
 
@@ -136,6 +140,8 @@ impl ChatState {
         let Some(data) = data else {
             return;
         };
+        // The CLI's own number for each thread's conversation is kept beside the saved chats.
+        self.agents.sessions.open(data);
         let root = kasten.root().display().to_string();
         let store = Arc::new(Store::open(data, &root));
         let files = Arc::new(Attachments::open(data, &root));

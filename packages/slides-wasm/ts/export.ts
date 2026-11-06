@@ -13,7 +13,7 @@ export interface ExportOptions {
    * titled "Title (2/5)" with the same words in its notes; `final` is one slide, as it stands
    * after the last click.
    */
-  steps?: "expand" | "final";
+  steps?: "expand" | "final" | "animate";
 }
 
 /** Something an export could not do exactly, and so did another way. */

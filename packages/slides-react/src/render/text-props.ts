@@ -24,6 +24,18 @@ export function boldText(text: Text): Text {
   return { ...text, paragraphs: text.paragraphs.map((paragraph) => ({ ...paragraph, runs: paragraph.runs.map((run) => ({ ...run, b: true })) })) };
 }
 
+/** The same text, bold when asked and in `color` in the runs that name none of their own: a table style's header over a dark fill. */
+export function dressedText(text: Text, bold: boolean, color: string | undefined): Text {
+  if (!bold && !color) return text;
+  return {
+    ...text,
+    paragraphs: text.paragraphs.map((paragraph) => ({
+      ...paragraph,
+      runs: paragraph.runs.map((run) => ({ ...run, ...(bold ? { b: true } : {}), ...(color && !run.color ? { color } : {}) })),
+    })),
+  };
+}
+
 /** The same text with paragraphs that name no alignment centred, for the label of a connector. */
 export function centeredText(text: Text): Text {
   return { ...text, paragraphs: text.paragraphs.map((paragraph) => ({ ...paragraph, align: paragraph.align ?? "center" })) };
